@@ -37,8 +37,6 @@ style.dialog:
   lib/src/bot_mode/groups/group_chat_screen.dart: 2
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
   lib/src/chat/chat_screen_recipients.dart: 1
-  lib/src/kanban/widgets/kanban_bulk_bar.dart: 1
-  lib/src/kanban/widgets/kanban_task_panel.dart: 2
   lib/src/models/widgets/model_picker.dart: 2
   lib/src/plugins/catalog_tab.dart: 1
   lib/src/plugins/installed_tab.dart: 1

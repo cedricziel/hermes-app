@@ -1,12 +1,14 @@
 import 'package:flutter/cupertino.dart' show CupertinoButton;
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../models/model_provider_option.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
+import 'kanban_task_choice_dialog.dart';
 
 /// The actions for the tasks picked in selection mode. Each asks for its
 /// value first and reports it; nothing is offered while none are picked.
@@ -34,21 +36,29 @@ class KanbanBulkBar extends StatelessWidget {
   final ValueChanged<String> onEffort;
   final VoidCallback onArchive;
 
+  /// Asks which of [options] to apply to every selected task. No row is
+  /// checked, since the tasks have no single current value; the footer says
+  /// how many tasks the pick reaches. Closing without a pick returns null.
   Future<T?> _pick<T>(
     BuildContext context,
     String title,
     List<(String, T)> options,
-  ) => showDialog<T>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: Text(title),
-      children: [
-        for (final (label, value) in options)
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, value),
-            child: Text(label),
-          ),
+  ) => showKanbanDialog<T>(
+    context,
+    builder: (dialog) => KanbanTaskChoiceDialog<(String, T)>(
+      title: title,
+      options: options,
+      labelOf: (option) => option.$1,
+      selected: null,
+      footer: dialog.l10n.kanbanBulkPickerFooter(selectedCount),
+      // Cancel, not the header's Done: Move to has a status named Done.
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog),
+          child: Text(dialog.l10n.widgetsCancel),
+        ),
       ],
+      onPicked: (option) => Navigator.pop(dialog, option.$2),
     ),
   );
 

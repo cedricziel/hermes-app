@@ -613,6 +613,7 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanBulkPickerFooter": "{count, plural, =1{Gilt für die ausgewählte Aufgabe.} other{Gilt für die {count} ausgewählten Aufgaben.}}",
   "kanbanEditTaskDescriptionLabel": "Beschreibung",
   "kanbanEditTaskTitle": "Aufgabe bearbeiten",
   "kanbanEditTaskTitleLabel": "Titel",
