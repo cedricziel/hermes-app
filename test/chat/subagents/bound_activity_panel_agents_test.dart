@@ -865,12 +865,38 @@ void main() {
       await tester.pump();
       expect(find.byType(AgentNoteField), findsOneWidget);
 
-      // The first Escape only leaves a field that holds text.
+      // The first Escape with text in the note only steps out: leaving the
+      // detail drops the note. The second goes back.
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settle(tester);
+      expect(find.byType(AgentNoteField), findsOneWidget);
+      expect(tester.widget<TextField>(noteField()).controller!.text, 'x');
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await settle(tester);
       expect(find.byType(AgentNoteField), findsNothing);
+    });
+
+    panelTest('Tab from the note field reaches the chat beside the detail', (
+      tester,
+    ) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.pump();
+      final composerField = find.descendant(
+        of: find.byKey(const Key('strip-side')),
+        matching: find.byType(EditableText),
+      );
+      var reached = false;
+      for (var i = 0; i < 60 && !reached; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        reached = tester
+            .widgetList<EditableText>(composerField)
+            .any((f) => f.focusNode.hasFocus);
+      }
+      expect(reached, isTrue);
     });
 
     panelTest('an agent that ends while Stopping leaves no banner under '

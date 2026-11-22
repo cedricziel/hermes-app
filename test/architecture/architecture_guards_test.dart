@@ -769,15 +769,20 @@ final guardRules = <Rule>[
       'lib/src/widgets/route_dismissal.dart': 'DismissOnEscape, the block',
       'lib/src/widgets/grouped_dialog.dart':
           'Done-only GroupedDialogs have no text field, and a click does not '
-          'move focus off the autofocused wrapper (the Appearance test)',
+          'move focus off the autofocused wrapper; tested: dialog_esc_guard_'
+          'test.dart "appearance on iOS: a click on the title, then Esc"',
       'lib/src/widgets/anchored_popover.dart':
-          'its barrier is dismissible, so the route\'s own Esc still closes '
-          'it when focus lands on the route scope',
+          'its barrier is dismissible, so the route\'s own Esc closes it when '
+          'a click moves focus to the route scope; tested: anchored_popover_'
+          'test.dart "Escape closes a popover after a mouse click inside it"',
       'lib/src/chat/subagents/bound_agent_detail.dart':
-          '"go back" is not a route pop; a FocusScope sits below its Actions '
-          '(bound_activity_panel_agents_test.dart)',
+          'a FocusScope (parentScope traversal) sits below its Actions; '
+          'tested: bound_activity_panel_agents_test.dart "Escape after a mouse '
+          'click inside the detail" and "Tab from the note field"',
       'lib/src/bot_screen/viewer/bot_screen_viewer.dart':
-          'no text field, so nothing moves focus out of its Focus',
+          'no text field, so a click does not move focus out of its Focus; '
+          'tested: bot_screen_viewer_chat_screen_test.dart "Escape still '
+          'closes the overlay after a mouse click on its edge"',
     },
   ),
 
