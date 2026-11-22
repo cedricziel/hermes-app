@@ -5,22 +5,23 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/app_markdown_theme.dart';
-import 'package:hermes_app/src/widgets/bounded_markdown.dart';
 
 import '../support/markdown_contrast.dart';
 
 const _finished = '[first](https://example.com/a)\n\nA finished paragraph.\n\n';
 
-/// Mounts [text] as a streaming reply does: the same widgets, rebuilt with a
-/// longer string. [onLink] runs each time a link's spans are built.
+/// Mounts [text] as a markdown surface outside the code-colouring budget does
+/// (a plain `GptMarkdown`), rebuilt with a longer string. [onLink] runs each
+/// time a link's spans are built.
 Widget _app(String text, {required ThemeData theme, void Function()? onLink}) {
   return MaterialApp(
     theme: theme,
     builder: (context, child) => AppThemeScopes(child: child!),
     home: Scaffold(
       body: AppMarkdownTheme(
-        child: BoundedMarkdown(
+        child: GptMarkdown(
           text,
+          // ignore: deprecated_member_use
           linkBuilder: (_, span, _, _) {
             onLink?.call();
             return Text.rich(span);
@@ -32,32 +33,33 @@ Widget _app(String text, {required ThemeData theme, void Function()? onLink}) {
 }
 
 void main() {
-  testWidgets('a delta builds the finished blocks of a reply only once', (
-    tester,
-  ) async {
-    var linkBuilds = 0;
-    final theme = buildHermesLightTheme();
-    var text = _finished;
-    await tester.pumpWidget(
-      _app(text, theme: theme, onLink: () => linkBuilds++),
-    );
-    expect(linkBuilds, greaterThan(0));
-    final afterMount = linkBuilds;
-
-    for (var i = 0; i < 5; i++) {
-      text += 'word$i ';
+  testWidgets(
+    'a delta builds the finished blocks of a plain markdown only once',
+    (tester) async {
+      var linkBuilds = 0;
+      final theme = buildHermesLightTheme();
+      var text = _finished;
       await tester.pumpWidget(
         _app(text, theme: theme, onLink: () => linkBuilds++),
       );
-    }
+      expect(linkBuilds, greaterThan(0));
+      final afterMount = linkBuilds;
 
-    expect(find.textContaining('word4', findRichText: true), findsOneWidget);
-    expect(
-      linkBuilds,
-      afterMount,
-      reason: 'the link in the finished first block was built again',
-    );
-  });
+      for (var i = 0; i < 5; i++) {
+        text += 'word$i ';
+        await tester.pumpWidget(
+          _app(text, theme: theme, onLink: () => linkBuilds++),
+        );
+      }
+
+      expect(find.textContaining('word4', findRichText: true), findsOneWidget);
+      expect(
+        linkBuilds,
+        afterMount,
+        reason: 'the link in the finished first block was built again',
+      );
+    },
+  );
 
   testWidgets('switching to dark reaches the headings and links', (
     tester,
