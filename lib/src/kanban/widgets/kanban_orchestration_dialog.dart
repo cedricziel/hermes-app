@@ -12,8 +12,8 @@ Future<void> showKanbanOrchestrationDialog(
   BuildContext context, {
   required KanbanRepository repository,
   String? board,
-}) => showDialog<void>(
-  context: context,
+}) => showKanbanDialog<void>(
+  context,
   builder: (_) =>
       KanbanOrchestrationDialog(repository: repository, board: board),
 );

@@ -460,8 +460,9 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
 Future<(String, String)?> showKanbanTaskEditDialog(
   BuildContext context,
   KanbanTask task,
-) => showDialog<(String, String)>(
-  context: context,
+) => showKanbanDialog<(String, String)>(
+  context,
+  textEntry: true,
   builder: (_) => _EditTaskDialog(task: task),
 );
 

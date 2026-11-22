@@ -229,8 +229,9 @@ class KanbanBoardsScreen extends StatelessWidget {
 Future<KanbanExportOptions?> showKanbanExportDialog(
   BuildContext context, {
   required String name,
-}) => showDialog<KanbanExportOptions>(
-  context: context,
+}) => showKanbanDialog<KanbanExportOptions>(
+  context,
+  textEntry: true,
   builder: (_) => _ExportDialog(name: name),
 );
 
@@ -306,8 +307,10 @@ class _ExportDialogState extends State<_ExportDialog> {
 
 /// Asks which server-side archive to import and how to name the board.
 Future<KanbanImportOptions?> showKanbanImportDialog(BuildContext context) =>
-    showDialog<KanbanImportOptions>(
-      context: context,
+    showKanbanDialog<KanbanImportOptions>(
+      context,
+      textEntry: true,
+      autofocusField: true,
       builder: (_) => const _ImportDialog(),
     );
 
