@@ -55,6 +55,13 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    restore the fix. A test that still passes with the fix reverted is a
    finding. Also flag fixed delays, implementation-detail assertions and
    duplicates.
+9. If the body has `Catalog-first: not applicable, <reason>`, confirm the
+   reason is true: the new public widget really has no state or layout that
+   a Widgetbook use case could show. Only this review can unlock the
+   `PR policy` catalog-first check.
+10. UI behaviour change to an existing widget: which Widgetbook use case
+    shows it? Expect a `## Proof` line naming it. Advisory: record a
+    finding only when the change is visible and no use case covers it.
 
 ## Output
 

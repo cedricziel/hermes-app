@@ -13,3 +13,4 @@
 ## Review
 
 <!-- Paste the isolated reviewer's block: Reviewer: ... Head: <full sha> Verdict: clean | changes-requested, then Findings: ... and Proof reproduced: ... -->
+<!-- A new public widget under lib/src/**/widgets/ needs a Widgetbook use case naming it. If none applies, the reviewer confirms it and you add the line "Catalog-first: not applicable, <reason>" here, beside its clean block. -->

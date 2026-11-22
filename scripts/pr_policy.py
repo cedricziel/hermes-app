@@ -407,13 +407,13 @@ def fill_patches(api, repo, files, base_sha, head_sha):
     failures for those it could not read."""
     failures = []
     for f in files:
-        if (
-            f["filename"] in READ_FILES
-            and f.get("status") != "removed"
-            and not f.get("patch")
-        ):
+        read = f["filename"] in READ_FILES
+        catalog = _is_widget_file(f) or _is_catalog_file(f)
+        if (read or catalog) and f.get("status") != "removed" and not f.get("patch"):
             patch = local_patch(api, repo, f, base_sha, head_sha)
             if patch is None:
+                if not read and _is_widget_file(f):
+                    continue  # catalog_first counts it as triggering
                 failures.append(
                     f"The diff of {f['filename']} is too large to check and its "
                     "contents could not be fetched; split the change, or ask the "
@@ -422,6 +422,89 @@ def fill_patches(api, repo, files, base_sha, head_sha):
             else:
                 f["patch"] = patch
     return failures
+
+
+# Catalog first: a PR that adds a public widget under lib/src/**/widgets/ must
+# also touch widgetbook/ with a line naming one of the new classes. Only the
+# PR's file list and patches are read. Commit order is not checked: squash
+# merges erase it, and merges of main and stacked PRs corrupt it.
+WIDGET_PATH_RE = re.compile(r"^lib/src/(?:[^/]+/)*widgets/.+\.dart$")
+PUBLIC_WIDGET_RE = re.compile(
+    r"^[ \t]*(?:(?:abstract|base|final)\s+)*class\s+([A-Za-z][A-Za-z0-9_]*)"
+    r"\s*(?:<[^{;]*?>)?\s+extends\s+(?:StatelessWidget|StatefulWidget)\b",
+    re.M,
+)
+CATALOG_HATCH_RE = re.compile(
+    r"^Catalog-first:[ \t]*not applicable,[ \t]*(.*?)[ \t]*$", re.M | re.I
+)
+_PLACEHOLDER_WORDS = {"n", "a", "na", "tbd", "todo", "reason", "none", "nothing"}
+
+
+def _is_widget_file(f):
+    return f.get("status") == "added" and bool(WIDGET_PATH_RE.match(f["filename"]))
+
+
+def _is_catalog_file(f):
+    return f["filename"].startswith("widgetbook/") and f["filename"].endswith(".dart")
+
+
+def _added_text(patch):
+    """The added lines of a unified diff, after its first hunk header."""
+    out, in_hunk = [], False
+    for line in (patch or "").splitlines():
+        if line.startswith("@@"):
+            in_hunk = True
+        elif in_hunk and line.startswith("+"):
+            out.append(line[1:])
+    return "\n".join(out)
+
+
+def _hatch_reason_ok(reason):
+    if len(reason) < 10:
+        return False
+    words = re.findall(r"[a-z0-9]+", reason.replace("<reason>", " ").lower())
+    return any(w not in _PLACEHOLDER_WORDS for w in words)
+
+
+def catalog_first(files, body, head_sha):
+    """Returns (failures, notice). The notice is the accepted escape hatch's
+    reason. The hatch is the line `Catalog-first: not applicable, <reason>`
+    inside ## Review (fenced code stripped), beside a clean review line for
+    head_sha, with a reason of at least 10 characters that is not a placeholder:
+    any push changes the head, so only the reviewer can unlock the check."""
+    new, unread = {}, []
+    for f in files:
+        if not _is_widget_file(f):
+            continue
+        if not f.get("patch"):
+            unread.append(f["filename"])
+            continue
+        for name in PUBLIC_WIDGET_RE.findall(_added_text(f["patch"])):
+            new.setdefault(name, f["filename"])
+    if not new and not unread:
+        return [], None
+    if new and not unread:
+        used = "\n".join(
+            _added_text(f.get("patch")) for f in files if _is_catalog_file(f)
+        )
+        if any(re.search(rf"\b{re.escape(n)}\b", used) for n in new):
+            return [], None
+    _, texts = _sections(body or "")
+    section = _strip_fences(texts.get("Review", ""))
+    m = CATALOG_HATCH_RE.search(section)
+    if m and _hatch_reason_ok(m.group(1)) and not review_recorded(body, head_sha):
+        return [], f"Catalog-first: not applicable, {m.group(1)}"
+    found = [f"{n} ({path})" for n, path in new.items()]
+    found += [f"{path} (its declarations could not be read)" for path in unread]
+    return [
+        "New public widgets have no Widgetbook use case: "
+        + ", ".join(found)
+        + ". Add a use case under widgetbook/ that names one of them (the "
+        "component-catalog skill). If a use case truly does not apply, have the "
+        "isolated reviewer confirm it, then add the line 'Catalog-first: not "
+        "applicable, <reason>' (reason of at least 10 characters) to ## Review "
+        "next to its clean block for the current head."
+    ], None
 
 
 def changed_names(files):
@@ -496,6 +579,10 @@ def main(argv, api=api_get):
             corruption_diff(files),
             same,
         )
+        more, notice = catalog_first(files, pr.get("body") or "", head_sha)
+        failures += more
+        if notice:
+            print(f"::notice::{notice}")
     elif mode == "review":
         failures = (
             []
