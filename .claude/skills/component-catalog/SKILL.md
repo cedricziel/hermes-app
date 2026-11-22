@@ -173,3 +173,7 @@ label and a tooltip one after the other. So:
   `meetsGuideline(labeledTapTargetGuideline)`, as in
   `test/accessibility_semantics_test.dart`; `test/support/accessibility.dart`
   has `namedButton` and `disclosure` matchers.
+
+## Gotchas
+
+`ThemeData.copyWith(platform: …)` does not recompute the defaults derived from the platform, such as `materialTapTargetSize` (padded on Android and iOS, shrink-wrapped on macOS, Windows and Linux) or `visualDensity`, so a test that switches platform that way still gets the phone layout. To test desktop geometry, build the app theme for that platform with `buildHermesLightTheme(platform: …)` (`lib/src/theme/hermes_theme.dart`) and run the case on at least one shrink-wrap platform. In #1284 the scroll-to-latest mini button's focus ring sat inside the button on the desktop because the tests only used the padded layout; see `test/focus_ring_geometry_test.dart` (#1284), which runs every ring per platform.
