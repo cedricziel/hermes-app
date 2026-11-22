@@ -5,11 +5,23 @@ import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_confirmation_layout.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/new_chat_fab.dart';
+import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/kanban/widgets/new_task_fab.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
+import 'package:hermes_app/src/schedules/schedule_picker.dart';
+import 'package:hermes_app/src/schedules/schedule_spec.dart';
+import 'package:hermes_app/src/widgets/adaptive_segmented_control.dart';
+import 'package:hermes_app/src/widgets/composer_selector_chip.dart';
+import 'package:hermes_app/src/widgets/disclosure_tile.dart';
+import 'package:hermes_app/src/widgets/row_actions.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart'
+    show ComposerHeightNotifier;
+import 'package:provider/provider.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:hermes_app/src/plugins/catalog_tab.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -42,12 +54,17 @@ class _KeyboardFocus extends StatefulWidget {
     this.focusIndex,
     this.button,
     this.hover = false,
+    this.where,
     required this.child,
   });
 
   final int? focusIndex;
   final int? button;
   final bool hover;
+
+  /// Narrows the focusable controls that [focusIndex] counts to the ones this
+  /// accepts, for a child whose first controls are not the one to show.
+  final bool Function(FocusNode node)? where;
   final Widget child;
 
   @override
@@ -96,6 +113,8 @@ class _KeyboardFocusState extends State<_KeyboardFocus> {
         if (!mounted) return;
       }
       var nodes = FocusScope.of(context).traversalDescendants.toList();
+      final where = widget.where;
+      if (where != null) nodes = nodes.where(where).toList();
       // A click on an earlier example must not hide this one's ring.
       if (widget.button != null || widget.focusIndex != null) {
         markFocusRingKeyboardInput();
@@ -548,6 +567,302 @@ List<WidgetbookUseCase> _ownShapeUseCases() => [
   ),
 ];
 
+Widget _on(TargetPlatform platform, Widget child) => Builder(
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: platform),
+    child: child,
+  ),
+);
+
+/// A menu of plain rows opened under its button on a Mac, with the second row
+/// focused (the Mac compact menu: every row is a [MacMenuRow]).
+class _OpenMacRows extends StatefulWidget {
+  const _OpenMacRows();
+
+  @override
+  State<_OpenMacRows> createState() => _OpenMacRowsState();
+}
+
+class _OpenMacRowsState extends State<_OpenMacRows> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      _menu.open();
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+      final items = FocusManager.instance.rootScope.traversalDescendants
+          .where(
+            (n) =>
+                n.context
+                    ?.findAncestorWidgetOfExactType<PopupMenuItem<int>>() !=
+                null,
+          )
+          .toList();
+      if (items.length > 1) {
+        markFocusRingKeyboardInput();
+        items[1].requestFocus();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 200,
+    child: Align(
+      alignment: Alignment.topLeft,
+      child: AdaptivePopupMenuButton<int>(
+        controller: _menu,
+        tooltip: 'More',
+        icon: const Icon(Icons.more_horiz),
+        onSelected: (_) {},
+        itemBuilder: (_) => [
+          const AdaptiveMenuItem<int>(value: 1, child: Text('Rename')),
+          const AdaptiveMenuItem<int>(
+            value: 2,
+            shortcut: '⌘D',
+            child: Text('Duplicate'),
+          ),
+          const AdaptiveMenuItem<int>(
+            value: 3,
+            destructive: true,
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// The Mac right-click menu of a list row ([RowActions]): a secondary press
+/// opens it, then its second item is focused.
+class _OpenRowContextMenu extends StatefulWidget {
+  const _OpenRowContextMenu();
+
+  @override
+  State<_OpenRowContextMenu> createState() => _OpenRowContextMenuState();
+}
+
+class _OpenRowContextMenuState extends State<_OpenRowContextMenu> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final box = context.findRenderObject()! as RenderBox;
+      final at = box.localToGlobal(const Offset(80, 24));
+      GestureBinding.instance
+        ..handlePointerEvent(
+          PointerDownEvent(
+            position: at,
+            kind: PointerDeviceKind.mouse,
+            buttons: kSecondaryMouseButton,
+          ),
+        )
+        ..handlePointerEvent(
+          PointerUpEvent(position: at, kind: PointerDeviceKind.mouse),
+        );
+      await WidgetsBinding.instance.endOfFrame;
+      await WidgetsBinding.instance.endOfFrame;
+      final items = FocusManager.instance.rootScope.traversalDescendants
+          .where(
+            (n) =>
+                n.context
+                    ?.findAncestorWidgetOfExactType<
+                      FocusRingMenuItem<RowAction>
+                    >() !=
+                null,
+          )
+          .toList();
+      if (items.length > 1) {
+        markFocusRingKeyboardInput();
+        items[1].requestFocus();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 220,
+    child: RowActions(
+      title: 'Daily summary',
+      actions: [
+        RowAction(label: 'Run now', icon: AppIcons.play, onPressed: () {}),
+        RowAction(label: 'Pause', icon: AppIcons.pause, onPressed: () {}),
+        RowAction(
+          label: 'Delete',
+          icon: AppIcons.delete,
+          destructive: true,
+          onPressed: () {},
+        ),
+      ],
+      child: const ListTile(title: Text('Daily summary')),
+    ),
+  );
+}
+
+Widget _disclosure({bool open = false}) => Card(
+  margin: EdgeInsets.zero,
+  child: DisclosureTile(
+    initiallyExpanded: open,
+    title: const Text('Tool output'),
+    children: const [
+      Padding(padding: EdgeInsets.all(16), child: Text('3 files changed')),
+    ],
+  ),
+);
+
+Widget _weekdays() => StatefulBuilder(
+  builder: (context, setState) => SchedulePicker(
+    spec: const WeeklySpec({1, 2, 3, 4, 5}, 9, 0),
+    now: DateTime(2026, 11, 22),
+    onChanged: (_) {},
+  ),
+);
+
+/// Whether [node] sits in a weekday toggle of the schedule picker, the only
+/// controls there that a screen reader reads as toggled.
+bool _inWeekdayToggle(FocusNode node) {
+  var found = false;
+  node.context?.visitAncestorElements((e) {
+    final w = e.widget;
+    found = w is Semantics && w.properties.toggled != null;
+    return !found;
+  });
+  return found;
+}
+
+/// The controls that took the ring after the first pass: segmented controls,
+/// hand-rolled tap targets, floating buttons, disclosure tiles and the Mac
+/// menus.
+List<WidgetbookUseCase> _remainingControlUseCases() => [
+  WidgetbookUseCase(
+    name: 'Segmented control (Material)',
+    builder: (_) => _on(
+      TargetPlatform.android,
+      _at(
+        1,
+        AdaptiveSegmentedControl<int>(
+          value: 0,
+          segments: const {0: 'Chats', 1: 'Files', 2: 'Tasks'},
+          onChanged: (_) {},
+          semanticLabel: 'View',
+        ),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Segmented control (iPhone)',
+    builder: (_) => _on(
+      TargetPlatform.iOS,
+      _at(
+        1,
+        AdaptiveSegmentedControl<int>(
+          value: 0,
+          segments: const {0: 'Chats', 1: 'Files', 2: 'Tasks'},
+          onChanged: (_) {},
+          semanticLabel: 'View',
+        ),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Model pill',
+    builder: (_) => _at(
+      0,
+      ComposerSelectorChip(
+        label: 'claude-sonnet · high',
+        trailing: const Icon(Icons.expand_more, size: 16),
+        onPressed: () {},
+      ),
+    ),
+  ),
+  ...onEachPlatform(
+    'Weekday toggle',
+    (_) => frame(
+      _KeyboardFocus(
+        focusIndex: 1,
+        where: _inWeekdayToggle,
+        child: _weekdays(),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'New chat button',
+    builder: (_) => _on(
+      TargetPlatform.android,
+      _buttonAt(
+        0,
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: NewChatFab(onPressed: () {}),
+        ),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Scroll to latest button',
+    builder: (_) => _on(
+      TargetPlatform.android,
+      ChangeNotifierProvider(
+        create: (_) => ComposerHeightNotifier(),
+        child: _at(
+          0,
+          SizedBox(
+            height: 160,
+            child: Stack(
+              children: [
+                ScrollToLatestButton(
+                  animation: const AlwaysStoppedAnimation(1),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Extended button (New task)',
+    builder: (_) => _on(
+      TargetPlatform.android,
+      _buttonAt(
+        0,
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: const NewTaskFab(onPressed: _noop),
+        ),
+      ),
+    ),
+  ),
+  WidgetbookUseCase(
+    name: 'Disclosure tile (closed)',
+    builder: (_) => _at(0, _disclosure()),
+  ),
+  WidgetbookUseCase(
+    name: 'Disclosure tile (open)',
+    builder: (_) => _at(0, _disclosure(open: true)),
+  ),
+  WidgetbookUseCase(
+    name: 'Mac menu row',
+    builder: (_) => _on(TargetPlatform.macOS, _at(null, const _OpenMacRows())),
+  ),
+  WidgetbookUseCase(
+    name: 'Mac checked menu item',
+    builder: (_) =>
+        _on(TargetPlatform.macOS, _at(null, const _OpenCheckedMenu())),
+  ),
+  WidgetbookUseCase(
+    name: 'Mac row context menu',
+    builder: (_) =>
+        _on(TargetPlatform.macOS, _at(null, const _OpenRowContextMenu())),
+  ),
+];
+
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
 /// (its radius plus 2), 2 px inside a list row, menu item or segment that a
 /// container clips. It shows only after the keyboard moved focus, never after
@@ -583,6 +898,7 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
     ),
     ..._menuTileChipUseCases(),
     ..._ownShapeUseCases(),
+    ..._remainingControlUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(
