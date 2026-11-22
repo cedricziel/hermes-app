@@ -43,6 +43,6 @@ Needed: this changes the look and the placement of Settings. Record a short "Pro
 
 ## Open questions for the owner
 
-1. Is a thin bridge worth about three PRs, or is a cheaper fix enough (design.md, option D: keep the dialog, make ⌘, focus an open one, stop blocking)?
+1. Is a thin bridge worth about two PRs, or is a cheaper fix enough (design.md, option D: keep the dialog, make ⌘, focus an open one, stop blocking)?
 2. Should the window follow the Mac preference style (a toolbar of tabs) or stay one grouped list? The list is what exists.
 3. Should Settings be reachable while signed out? Today ⌘, is off then, because `AppShell` offers it. About and Appearance do not need a session.

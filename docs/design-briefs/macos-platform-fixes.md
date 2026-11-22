@@ -73,7 +73,7 @@ Not yet on the canvas (still owed before the catalog work): for the Settings win
 
 Copy the design adds: the tone words Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler), new l10n strings. "Sign in to change this." and the failed-command line "Couldn't change this setting. Try again." come from `mac-settings-window/design.md` (new strings, its task 1.3).
 
-New components needed: `SettingsWindowFrame` (window title bar with traffic lights and title, closest: `ConversationWindowScreen`), `AppToast` capsule (closest: `AppBanner`), a narrow-pane mode of `SettingsScaffold` on the Mac that shows search as a toolbar button (closest: the chat toolbar's `medium` search button), and the content-pane frame (`ContentPaneFrame`, closest: `AppShell` with a page child).
+New components needed: `SettingsWindowView` (the grouped list of the Settings window; the native window draws the title bar and traffic lights, which the canvas shows as markup only; closest: `ConversationWindowScreen`), `AppToastView` (the toast capsule) with `ToastRegion` (closest: `AppBanner`), a narrow-pane mode of `SettingsScaffold` on the Mac that shows search as a toolbar button (closest: the chat toolbar's `medium` search button), and the content-pane frame (`ContentPaneFrame`, closest: `AppShell` with a page child).
 
 ## Accessibility
 

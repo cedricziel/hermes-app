@@ -1,6 +1,6 @@
 # Tasks
 
-Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `settings`. The design pass (task 1.1) runs before the catalog work.
+Two PRs, each about 500 changed lines or fewer. Conventional Commit scope `settings`. The design pass (task 1.1) runs before the catalog work.
 
 ## 1. PR 1: `feat(settings): settings window view and bridge types`
 
@@ -12,22 +12,16 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `set
 
 ## 2. PR 2: `feat(settings): open Settings in its own window on the Mac`
 
-- [ ] 2.1 Write failing tests with a fake window link: open creates one window, a second request focuses it, the window is not in the chat list of the Window menu and is not restored at launch.
-- [ ] 2.2 Write failing tests that each main-owned command reaches the main engine and returns a snapshot, that a lost answer repeats nothing, and that no answer carries exception text.
+- [ ] 2.1 Write failing tests with a fake window link: open creates one window, a second request focuses it, ⌘W closes only the Settings window, the window is not in the chat list of the Window menu and is not restored at launch.
+- [ ] 2.2 Write failing tests that each main-owned command reaches the main engine and returns a snapshot, that a lost answer shows the previous value and the generic line and repeats nothing, and that no answer carries exception text.
 - [ ] 2.3 Implement the main-side `SettingsWindows` (create, focus, snapshot, commands) next to `ConversationWindows`, and `runSettingsWindow` in `lib/src/windows/` (own `MaterialApp`, theme, `ThemeController`, `DictationSettings`, `PortableCallSettings`; no `AuthController`, no `AppLockController`).
-- [ ] 2.4 Write failing tests for closing on cover, sign-out, server change and expiry, and for ⌘, while covered. Then implement them on the existing lock and connection listeners.
+- [ ] 2.4 Write failing tests for closing on cover, sign-out, server change (including Change Server chosen in the window, which the main engine runs) and expiry, and for ⌘, while covered. Then implement them on the existing lock and connection listeners. Only if the owner answers yes to open question 3: a test that with no session the main-owned rows are disabled with "Sign in to change this.", Appearance, Dictation and Voice calls work, and Change Server is not listed.
 - [ ] 2.5 Write a failing test, then wire `MacCommand.settings` and the Mac account menu (`MacAccountFooter`) to `SettingsWindows.open`; keep `showSettingsDialog` for the iPad. Test that ⌘, on an iPad (through the iPad menu bridge) still opens the dialog.
 - [ ] 2.6 Write a failing test that recording a chord in the window's quick-panel row reaches `GlobalShortcut` in the main engine, then register `ShortcutRecorderFactory` on the Settings window's engine in the window-created callback (`macos/Runner/MainFlutterWindow.swift`, `QuickPanelShortcut.swift`).
 - [ ] 2.7 Write failing tests that a preference written in the window is read again in the main window (`settings.changed`), then implement it.
 - [ ] 2.8 Write failing tests first for the failure path with a fake link: a command that times out, finds no owner or is rejected in the window sends `settings.commandFailed` (fixed command name and outcome only) to the main engine, and the main engine's `SettingsWindows` records `settings.window.command_failed` (`command`, `outcome`). Then add that report and the breadcrumbs, recorded by `SettingsWindows`; the tests also check that no value, name or address is in them.
-- [ ] 2.9 Run `/simplify` and apply its code fixes here, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, and check the window on a Mac with `verify-in-app`: open, change Appearance, record a shortcut, lock the app.
-
-## 3. PR 3: `docs(settings): record the Settings window`
-
-Markdown and skill edits only; a code fix found here goes in its own `fix(settings)` PR.
-
-- [ ] 3.1 Update `docs/architecture/macos.md` (the window, the bridge, the App Lock rule) and `docs/architecture/app-shell.md` if the shell's command changed. Add a note to the `verify-in-app` skill on opening the window.
-- [ ] 3.2 Diff the Markdown after the formatter hook and revert unintended lines; confirm the PR touches no Dart, test or baseline file.
+- [ ] 2.9 Update `docs/architecture/macos.md` (the window, the bridge, the App Lock rule) and `docs/architecture/app-shell.md` (⌘, now opens a window on the Mac) in this PR, and add a note to the `verify-in-app` skill on opening and finding the Settings window.
+- [ ] 2.10 Run `/simplify` and apply its code fixes here, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; confirm no Hermes route or RPC was added (Backend contract); check the window on a Mac with `verify-in-app`: open, change Appearance, record a shortcut, close it with ⌘W, lock the app.
 
 ## Not verified on a device
 
