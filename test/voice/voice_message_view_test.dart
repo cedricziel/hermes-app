@@ -13,7 +13,7 @@ void main() {
     Duration? sought;
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+        theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
         home: Scaffold(
           body: VoiceMessageView(
             name: 'A voice message with a long generated filename.ogg',
@@ -43,7 +43,7 @@ void main() {
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: VoiceMessageView(
               name: 'voice.ogg',

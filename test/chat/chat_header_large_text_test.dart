@@ -217,7 +217,7 @@ void main() {
         MaterialApp(
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: MediaQuery(
             data: MediaQueryData(
               size: phone,

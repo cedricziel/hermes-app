@@ -26,13 +26,12 @@ import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 /// [child] with the Mac look, whatever the catalog's viewport.
 Widget mac(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.macOS), child: child),
 );
 
 WidgetbookUseCase _case(String name, Widget Function() build) =>

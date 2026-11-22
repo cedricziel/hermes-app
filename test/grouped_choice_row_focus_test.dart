@@ -52,9 +52,7 @@ void main() {
       ..physicalSize = const Size(400, 400)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final theme = buildHermesLightTheme().copyWith(
-      platform: TargetPlatform.macOS,
-    );
+    final theme = buildHermesLightTheme(platform: TargetPlatform.macOS);
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
@@ -145,7 +143,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,

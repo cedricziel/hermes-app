@@ -4,6 +4,7 @@ import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _goal =
     'Audit the dependency tree for packages with known vulnerabilities';
@@ -88,7 +89,7 @@ WidgetbookNode agentRowNode() => WidgetbookComponent(
     WidgetbookUseCase(
       name: 'Mac row with Stop',
       builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+        data: platformTheme(context, TargetPlatform.macOS),
         child: _row(_running, stop: true),
       ),
     ),

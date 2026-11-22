@@ -16,6 +16,7 @@ import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 /// The pages a wide Server screen can show beside its list.
 enum _Pick { usage, update, logs, check }
@@ -300,7 +301,7 @@ List<WidgetbookNode> serverCareSplitNodes() => [
         WidgetbookUseCase(
           name: 'Update selected ($name)',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: platform),
+            data: platformTheme(context, platform),
             child: const _Demo(initial: _Pick.update),
           ),
         ),
