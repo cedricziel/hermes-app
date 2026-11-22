@@ -38,8 +38,10 @@ Future<bool> runKanbanAction(
 /// not throw away typed text. An inert barrier (that one, and iOS's own) turns
 /// Esc off with it, so Esc is bound here on both Apple platforms and closes
 /// the route; Material keeps what it had. Esc only reaches the binding from a
-/// focus inside the dialog, so unless the dialog has an autofocus field
-/// ([autofocusField]) a focus of its own, skipped by Tab, holds it.
+/// focus inside the dialog, so a scope of its own sits under it: focus that
+/// leaves a field (a click on the title or a row) lands there, not on the
+/// route's scope above the binding. It takes focus first unless the dialog has
+/// an autofocus field ([autofocusField]).
 Future<T?> showKanbanDialog<T>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -61,9 +63,7 @@ Future<T?> showKanbanDialog<T>(
             onInvoke: (_) => dismissRoute(dialog),
           ),
         },
-        child: autofocusField
-            ? content
-            : Focus(autofocus: true, skipTraversal: true, child: content),
+        child: FocusScope(autofocus: !autofocusField, child: content),
       );
     },
   );

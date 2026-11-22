@@ -36,4 +36,4 @@ allow:
   - path: lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart
     category: b.dialog
     match: "showDialog<void>("
-    reason: showKanbanFormSheet is hand-built on purpose, since showAdaptiveSheet cannot express the single edge that test/dialog_edge_test.dart pins.
+    reason: showKanbanFormSheet is hand-built on purpose, since it is a fixed 560 x 720 frame with its own corner radius, which showAdaptiveSheet cannot set.

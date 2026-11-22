@@ -167,4 +167,45 @@ void main() {
       expect(field.focusNode.hasPrimaryFocus, isTrue);
     });
   }
+
+  // A click that leaves the field must not strand Esc outside the binding.
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final (name, marker, _, show) in dialogs.where((d) => d.$3)) {
+      testWidgets(
+        '$name on ${platform.name}: type, click outside, Esc closes',
+        (tester) async {
+          await open(tester, platform, show, marker);
+          await tester.enterText(
+            find.byType(EditableText).first,
+            'typed words',
+          );
+          await clickBarrier(tester);
+          // A desktop pointer click outside a field unfocuses it.
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pump();
+          expect(find.text(marker), findsWidgets);
+          await esc(tester);
+          expect(find.text(marker), findsNothing);
+        },
+      );
+
+      testWidgets(
+        '$name on ${platform.name}: type, tap the title, Esc closes',
+        (tester) async {
+          await open(tester, platform, show, marker);
+          await tester.enterText(
+            find.byType(EditableText).first,
+            'typed words',
+          );
+          await tester.tap(find.text(marker).first);
+          await tester.pumpAndSettle();
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pump();
+          expect(find.text(marker), findsWidgets);
+          await esc(tester);
+          expect(find.text(marker), findsNothing);
+        },
+      );
+    }
+  }
 }
