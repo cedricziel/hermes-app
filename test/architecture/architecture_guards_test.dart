@@ -448,15 +448,17 @@ List<Hit> errorInterpolationHits(SourceFile file) {
 /// `.copyWith(platform: …)`: a theme copied onto another platform keeps the
 /// base theme's tap-target size, density and platform-specific component
 /// themes.
-final _themePlatformCopy = RegExp(r'\.copyWith\(\s*platform\s*:');
+final _themePlatformCopy = RegExp(
+  r'\.copyWith\((?:[^()]|\([^()]*\))*?(?<=[(,]\s*)platform\s*:',
+);
 
-/// Files under `widgetbook/` and `test/` that may still copy a theme onto
+/// Files under `lib/`, `widgetbook/` and `test/` that may still copy a theme onto
 /// another platform, each with its reason. Empty: every preview and test host
 /// builds the theme for its platform.
 const _themePlatformCopyAllow = <String, String>{};
 
 List<Hit> _themePlatformCopies() => [
-  for (final root in const ['widgetbook', 'test'])
+  for (final root in const ['lib', 'widgetbook', 'test'])
     ...scanPattern(
       root,
       _themePlatformCopy,
@@ -961,6 +963,8 @@ void main() {
       'Theme.of(context).copyWith(platform: platform)',
       'base.copyWith(\n  platform: TargetPlatform.macOS,\n)',
       'buildHermesLightTheme().copyWith(platform: p)',
+      'base.copyWith(visualDensity: d, platform: p)',
+      'base.copyWith(\n  appBarTheme: AppBarTheme(leadingWidth: 4),\n  platform: p,\n)',
     ]) {
       expect(_themePlatformCopy.hasMatch(bad), isTrue, reason: bad);
     }
@@ -969,6 +973,8 @@ void main() {
       'Theme.of(context).copyWith(visualDensity: d)',
       'theme.copyWith(appBarTheme: a, platform2: p)',
       'MediaQuery.of(context).copyWith(size: s)',
+      'base.copyWith(tile: ListTileThemeData(platform: p))',
+      'base.copyWith(visualDensity: c ? platform : d)',
     ]) {
       expect(_themePlatformCopy.hasMatch(fine), isFalse, reason: fine);
     }

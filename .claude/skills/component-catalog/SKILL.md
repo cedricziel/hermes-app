@@ -123,7 +123,8 @@ sizes, menus). Under `flutter test` the base theme is built for Android on any
 host (`FLUTTER_TEST` forces `defaultTargetPlatform` to android), so a desktop
 case got the phone layout; in the catalog on a Mac the base is the host, so
 iPhone and Material cases got desktop sizing. The `arch.theme-platform-copy`
-guard fails on `.copyWith(platform: …)` in `widgetbook/` and `test/`. Anything
+guard fails on `.copyWith(platform: …)` (in any argument position) in
+`lib/`, `widgetbook/` and `test/`. Anything
 that depends on tap-target size or density, such as focus-ring geometry, needs
 the case run on at least one shrink-wrap platform. In #1284 the scroll-to-latest
 mini button's focus ring sat inside the button on the desktop because the tests

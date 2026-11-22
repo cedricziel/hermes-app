@@ -62,12 +62,15 @@ void main() {
           tester,
         ) async {
           _Sizing? seen;
+          Brightness? brightness;
           final useCase = onEachPlatform('State', (context) {
             seen = _sizing(context);
+            brightness = Theme.of(context).brightness;
             return const SizedBox();
           }).singleWhere((u) => u.name == 'State ($label)');
           await _pump(tester, base, useCase.builder);
 
+          expect(brightness, base.brightness);
           expect(
             seen?.tapTarget,
             shrinkWrap
