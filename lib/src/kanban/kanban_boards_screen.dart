@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -258,51 +259,54 @@ class _ExportDialogState extends State<_ExportDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Export ${widget.name}',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop<KanbanExportOptions>(context, (
-          output: _output.text.trim(),
-          attachments: _attachments,
-          logs: _logs,
-        )),
-        child: const Text('Export'),
-      ),
-    ],
-    children: [
-      GroupedSection(
-        footer: 'The archive is written on the server, not on this device. Empty uses the server’s export folder.',
-        children: [
-          GroupedTextFieldRow(
-            label: 'Server path',
-            hint: 'Use export folder',
-            controller: _output,
-          ),
-        ],
-      ),
-      GroupedSection(
-        children: [
-          GroupedSwitchRow(
-            title: 'Include attachments',
-            value: _attachments,
-            onTap: () => setState(() => _attachments = !_attachments),
-            onChanged: (value) => setState(() => _attachments = value),
-          ),
-          GroupedSwitchRow(
-            title: 'Include worker logs',
-            value: _logs,
-            onTap: () => setState(() => _logs = !_logs),
-            onChanged: (value) => setState(() => _logs = value),
-          ),
-        ],
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return GroupedDialog(
+      title: l10n.kanbanExportTitle(widget.name),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.widgetsCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop<KanbanExportOptions>(context, (
+            output: _output.text.trim(),
+            attachments: _attachments,
+            logs: _logs,
+          )),
+          child: Text(l10n.kanbanExportAction),
+        ),
+      ],
+      children: [
+        GroupedSection(
+          footer: l10n.kanbanExportFooter,
+          children: [
+            GroupedTextFieldRow(
+              label: l10n.kanbanExportPathLabel,
+              hint: l10n.kanbanExportPathHint,
+              controller: _output,
+            ),
+          ],
+        ),
+        GroupedSection(
+          children: [
+            GroupedSwitchRow(
+              title: l10n.kanbanExportAttachments,
+              value: _attachments,
+              onTap: () => setState(() => _attachments = !_attachments),
+              onChanged: (value) => setState(() => _attachments = value),
+            ),
+            GroupedSwitchRow(
+              title: l10n.kanbanExportLogs,
+              value: _logs,
+              onTap: () => setState(() => _logs = !_logs),
+              onChanged: (value) => setState(() => _logs = value),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 /// Asks which server-side archive to import and how to name the board.
@@ -335,51 +339,54 @@ class _ImportDialogState extends State<_ImportDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Import a board',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _archive.text.trim().isEmpty
-            ? null
-            : () => Navigator.pop<KanbanImportOptions>(context, (
-                archive: _archive.text.trim(),
-                slug: _slug.text.trim(),
-                open: _open,
-              )),
-        child: const Text('Import'),
-      ),
-    ],
-    children: [
-      GroupedSection(
-        footer: 'The archive must already be on the server.',
-        children: [
-          GroupedTextFieldRow(
-            label: 'Archive path',
-            controller: _archive,
-            autofocus: true,
-            onChanged: (_) => setState(() {}),
-          ),
-          GroupedTextFieldRow(
-            label: 'New board slug',
-            hint: 'Optional',
-            controller: _slug,
-          ),
-        ],
-      ),
-      GroupedSection(
-        children: [
-          GroupedSwitchRow(
-            title: 'Open it afterwards',
-            value: _open,
-            onTap: () => setState(() => _open = !_open),
-            onChanged: (value) => setState(() => _open = value),
-          ),
-        ],
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return GroupedDialog(
+      title: l10n.kanbanImportTitle,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.widgetsCancel),
+        ),
+        FilledButton(
+          onPressed: _archive.text.trim().isEmpty
+              ? null
+              : () => Navigator.pop<KanbanImportOptions>(context, (
+                  archive: _archive.text.trim(),
+                  slug: _slug.text.trim(),
+                  open: _open,
+                )),
+          child: Text(l10n.kanbanImportAction),
+        ),
+      ],
+      children: [
+        GroupedSection(
+          footer: l10n.kanbanImportFooter,
+          children: [
+            GroupedTextFieldRow(
+              label: l10n.kanbanImportArchiveLabel,
+              controller: _archive,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+            ),
+            GroupedTextFieldRow(
+              label: l10n.kanbanImportSlugLabel,
+              hint: l10n.kanbanImportSlugHint,
+              controller: _slug,
+            ),
+          ],
+        ),
+        GroupedSection(
+          children: [
+            GroupedSwitchRow(
+              title: l10n.kanbanImportOpenAfter,
+              value: _open,
+              onTap: () => setState(() => _open = !_open),
+              onChanged: (value) => setState(() => _open = value),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
