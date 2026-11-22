@@ -26,6 +26,7 @@ import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:hermes_app/src/chat/widgets/following_chat_list.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_gateway.dart';
@@ -130,6 +131,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: ConversationWindowScreen(
           args: _args,
@@ -510,6 +512,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: Row(
           children: [

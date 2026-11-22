@@ -38,14 +38,11 @@ FocusRingPainter _painter(WidgetTester tester) =>
     tester.widget<CustomPaint>(_ringPainter.first).foregroundPainter!
         as FocusRingPainter;
 
-Widget _scoped(BuildContext context, Widget? child) =>
-    AppThemeScopes(child: child!);
-
 Future<void> _pump(WidgetTester tester, ThemeData theme, Widget body) =>
     tester.pumpWidget(
       MaterialApp(
         theme: theme,
-        builder: _scoped,
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: Align(alignment: Alignment.topLeft, child: body),
         ),

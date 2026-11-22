@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import 'support/attachment_fixtures.dart';
@@ -60,6 +61,7 @@ void main() {
     Widget? child,
   }) => tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       home: Provider<MediaStore?>.value(
         value: store,
         child: Provider<DragOutSource?>.value(
@@ -329,6 +331,7 @@ void main() {
   testWidgets('without a source the card is not wrapped', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: DraggableAttachment(
             attachment: const ChatAttachment(
@@ -367,6 +370,7 @@ void main() {
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(),
         home: Provider<DragOutSource?>.value(
           value: source,

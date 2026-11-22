@@ -17,6 +17,7 @@ import 'package:hermes_app/src/windows/conversation_window_screen.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:hermes_app/src/windows/conversation_windows_menu.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -134,6 +135,7 @@ void main() {
       Provider<MediaStore?>.value(
         value: store,
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),

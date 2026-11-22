@@ -7,6 +7,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 const _mixed = '''
 # Title
@@ -107,6 +108,7 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
         child: Scaffold(body: SingleChildScrollView(child: build(text))),
@@ -222,6 +224,7 @@ void main() {
       testWidgets(name, (tester) async {
         await tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: theme,
             home: const Scaffold(
               body: BoundedMarkdown(
@@ -387,6 +390,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: SingleChildScrollView(
               child: StatefulBuilder(
