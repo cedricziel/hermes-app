@@ -17,13 +17,16 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `she
 - [ ] 2.4 Implement `ContentPaneNavigator` and the helper `pushSubpage(context, route, kind:)`; host the navigator in `ChatScreen`'s Mac split (`chat_screen_layout.dart:344`) and in `AppShell`'s (`app_shell.dart:861`); move the call sites in `chat_screen_navigation.dart`, `memory_destination.dart`, `open_files.dart` (with the Activity panel case) and `kanban_screen.dart` to the helper.
 - [ ] 2.5 Write failing lifecycle tests, then confirm: sign-out, server change and expiry remove an open sub-page in the same frame; App Lock covers it; Files' downloads are cleared on lock and sign-out (existing `FilesLockCleanup` tests stay green).
 - [ ] 2.6 Add the breadcrumbs `nav.subpage.opened` (`kind`) and `nav.subpage.closed_by_sidebar`, with a test that no title, profile, path or id is in them.
-- [ ] 2.7 Check the screens with the workflow tests (`workflow-screenshots`) and `verify-in-app`.
+- [ ] 2.7 Add guard `arch.subpage-push` (a sub-page pushed outside `pushSubpage` fails) in `test/architecture/` with a baseline that ratchets down; check it fails on a raw push first.
+- [ ] 2.8 Run `/simplify` and apply its code fixes here, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, and check the screens with the workflow tests (`workflow-screenshots`) and `verify-in-app`: Skills, Memory and Files beside the sidebar.
 
 ## 3. PR 3: `docs(shell): record sub-pages in the content pane`
 
-- [ ] 3.1 Add guard `arch.subpage-push` (a sub-page pushed outside `pushSubpage` fails) with a baseline that ratchets down; update `docs/architecture/app-shell.md` ("Pages above the shell" gains the content-pane rule) and `docs/architecture/macos.md`.
+Markdown and skill edits only; a code fix found here goes in its own `fix(shell)` PR.
+
+- [ ] 3.1 Update `docs/architecture/app-shell.md` ("Pages above the shell" gains the content-pane rule) and `docs/architecture/macos.md`.
 - [ ] 3.2 Update the skills this makes stale: `verify-in-app` and `workflow-screenshots` (a sub-page now shows beside the sidebar on the Mac, so screenshots and navigation steps change), and `architecture-guards` for `arch.subpage-push`.
-- [ ] 3.3 Run `/simplify`, `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check Skills, Memory and Files beside the sidebar with `verify-in-app`.
+- [ ] 3.3 Diff the Markdown after the formatter hook and revert unintended lines; confirm the PR touches no Dart, test or baseline file.
 
 ## Not verified on a device
 

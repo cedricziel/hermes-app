@@ -20,11 +20,14 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `set
 - [ ] 2.6 Write a failing test that recording a chord in the window's quick-panel row reaches `GlobalShortcut` in the main engine, then register `ShortcutRecorderFactory` on the Settings window's engine in the window-created callback (`macos/Runner/MainFlutterWindow.swift`, `QuickPanelShortcut.swift`).
 - [ ] 2.7 Write failing tests that a preference written in the window is read again in the main window (`settings.changed`), then implement it.
 - [ ] 2.8 Write failing tests first for the failure path with a fake link: a command that times out, finds no owner or is rejected in the window sends `settings.commandFailed` (fixed command name and outcome only) to the main engine, and the main engine's `SettingsWindows` records `settings.window.command_failed` (`command`, `outcome`). Then add that report and the breadcrumbs, recorded by `SettingsWindows`; the tests also check that no value, name or address is in them.
+- [ ] 2.9 Run `/simplify` and apply its code fixes here, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, and check the window on a Mac with `verify-in-app`: open, change Appearance, record a shortcut, lock the app.
 
 ## 3. PR 3: `docs(settings): record the Settings window`
 
+Markdown and skill edits only; a code fix found here goes in its own `fix(settings)` PR.
+
 - [ ] 3.1 Update `docs/architecture/macos.md` (the window, the bridge, the App Lock rule) and `docs/architecture/app-shell.md` if the shell's command changed. Add a note to the `verify-in-app` skill on opening the window.
-- [ ] 3.2 Run `/simplify`, `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check the window on a Mac with `verify-in-app`: open, change Appearance, record a shortcut, lock the app.
+- [ ] 3.2 Diff the Markdown after the formatter hook and revert unintended lines; confirm the PR touches no Dart, test or baseline file.
 
 ## Not verified on a device
 

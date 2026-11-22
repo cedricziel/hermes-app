@@ -16,14 +16,17 @@ Three PRs, each about 500 changed lines or fewer. Conventional Commit scope `wid
 - [ ] 2.3 Implement `AppToast.show` and the host in `lib/src/widgets/app_toast.dart`, mounted in the `MaterialApp` builder of the main app, the conversation window app and the quick panel; the Material and iOS path calls `ScaffoldMessenger.maybeOf(context)?.showSnackBar` as today. Test that a window without a host falls back.
 - [ ] 2.4 Add guard `arch.raw-snackbar` with the baseline of today's counts; run `UPDATE_BASELINE=1 flutter test test/architecture` only to check it lowers nothing.
 - [ ] 2.5 Migrate the export flow (remove `_aboveComposer`), the chat notices and schedules; lower the baseline with `UPDATE_BASELINE=1`. Check the screens with a workflow test (`workflow-screenshots`) or `verify-in-app`.
+- [ ] 2.6 Update `docs/architecture/macos.md` and `docs/building-blocks.md` (a row "A short result message: AppToast") in this PR, which lands the block.
+- [ ] 2.7 Update the skills it makes stale in this PR: `workflow-screenshots` and `verify-in-app` (where a toast shows on the Mac and how to catch it in a screenshot), and `architecture-guards` if `arch.raw-snackbar` needs a note.
+- [ ] 2.8 Telemetry: none, as the proposal says; no task adds a span, log event or breadcrumb, and a review checks that no toast text reaches one.
+- [ ] 2.9 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check a toast on a Mac with `verify-in-app` (placement in the content pane, VoiceOver, hover pause).
 
-## 3. PR 3 onward: `refactor(<area>): use AppToast`
+## 3. PR 3 onward: `feat(<area>): show <area> messages as a Mac toast`
 
-- [ ] 3.1 One PR per remaining area, each lowering the baseline; no behaviour change on non-Mac platforms. Report hard-coded English messages found on the way to the orchestrator, do not fix them here.
-- [ ] 3.2 Update `docs/architecture/macos.md` and `docs/building-blocks.md` (a row "A short result message: AppToast") in the first PR that lands the block.
-- [ ] 3.3 Update the skills it makes stale in the same PR: `workflow-screenshots` and `verify-in-app` (where a toast shows on the Mac and how to catch it in a screenshot), and `architecture-guards` if `arch.raw-snackbar` needs a note.
-- [ ] 3.4 Telemetry: none, as the proposal says; no task adds a span, log event or breadcrumb, and a review checks that no toast text reaches one.
-- [ ] 3.5 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check a toast on a Mac with `verify-in-app` (placement in the content pane, VoiceOver, hover pause).
+Each migration changes what a Mac user sees (a toast instead of a SnackBar), so it is a `feat`, not a `refactor`; it also lowers the `arch.raw-snackbar` baseline, test code that belongs in the same PR.
+
+- [ ] 3.1 One PR per remaining area: write a failing widget test that the area's message shows as a toast on Mac chrome and as today's SnackBar elsewhere, move its calls to `AppToast.show`, and lower the baseline with `UPDATE_BASELINE=1`. Report hard-coded English messages found on the way to the orchestrator, do not fix them here.
+- [ ] 3.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then check a toast on a Mac with `verify-in-app` (placement in the content pane, VoiceOver, hover pause).
 
 ## Not verified on a device
 
