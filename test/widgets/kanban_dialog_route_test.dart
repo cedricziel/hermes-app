@@ -206,6 +206,8 @@ void main() {
                 : tester.getCenter(find.text(marker).first),
           );
           expect(field.focusNode.hasPrimaryFocus, isFalse);
+          // The click may be closing the dialog: let that finish first.
+          await tester.pumpAndSettle();
           expect(find.text(marker), findsWidgets);
           await esc(tester);
           expect(find.text(marker), findsNothing);
