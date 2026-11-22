@@ -37,10 +37,13 @@ PopupMenuItem<ThreadAction> _row(List<PopupMenuEntry<ThreadAction>> items) =>
       (item) => item.value == ThreadAction.exportJson,
     );
 
+final _l10n = lookupAppLocalizations(const Locale('en'));
+
 void main() {
   group('macThreadMenuItems', () {
     test('lists the row right after Copy Transcript', () {
       final items = macThreadMenuItems(
+        _l10n,
         pinned: false,
         manageable: true,
         exportJson: ExportJsonOffer(onSelected: () {}),
@@ -58,13 +61,14 @@ void main() {
 
     test('has no row without an offer', () {
       expect(
-        _labels(macThreadMenuItems(pinned: false, manageable: true)),
+        _labels(macThreadMenuItems(_l10n, pinned: false, manageable: true)),
         isNot(contains(_macLabel)),
       );
     });
 
     test('keeps the row but disables it while an export runs', () {
       final items = macThreadMenuItems(
+        _l10n,
         pinned: false,
         manageable: true,
         exportJson: ExportJsonOffer(onSelected: () {}, enabled: false),

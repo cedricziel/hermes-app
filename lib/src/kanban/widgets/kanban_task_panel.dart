@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:provider/provider.dart';
 
@@ -487,19 +488,22 @@ class _EditTaskDialogState extends State<_EditTaskDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Edit task',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () =>
-            Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
-        child: const Text('Save'),
-      ),
-    ],
-    children: [KanbanTaskEditFields(title: _title, body: _body)],
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return GroupedDialog(
+      title: l10n.kanbanEditTaskTitle,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.widgetsCancel),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
+          child: Text(l10n.kanbanSaveAction),
+        ),
+      ],
+      children: [KanbanTaskEditFields(title: _title, body: _body)],
+    );
+  }
 }

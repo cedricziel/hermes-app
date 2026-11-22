@@ -548,8 +548,11 @@ List<WidgetbookUseCase> _ownShapeUseCases() => [
                 selected: false,
                 onTap: () {},
                 onArchive: () {},
-                menuItems: (_) =>
-                    macThreadMenuItems(pinned: false, manageable: true),
+                menuItems: (context) => macThreadMenuItems(
+                  context.l10n,
+                  pinned: false,
+                  manageable: true,
+                ),
                 onAction: (_) {},
               ),
             ),

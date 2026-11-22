@@ -825,7 +825,8 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       relativeTime: relativeTime(thread.updatedAt),
       onTap: () => widget.onSelect(thread.id),
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
-      menuItems: (_) => macThreadMenuItems(
+      menuItems: (context) => macThreadMenuItems(
+        context.l10n,
         pinned: thread.pinned,
         canonical: thread.isCanonicalBotChat,
         manageable: housekeeping != null,
