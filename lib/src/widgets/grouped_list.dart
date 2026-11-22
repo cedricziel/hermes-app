@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'middle_ellipsis.dart';
@@ -272,6 +273,28 @@ class GroupedSection extends StatelessWidget {
   }
 }
 
+/// The width [text] takes in [style] at the current text scale, on one line
+/// unless [maxLines] says otherwise. What a row measures to decide whether a
+/// value or a button still fits beside its title.
+double measureRowText(
+  BuildContext context,
+  String text,
+  TextStyle style, {
+  int? maxLines = 1,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: maxLines,
+  )..layout();
+  try {
+    return painter.width;
+  } finally {
+    painter.dispose();
+  }
+}
+
 /// A row of a [GroupedSection]: a [title] with optional inline [meta] (a
 /// version), a [subtitle] (one line unless [subtitleMaxLines] says more) and
 /// [warning] and [error] lines under it, which wrap, and at the
@@ -428,26 +451,15 @@ class GroupedRow extends StatelessWidget {
     if (value == null || trailing != null) return false;
     final scaler = MediaQuery.textScalerOf(context);
     if (scaler.scale(metrics.titleSize) <= metrics.titleSize) return false;
-    final direction = Directionality.of(context);
     // Called from under the row's Material, so this is the style the row's
     // text is drawn in.
     final base = DefaultTextStyle.of(context).style;
-    double measure(String text, double size, {int? maxLines}) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: base.merge(TextStyle(fontSize: size)),
-        ),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: maxLines,
-      )..layout();
-      try {
-        return painter.width;
-      } finally {
-        painter.dispose();
-      }
-    }
+    double measure(String text, double size, {int? maxLines}) => measureRowText(
+      context,
+      text,
+      base.merge(TextStyle(fontSize: size)),
+      maxLines: maxLines,
+    );
 
     final valueWidth = measure(value, metrics.subtitleSize, maxLines: 1) + 8;
     // Room beside the title: the row less its leading, chevron and gaps.
@@ -671,12 +683,17 @@ class GroupedRow extends StatelessWidget {
               ),
       ),
     );
-    final ink = InkWell(
+    final tap = InkWell(
       canRequestFocus: focusable,
       focusColor: focusFill ? null : Colors.transparent,
       onTap: enabled ? onTap : null,
       child: content,
     );
+    // A row that draws its own focus mark (`focusFill` off) or takes none gets
+    // no ring from here.
+    final ink = focusable && focusFill
+        ? FocusRing(radius: metrics.radius - kFocusRingOffset, child: tap)
+        : tap;
     final color = selected ? scheme.outline : Colors.transparent;
     Widget merged(Widget child) => MergeSemantics(
       child: Semantics(

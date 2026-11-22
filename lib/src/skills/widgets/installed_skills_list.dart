@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/state_message.dart';
+import '../../widgets/trailing_action_fit.dart';
 import '../../widgets/whats_the_difference_link.dart';
 import '../hermes_skills_repository.dart';
 import '../skills_controller.dart';
@@ -120,27 +123,51 @@ class SkillUpdatesSection extends StatelessWidget {
 
   static const _label = 'Check for updates';
 
+  static const _hubTitle = 'Hub skills';
+
+  /// The Mac's small bordered button: the theme's label style at 12 pt.
+  static ButtonStyle _macButtonStyle(BuildContext context) =>
+      OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 22),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+        textStyle: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(fontSize: 12),
+      ).copyWith(
+        shape: focusRingShapeOf(
+          context,
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final row = switch (platformChromeOf(context)) {
-      PlatformChrome.macos => GroupedRow(
-        title: 'Hub skills',
-        trailing: OutlinedButton(
-          onPressed: onPressed,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 22),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
+      PlatformChrome.macos => LayoutBuilder(
+        builder: (context, box) {
+          final label = context.l10n.skillsCheckForUpdatesMac;
+          final style = _macButtonStyle(context);
+          // Past the width the button fits beside the title, it goes on a
+          // line of its own. Its own accessibility node at every size, so a
+          // screen reader finds the same controls however large the text.
+          return GroupedRow(
+            title: _hubTitle,
+            separateTrailing: true,
+            trailingBelow: trailingActionStacks(
+              context,
+              width: box.maxWidth,
+              title: _hubTitle,
+              actionLabel: label,
+              buttonStyle: style,
             ),
-          ),
-          child: const Text(
-            'Check for Updates',
-            style: TextStyle(fontSize: 12),
-          ),
-        ),
+            trailing: OutlinedButton(
+              onPressed: onPressed,
+              style: style,
+              child: Text(label),
+            ),
+          );
+        },
       ),
       PlatformChrome.ios => GroupedRow(
         title: _label,
