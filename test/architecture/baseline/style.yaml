@@ -33,7 +33,6 @@ style.color:
   lib/src/widgets/grouped_dialog.dart: 2
 
 style.dialog:
-  lib/src/app_lock/app_lock_dialog.dart: 1
   lib/src/bot_mode/bot_mode_roster_screen.dart: 2
   lib/src/bot_mode/groups/group_chat_screen.dart: 2
   lib/src/bot_mode/groups/widgets/group_widgets.dart: 1
@@ -43,19 +42,11 @@ style.dialog:
   lib/src/kanban/widgets/kanban_bulk_bar.dart: 1
   lib/src/kanban/widgets/kanban_task_panel.dart: 3
   lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart: 2
-  lib/src/memory/widgets/memory_choice_dialog.dart: 1
   lib/src/models/widgets/model_picker.dart: 2
-  lib/src/notifications/notifications_dialog.dart: 1
   lib/src/plugins/catalog_tab.dart: 1
   lib/src/plugins/installed_tab.dart: 1
   lib/src/plugins/plugins_screen.dart: 1
   lib/src/profiles/widgets/new_profile_dialog.dart: 1
-  lib/src/settings/about_dialog.dart: 1
-  lib/src/settings/appearance_dialog.dart: 1
-  lib/src/settings/settings_dialog.dart: 1
-  lib/src/spotlight/spotlight_dialog.dart: 1
-  lib/src/voice/dictation_dialog.dart: 1
-  lib/src/voice/portable_calls_dialog.dart: 1
 
 style.elevation:
   lib/src/chat/widgets/new_chat_fab.dart: 1
@@ -436,7 +427,6 @@ style.string:
   lib/src/messaging/messaging_screen.dart: 4
   lib/src/messaging/messaging_setup_screen.dart: 7
   lib/src/messaging/telegram_pairing_screen.dart: 10
-  lib/src/messaging/widgets/messaging_platform_row.dart: 1
   lib/src/notifications/background_check_section.dart: 5
   lib/src/notifications/notifications_dialog.dart: 5
   lib/src/platform_hint/widgets/platform_hint_prompt.dart: 10
@@ -485,7 +475,7 @@ style.string:
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1
   lib/src/skills/skills_screen.dart: 10
-  lib/src/skills/widgets/installed_skills_list.dart: 4
+  lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_detail_actions.dart: 4
   lib/src/skills/widgets/skill_security_scan.dart: 3
   lib/src/spotlight/spotlight_dialog.dart: 1

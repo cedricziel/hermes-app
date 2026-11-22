@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../telemetry/breadcrumbs.dart';
+import '../widgets/dialog_presentation.dart';
 import '../widgets/grouped_dialog.dart';
 import 'dictation_settings.dart';
 import 'on_device_speech.dart';
@@ -18,7 +19,7 @@ Future<void> showDictationDialog(BuildContext context) {
   } on ProviderNotFoundException {
     breadcrumbs = Breadcrumbs.none;
   }
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider.value(
       value: settings,

@@ -98,17 +98,17 @@ void markFocusRingKeyboardInput() {
   _inputChanged();
 }
 
-/// A button does not rebuild when the input changes, so the focused button is
-/// marked dirty and its style resolves again. Only the nearest button is
-/// marked, and nothing when the focus is not inside one (a text field, a
-/// row, a menu item): [FocusRing] listens on its own.
+/// A button or a chip does not rebuild when the input changes, so the focused
+/// one is marked dirty and its style or shape resolves again. Only the nearest
+/// one is marked, and nothing when the focus is not inside one (a text field,
+/// a row, a menu item): [FocusRing] listens on its own.
 void _inputChanged() {
   _inputChanges.notify();
   final context = FocusManager.instance.primaryFocus?.context;
   if (context is! Element || !context.mounted) return;
   Element? button;
   context.visitAncestorElements((element) {
-    if (element.widget is ButtonStyleButton) {
+    if (element.widget is ButtonStyleButton || element.widget is RawChip) {
       button = element;
       return false;
     }
@@ -236,6 +236,49 @@ WidgetStateProperty<OutlinedBorder?> focusRingShapeOf(
   BuildContext context,
   OutlinedBorder base,
 ) => focusRingShape(base, context.hermesColors.link);
+
+/// [focusRingShape] as a shape, for a theme field that takes a
+/// [WidgetStateOutlinedBorder] and resolves it per state (`ChipThemeData.shape`).
+/// A chip resolves it on every build, so the ring follows keyboard focus; used
+/// anywhere else it is [base].
+class FocusRingStateBorder extends WidgetStateOutlinedBorder {
+  const FocusRingStateBorder({required this.base, required this.color});
+
+  final OutlinedBorder base;
+  final Color color;
+
+  @override
+  OutlinedBorder? resolve(Set<WidgetState> states) =>
+      focusRingShape(base, color).resolve(states);
+
+  @override
+  BorderSide get side => base.side;
+
+  @override
+  EdgeInsetsGeometry get dimensions => base.dimensions;
+
+  @override
+  Path getInnerPath(Rect rect, {TextDirection? textDirection}) =>
+      base.getInnerPath(rect, textDirection: textDirection);
+
+  @override
+  Path getOuterPath(Rect rect, {TextDirection? textDirection}) =>
+      base.getOuterPath(rect, textDirection: textDirection);
+
+  @override
+  void paint(Canvas canvas, Rect rect, {TextDirection? textDirection}) =>
+      base.paint(canvas, rect, textDirection: textDirection);
+
+  @override
+  OutlinedBorder copyWith({BorderSide? side}) => FocusRingStateBorder(
+    base: base.copyWith(side: side),
+    color: color,
+  );
+
+  @override
+  ShapeBorder scale(double t) =>
+      FocusRingStateBorder(base: base.scale(t) as OutlinedBorder, color: color);
+}
 
 /// What [FocusRing] paints, for a test to find.
 class FocusRingPainter extends CustomPainter {
