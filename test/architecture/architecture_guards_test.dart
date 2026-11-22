@@ -135,15 +135,19 @@ List<Hit> chipShapeHitsIn(SourceFile file) => [
 /// state that a wrapper or a helper turns into the keyboard ring.
 final _rawSlidingControl = RegExp(
   r'(?<!FocusRing\.outside\(\s*radius:\s*9,\s*child:\s*)'
-  r'\bCupertinoSlidingSegmentedControl\s*[<(]',
+  r'(?<![\w.])(?:\w+\.)*\bCupertinoSlidingSegmentedControl(?:\s*[<(]|\.new\b)',
 );
-final _rawSegmentedButton = RegExp(r'(?<![\w.])SegmentedButton\s*[<(.]');
-final _rawExpansionTile = RegExp(r'\bExpansionTile\s*[<(.]');
+final _rawSegmentedButton = RegExp(
+  r'(?<!\w)(?:\w+\.)?\bSegmentedButton(?:\s*[<(]|\.\w+)',
+);
+final _rawExpansionTile = RegExp(
+  r'(?<![\w.])(?:\w+\.)*\bExpansionTile(?:\s*[<(]|\.\w+)',
+);
 
 /// A floating button not directly inside `FocusRing.outside(radius: ..., child:`.
 final _bareFloatingButton = RegExp(
   r'(?<!FocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*)'
-  r'\bFloatingActionButton(?:\.\w+)?\s*[<(]',
+  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:(?:\.\w+)?\s*[<(]|\.new\b)',
 );
 
 /// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
@@ -854,7 +858,31 @@ void main() {
           _rawSegmentedButton.hasMatch('AdaptiveSegmentedButton('),
           isFalse,
         );
-        expect(_rawSegmentedButton.hasMatch('ui.SegmentedButton('), isFalse);
+        expect(_rawSegmentedButton.hasMatch('ui.SegmentedButton('), isTrue);
+        expect(_rawSegmentedButton.hasMatch('m.SegmentedButton<T>('), isTrue);
+        expect(
+          _rawSegmentedButton.hasMatch('x = SegmentedButton.new;'),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch(
+            'c.CupertinoSlidingSegmentedControl<int>(',
+          ),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch(
+            'f(CupertinoSlidingSegmentedControl.new)',
+          ),
+          isTrue,
+        );
+        expect(
+          _rawSlidingControl.hasMatch(
+            'FocusRing.outside(radius: 9, child: c.CupertinoSlidingSegmentedControl<int>(',
+          ),
+          isFalse,
+        );
+        expect(_rawExpansionTile.hasMatch('m.ExpansionTile(title: a)'), isTrue);
         expect(_rawExpansionTile.hasMatch('ExpansionTile(title: a)'), isTrue);
         expect(_rawExpansionTile.hasMatch('ExpansionTile.new'), isTrue);
         expect(_rawExpansionTile.hasMatch('DisclosureTile(title: a)'), isFalse);
@@ -883,6 +911,13 @@ void main() {
         isTrue,
       );
       expect(bare('Tooltip(child: FloatingActionButton(a))'), isTrue);
+      expect(bare('child: m.FloatingActionButton(onPressed: f)'), isTrue);
+      expect(bare('child: m.FloatingActionButton.extended(a)'), isTrue);
+      expect(bare('builder: FloatingActionButton.new'), isTrue);
+      expect(
+        bare('FocusRing.outside(radius: 28, child: m.FloatingActionButton(a))'),
+        isFalse,
+      );
     });
   });
 
