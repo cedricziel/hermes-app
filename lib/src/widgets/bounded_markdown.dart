@@ -68,6 +68,7 @@ class CodeHighlightBudget {
   /// Forgets every decision, for a document that was replaced.
   void clear() {
     _granted.clear();
+    _unplaced.clear();
     _next = 0;
   }
 
@@ -89,6 +90,25 @@ class CodeHighlightBudget {
     return ok;
   }
 
+  /// The characters of blocks that have no place in the document, by body.
+  final Map<String, int> _unplaced = {};
+
+  /// Whether a block with body [code] that the document parse did not find may
+  /// be coloured: it is judged against everything planned for the document and
+  /// every other such block, so it can only take what is left. Asked again with
+  /// the same body, it keeps its decision.
+  bool admitUnplaced(String code) {
+    final known = _unplaced[code];
+    if (known != null) return known > 0;
+    var other = 0;
+    for (final v in _unplaced.values) {
+      other += v;
+    }
+    final ok = _fits(code, _usedBefore(_granted.length) + other);
+    _unplaced[code] = ok ? code.length : 0;
+    return ok;
+  }
+
   /// Judges every block of a document whose bodies are [codes], in order, from
   /// place [from] on; the places before it keep their decisions (they are the
   /// same blocks after the same blocks).
@@ -97,6 +117,7 @@ class CodeHighlightBudget {
     if (from < _granted.length) {
       _granted.length = from;
     }
+    _unplaced.clear();
     var used = _usedBefore(from);
     for (var i = from; i < codes.length; i++) {
       final ok = _fits(codes[i], used);
@@ -161,12 +182,18 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
   // usually the last ones. A block's place is therefore read from the document
   // (`_DocumentFences`), not counted from the first question of a pass: a pass
   // is expected to start at the first block that changed, or at the first block
-  // when the renderer dropped what it kept.
+  // when the renderer dropped what it kept. The renderer also builds its tail
+  // again on its own (a held-back construct is released after a quiet moment),
+  // with no build of ours before it: that pass starts at the tail.
   int _start = 0;
   int? _cursor;
-  int _firstOfPass = 0;
   bool _dropped = true;
   bool _repeat = false;
+
+  // Bumped with every `_budget.clear()`: the renderer keeps the segments that
+  // did not change with their old decisions, so a document that was replaced
+  // (not appended to) is built again from its first block.
+  int _generation = 0;
 
   @override
   void didChangeDependencies() {
@@ -180,41 +207,47 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
   void didUpdateWidget(BoundedMarkdown old) {
     super.didUpdateWidget(old);
     // A reply that streams only grows; anything else is another document.
-    if (!widget.data.startsWith(old.data)) _budget.clear();
+    if (!widget.data.startsWith(old.data)) {
+      _budget.clear();
+      _generation++;
+      _dropped = true;
+    }
     if (widget.style != old.style) _dropped = true;
   }
 
   /// Where the block with body [code], asked about now, sits in the document.
   int _placeOf(String code) {
     final codes = _fences.codes;
-    final from = _cursor ?? (_repeat ? _firstOfPass : _start);
-    if (_cursor == null) {
-      // A pass ends with its frame; a question with no build before it (the
-      // renderer rebuilt on its own) repeats the last pass.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _cursor = null;
-        _repeat = true;
-      });
-    }
+    final from = _cursor ?? (_repeat ? _fences.tailStart : _start);
+    if (_cursor == null) _endPassWithFrame();
     var place = -1;
     for (var i = from; i < codes.length && place < 0; i++) {
       if (codes[i] == code) place = i;
     }
-    if (place < 0) {
-      // Not after the expected place: another form of the same body (the last
-      // block while its closing fence arrives) or misjudged places. Take the
-      // expected place, unless the body is found before it.
-      place = from;
-      for (var i = 0; i < from && i < codes.length; i++) {
-        if (codes[i] == code) {
-          place = i;
-          break;
-        }
-      }
-    }
-    if (_cursor == null) _firstOfPass = place;
+    // Not after the expected place: another form of the same body (the last
+    // block while its closing fence arrives). Take the expected place, never
+    // an earlier copy's; with no place left, the block is judged against what
+    // the whole document is planned to use.
+    if (place < 0) place = from < codes.length ? from : -1;
+    if (place < 0) return -1;
     _cursor = place + 1;
     return place;
+  }
+
+  /// A pass ends with its frame; a question with no build before it (the
+  /// renderer rebuilt on its own) is about the tail.
+  void _endPassWithFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _cursor = null;
+      _repeat = true;
+    });
+  }
+
+  bool _admit(String code) {
+    final place = _placeOf(code);
+    return place < 0
+        ? _budget.admitUnplaced(code)
+        : _budget.admitAt(place, code);
   }
 
   Widget _code(BuildContext context, String name, String code, bool closed) {
@@ -231,8 +264,7 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
       name: name,
       codes: code,
       highlightCode:
-          _budget.admitAt(_placeOf(code), code) &&
-          (closed || (style.highlightWhileStreaming ?? true)),
+          _admit(code) && (closed || (style.highlightWhileStreaming ?? true)),
       style: style,
     );
   }
@@ -248,12 +280,17 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
     Directionality.maybeOf(context);
     _fences.update(widget.data);
     _start = _dropped ? 0 : _fences.firstChanged;
-    _budget.plan(_fences.codes, from: _start);
+    _budget.plan(
+      _fences.codes,
+      from: _dropped || _fences.definitionsChanged ? 0 : _start,
+    );
     _dropped = false;
     _repeat = false;
     _cursor = null;
+    _endPassWithFrame();
     return GptMarkdown(
       widget.data,
+      key: ValueKey(_generation),
       style: widget.style,
       onLinkTap: widget.onLinkTap,
       // ignore: deprecated_member_use
@@ -264,6 +301,12 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
     );
   }
 }
+
+/// The bodies of the fenced code blocks of [data], as `BoundedMarkdown` reads
+/// them to place the questions of the renderer.
+@visibleForTesting
+List<String> boundedMarkdownFences(String data) =>
+    (_DocumentFences()..update(data)).codes;
 
 /// The bodies of the fenced code blocks of a markdown document, in document
 /// order, read the way `GptMarkdown` reads it: split into the segments it
@@ -276,11 +319,21 @@ class _DocumentFences {
   List<String> codes = const [];
 
   List<String> _before = const [];
+  MarkdownDefinitions _definitions = MarkdownDefinitions.empty;
+
+  /// Whether the link and footnote definitions of the document changed since
+  /// the last [update]: a footnote is shown (and its fences exist) only once
+  /// referenced, from any segment.
+  bool definitionsChanged = false;
 
   /// The place of the first block in a segment that changed since the last
   /// [update], the first one `GptMarkdown` builds again; the count of blocks
   /// when no segment changed.
   int firstChanged = 0;
+
+  /// The place of the first block of the last segment, the one the renderer
+  /// builds again on its own while it holds the end of a stream back.
+  int tailStart = 0;
 
   void update(String data) {
     const config = GptMarkdownConfig();
@@ -302,15 +355,26 @@ class _DocumentFences {
         _before[same] == segments[same]) {
       same++;
     }
+    // The renderer parses every segment against the definitions of the whole
+    // document.
+    final definitions = MarkdownDefinitions.collect(
+      source,
+      blockRegistry: registry,
+      html: html,
+    );
+    definitionsChanged = definitions != _definitions;
+    if (definitionsChanged) _parsed = {};
+    _definitions = definitions;
     final parsed = <String, List<String>>{};
     final next = <String>[];
     var changed = -1;
     for (var i = 0; i < segments.length; i++) {
       if (i == same) changed = next.length;
+      if (i == segments.length - 1) tailStart = next.length;
       final segment = segments[i];
       next.addAll(
         parsed[segment] ??=
-            _parsed[segment] ?? _fencesIn(segment, registry, html),
+            _parsed[segment] ?? _fencesIn(segment, registry, html, definitions),
       );
     }
     _parsed = parsed;
@@ -323,11 +387,17 @@ class _DocumentFences {
     String segment,
     MarkdownBlockRegistry? registry,
     MarkdownHtml html,
+    MarkdownDefinitions definitions,
   ) {
     final out = <String>[];
     try {
       _collect(
-        Plusparse.parse(segment, blockRegistry: registry, html: html).children,
+        Plusparse.parse(
+          segment,
+          blockRegistry: registry,
+          html: html,
+          definitions: definitions,
+        ).children,
         out,
       );
     } on Object {
@@ -343,8 +413,8 @@ class _DocumentFences {
         case MdCodeBlock(:final code):
           out.add(code);
         case MdBlockQuote(:final children, :final alert):
-          _collect(children, out);
-          if (alert != null) _collect(alert.children, out);
+          // An alert's body is in `children` too: collect it once.
+          _collect(alert?.children ?? children, out);
         case MdUnorderedList(:final items):
           for (final item in items) {
             _collect(item.children, out);
