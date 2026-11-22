@@ -119,8 +119,8 @@ is built for Android on any host (`FLUTTER_TEST` forces `defaultTargetPlatform`
 to android), so it is padded and standard density, and a desktop-platform case
 still gets the phone layout. In the catalog, `widgetbook/environment.dart`
 builds the base for the host; on a Mac that is shrink-wrapped and compact, so
-iPhone and Material cases made with `copyWith` get desktop sizing. Anything that depends on tap-target size or density, such as focus-ring
-geometry, needs the app theme built for that platform with
+iPhone and Material cases made with `copyWith` get desktop sizing. Anything that depends on tap-target size or density, such
+as focus-ring geometry, needs the app theme built for that platform with
 `buildHermesLightTheme(platform: …)` or `buildHermesDarkTheme(platform: …)`
 (`lib/src/theme/hermes_theme.dart`), and the case run on at least one
 shrink-wrap platform. In #1284 the scroll-to-latest mini button's focus ring sat
