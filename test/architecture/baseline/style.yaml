@@ -436,7 +436,6 @@ style.string:
   lib/src/messaging/messaging_screen.dart: 4
   lib/src/messaging/messaging_setup_screen.dart: 7
   lib/src/messaging/telegram_pairing_screen.dart: 10
-  lib/src/messaging/widgets/messaging_platform_row.dart: 1
   lib/src/notifications/background_check_section.dart: 5
   lib/src/notifications/notifications_dialog.dart: 5
   lib/src/platform_hint/widgets/platform_hint_prompt.dart: 10
@@ -485,7 +484,7 @@ style.string:
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1
   lib/src/skills/skills_screen.dart: 10
-  lib/src/skills/widgets/installed_skills_list.dart: 4
+  lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_detail_actions.dart: 4
   lib/src/skills/widgets/skill_security_scan.dart: 3
   lib/src/spotlight/spotlight_dialog.dart: 1
