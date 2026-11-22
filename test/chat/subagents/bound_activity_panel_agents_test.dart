@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart'
-    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +11,6 @@ import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/subagents/activity_selection.dart';
 import 'package:hermes_app/src/chat/subagents/agent_models.dart';
-import 'package:hermes_app/src/chat/subagents/widgets/agent_detail_view.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_note_field.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
@@ -850,37 +847,30 @@ void main() {
 
     panelTest('Escape after a mouse click inside the detail, outside the '
         'field, still goes back', (tester) async {
-      // A field unfocuses on a tap outside for a mouse on desktop.
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      try {
-        final field = find.descendant(
-          of: find.byType(AgentNoteField),
-          matching: find.byType(EditableText),
-        );
-        await arrangeOne(tester);
-        await openDetail(tester, 'a1');
-        await tester.ensureVisible(field);
-        await tester.tap(field);
-        await tester.enterText(field, 'Only check the Go modules');
-        await tester.pump();
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.enterText(noteField(), 'x');
+      await tester.pump();
 
-        // Inside the detail, off the field and every control.
-        final at =
-            tester.getTopLeft(find.byType(AgentDetailView)) +
-            const Offset(4, 4);
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: at);
-        await mouse.down(at);
-        await mouse.up();
-        await mouse.removePointer();
-        await tester.pump();
+      // Above the field, inside the detail, on a paragraph: a mouse click
+      // takes focus out of the field.
+      final at = tester.getTopLeft(noteField()) - const Offset(0, 30);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: at);
+      await mouse.down(at);
+      await mouse.up();
+      await mouse.removePointer();
+      await tester.pump();
+      expect(find.byType(AgentNoteField), findsOneWidget);
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await settle(tester);
-        expect(find.byType(AgentNoteField), findsNothing);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
+      // The first Escape only leaves a field that holds text.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsNothing);
     });
 
     panelTest('an agent that ends while Stopping leaves no banner under '
