@@ -107,6 +107,23 @@ WidgetbookNode messagingNode() => WidgetbookFolder(
             name: 'Every state ($name)',
             builder: (context) => _on(context, platform, const _RowGroup()),
           ),
+        for (final MapEntry(key: name, value: platform) in const {
+          'Mac': TargetPlatform.macOS,
+          'Material': TargetPlatform.android,
+        }.entries)
+          for (final scale in const [2.0, 3.0])
+            WidgetbookUseCase(
+              name: 'Set up, text ${scale.toInt()}x ($name)',
+              builder: (context) => _on(
+                context,
+                platform,
+                MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(scale)),
+                  child: const _RowGroup(),
+                ),
+              ),
+            ),
       ],
     ),
     WidgetbookComponent(
