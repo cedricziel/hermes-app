@@ -3,6 +3,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/navigation/keyboard_shortcut_models.dart';
 import 'package:hermes_app/src/navigation/widgets/chord_keys.dart';
 import 'package:hermes_app/src/navigation/widgets/keyboard_shortcuts_view.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
@@ -112,6 +113,12 @@ List<ShortcutSectionModel> _mac(AppLocalizations l10n) => [
   ),
 ];
 
+/// The catalog's theme for [platform], in the brightness already in effect.
+ThemeData _themeFor(BuildContext context, TargetPlatform platform) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? buildHermesDarkTheme(platform: platform)
+    : buildHermesLightTheme(platform: platform);
+
 WidgetbookNode keyboardShortcutsNode() => WidgetbookFolder(
   name: 'Keyboard shortcuts',
   children: [
@@ -121,7 +128,7 @@ WidgetbookNode keyboardShortcutsNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Windows and Linux',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.linux),
+            data: _themeFor(context, TargetPlatform.linux),
             child: Builder(
               builder: (context) => pushed(
                 KeyboardShortcutsPage(sections: _windowsAndLinux(context.l10n)),
@@ -132,7 +139,7 @@ WidgetbookNode keyboardShortcutsNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Mac keys',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+            data: _themeFor(context, TargetPlatform.macOS),
             child: Builder(
               builder: (context) =>
                   pushed(KeyboardShortcutsPage(sections: _mac(context.l10n))),
