@@ -118,6 +118,16 @@ unchanged. Paste the block as plain lines,
 not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
 push, review the pushed head, paste.
 
+Catalog first (`PR policy`): a PR that adds a public widget class under
+`lib/src/**/widgets/` fails unless a line it adds names one of the new
+classes, in a widgetbook `.dart` file. Fix: add the use case
+(`component-catalog`). Only when none applies (no state or layout to show, or
+"shown through the `<Parent>` use case"), the isolated reviewer emits
+`Catalog-first: not applicable, <reason>` in its block, pasted unchanged with
+the rest of the block. Only a line inside that pasted block counts, which
+relies on the block being pasted unchanged, like the `Reviewer:` line; details in
+`flutter-ci`.
+
 ## READY and merging
 
 A session reports READY to the orchestrator when all of these hold:
