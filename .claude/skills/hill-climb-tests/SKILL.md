@@ -107,8 +107,13 @@ killed / (killed + survived).
 - Missing importers: a test that imports a subject's library but is not in
   `tests` can kill a mutant the list says survives. Scan `test/` for
   `import`/`export` of each mutated file (for a `part of` file, of the parent
-  library that has its `part '...'` line) and diff against `tests`. Run that
-  scan after a pull that adds test files, and add what it finds.
+  library that has its `part '...'` line) and diff against `tests`. Go one
+  hop deeper: also take tests that import a `lib/` library which itself
+  imports a mutated library (a listener test reaches the parser through the
+  listener). Run that scan after a pull that adds test files, and add what it
+  finds.
+- A survivor is a test gap only after it ran against the full `tests` list,
+  not only `quick_tests`: a quick survivor is a lead, not a finding.
 - Re-run a subject's mutants after any merge that touches it (its product
   files or its tests), and state the main commit next to every result. A
   kill rate without a commit is not comparable.
@@ -120,10 +125,11 @@ gap. It is dropped from its list and recorded here with the reason; the
 runner applies one edit per mutant, so a pair of defences cannot be removed
 together.
 
-- `queue` q11 (JSON scope check on load) and q24 (scope in the AAD): each is
-  equivalent alone, since the AAD binds the scope hash and the JSON check
-  still rejects a record moved between scopes. Only removing both changes
-  behaviour, which needs a multi-edit mutant.
+- `queue` q11 (JSON scope check on load): the AAD binds the scope hash, so a
+  record moved between scopes already fails to decrypt. (q24, the scope in
+  the AAD, is not equivalent: the JSON check then rejects the record with a
+  `FormatException` instead, which changes `error.type`; it is kept, and
+  observable only through that.)
 - `queue` q12 (record id vs file name): the AAD binds the file name and
   `_save` derives the name from the id, so a record that opens always matches.
 - `queue` q18 (attachment size check): the blob is sealed under a name-bound
