@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -26,13 +27,12 @@ import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 /// [child] with the Mac look, whatever the catalog's viewport.
 Widget mac(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.macOS), child: child),
 );
 
 WidgetbookUseCase _case(String name, Widget Function() build) =>
@@ -48,7 +48,8 @@ Widget _row({
   busy: busy,
   onTap: () {},
   onArchive: () {},
-  menuItems: (_) => macThreadMenuItems(pinned: false, manageable: true),
+  menuItems: (context) =>
+      macThreadMenuItems(context.l10n, pinned: false, manageable: true),
   onAction: (_) {},
 );
 
@@ -56,7 +57,8 @@ Widget _row({
 class _OpenMenu extends StatefulWidget {
   const _OpenMenu({required this.items});
 
-  final List<PopupMenuEntry<ThreadAction>> items;
+  final List<PopupMenuEntry<ThreadAction>> Function(AppLocalizations l10n)
+  items;
 
   @override
   State<_OpenMenu> createState() => _OpenMenuState();
@@ -79,7 +81,7 @@ class _OpenMenuState extends State<_OpenMenu> {
     child: AdaptivePopupMenuButton<ThreadAction>(
       controller: _menu,
       icon: const AppIcon(AppIcons.more),
-      itemBuilder: (_) => widget.items,
+      itemBuilder: (_) => widget.items(context.l10n),
     ),
   );
 }
@@ -183,13 +185,15 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Server thread',
           () => _OpenMenu(
-            items: macThreadMenuItems(pinned: false, manageable: true),
+            items: (l10n) =>
+                macThreadMenuItems(l10n, pinned: false, manageable: true),
           ),
         ),
         _case(
           'Pinned, with a new window',
           () => _OpenMenu(
-            items: macThreadMenuItems(
+            items: (l10n) => macThreadMenuItems(
+              l10n,
               pinned: true,
               manageable: true,
               canOpenInNewWindow: true,
@@ -199,7 +203,8 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Local draft',
           () => _OpenMenu(
-            items: macThreadMenuItems(pinned: false, manageable: false),
+            items: (l10n) =>
+                macThreadMenuItems(l10n, pinned: false, manageable: false),
           ),
         ),
       ],

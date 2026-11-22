@@ -73,6 +73,9 @@ class GroupedValueRow extends StatelessWidget {
         title: title,
         caption: caption,
         warning: warning,
+        // The pop-up draws its own ring, so the row must not draw a second one
+        // round the whole row when the pop-up has focus.
+        focusable: false,
         trailing:
             progress ??
             _PopUpValue(value: value, enabled: enabled, onPressed: onTap),
@@ -113,7 +116,7 @@ class GroupedValueRow extends StatelessWidget {
       : MergeSemantics(
           child: Semantics(
             button: true,
-            child: InkWell(onTap: onTap, child: row),
+            child: GroupedRowInk(onTap: onTap, child: row),
           ),
         );
 }
@@ -169,10 +172,15 @@ class _PopUpValue extends StatelessWidget {
                 value: value,
                 onTap: onPressed,
                 excludeSemantics: true,
-                child: InkWell(
-                  borderRadius: radius,
-                  onTap: onPressed,
-                  child: face,
+                // The row has 12 pt of padding round it: the ring goes
+                // outside.
+                child: FocusRing.outside(
+                  radius: 6,
+                  child: InkWell(
+                    borderRadius: radius,
+                    onTap: onPressed,
+                    child: face,
+                  ),
                 ),
               ),
       ),

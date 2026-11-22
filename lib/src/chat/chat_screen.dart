@@ -103,6 +103,7 @@ import '../share/shared_item.dart';
 import '../macos/dock/dock_menu_controller.dart';
 import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../macos/mac_sidebar.dart';
 import '../macos/mac_toolbar.dart' show MacToolbarButton;
 import '../macos/menu_bar_extra/menu_bar_extra_link.dart';

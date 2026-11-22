@@ -4,6 +4,7 @@ import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/working_dot.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -175,8 +176,11 @@ void main() {
             selected: false,
             busy: true,
             onTap: () {},
-            menuItems: (_) =>
-                macThreadMenuItems(pinned: false, manageable: false),
+            menuItems: (context) => macThreadMenuItems(
+              context.l10n,
+              pinned: false,
+              manageable: false,
+            ),
             onAction: (_) {},
           ),
         ),

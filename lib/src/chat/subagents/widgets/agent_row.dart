@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/focus_ring.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../theme/platform_chrome.dart';
 import '../../../widgets/row_actions.dart';
@@ -185,7 +186,10 @@ class AgentRow extends StatelessWidget {
         child: content,
       ),
     );
-    row = InkWell(onTap: onShowDetails, child: row);
+    row = FocusRing(
+      radius: 0,
+      child: InkWell(onTap: onShowDetails, child: row),
+    );
 
     row = Semantics(
       button: onShowDetails != null,

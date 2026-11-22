@@ -224,6 +224,40 @@ List<Hit> _chipShapeHits() => [
   for (final file in dartFiles('lib')) ...chipShapeHitsIn(file),
 ];
 
+/// A Windows or Linux chord of a menu command (docs/design-briefs/
+/// windows-linux-platform-fixes.md, "F1 command set") bound by a widget
+/// instead of declared in `menu_layout.dart`: a `SingleActivator` on one of
+/// those keys without a Cmd, or a `ctrlActivator` call.
+final _chordActivator = RegExp(r'\b(?:SingleActivator|ctrlActivator)\(');
+final _commandKey = RegExp(
+  r'^\s*(?:LogicalKeyboardKey\.)?(?:f1|f5|f8|keyN|keyF|keyR|keyB|keyP|comma)\b',
+);
+
+/// Alt with Left, Right or Up is Back, Forward and Enclosing Folder.
+final _altArrowKey = RegExp(
+  r'^\s*(?:LogicalKeyboardKey\.)?arrow(?:Left|Right|Up)\b',
+);
+
+bool _isMenuChord(String args) =>
+    !args.contains('meta:') &&
+    (_commandKey.hasMatch(args) ||
+        (_altArrowKey.hasMatch(args) && args.contains('alt: true')));
+
+List<Hit> menuChordHitsIn(SourceFile file) => [
+  for (final (at, args) in callArguments(file, _chordActivator))
+    if (file.code.startsWith('ctrlActivator(', at) || _isMenuChord(args))
+      Hit(file.path, file.lineOf(at), file.lineText(file.lineOf(at))),
+];
+
+List<Hit> _menuChordHits() => [
+  for (final file in dartFiles('lib'))
+    // The page keeps Alt+Up and Alt+Down for Android and iPad keyboards,
+    // where no menu command owns them.
+    if (file.path != 'lib/src/macos/menu_layout.dart' &&
+        file.path != 'lib/src/chat/checkpoints/pages/file_change_page.dart')
+      ...menuChordHitsIn(file),
+];
+
 /// A use of the catalog's keyboard override, a call or a tear-off.
 final _keyboardOverride = RegExp(r'\bmarkFocusRingKeyboardInput\b');
 
@@ -444,6 +478,52 @@ List<Hit> errorInterpolationHits(SourceFile file) {
   }
   return hits;
 }
+
+/// `.copyWith(platform: …)`: a theme copied onto another platform keeps the
+/// base theme's tap-target size, density and platform-specific component
+/// themes.
+final _copyWithOpen = RegExp(r'\.copyWith\(');
+
+/// Files under `lib/`, `widgetbook/` and `test/` that may still copy a theme onto
+/// another platform, each with its reason. Empty: every preview and test host
+/// builds the theme for its platform.
+const _themePlatformCopyAllow = <String, String>{};
+
+final _platformArg = RegExp(r'platform\s*:');
+final _argStart = RegExp(r'[(,]\s*$');
+
+/// A `platform:` argument at the top level of a `.copyWith(` argument list in
+/// [file]. One nested in an argument (`ListTileThemeData(platform: p)`) or a
+/// ternary (`c ? platform : d`) is not a hit.
+List<Hit> themePlatformCopyHitsIn(SourceFile file) {
+  final code = file.code;
+  final hits = <Hit>[];
+  for (final m in _copyWithOpen.allMatches(code)) {
+    var depth = 1;
+    for (var i = m.end; i < code.length && depth > 0; i++) {
+      final c = code[i];
+      if ('([{'.contains(c)) {
+        depth++;
+      } else if (')]}'.contains(c)) {
+        depth--;
+      } else if (depth == 1 &&
+          code.startsWith('platform', i) &&
+          _platformArg.matchAsPrefix(code, i) != null &&
+          _argStart.hasMatch(code.substring(m.end - 1, i))) {
+        final line = file.lineOf(i);
+        hits.add(Hit(file.path, line, file.lineText(line)));
+      }
+    }
+  }
+  return hits;
+}
+
+List<Hit> _themePlatformCopies() => [
+  for (final root in const ['lib', 'widgetbook', 'test'])
+    for (final file in dartFiles(root))
+      if (!isAllowed(file.path, _themePlatformCopyAllow.keys))
+        ...themePlatformCopyHitsIn(file),
+];
 
 List<Hit> _errorInterpolation() => [
   for (final file in dartFiles('lib')) ...errorInterpolationHits(file),
@@ -806,6 +886,19 @@ final guardRules = <Rule>[
     hits: _chipShapeHits,
   ),
 
+  // docs/architecture/macos.md, "Keyboard shortcuts on Windows and Linux": the
+  // chords of the menu commands are declared once, in menu_layout.dart.
+  _custom(
+    name: 'menu-chord-outside-menu-layout',
+    message:
+        'a menu command\'s chord is declared once, next to the Mac\'s, in '
+        'lib/src/macos/menu_layout.dart (desktopShortcuts), and the screen '
+        'offers the command with a MacCommandScope; DesktopCommandShortcuts '
+        '(lib/src/navigation/) binds it. A second handler for the same key '
+        'fires twice or fights the first.',
+    hits: _menuChordHits,
+  ),
+
   // docs/architecture/settings-screens.md, "Keyboard focus ring": a menu is
   // built by AdaptivePopupMenuButton, which puts the ring on its items.
   _guard(
@@ -920,10 +1013,67 @@ final guardRules = <Rule>[
         '(reportBug) is the one place that keeps the full message.',
     hits: _errorInterpolation,
   ),
+  _custom(
+    name: 'theme-platform-copy',
+    message:
+        'build the theme for the platform instead of copying one onto it: '
+        'buildHermesLightTheme(platform: p) / buildHermesDarkTheme(platform: '
+        'p), or platformTheme(context, p) in widgetbook/. '
+        '`.copyWith(platform: …)` keeps the base theme\'s materialTapTargetSize, '
+        'visualDensity and platform-specific component themes, so a Mac case '
+        'under flutter test gets phone sizing.',
+    hits: _themePlatformCopies,
+  ),
 ];
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  group('theme-platform-copy scan', () {
+    int hits(String source) =>
+        themePlatformCopyHitsIn(SourceFile('test/x.dart', source)).length;
+
+    test('catches a platform argument at any position and nesting before', () {
+      for (final bad in [
+        'Theme.of(context).copyWith(platform: platform)',
+        'base.copyWith(\n  platform: TargetPlatform.macOS,\n)',
+        'buildHermesLightTheme().copyWith(platform: p)',
+        'base.copyWith(visualDensity: d, platform: p)',
+        'base.copyWith(\n  appBarTheme: AppBarTheme(leadingWidth: 4),\n  platform: p,\n)',
+        'base.copyWith(appBarTheme: AppBarTheme(titleTextStyle: '
+            'TextStyle(fontSize: 12)), platform: p)',
+        'b.copyWith(\n  textTheme: b.textTheme.apply(bodyColor: '
+            'Color(Colors.red.toARGB32())),\n  platform: p,\n)',
+      ]) {
+        expect(hits(bad), 1, reason: bad);
+      }
+    });
+
+    test('ignores nested platform arguments, ternaries and other calls', () {
+      for (final fine in [
+        'buildHermesLightTheme(platform: p)',
+        'Theme.of(context).copyWith(visualDensity: d)',
+        'theme.copyWith(appBarTheme: a, platform2: p)',
+        'MediaQuery.of(context).copyWith(size: s)',
+        'base.copyWith(tile: ListTileThemeData(platform: p))',
+        'base.copyWith(visualDensity: c ? platform : d)',
+        'x.copyWith(a: f(g(platform: p)))',
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test('ignores comments and strings', () {
+      final f = SourceFile(
+        'test/x.dart',
+        "// base.copyWith(platform: p)\nfinal s = 'a.copyWith(platform: p)';\n"
+            'final t = base.copyWith(platform: p);\n',
+      );
+      final found = themePlatformCopyHitsIn(f);
+      expect(found, hasLength(1));
+      expect(found.single.line, 3);
+    });
+  });
 
   test('the keyboard-override pattern catches a call and a tear-off', () {
     expect(_keyboardOverride.hasMatch('markFocusRingKeyboardInput();'), isTrue);
@@ -1250,6 +1400,46 @@ void main() {
       );
       expect(themed('x = ChipThemeData(side: s);', 'lib/src/x.dart'), 0);
       expect(themed(code, 'lib/src/theme/hermes_theme.dart'), 0);
+    });
+
+    test('a menu command chord outside menu_layout.dart is flagged', () {
+      int chords(String source) =>
+          menuChordHitsIn(SourceFile('lib/src/x.dart', source)).length;
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.keyN, control: true);'),
+        1,
+      );
+      expect(chords('x = SingleActivator(LogicalKeyboardKey.f5);'), 1);
+      expect(chords('x = ctrlActivator(LogicalKeyboardKey.keyB);'), 1);
+      // A Mac chord, and keys no menu command uses, are not.
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.keyN, meta: true);'),
+        0,
+      );
+      expect(chords('x = SingleActivator(LogicalKeyboardKey.escape);'), 0);
+      // Alt with Left, Right or Up; a plain arrow, or Alt+Down, is not.
+      for (final key in ['arrowLeft', 'arrowRight', 'arrowUp']) {
+        expect(
+          chords('x = SingleActivator(LogicalKeyboardKey.$key, alt: true);'),
+          1,
+          reason: key,
+        );
+        expect(chords('x = SingleActivator(LogicalKeyboardKey.$key);'), 0);
+      }
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.arrowDown, alt: true);'),
+        0,
+      );
+      expect(
+        chords(
+          'x = SingleActivator(LogicalKeyboardKey.arrowUp, alt: true, meta: true);',
+        ),
+        0,
+      );
+      expect(
+        chords('x = SingleActivator(LogicalKeyboardKey.keyV, control: true);'),
+        0,
+      );
     });
 
     test('a popup menu without its type argument is flagged', () {

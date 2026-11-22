@@ -8,6 +8,7 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'host.dart';
+import 'platform_theme.dart';
 import 'skills_messaging_use_cases.dart' show skillsServer;
 
 const _platforms = {
@@ -17,10 +18,7 @@ const _platforms = {
 };
 
 Widget _on(BuildContext context, TargetPlatform platform, Widget child) =>
-    Theme(
-      data: Theme.of(context).copyWith(platform: platform),
-      child: child,
-    );
+    Theme(data: platformTheme(context, platform), child: child);
 
 WidgetbookUseCase _messaging(
   String name,

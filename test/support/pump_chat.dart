@@ -70,6 +70,7 @@ Future<void> pumpChatScreen(
   StarterContextLoader? starterContext,
   TargetPlatform? platform,
   MacCommandRegistry? commands,
+  bool desktopKeys = false,
   VoiceRecorder? voiceRecorder,
   CallBridge Function()? callBridge,
   VoiceRecorder? voiceMessageRecorder,
@@ -103,12 +104,15 @@ Future<void> pumpChatScreen(
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
+      theme: theme ?? buildHermesLightTheme(platform: platform),
       builder: (context, child) {
         final scoped = AppThemeScopes(child: child!);
         return commands == null
             ? scoped
-            : macCommandsBuilder(commands)!(context, scoped);
+            : macCommandsBuilder(commands, desktopKeys: desktopKeys)!(
+                context,
+                scoped,
+              );
       },
       home: _Visible(
         visible: visible,

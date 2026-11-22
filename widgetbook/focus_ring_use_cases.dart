@@ -1,6 +1,31 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
+import 'package:hermes_app/src/chat/activity/widgets/activity_line_model.dart';
+import 'package:hermes_app/src/chat/activity/working_summary.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoints_state.dart';
+import 'package:hermes_app/src/chat/checkpoints/widgets/file_checkpoints_row.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
+import 'package:hermes_app/src/chat/context/context_state.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_format.dart';
+import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
+import 'package:hermes_app/src/chat/subagents/agent_models.dart';
+import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
+import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_json_tree.dart';
+import 'package:hermes_app/src/files/widgets/file_row.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_advanced_row.dart';
+import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_action_row.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
+import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_confirmation_layout.dart';
@@ -38,9 +63,23 @@ import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
+import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
+import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
+import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart'
+    show ModelChoice, ModelOption, ModelOptions, ModelProviderOption;
+import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'bot_screen_fixture.dart';
+import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 /// Shows [child] as it looks when the keyboard has moved focus to its
 /// [focusIndex]-th focusable control, or to its [button]-th button: the
@@ -408,10 +447,8 @@ Widget _buttonAt(int n, Widget child) =>
     frame(_KeyboardFocus(button: n, child: child));
 
 Widget _mac(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.macOS), child: child),
 );
 
 Widget _settingsFormAction() => SizedBox(
@@ -524,8 +561,11 @@ List<WidgetbookUseCase> _ownShapeUseCases() => [
                 selected: false,
                 onTap: () {},
                 onArchive: () {},
-                menuItems: (_) =>
-                    macThreadMenuItems(pinned: false, manageable: true),
+                menuItems: (context) => macThreadMenuItems(
+                  context.l10n,
+                  pinned: false,
+                  manageable: true,
+                ),
                 onAction: (_) {},
               ),
             ),
@@ -568,10 +608,8 @@ List<WidgetbookUseCase> _ownShapeUseCases() => [
 ];
 
 Widget _on(TargetPlatform platform, Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, platform), child: child),
 );
 
 /// A menu of plain rows opened under its button on a Mac, with the second row
@@ -863,6 +901,476 @@ List<WidgetbookUseCase> _remainingControlUseCases() => [
   ),
 ];
 
+/// [child] on [platform], with the app theme built for it (`buildHermes*Theme`
+/// recomputes the tap-target size, density and chrome that `copyWith` would
+/// keep), in the brightness the catalog is showing.
+Widget _onPlatform(TargetPlatform platform, Widget child) => Builder(
+  builder: (context) => Theme(
+    data: Theme.brightnessOf(context) == Brightness.dark
+        ? buildHermesDarkTheme(platform: platform)
+        : buildHermesLightTheme(platform: platform),
+    child: child,
+  ),
+);
+
+const _platformNames = {
+  TargetPlatform.iOS: 'iPhone',
+  TargetPlatform.macOS: 'Mac',
+  TargetPlatform.android: 'Material',
+};
+
+/// One use case per platform of [platforms], for a ring whose radius follows
+/// the section's (iOS 10, Mac 8, Material 12).
+List<WidgetbookUseCase> _eachPlatform(
+  String name,
+  Widget Function() build, {
+  List<TargetPlatform> platforms = const [
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+    TargetPlatform.android,
+  ],
+}) => [
+  for (final platform in platforms)
+    WidgetbookUseCase(
+      name: '$name (${_platformNames[platform]})',
+      builder: (_) => _onPlatform(platform, build()),
+    ),
+];
+
+Widget _section(List<Widget> rows) => GroupedSection(children: rows);
+
+Widget _actionRows() => _section([
+  GroupedActionRow(
+    title: 'Restart gateway',
+    icon: AppIcons.refresh,
+    onPressed: () {},
+  ),
+  GroupedActionRow(
+    title: 'Run a server check',
+    icon: AppIcons.play,
+    onPressed: () {},
+  ),
+]);
+
+Widget _valueRows() => _section([
+  GroupedValueRow(title: 'Provider', value: 'Anthropic', onTap: () {}),
+  GroupedValueRow(
+    title: 'Model',
+    value: 'claude-sonnet',
+    caption: 'Anthropic',
+    onTap: () {},
+  ),
+]);
+
+/// The Schedules form's "Advanced" row, in a section under another row.
+Widget _advancedRow() => _section([
+  const GroupedRow(title: 'Prompt', value: 'Summarize the news'),
+  ScheduleAdvancedRow(open: false, onTap: () {}),
+]);
+
+const _folder = FileRowModel(name: 'src', isFolder: true);
+const _file = FileRowModel(name: 'analysis.py', isFolder: false);
+
+Widget _fileRows() => Builder(
+  builder: (context) => GroupedSection(
+    dividerIndent: GroupedMetrics.of(context).indentAfterLeading,
+    children: [
+      FileRow(model: _folder, onTap: () {}),
+      FileRow(model: _file, onTap: () {}),
+    ],
+  ),
+);
+
+Widget _activityLine() => Builder(
+  builder: (context) => ActivityLine(
+    model: ActivityLineModel.fromSummary(
+      context.l10n,
+      WorkingSummary(
+        sentence: const WorkingSentence(
+          WorkingSentenceKind.goal,
+          at: 1,
+          text: 'Ship the weekly report by Friday',
+        ),
+      ),
+    ),
+    onOpen: () {},
+  ),
+);
+
+const _agent = AgentRowModel(
+  goal: 'Audit the dependency tree for packages with known vulnerabilities',
+  state: AgentState.running,
+  runTime: Duration(minutes: 1, seconds: 12),
+  toolCount: 4,
+  currentTool: 'read_file',
+  currentPreview: 'go.sum',
+);
+
+Widget _agentRows() => Column(
+  children: [
+    AgentRow(model: _agent, onShowDetails: () {}, onStop: () {}),
+    AgentRow(
+      model: const AgentRowModel(
+        goal: 'Summarize the open advisories',
+        state: AgentState.finished,
+        runTime: Duration(seconds: 48),
+        toolCount: 4,
+      ),
+      onShowDetails: () {},
+    ),
+  ],
+);
+
+Widget _contextRow() {
+  const figures = ContextFigures(
+    used: 124000,
+    max: 200000,
+    percent: 62,
+    estimated: false,
+    source: ContextSource.providerUsage,
+  );
+  return ContextRow(
+    figures: figures,
+    level: contextLevelOf(figures),
+    onOpen: () {},
+    onCompress: () {},
+    onDismissSuggestion: () {},
+  );
+}
+
+Widget _checkpointsRow() => FileCheckpointsRow(
+  state: CheckpointsRowState.count,
+  count: 3,
+  onOpen: () {},
+);
+
+const _subagents = [
+  Subagent(
+    id: 'agent-1',
+    goal: 'Audit the dependency tree for packages with known vulnerabilities',
+    count: 2,
+    toolCount: 6,
+    lastTool: 'read_file',
+    lastToolPreview: 'go.sum',
+  ),
+  Subagent(
+    id: 'agent-2',
+    goal: 'Summarize the open advisories for the release notes',
+    index: 1,
+    count: 2,
+    status: SubagentStatus.completed,
+    toolCount: 4,
+    summary: 'Two advisories apply; both are fixed in the next patch release.',
+    duration: Duration(seconds: 48),
+  ),
+];
+
+Widget _subagentCard() => const SubagentGroupCard(
+  subagents: _subagents,
+  initiallyOpen: true,
+  onShowDetails: _ignoreId,
+);
+
+void _ignoreId(String _) {}
+
+Widget _jsonTree() => const Card(
+  margin: EdgeInsets.zero,
+  clipBehavior: Clip.antiAlias,
+  child: ToolJsonTree(
+    text:
+        '{"path": "go.sum", "limit": 20, "options": {"recursive": true, '
+        '"follow": false}, "tags": ["a", "b"]}',
+  ),
+);
+
+Widget _restartBanner() => ServerRestartBanner.restarting(onTap: () {});
+
+Widget _workingFolderRow() => Builder(
+  builder: (context) => Container(
+    color: Theme.of(context).colorScheme.surface,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: WorkingDirectoryRow(
+      folderName: 'demo',
+      path: '/home/me/code/demo',
+      branch: 'main',
+      serverDefault: true,
+      onTap: () {},
+    ),
+  ),
+);
+
+Widget _workingFolderLine({required bool belowBar}) => WorkingDirectoryLine(
+  title: 'Weekly planning',
+  folderName: 'api',
+  branch: 'main',
+  belowBar: belowBar,
+  onTap: () {},
+);
+
+const _plainTask = KanbanTask(
+  id: 't_1a2b3c',
+  title: 'Draft the weekly report',
+  status: 'todo',
+  assignee: 'writer',
+  commentCount: 2,
+);
+
+Widget _kanbanColumn({bool selected = false}) => SizedBox(
+  width: 260,
+  child: Column(
+    spacing: 8,
+    children: [
+      KanbanCard(task: _plainTask, onTap: () {}, selected: selected),
+      KanbanCard(
+        task: const KanbanTask(
+          id: 't_4d5e6f',
+          title: 'Review the release notes',
+          status: 'todo',
+          priority: 2,
+        ),
+        onTap: () {},
+      ),
+    ],
+  ),
+);
+
+/// The rows that take the ring inside their own edge, because a section, a
+/// list or a card clips them (F.427, tables B and C). Each focuses a row with
+/// the keyboard: the ring is 2 px inside the row, with the radius the row's
+/// container gives it.
+List<WidgetbookUseCase> _insideRowUseCases() => [
+  ..._eachPlatform(
+    'Inside row: Grouped action row',
+    () => _at(1, _actionRows()),
+  ),
+  ..._eachPlatform(
+    'Inside row: Grouped value row (iOS wrapper)',
+    () => _at(1, _valueRows()),
+    platforms: const [TargetPlatform.iOS],
+  ),
+  ..._eachPlatform(
+    'Inside row: Schedules Advanced row',
+    () => _at(1, _advancedRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: File row',
+    builder: (_) => _at(1, _fileRows()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Activity line',
+    builder: (_) => _at(0, _activityLine()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Agent row',
+    builder: (_) => _at(0, _agentRows()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Context row',
+    builder: (_) => _at(0, _contextRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: File checkpoints row',
+    builder: (_) => _at(0, _checkpointsRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Sub-agent group header',
+    builder: (_) => _at(0, _subagentCard()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Sub-agent line',
+    builder: (_) => _at(1, _subagentCard()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Tool-call JSON tree row',
+    builder: (_) => _at(1, _jsonTree()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Restart banner',
+    builder: (_) => _at(0, _restartBanner()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Working-folder row',
+    builder: (_) => _at(0, _workingFolderRow()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Working-folder line',
+    builder: (_) => _at(0, _workingFolderLine(belowBar: false)),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Working-folder line (full width)',
+    builder: (_) => _at(0, _workingFolderLine(belowBar: true)),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Kanban card',
+    builder: (_) => _at(0, _kanbanColumn()),
+  ),
+  WidgetbookUseCase(
+    name: 'Inside row: Kanban card, selected',
+    builder: (_) => _at(0, _kanbanColumn(selected: true)),
+  ),
+];
+
+/// The keyboard-focused states of the tap targets that nothing clips (F.427,
+/// table D): the ring is 2 px outside the control, the control's radius plus 2.
+/// Each is the real widget on its platform's own theme.
+const _outsidePhones = {
+  'Material': TargetPlatform.android,
+  'iPhone': TargetPlatform.iOS,
+  'Mac': TargetPlatform.macOS,
+};
+
+List<WidgetbookUseCase> _outside(
+  String item,
+  Widget Function() build, {
+  Map<String, TargetPlatform> platforms = _outsidePhones,
+  bool Function(FocusNode node)? where,
+}) => [
+  for (final MapEntry(key: name, value: platform) in platforms.entries)
+    WidgetbookUseCase(
+      name: 'Outside tap target: $item ($name)',
+      builder: (_) => _on(
+        platform,
+        frame(_KeyboardFocus(focusIndex: 0, where: where, child: build())),
+      ),
+    ),
+];
+
+bool _inSave(FocusNode node) {
+  var found = false;
+  node.context?.visitAncestorElements((element) {
+    found = element.widget is NamedIconButton;
+    return !found;
+  });
+  return found;
+}
+
+bool _inEffort(FocusNode node) {
+  var found = false;
+  node.context?.visitAncestorElements((element) {
+    found = element.widget.key == const Key('effort-medium');
+    return !found;
+  });
+  return found;
+}
+
+/// One model only, so that at a large text size (where the effort pills sit at
+/// the end of the list) the pills are still on screen.
+const _oneModel = ModelOptions(
+  current: ModelChoice('anthropic', 'claude-opus-4'),
+  providers: [
+    ModelProviderOption(
+      id: 'anthropic',
+      label: 'Anthropic',
+      models: [ModelOption(id: 'claude-opus-4', canDisableReasoning: true)],
+    ),
+  ],
+);
+
+Widget _effortPicker({double textScale = 1}) => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context)
+        .copyWith(textScaler: TextScaler.linear(textScale)),
+    child: SizedBox(
+      width: 420,
+      child: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        child: ModelPicker(
+          options: textScale > 1 ? _oneModel : modelOptions,
+          selected: const ModelChoice(
+            'anthropic',
+            'claude-opus-4',
+            effort: 'high',
+          ),
+          onChanged: (_) {},
+        ),
+      ),
+    ),
+  ),
+);
+
+List<WidgetbookUseCase> _outsideTapTargetUseCases() => [
+  ..._outside(
+    'Tool-call group header',
+    () => const ToolCallGroup(calls: finishedToolRun),
+  ),
+  ..._outside(
+    'Reasoning toggle',
+    () => const ReasoningBlock(text: reasoningText),
+  ),
+  ..._outside(
+    'Attachment retry card',
+    () => AttachmentCardFrame(
+      attachment: const ChatAttachment(
+        name: 'quarterly-report.pdf',
+        kind: AttachmentKind.file,
+        size: 482113,
+      ),
+      notice: "Couldn't download. Tap to retry.",
+      noticeIsError: true,
+      onTap: _noop,
+    ),
+    platforms: {
+      'Material': TargetPlatform.android,
+      'Mac': TargetPlatform.macOS,
+    },
+  ),
+  // Save draws its own ring and the card's stays off. A Mac card has no tap.
+  ..._outside(
+    'Attachment card, Save focused',
+    () => AttachmentCardFrame(
+      attachment: const ChatAttachment(
+        name: 'quarterly-report.pdf',
+        kind: AttachmentKind.file,
+        size: 482113,
+      ),
+      onTap: _noop,
+      trailing: NamedIconButton(
+        label: 'Save quarterly-report.pdf',
+        tooltip: 'Save',
+        icon: AppIcons.download,
+        iconSize: 20,
+        visualDensity: VisualDensity.compact,
+        onPressed: _noop,
+      ),
+    ),
+    where: _inSave,
+  ),
+  ..._outside(
+    'Bot Screen preview',
+    () => BotScreenPreview(
+      model: BotScreenPreviewFrame(bytes: botScreenFixturePng()),
+      onTap: _noop,
+    ),
+  ),
+  ..._outside(
+    'Welcome card',
+    () => SizedBox(
+      height: 460,
+      child: WelcomeView(
+        greetingName: 'Ada',
+        prompts: buildStarterPrompts(const StarterContext()),
+        onPick: (_) {},
+      ),
+    ),
+  ),
+  ..._outside('Effort pill', _effortPicker, where: _inEffort),
+  ..._outside(
+    'Effort pill, text 3x',
+    () => _effortPicker(textScale: 3),
+    platforms: const {'Material': TargetPlatform.android},
+    where: _inEffort,
+  ),
+  ..._outside(
+    'Mac pop-up value',
+    () => const GroupedSection(
+      children: [
+        GroupedValueRow(title: 'Model', value: 'claude-opus-4', onTap: _noop),
+      ],
+    ),
+    platforms: const {'Mac': TargetPlatform.macOS},
+  ),
+];
+
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
 /// (its radius plus 2), 2 px inside a list row, menu item or segment that a
 /// container clips. It shows only after the keyboard moved focus, never after
@@ -899,6 +1407,8 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
     ..._menuTileChipUseCases(),
     ..._ownShapeUseCases(),
     ..._remainingControlUseCases(),
+    ..._outsideTapTargetUseCases(),
+    ..._insideRowUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(

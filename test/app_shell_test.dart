@@ -118,7 +118,7 @@ void main() {
             ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           builder: (context, child) {
             final content =
                 macCommandsBuilder(commands)
@@ -1974,6 +1974,26 @@ void main() {
 
     await openInSidebar(tester, 'Chat');
     expect(newTitle(), isNull);
+  });
+
+  testWidgets('on Linux the shell offers Settings and the chat New Chat', (
+    tester,
+  ) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpShell(
+      tester,
+      size: const Size(1400, 900),
+      platform: TargetPlatform.linux,
+      commands: commands,
+    );
+
+    expect(commands.handlerFor(MacCommand.settings)?.enabled, isTrue);
+    expect(commands.handlerFor(MacCommand.newChat)?.enabled, isTrue);
+
+    expect(commands.invoke(MacCommand.settings), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Keyboard shortcuts'), findsOneWidget);
   });
 
   group('Schedules', () {

@@ -63,7 +63,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
@@ -95,7 +95,7 @@ void main() {
     testWidgets('the label row is $row high on $platform', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(

@@ -2132,6 +2132,14 @@
   "@chatWidgetsHistoryLoading": {
     "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
   },
+  "chatWidgetsNewChat": "New chat",
+  "@chatWidgetsNewChat": {
+    "description": "Name and hover text of the buttons that start a new chat."
+  },
+  "chatWidgetsNewMessage": "New message",
+  "@chatWidgetsNewMessage": {
+    "description": "Name and hover text of the button that starts a new chat on the messenger-style chat list."
+  },
   "chatWidgetsProgramConfirmCancel": "Cancel",
   "@chatWidgetsProgramConfirmCancel": {
     "description": "Cancel button of the program stop confirmation."
@@ -2246,9 +2254,21 @@
   "@chatWidgetsThreadMenuArchive": {
     "description": "A chat row's Archive action, shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu of the other platforms."
   },
+  "chatWidgetsThreadMenuBranch": "Branch in New Chat",
+  "@chatWidgetsThreadMenuBranch": {
+    "description": "Item in the Mac chat menu that copies the chat into a new chat and opens it. Title case on purpose, like the Mac menu bar."
+  },
   "chatWidgetsThreadMenuCancel": "Cancel",
   "@chatWidgetsThreadMenuCancel": {
-    "description": "Cancel button of the iPhone chat row action sheet and of the alerts that ask before deleting a chat or retiring a Bot Chat."
+    "description": "Cancel button of the iPhone chat row action sheet, of the alerts that ask before deleting a chat or retiring a Bot Chat, and of the rename chat dialog."
+  },
+  "chatWidgetsThreadMenuCopied": "Transcript copied",
+  "@chatWidgetsThreadMenuCopied": {
+    "description": "Snackbar after the chat's transcript was copied to the clipboard."
+  },
+  "chatWidgetsThreadMenuCopyFailed": "Could not copy the transcript",
+  "@chatWidgetsThreadMenuCopyFailed": {
+    "description": "Snackbar when the chat's transcript could not be read to copy it."
   },
   "chatWidgetsThreadMenuCopyTranscript": "Copy transcript",
   "@chatWidgetsThreadMenuCopyTranscript": {
@@ -2294,6 +2314,10 @@
   "@chatWidgetsThreadMenuRename": {
     "description": "A chat row's Rename action, shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu of the other platforms."
   },
+  "chatWidgetsThreadMenuRenameTitle": "Rename chat",
+  "@chatWidgetsThreadMenuRenameTitle": {
+    "description": "Title of the dialog that asks for a new name of a chat."
+  },
   "chatWidgetsThreadMenuRetire": "Retire Bot Chat…",
   "@chatWidgetsThreadMenuRetire": {
     "description": "A Bot Chat row's action that archives the canonical conversation, in place of Archive: shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu; it opens a confirmation."
@@ -2309,6 +2333,10 @@
   "chatWidgetsThreadMenuRetireConfirmTitle": "Retire this Bot Chat?",
   "@chatWidgetsThreadMenuRetireConfirmTitle": {
     "description": "Title of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuSave": "Save",
+  "@chatWidgetsThreadMenuSave": {
+    "description": "Button in the rename chat dialog that keeps the new name."
   },
   "chatWidgetsThreadMenuTooltip": "Chat actions",
   "@chatWidgetsThreadMenuTooltip": {
@@ -2900,13 +2928,138 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanBulkPickerFooter": "{count, plural, =1{Applies to the selected task.} other{Applies to the {count} selected tasks.}}",
+  "@kanbanBulkPickerFooter": {
+    "description": "Note under the choices of a bulk action in Kanban selection mode (Move to, Assign to, Priority, Reasoning effort). {count} is how many tasks are selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanEditTaskDescriptionLabel": "Description",
+  "@kanbanEditTaskDescriptionLabel": {
+    "description": "Label of the description field, and the header above it, in the dialog that edits a Kanban task."
+  },
+  "kanbanEditTaskTitle": "Edit task",
+  "@kanbanEditTaskTitle": {
+    "description": "Title of the dialog that edits a Kanban task's title and description."
+  },
+  "kanbanEditTaskTitleLabel": "Title",
+  "@kanbanEditTaskTitleLabel": {
+    "description": "Label of the task title field in the dialog that edits a Kanban task."
+  },
+  "kanbanExportAction": "Export",
+  "@kanbanExportAction": {
+    "description": "Button that starts exporting a Kanban board to an archive on the server."
+  },
+  "kanbanExportAttachments": "Include attachments",
+  "@kanbanExportAttachments": {
+    "description": "Switch in the board export dialog: put the tasks' attachments in the archive."
+  },
+  "kanbanExportFooter": "The archive is written on the server, not on this device. Empty uses the server’s export folder.",
+  "@kanbanExportFooter": {
+    "description": "Note under the server path field in the board export dialog. The server's export folder is a default location the server chooses."
+  },
+  "kanbanExportLogs": "Include worker logs",
+  "@kanbanExportLogs": {
+    "description": "Switch in the board export dialog: put the logs of the workers that ran tasks in the archive."
+  },
+  "kanbanExportPathHint": "Use export folder",
+  "@kanbanExportPathHint": {
+    "description": "Placeholder of the server path field in the board export dialog while it is empty; the server's own export folder is used then."
+  },
+  "kanbanExportPathLabel": "Server path",
+  "@kanbanExportPathLabel": {
+    "description": "Label of the field for where on the server the board archive is written."
+  },
+  "kanbanExportTitle": "Export {name}",
+  "@kanbanExportTitle": {
+    "description": "Title of the dialog that exports one Kanban board.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Ops"
+      }
+    }
+  },
+  "kanbanImportAction": "Import",
+  "@kanbanImportAction": {
+    "description": "Button that imports a Kanban board from an archive on the server."
+  },
+  "kanbanImportArchiveLabel": "Archive path",
+  "@kanbanImportArchiveLabel": {
+    "description": "Label of the field for the path of a board archive that is already on the server."
+  },
+  "kanbanImportFooter": "The archive must already be on the server.",
+  "@kanbanImportFooter": {
+    "description": "Note under the archive path field in the board import dialog."
+  },
+  "kanbanImportOpenAfter": "Open it afterwards",
+  "@kanbanImportOpenAfter": {
+    "description": "Switch in the board import dialog: show the imported board when the import is done."
+  },
+  "kanbanImportSlugHint": "Optional",
+  "@kanbanImportSlugHint": {
+    "description": "Placeholder of the new board slug field in the board import dialog; the field may stay empty."
+  },
+  "kanbanImportSlugLabel": "New board slug",
+  "@kanbanImportSlugLabel": {
+    "description": "Label of the field for the short id (slug) the imported board gets. Keep the word slug."
+  },
+  "kanbanImportTitle": "Import a board",
+  "@kanbanImportTitle": {
+    "description": "Title of the dialog that imports a Kanban board from a server-side archive."
+  },
   "kanbanNewTaskAction": "New task",
   "@kanbanNewTaskAction": {
     "description": "Label of the floating button on the board that opens the new task form."
   },
+  "kanbanOrchestrationActiveProfile": "Active profile ({profile})",
+  "@kanbanOrchestrationActiveProfile": {
+    "description": "Choice in the orchestration dialog's profile pickers that means the server's currently active profile, followed by its name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "default"
+      }
+    }
+  },
+  "kanbanOrchestrationAutoDecompose": "Auto-decompose triage tasks",
+  "@kanbanOrchestrationAutoDecompose": {
+    "description": "Switch in the orchestration dialog: let the orchestrator split tasks in the triage column into subtasks by itself."
+  },
+  "kanbanOrchestrationAutoDecomposeCaption": "Off: decompose by hand",
+  "@kanbanOrchestrationAutoDecomposeCaption": {
+    "description": "Caption under the auto-decompose switch saying what the off position means."
+  },
+  "kanbanOrchestrationAutoPromote": "Promote children when ready",
+  "@kanbanOrchestrationAutoPromote": {
+    "description": "Switch in the orchestration dialog: move subtasks forward once what they wait for is done."
+  },
+  "kanbanOrchestrationDefaultAssignee": "Default assignee",
+  "@kanbanOrchestrationDefaultAssignee": {
+    "description": "Label of the picker for the profile that new Kanban tasks go to when nobody is named."
+  },
+  "kanbanOrchestrationLoadFailed": "Could not load the settings",
+  "@kanbanOrchestrationLoadFailed": {
+    "description": "Shown in the orchestration dialog when its settings could not be read from the server."
+  },
+  "kanbanOrchestrationOrchestrator": "Orchestrator profile",
+  "@kanbanOrchestrationOrchestrator": {
+    "description": "Label of the picker for the profile that plans and splits Kanban work."
+  },
+  "kanbanOrchestrationTitle": "Orchestration",
+  "@kanbanOrchestrationTitle": {
+    "description": "Title of the dialog that edits how Kanban tasks are split up and picked up."
+  },
   "kanbanRefreshAction": "Refresh",
   "@kanbanRefreshAction": {
     "description": "Name of the Refresh button on the board and the workers page; reads the list again."
+  },
+  "kanbanSaveAction": "Save",
+  "@kanbanSaveAction": {
+    "description": "Button that saves the Kanban dialog that is open (edit task, orchestration)."
   },
 
   "@@x-area-live_activities": "",
@@ -2922,7 +3075,7 @@
   },
   "macosMenuArchive": "Archive",
   "@macosMenuArchive": {
-    "description": "Chat menu: archives the open chat."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: archives the chat."
   },
   "macosMenuBack": "Back",
   "@macosMenuBack": {
@@ -2930,7 +3083,7 @@
   },
   "macosMenuChangeFolder": "Change Folder…",
   "@macosMenuChangeFolder": {
-    "description": "Chat menu: moves the open chat to another working folder; opens a picker."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: moves the chat to another working folder; opens a picker."
   },
   "macosMenuChat": "Chat",
   "@macosMenuChat": {
@@ -2950,7 +3103,7 @@
   },
   "macosMenuCopyTranscript": "Copy Transcript",
   "@macosMenuCopyTranscript": {
-    "description": "Chat menu: copies the open chat as text."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: copies the chat as text."
   },
   "macosMenuCut": "Cut",
   "@macosMenuCut": {
@@ -2958,7 +3111,7 @@
   },
   "macosMenuDelete": "Delete…",
   "@macosMenuDelete": {
-    "description": "Chat menu: deletes the open chat after a confirmation."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: deletes the chat after a confirmation."
   },
   "macosMenuEdit": "Edit",
   "@macosMenuEdit": {
@@ -2970,7 +3123,7 @@
   },
   "macosMenuExportChat": "Export Chat as JSON…",
   "@macosMenuExportChat": {
-    "description": "Chat menu: saves the open chat as a JSON file; a dialog follows."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: saves the chat as a JSON file; a dialog follows."
   },
   "macosMenuFile": "File",
   "@macosMenuFile": {
@@ -3014,7 +3167,7 @@
   },
   "macosMenuOpenInNewWindow": "Open in New Window",
   "@macosMenuOpenInNewWindow": {
-    "description": "File menu: opens the chat in a window of its own."
+    "description": "File menu, and the Mac chat row menu: opens the chat in a window of its own."
   },
   "macosMenuPaste": "Paste",
   "@macosMenuPaste": {
@@ -3022,7 +3175,7 @@
   },
   "macosMenuPin": "Pin",
   "@macosMenuPin": {
-    "description": "Chat menu: pins the open chat to the top of the list."
+    "description": "Chat menu, and the Mac chat row menu: pins the chat to the top of the list."
   },
   "macosMenuPreviousChange": "Previous Change",
   "@macosMenuPreviousChange": {
@@ -3038,7 +3191,7 @@
   },
   "macosMenuRename": "Rename…",
   "@macosMenuRename": {
-    "description": "Chat menu: renames the open chat."
+    "description": "Chat menu, and the Mac chat row and conversation window menus: renames the chat."
   },
   "macosMenuSelectAll": "Select All",
   "@macosMenuSelectAll": {
@@ -3066,7 +3219,7 @@
   },
   "macosMenuUnpin": "Unpin",
   "@macosMenuUnpin": {
-    "description": "Chat menu while the chat is pinned: removes the pin."
+    "description": "Chat menu, and the Mac chat row menu, while the chat is pinned: removes the pin."
   },
   "macosMenuView": "View",
   "@macosMenuView": {
@@ -3329,6 +3482,58 @@
   },
 
   "@@x-area-navigation": "",
+  "navigationChordTooltip": "{label} ({chord})",
+  "@navigationChordTooltip": {
+    "description": "Hover text of a button whose command has a keyboard shortcut on Windows and Linux, such as New chat (Ctrl+N).",
+    "placeholders": {
+      "label": {"type": "String", "example": "New chat"},
+      "chord": {"type": "String", "example": "Ctrl+N"}
+    }
+  },
+  "navigationKeyAlt": "Alt",
+  "@navigationKeyAlt": {
+    "description": "The Alt key, as written on a keyboard shortcut."
+  },
+  "navigationKeyBackspace": "Backspace",
+  "@navigationKeyBackspace": {
+    "description": "The Backspace key, as written on a keyboard shortcut."
+  },
+  "navigationKeyCtrl": "Ctrl",
+  "@navigationKeyCtrl": {
+    "description": "The Control key, as written on a keyboard shortcut."
+  },
+  "navigationKeyDown": "Down",
+  "@navigationKeyDown": {
+    "description": "The Down arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyLeft": "Left",
+  "@navigationKeyLeft": {
+    "description": "The Left arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyRight": "Right",
+  "@navigationKeyRight": {
+    "description": "The Right arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyShift": "Shift",
+  "@navigationKeyShift": {
+    "description": "The Shift key, as written on a keyboard shortcut."
+  },
+  "navigationKeyUp": "Up",
+  "@navigationKeyUp": {
+    "description": "The Up arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyWin": "Win",
+  "@navigationKeyWin": {
+    "description": "The Windows key, as written on a keyboard shortcut."
+  },
+  "navigationKeyboardShortcutsOr": "or",
+  "@navigationKeyboardShortcutsOr": {
+    "description": "Between two key combinations that do the same, such as Ctrl+R or F5."
+  },
+  "navigationKeyboardShortcutsTitle": "Keyboard shortcuts",
+  "@navigationKeyboardShortcutsTitle": {
+    "description": "Title of the page that lists the keyboard shortcuts, and of the Settings row that opens it."
+  },
 
   "@@x-area-network": "",
 
@@ -4905,6 +5110,10 @@
   "@@x-area-quick_panel": "",
 
   "@@x-area-schedules": "",
+  "schedulesFormAdvanced": "Advanced",
+  "@schedulesFormAdvanced": {
+    "description": "Title of the row of the schedule form that shows or hides the advanced fields."
+  },
   "schedulesRefreshAction": "Refresh",
   "@schedulesRefreshAction": {
     "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
@@ -8566,7 +8775,7 @@
   "@@x-area-widgets": "",
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
-    "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+    "description": "Label of the button that closes a form or dialog without saving: in a settings page bar and in the Kanban export, import, edit task and orchestration dialogs."
   },
   "widgetsDone": "Done",
   "@widgetsDone": {

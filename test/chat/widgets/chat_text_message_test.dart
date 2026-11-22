@@ -47,7 +47,7 @@ Future<void> _pump(
   addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),

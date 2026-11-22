@@ -54,7 +54,8 @@ class ExportJsonOffer {
 /// bar gives them. Without [manageable] (a thread the dashboard does not
 /// hold) only copying the transcript is offered; "Open in New Window" only
 /// with [canOpenInNewWindow], and "Branch in New Chat" only with [canBranch].
-List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
+List<PopupMenuEntry<ThreadAction>> macThreadMenuItems(
+  AppLocalizations l10n, {
   required bool pinned,
   required bool manageable,
   bool canOpenInNewWindow = false,
@@ -64,57 +65,59 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
   ExportJsonOffer? exportJson,
 }) => [
   if (canOpenInNewWindow) ...[
-    const AdaptiveMenuItem(
+    AdaptiveMenuItem(
       value: ThreadAction.openInNewWindow,
       shortcut: '⌥⌘O',
-      child: Text('Open in New Window'),
+      child: Text(l10n.macosMenuOpenInNewWindow),
     ),
     const PopupMenuDivider(),
   ],
   if (manageable) ...[
     if (!canonical)
-      const AdaptiveMenuItem(
+      AdaptiveMenuItem(
         value: ThreadAction.rename,
-        child: Text('Rename…'),
+        child: Text(l10n.macosMenuRename),
       ),
     if (changeFolder != null && !canonical)
       AdaptiveMenuItem(
         value: ThreadAction.changeFolder,
         enabled: changeFolder.enabled,
-        child: const Text('Change Folder…'),
+        child: Text(l10n.macosMenuChangeFolder),
       ),
     AdaptiveMenuItem(
       value: ThreadAction.pin,
       shortcut: '⇧⌘P',
-      child: Text(pinned ? 'Unpin' : 'Pin'),
+      child: Text(pinned ? l10n.macosMenuUnpin : l10n.macosMenuPin),
     ),
   ],
-  const AdaptiveMenuItem(
+  AdaptiveMenuItem(
     value: ThreadAction.copyTranscript,
-    child: Text('Copy Transcript'),
+    child: Text(l10n.macosMenuCopyTranscript),
   ),
   if (exportJson != null)
     AdaptiveMenuItem(
       value: ThreadAction.exportJson,
       enabled: exportJson.enabled,
-      child: const Text('Export Chat as JSON…'),
+      child: Text(l10n.macosMenuExportChat),
     ),
   if (manageable && canBranch && !canonical)
-    const AdaptiveMenuItem(
+    AdaptiveMenuItem(
       value: ThreadAction.branch,
-      child: Text('Branch in New Chat'),
+      child: Text(l10n.chatWidgetsThreadMenuBranch),
     ),
   if (manageable) ...[
     AdaptiveMenuItem(
       value: ThreadAction.archive,
-      child: Text(canonical ? 'Retire Bot Chat…' : 'Archive'),
+      child: Text(
+        canonical ? l10n.chatWidgetsThreadMenuRetire : l10n.macosMenuArchive,
+      ),
     ),
     const PopupMenuDivider(),
-    const AdaptiveMenuItem(
+    AdaptiveMenuItem(
       value: ThreadAction.delete,
       shortcut: '⌘⌫',
       destructive: true,
-      child: Text('Delete…'),
+      child: Text(l10n.macosMenuDelete),
     ),
   ],
 ];
@@ -209,6 +212,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
       itemBuilder: (context) => [
         if (platformChromeOf(context) == PlatformChrome.macos)
           ...macThreadMenuItems(
+            context.l10n,
             pinned: _thread.pinned,
             canonical: _thread.isCanonicalBotChat,
             manageable: housekeeping != null,
@@ -345,17 +349,20 @@ Future<void> _copyTranscript(
   ThreadHousekeeping? housekeeping,
 ) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
+  final l10n = context.l10n;
   final String text;
   try {
     text = threadTranscript(await threadHistory(thread, housekeeping));
   } on Object {
     messenger?.showSnackBar(
-      const SnackBar(content: Text('Could not copy the transcript')),
+      SnackBar(content: Text(l10n.chatWidgetsThreadMenuCopyFailed)),
     );
     return;
   }
   await Clipboard.setData(ClipboardData(text: text));
-  messenger?.showSnackBar(const SnackBar(content: Text('Transcript copied')));
+  messenger?.showSnackBar(
+    SnackBar(content: Text(l10n.chatWidgetsThreadMenuCopied)),
+  );
 }
 
 class _RenameDialog extends StatefulWidget {
@@ -383,8 +390,9 @@ class _RenameDialogState extends State<_RenameDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final dialog = AppAlertDialog(
-      title: const Text('Rename chat'),
+      title: Text(l10n.chatWidgetsThreadMenuRenameTitle),
       content: AppDialogTextField(
         controller: _controller,
         onSubmitted: (_) => _save(),
@@ -392,14 +400,14 @@ class _RenameDialogState extends State<_RenameDialog> {
       actions: [
         AppDialogAction(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(l10n.chatWidgetsThreadMenuCancel),
         ),
         ListenableBuilder(
           listenable: _controller,
           builder: (context, _) => AppDialogAction(
             isDefault: true,
             onPressed: _controller.text.trim().isEmpty ? null : _save,
-            child: const Text('Save'),
+            child: Text(l10n.chatWidgetsThreadMenuSave),
           ),
         ),
       ],

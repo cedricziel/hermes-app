@@ -83,7 +83,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           home: Scaffold(
             body: Align(alignment: Alignment.topLeft, child: child),
           ),
