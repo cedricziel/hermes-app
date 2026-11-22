@@ -22,9 +22,10 @@ Scenario ids: `s1-markdown` (300-message history, 6,000-word reply),
 `s2-code-blocks` (12 fences, one of 2,000 lines), `s2b-fences-100|300|1000`
 (empty fences), `s3-tool-calls` (40 calls with large JSON, some opened),
 `s4a-tables`, `s4b-lists`, `s5-open-2000` (a = open, b = scroll up through
-pages), `s6-typing`, `s7-mac-sidebar` (500 chats, desktop only). Each runs at
-390x844 and 1280x800. Output: a table, `build/chat_bench/<mode>/run-N.json` and
-`aggregate.json` (median across runs and the coefficient of variation).
+pages), `s6-typing`, `s7-mac-sidebar` (500 chats, desktop only). The scenario
+filter matches these ids, so `s5-` selects both `s5a` and `s5b`; `s5a` alone
+matches nothing. Each runs at 390x844 and 1280x800. Output: a table,
+`build/chat_bench/<mode>/run-N.json` and `aggregate.json` (median across runs and the coefficient of variation).
 
 Shared code is in `benchmark/support/` (`scenarios.dart` holds the scenarios,
 `frame_stats.dart` the measuring, `harness.dart` the screen setup,
@@ -39,15 +40,18 @@ the benchmark.
   those of a release build, so do not quote them as what users feel.
 - **profile**: `flutter drive --profile -d linux` under Xvfb, the real app in
   AOT with no asserts. A frame is the engine's `FrameTiming.buildDuration` (UI
-  thread build, layout, paint) of the frames that started inside a measured
-  pump (unmeasured pumps in between, such as the scroll before an `s3` tap, are
-  not counted).
+  thread build, layout, paint) of the frames whose build started inside a
+  measured pump (not the vsync start: the live binding keeps a vsync request
+  outstanding, so the mount pump can be drawn by a frame that began before
+  it). Unmeasured pumps in between, such as the scroll before an `s3` tap, are
+  not counted.
   Use this for absolute numbers. `raster_*` is reported beside it; under Xvfb the
   Linux embedder reports it as 0, so ignore it. Frames equal measured pumps
   (`s4a` 174/174, `s6` 149/149), except where one measured pump makes more than
-  one engine frame: `s3` (179-180 frames against 174 pumps) and `s5b` (page
-  loads during the drag). There the extra cheap frames dilute p50 and p95; only
-  `max` is immune. Compare p50 and p95 only between runs of the same scenario,
+  one engine frame: `s3` (179-180 frames against 174 pumps), `s5b` (page
+  loads during the drag) and `s5a` phone (4 frames against 3 pumps: its last
+  pump draws two). `s5a` desktop has 4 frames for 4 pumps, mount included.
+  There the extra cheap frames dilute p50 and p95; only `max` is immune. Compare p50 and p95 only between runs of the same scenario,
   where the extra frames are alike.
 
 ## Reading results
@@ -97,8 +101,9 @@ CV of the per-run value, across runs, on this machine:
   `s2b-fences-300/1000`, `s4a`, `s4b`, `s6`, `s7` and `s5b` desktop; `p95` CV is
   1-21 % there. `max` is one GC or JIT hiccup on `s2b-fences-100` (46-67 %),
   `s5a` phone (94 %) and `s5b` phone (143 %): read `p95` and `p50` for those
-  (`s5a` is three frames, so its `p95` is its `max`). `s3` p95 varies a lot
-  when the machine is shared (11-28 % in the full run, phone median 1,493 ms),
+  (`s5a` is three or four frames, so its `p95` is its `max`; its first frame is
+  the mount pump alone, `FrameLog.mount`, with no extra pump after it). `s3` p95
+  varies a lot when the machine is shared (11-28 % in the full run, phone median 1,493 ms),
   and not alone (4-6 %, phone median 739 ms, `test 3 s3`): rerun it alone
   under `flock`.
 - profile mode (5 runs): `max` CV is 3-31 % and `p95` CV 3-16 %; `p50` is

@@ -5,6 +5,7 @@ import 'package:gpt_markdown/gpt_markdown.dart' show CodeBlockStyle;
 import 'package:material_ui/material_ui.dart' as mui;
 
 import '../files/code_highlight.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_code_colors.dart';
 
 /// A fenced code block of a markdown message: the language label, a copy
@@ -103,32 +104,36 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
       button: true,
       child: mui.Tooltip(
         message: label,
-        child: Container(
-          width: _copyButtonSize,
-          height: _copyButtonSize,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            shape: BoxShape.circle,
-          ),
-          child: mui.Material(
-            type: mui.MaterialType.transparency,
-            shape: const CircleBorder(),
-            child: mui.InkWell(
-              customBorder: const CircleBorder(),
-              hoverColor: scheme.onSurface.withValues(alpha: 0.08),
-              highlightColor: scheme.onSurface.withValues(alpha: 0.12),
-              onTap: _copyCode,
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 160),
-                  transitionBuilder: (child, animation) =>
-                      ScaleTransition(scale: animation, child: child),
-                  child: Icon(
-                    icon,
-                    key: ValueKey(_copied),
-                    size: _copyIconSize,
-                    color: scheme.onSurfaceVariant,
+        // The ring is 2 px outside the round button, which nothing clips.
+        child: FocusRing.outside(
+          radius: _copyButtonSize / 2,
+          child: Container(
+            width: _copyButtonSize,
+            height: _copyButtonSize,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: mui.Material(
+              type: mui.MaterialType.transparency,
+              shape: const CircleBorder(),
+              child: mui.InkWell(
+                customBorder: const CircleBorder(),
+                hoverColor: scheme.onSurface.withValues(alpha: 0.08),
+                highlightColor: scheme.onSurface.withValues(alpha: 0.12),
+                onTap: _copyCode,
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    transitionBuilder: (child, animation) =>
+                        ScaleTransition(scale: animation, child: child),
+                    child: Icon(
+                      icon,
+                      key: ValueKey(_copied),
+                      size: _copyIconSize,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),

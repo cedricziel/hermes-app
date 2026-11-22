@@ -83,29 +83,32 @@ class _CupertinoTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return CupertinoSlidingSegmentedControl<int>(
-      groupValue: tabs.index,
-      backgroundColor: scheme.surfaceContainerHighest,
-      thumbColor: scheme.surface,
-      padding: compact
-          ? const EdgeInsets.all(2)
-          : const EdgeInsets.symmetric(vertical: 2, horizontal: 3),
-      children: {
-        for (final (i, label) in labels.indexed)
-          i: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: ShrinkToFitText(
-              label,
-              style: TextStyle(
-                fontSize: compact ? 12 : null,
-                color: scheme.onSurface,
+    return FocusRing.outside(
+      radius: 9,
+      child: CupertinoSlidingSegmentedControl<int>(
+        groupValue: tabs.index,
+        backgroundColor: scheme.surfaceContainerHighest,
+        thumbColor: scheme.surface,
+        padding: compact
+            ? const EdgeInsets.all(2)
+            : const EdgeInsets.symmetric(vertical: 2, horizontal: 3),
+        children: {
+          for (final (i, label) in labels.indexed)
+            i: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: ShrinkToFitText(
+                label,
+                style: TextStyle(
+                  fontSize: compact ? 12 : null,
+                  color: scheme.onSurface,
+                ),
               ),
             ),
-          ),
-      },
-      onValueChanged: (value) {
-        if (value != null) tabs.animateTo(value);
-      },
+        },
+        onValueChanged: (value) {
+          if (value != null) tabs.animateTo(value);
+        },
+      ),
     );
   }
 }

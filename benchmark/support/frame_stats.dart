@@ -79,6 +79,28 @@ class FrameLog {
     pumps++;
   }
 
+  /// Records [pump] as one measured frame, with no pump of its own after it.
+  /// For a pump that already produces the frame, such as `pumpWidget` mounting
+  /// the screen: [frame] would add `tester.pump(frameStep)` and count two
+  /// frames as one. (`CHAT_BENCH_PHASES=1` times it whole, not split.)
+  Future<void> mount(WidgetTester tester, Future<void> Function() pump) async {
+    _wall.start();
+    if (profileMode) {
+      final start = Timeline.now;
+      await pump();
+      _spans.add((start, Timeline.now));
+      pumps++;
+      return;
+    }
+    _watch
+      ..reset()
+      ..start();
+    await pump();
+    _watch.stop();
+    ms.add(_watch.elapsedMicroseconds / 1000);
+    pumps++;
+  }
+
   /// Diagnostic (`CHAT_BENCH_PHASES=1`, test mode): the same frame cut into
   /// event handling, build, layout and paint. Each phase is its own pump that
   /// stops after that phase, and the next one carries on from there. The
@@ -92,6 +114,10 @@ class FrameLog {
   /// mounted again every frame has lost its state.
   final mounted = <String, int>{};
   int rebuiltTotal = 0;
+
+  /// Frames cut into phases (the rebuild tallies cover these only; a [mount]
+  /// frame is in [ms] but not here).
+  int instrumented = 0;
 
   Future<void> _framePhases(
     WidgetTester tester,
@@ -132,11 +158,14 @@ class FrameLog {
     debugOnRebuildDirtyWidget = null;
     _watch.stop();
     ms.add(total.elapsedMicroseconds / 1000);
+    instrumented++;
   }
 
-  /// What the phase split adds to a scenario's results.
+  /// What the phase split adds to a scenario's results. The per-frame
+  /// rebuild averages divide by the frames that were split ([instrumented]),
+  /// so they exclude a [mount] frame.
   Map<String, Object?> phaseExtras() {
-    if (!_phases || ms.isEmpty) return const {};
+    if (!_phases || instrumented == 0) return const {};
     Map<String, double> stat(List<double> v) {
       final s = Stats(v);
       return {
@@ -152,16 +181,16 @@ class FrameLog {
       'phase_events': stat(events),
       'phase_build': stat(build),
       'phase_layout_paint': stat(layout),
-      'rebuilt_per_frame': _round(rebuiltTotal / ms.length),
+      'rebuilt_per_frame': _round(rebuiltTotal / instrumented),
       'rebuilt_top_per_frame': {
-        for (final e in top.take(12)) e.key: _round(e.value / ms.length),
+        for (final e in top.take(12)) e.key: _round(e.value / instrumented),
       },
       'mounted_top_per_frame': {
         for (final e
             in (mounted.entries.toList()
                   ..sort((a, b) => b.value.compareTo(a.value)))
                 .take(40))
-          e.key: _round(e.value / ms.length),
+          e.key: _round(e.value / instrumented),
       },
     };
   }
@@ -176,18 +205,20 @@ class FrameLog {
     await tester.pump(frameStep);
   }
 
-  /// In profile mode, picks the engine's timings of the frames that started
-  /// inside a measured pump. `Timeline.now` and `FrameTiming` timestamps are
-  /// both microseconds on the engine's monotonic clock, and a pump awaits its
-  /// frame, so a frame's vsync start falls inside the span of the pump that
-  /// produced it (`frameNumber` is not used: the engine's extra frames have no
-  /// pump to match). The timings reach the app in batches, so this waits for
+  /// In profile mode, picks the engine's timings of the frames whose build
+  /// started inside a measured pump. `Timeline.now` and `FrameTiming`
+  /// timestamps are both microseconds on the engine's monotonic clock, and a
+  /// pump awaits its frame, so a frame's build start falls inside the span of
+  /// the pump that produced it. (Not the vsync start: the live binding keeps a
+  /// vsync request outstanding, so a pump with no delay can be drawn by a frame
+  /// whose vsync came before the span began. `frameNumber` is not used either:
+  /// the engine's extra frames have no pump to match.) The timings reach the app in batches, so this waits for
   /// the last ones.
   Future<void> resolve() async {
     if (!profileMode) return;
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     for (final t in _timings) {
-      final at = t.timestampInMicroseconds(FramePhase.vsyncStart);
+      final at = t.timestampInMicroseconds(FramePhase.buildStart);
       if (!_spans.any((s) => at >= s.$1 && at <= s.$2)) continue;
       ms.add(t.buildDuration.inMicroseconds / 1000);
       raster.add(t.rasterDuration.inMicroseconds / 1000);
