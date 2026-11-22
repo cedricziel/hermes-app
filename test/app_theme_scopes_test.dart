@@ -196,7 +196,14 @@ void main() {
     expect(r.names, isNotEmpty);
     expect(
       r.names,
-      containsAll(['BoundedMarkdown', 'HermesCodeBlock', 'buildChatBuilders']),
+      containsAll([
+        'BoundedMarkdown',
+        'HermesCodeBlock',
+        'buildChatBuilders',
+        'ChatScreen',
+        'ConversationWindowScreen',
+        'BoundActivityPanel',
+      ]),
     );
   });
 
@@ -214,29 +221,12 @@ void main() {
       final unmounted = _apps(code).where((a) => !a.mounted).length;
       final usesPlain = helpers.plain.any((h) => h.calledIn(code));
       if (unmounted == 0 && !usesPlain) continue;
-      final used = {
-        for (final m in _wordsPattern(
-          readers.names,
-          prefixes: _importPrefixes(f),
-        ).allMatches(code))
-          m.group(0)!,
-        ..._memberUses(readers, f, code),
-      };
+      final used = _readerUses(readers, f);
       if (used.isNotEmpty) {
         bad.add('${f.path}: ${(used.toList()..sort()).join(', ')}');
       }
     }
-    expect(
-      bad,
-      isEmpty,
-      reason:
-          'These tests build an app (or call a helper that does) whose '
-          "`builder:` or `home:` never mounts AppThemeScopes, and reference a "
-          "widget that reads material_ui's theme, so it draws with the light "
-          "fallback in a dark test. Mount AppThemeScopes in the app's "
-          '`builder:` (`builder: (_, child) => AppThemeScopes(child: '
-          'child!)`):\n${bad.join('\n')}',
-    );
+    expect(bad, isEmpty, reason: _unmountedReason(bad));
   });
 
   group('the guard on fixtures', () {
@@ -346,6 +336,128 @@ void main() {
       expect(_memberUses(readers, other, 'x.surface'), isEmpty);
     });
 
+    test('an extension does not make its receiver a reader', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/model.dart',
+          'class Model {}\n'
+              'extension ModelX on Model {\n'
+              "  Widget get view => GptMarkdown('x');\n"
+              '}\n'
+              'class Holder {\n'
+              '  Widget draw() => view;\n'
+              '}\n'
+              'extension HolderX on Holder {\n'
+              "  Widget get view => GptMarkdown('y');\n"
+              '}\n',
+        ),
+        SourceFile(
+          'lib/a/plain_user.dart',
+          "import 'model.dart';\n"
+              'class PlainUser {\n'
+              '  Object build() => Model();\n'
+              '}\n',
+        ),
+        SourceFile(
+          'lib/a/view_user.dart',
+          "import 'model.dart';\n"
+              'class ViewUser {\n'
+              '  Object build(Model m) => m.view;\n'
+              '}\n',
+        ),
+      ]);
+      expect(readers.names, isNot(contains('Model')));
+      expect(readers.names, isNot(contains('PlainUser')));
+      expect(readers.names, contains('ViewUser'));
+      // A bare use of the member inside the extended type's own body.
+      expect(readers.names, contains('Holder'));
+    });
+
+    test('a finder-only mention is not a reader use', () {
+      final readers = _readersOf([
+        SourceFile(
+          'lib/a/md.dart',
+          'class BoundedMarkdown extends StatelessWidget {\n'
+              "  Widget build(BuildContext context) => GptMarkdown('x');\n"
+              '}\n',
+        ),
+      ]);
+      Set<String> uses(String body) =>
+          _readerUses(readers, SourceFile('test/a_test.dart', body));
+      expect(
+        uses('expect(find.byType(BoundedMarkdown), findsNothing);'),
+        isEmpty,
+      );
+      expect(
+        uses(
+          'expect(find.byWidgetPredicate((w) => w is BoundedMarkdown), '
+          'findsNothing);',
+        ),
+        isEmpty,
+      );
+      expect(
+        uses(
+          "pump(BoundedMarkdown('x'));\n"
+          'expect(find.byType(BoundedMarkdown), findsOneWidget);',
+        ),
+        {'BoundedMarkdown'},
+      );
+    });
+
+    test('the failure message names builder: alone', () {
+      final reason = _unmountedReason(['test/a_test.dart: X']);
+      expect(reason, contains('`builder:`'));
+      expect(reason, isNot(contains('home:')));
+      expect(reason, contains('test/a_test.dart: X'));
+    });
+
+    test('a helper that builds a scoped app and calls an unscoped one is plain', () {
+      final helpers = _helpersOf([
+        SourceFile(
+          'test/support/h.dart',
+          'Future<void> mixed(bool direct) async {\n'
+              '  if (direct) {\n'
+              '    MaterialApp(builder: (_, c) => AppThemeScopes(child: c!));\n'
+              '  } else {\n'
+              '    await unscoped();\n'
+              '  }\n'
+              '}\n'
+              'Future<void> unscoped() async {\n'
+              '  MaterialApp(home: Text("x"));\n'
+              '}\n',
+        ),
+      ]);
+      expect(
+        helpers.plain.map((h) => h.name),
+        containsAll(['mixed', 'unscoped']),
+      );
+      expect(helpers.mounting, isEmpty);
+    });
+
+    test('a long chain of helpers declared caller-first ends plain', () {
+      final helpers = _helpersOf([
+        SourceFile(
+          'test/support/chain.dart',
+          'void h1() => h2();\n'
+              'void h2() => h3();\n'
+              'void h3() => h4();\n'
+              'void h4() => h5();\n'
+              'void h5() => h6();\n'
+              'void h6() => h7();\n'
+              'void h7() => MaterialApp(home: Text("x"));\n',
+        ),
+      ]);
+      expect(helpers.plain.map((h) => h.name).toSet(), {
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'h7',
+      });
+    });
+
     test('a lib body that uses a prefixed reader is a reader', () {
       final readers = _readersOf([
         SourceFile(
@@ -415,6 +527,15 @@ void main() {
   });
 }
 
+/// The failure message of the guard: only `builder:` mounts.
+String _unmountedReason(List<String> bad) =>
+    'These tests build an app (or call a helper that does) whose '
+    '`builder:` never mounts AppThemeScopes, and reference a widget that '
+    "reads material_ui's theme, so it draws with the light fallback in a "
+    "dark test. Mount AppThemeScopes in the app's `builder:` "
+    '(`builder: (_, child) => AppThemeScopes(child: child!)`):\n'
+    '${bad.join('\n')}';
+
 final _appConstructor = RegExp(
   r'(?<![\w.])(?:MaterialApp(?:\.router)?|CupertinoApp|WidgetsApp)\(',
 );
@@ -449,6 +570,34 @@ RegExp _wordsPattern(
 }) {
   final qualifier = prefixes.isEmpty ? '' : '(?:(?:${prefixes.join('|')})\\.)?';
   return RegExp('(?<![\\w.\$])$qualifier(?:${words.join('|')})\\b');
+}
+
+/// [code] without `find.byType(X)` and `find.byWidgetPredicate(...)`: a test
+/// that only looks for a reader by type, often to assert there is none, does
+/// not render it.
+String _withoutFinders(String code) {
+  final byType = RegExp(r'\bfind\.byType\(\s*[\w.<>?]+\s*\)');
+  var out = code.replaceAll(byType, 'find.byType()');
+  final predicate = RegExp(r'\bfind\.byWidgetPredicate\(');
+  while (true) {
+    final m = predicate.firstMatch(out);
+    if (m == null) return out;
+    out = out.substring(0, m.start) + out.substring(callEnd(out, m.end));
+  }
+}
+
+/// The readers [file] (a test) refers to: names and prefixed names, and the
+/// extension members it can see.
+Set<String> _readerUses(_Readers readers, SourceFile file) {
+  final code = _withoutFinders(file.code);
+  return {
+    for (final m in _wordsPattern(
+      readers.names,
+      prefixes: _importPrefixes(file),
+    ).allMatches(code))
+      m.group(0)!,
+    ..._memberUses(readers, file, code),
+  };
 }
 
 /// The `.member` uses in [code] of extension members declared in a library
@@ -617,30 +766,18 @@ _Readers _readersOf(List<SourceFile> files) {
     d.imports = imports[d.library]!;
     d.prefixes = prefixes[d.library]!;
   }
-  final all = <_Decl>[];
-  for (final d in decls) {
-    if (d.on != null) continue;
-    all.add(d);
-  }
-  for (final d in decls) {
-    final on = d.on;
-    if (on == null) continue;
-    final targets = all.where(
-      (t) => t.name == on && (!on.startsWith('_') || t.library == d.library),
-    );
-    if (targets.isEmpty) {
-      all.add(d);
-    } else {
-      for (final t in targets) {
-        t.body += d.body;
-      }
-    }
-  }
+  final all = decls;
 
   bool skipped(_Decl d) =>
       _provider.hasMatch(d.body) ||
       _appConstructor.hasMatch(d.body) ||
-      _navigationOnly.any((n) => d.name == n || d.name == '_${n}State');
+      _navigationOnly.any(
+        (n) =>
+            d.name == n ||
+            d.name == '_${n}State' ||
+            d.on == n ||
+            d.on == '_${n}State',
+      );
 
   final mentions = <String, List<_Decl>>{};
   for (final d in all) {
@@ -678,17 +815,23 @@ _Readers _readersOf(List<SourceFile> files) {
       reach(m);
     }
     if (d.on != null) {
-      // An extension on a type `lib/` does not declare (`BuildContext`) is
-      // reached through its members: `context.view`.
+      // An extension is reached through its members, `context.view` from
+      // anywhere that sees it, or a bare `view` in the body of the type it
+      // extends. Its receiver is not a reader just for being extended.
       for (final member in _memberNames(d.body)) {
         (members[member] ??= {}).add(d.library);
         final use = RegExp('\\.\\s*$member\\b');
+        final bare = RegExp('(?<![\\w.\$])$member\\b');
         for (final other in all) {
           final sees =
               other.library == d.library ||
               other.imports.contains(d.library) ||
               other.imports.contains(d.path);
-          if (other != d && sees && use.hasMatch(other.body)) reach(other);
+          if (other == d || !sees) continue;
+          if (use.hasMatch(other.body) ||
+              (other.name == d.on && bare.hasMatch(other.body))) {
+            reach(other);
+          }
         }
       }
     }
@@ -787,31 +930,38 @@ class _Helper {
 /// named `*_test.dart`: `test/support` and the harnesses beside a directory)
 /// that build an app, split by whether every app they build mounts the scopes,
 /// directly or through another helper.
-({List<_Helper> mounting, List<_Helper> plain}) _testHelpers() {
-  final decls = <_Decl>[];
-  for (final f in dartFiles('test')) {
-    if (!f.path.endsWith('_test.dart')) decls.addAll(_declarations(f));
-  }
+({List<_Helper> mounting, List<_Helper> plain}) _testHelpers() => _helpersOf([
+  for (final f in dartFiles('test'))
+    if (!f.path.endsWith('_test.dart')) f,
+]);
+
+/// A helper is plain when any app it builds, or any helper it calls, is plain;
+/// it mounts when it builds apps that all mount or calls only mounting
+/// helpers. Iterates until nothing changes, so a long chain of callers ending
+/// in a plain app is plain whatever the declaration order.
+({List<_Helper> mounting, List<_Helper> plain}) _helpersOf(
+  List<SourceFile> files,
+) {
+  final decls = [for (final f in files) ..._declarations(f)];
   final mounting = <String, _Helper>{};
   final plain = <String, _Helper>{};
-  for (var round = 0; round < 4; round++) {
+  var changed = true;
+  while (changed) {
+    changed = false;
     for (final d in decls) {
+      if (plain.containsKey(d.name)) continue;
       final helper = _Helper(d.name, _typeDecl.hasMatch(d.body));
       final apps = _apps(d.body);
       bool calls(Iterable<_Helper> hs) =>
           hs.any((h) => h.name != d.name && h.calledIn(d.body));
-      if (apps.isNotEmpty) {
-        if (apps.every((a) => a.mounted)) {
-          mounting[d.name] = helper;
-          plain.remove(d.name);
-        } else {
-          plain[d.name] = helper;
-          mounting.remove(d.name);
-        }
-      } else if (calls(plain.values)) {
+      if (apps.any((a) => !a.mounted) || calls(plain.values)) {
         plain[d.name] = helper;
-      } else if (calls(mounting.values)) {
+        mounting.remove(d.name);
+        changed = true;
+      } else if (!mounting.containsKey(d.name) &&
+          (apps.isNotEmpty || calls(mounting.values))) {
         mounting[d.name] = helper;
+        changed = true;
       }
     }
   }
