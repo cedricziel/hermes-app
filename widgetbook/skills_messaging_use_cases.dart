@@ -16,6 +16,8 @@ import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/skills_hub_controller.dart';
 import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/skills/widgets/skill_detail_actions.dart';
+import 'package:hermes_app/src/skills/widgets/installed_skills_list.dart'
+    show SkillUpdatesSection;
 import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
 import 'package:hermes_app/src/skills/widgets/skill_job_bar.dart';
 import 'package:hermes_app/src/skills/widgets/skill_security_scan.dart';
@@ -293,6 +295,23 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
                 onEdit: () {},
                 onAskDelete: () {},
                 onUninstall: () {},
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillUpdatesSection',
+      useCases: [
+        for (final scale in const [1.0, 2.0, 3.0])
+          WidgetbookUseCase(
+            name: 'Text ${scale.toInt()}x (Mac)',
+            builder: (context) => Theme(
+              data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+              child: MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
+                child: frame(SkillUpdatesSection(onPressed: () {})),
               ),
             ),
           ),
