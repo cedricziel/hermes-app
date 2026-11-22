@@ -129,8 +129,8 @@ geometry, needs the app theme built for that platform with
 (`lib/src/theme/hermes_theme.dart`), and the case run on at least one
 shrink-wrap platform. In #1284 the scroll-to-latest mini button's focus ring sat
 inside the button on the desktop because the tests only used the padded layout;
-see `test/focus_ring_geometry_test.dart`, added in #1284 (not on main until
-that PR merges), which runs every ring per platform.
+see `test/focus_ring_geometry_test.dart` (added in #1284), which runs every
+ring per platform.
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
