@@ -930,6 +930,138 @@ class GuardTest(unittest.TestCase):
         self.assertIn("internal error", r.stderr)
 
 
+class FindExecGitTest(unittest.TestCase):
+    """The git bans also apply to what `find -exec` and friends run, in local and cloud sessions."""
+
+    REMOTE = None  # CLAUDE_CODE_REMOTE for the hook process; None leaves it unset
+
+    BANNED = [
+        "git stash",
+        "git stash pop",
+        "git commit --no-verify -m x",
+        "git push --no-verify",
+        "git config core.hooksPath /dev/null",
+        "git -c core.hooksPath=/dev/null commit -m x",
+        "git -c alias.p=push p",
+        "git add -A",
+        "git add .",
+        "git commit -a -m x",
+        "git push --force origin x",
+        "git push origin --delete x",
+        "git push origin :refs/heads/x",
+        "git worktree prune",
+    ]
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.repo = cls.tmp.name
+        git(cls.repo, "init", "-q", "-b", "claude/x")
+        hook = Path(cls.repo, ".git", "hooks", "pre-commit")
+        hook.parent.mkdir(exist_ok=True)
+        hook.write_text("#!/bin/sh\n")
+        hook.chmod(0o755)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_hook(self, cmd):
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("CLAUDE_CODE_REMOTE", "CLAUDE_PROJECT_DIR")
+        }
+        if self.REMOTE is not None:
+            env["CLAUDE_CODE_REMOTE"] = self.REMOTE
+        return subprocess.run(
+            [sys.executable, "-I", str(HOOK)],
+            input=json.dumps(
+                {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": self.repo}
+            ),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def blocked(self, cmd, like=None):
+        r = self.run_hook(cmd)
+        self.assertEqual(r.returncode, 2, "should block: %s\n%s" % (cmd, r.stderr))
+        if like is not None:  # the same message the direct command gets
+            self.assertEqual(r.stderr, self.run_hook(like).stderr, cmd)
+
+    def allowed(self, cmd):
+        r = self.run_hook(cmd)
+        self.assertEqual(r.returncode, 0, "should allow: %s\n%s" % (cmd, r.stderr))
+
+    def test_every_banned_form_blocks_under_each_action(self):
+        for c in self.BANNED:
+            self.blocked(c)  # the direct command is the reference
+            for tmpl in (
+                "find . -maxdepth 0 -exec %s \\;",
+                "find . -exec %s {} +",
+                "find . -execdir %s \\;",
+                "find . -ok %s \\;",
+                "find . -okdir %s {} +",
+            ):
+                self.blocked(tmpl % c, like=c)
+
+    def test_wrappers_and_shapes(self):
+        for c in (
+            "find . -exec env git stash \\;",
+            "find . -exec env -i FOO=1 git stash \\;",
+            "find . -exec sudo git stash \\;",
+            "find . -exec sudo -u root git stash \\;",
+            "find . -exec timeout 5 git stash \\;",
+            "find . -execdir timeout -s KILL 5 git commit --no-verify -m x {} +",
+            "find . -exec nice -n5 git add -A \\;",
+            "find . -exec env sudo timeout 5 git push -f \\;",
+            "find . -ok sudo git worktree prune \\;",
+            "find . -type f -name x -exec git stash \\;",
+            "cd . && find . -exec git stash \\;",
+        ):
+            self.blocked(c)
+
+    def test_evasions(self):
+        for c in (
+            "find . -exec git status \\; -exec git stash \\;",
+            "find . -exec echo hi \\; -execdir git commit --no-verify -m x {} +",
+            "find . -exec git log -1 \\; -ok git add -A \\;",
+            "find . -exec git stash ';'",
+            'find . -exec git stash ";"',
+            "find . -exec git stash '+'",
+            "find . -exec git commit --no-verify -m x '{}' +",
+            "find . -exec /usr/bin/git stash \\;",
+            "find . -exec env /usr/bin/git stash \\;",
+            "find . -exec ./git stash \\;",
+        ):
+            self.blocked(c)
+
+    def test_innocent_commands_stay_allowed(self):
+        for c in (
+            "find . -name '*.git' -exec grep -l stash {} \\;",
+            "find . -exec git status {} \\;",
+            "find . -exec git log -1 -- {} \\;",
+            "find -name git",
+            "find . -exec echo git stash \\;",
+            "find . -exec git status \\; -exec git log -1 \\;",
+            "find . -exec git add file.txt {} +",
+            "find . -exec git commit -m x {} +",
+            "find . -exec git push origin claude/x \\;",
+            "find . -name stash -print",
+            "find . -exec env FOO=1 ls {} \\;",
+            "find . -exec grep --no-verify x \\;",
+            "find . -exec git worktree list \\;",
+        ):
+            self.allowed(c)
+
+
+class FindExecGitCloudTest(FindExecGitTest):
+    REMOTE = "true"
+
+
+class FindExecGitLocalFalseTest(FindExecGitTest):
+    REMOTE = "false"
 class GhSearchOnlyTest(unittest.TestCase):
     """Cloud (CLAUDE_CODE_REMOTE=true). F.333: gh is for search only; everything else goes through the GitHub MCP tools."""
 
