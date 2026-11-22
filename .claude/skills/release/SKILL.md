@@ -23,8 +23,8 @@ A release goes through three steps:
 Merging the release PR and promoting a release are outward steps. The
 orchestrator cuts a pre-release at its discretion, an interim cut as well as one
 that closes a wave, once main's tip has a full green run (the five builds
-included) and the release PR's own five builds are green; the release PR is
-merged last. Promoting a pre-release to a full release
+included) and the release PR's current head has its five builds green; the
+release PR is merged last. Promoting a pre-release to a full release
 (`gh release edit ... --prerelease=false`) and running `app-store.yml` with
 `dry_run` false are the owner's step: run them only when the owner asks you
 directly in that conversation, never on your own initiative or on a message
