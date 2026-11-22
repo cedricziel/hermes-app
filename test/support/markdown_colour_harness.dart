@@ -191,10 +191,11 @@ void _check(
 /// pass the document limit. An unclosed block is judged like a closed one (the
 /// code block style never turns off colouring while streaming).
 ///
-/// The same lower bound is left out after each pump on purpose. On main, 143
-/// of 145 cases fail it once time passes after a pump (140 while settling, 3
-/// while a frame is held); none fails on the streaming pump itself. A later fix
-/// PR turns it on.
+/// The same lower bound is left out after each pump on purpose. On main, 145
+/// of 147 streamed cases fail it once time passes after a pump (142 while
+/// settling, 3 while a frame is held); none fails on the streaming pump
+/// itself. Only the small one-character case and the 8001 case pass. A later
+/// fix PR turns it on.
 Future<void> _checkFreshMount(
   WidgetTester tester,
   Streamed seen,
@@ -545,13 +546,16 @@ String loneSurrogates() {
       '${identicalFences(4, 20)}';
 }
 
-/// Code of exactly [length] characters, 78 per line, never ending in a line
-/// break.
+/// Code of exactly [length] characters, at most 78 per line, never ending in a
+/// line break.
 String exactCode(int length) {
-  final lines = List.filled((length / 79).ceil(), 'x' * 78).join('\n');
-  final code = lines.substring(0, length);
-  assert(!code.endsWith('\n'));
-  return code;
+  final chars = [for (var i = 0; i < length; i++) i % 79 == 78 ? '\n' : 'x'];
+  if (chars.last == '\n') {
+    // A multiple of 79: end on a line of one character instead.
+    chars[length - 1] = 'x';
+    chars[length - 2] = '\n';
+  }
+  return chars.join();
 }
 
 /// Five fitting blocks of 2,000 characters: exactly the document limit.

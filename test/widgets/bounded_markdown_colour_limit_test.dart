@@ -30,6 +30,19 @@ final _documents = <String, String Function()>{
 void main() {
   defineStreamCases(_documents);
 
+  test('exactCode returns exactly the length asked for', () {
+    for (final length in [for (var n = 1; n <= 400; n++) n, 2000, 8000, 8001]) {
+      final code = exactCode(length);
+      expect(code.length, length, reason: 'length $length');
+      expect(code.endsWith('\n'), isFalse, reason: 'length $length');
+      expect(
+        code.split('\n').every((l) => l.length <= 78),
+        isTrue,
+        reason: 'length $length',
+      );
+    }
+  });
+
   // The limits at their exact boundaries. Each document stays under the
   // document limit once its blocks are counted, so none of them needs to
   // overflow.
