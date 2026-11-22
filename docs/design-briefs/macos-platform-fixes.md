@@ -47,13 +47,33 @@ People who use Hermes on a Mac as a desktop app, with a keyboard and a window th
 - C9: before, pull-to-refresh only; below 720 pt a detent sheet. After: toolbar button, Command-R, dialog.
 - F1: before, chords on Command only. After: the table in the Windows and Linux brief.
 
-## Proposed (design pass not run)
+## Proposed (first design pass run)
 
 Three audit items need a design pass before any widget work. Each has an openspec change; the notes are replaced by "Design (done)" decisions when the pass runs. "C9" here means the toast; the Refresh fix above keeps its own C9 name.
 
 - Proposed: C4, Settings as its own window (`openspec/changes/mac-settings-window`). A Mac Settings window opened and focused by Command-comma, about 520 x 640, minimum 420 x 480, the existing grouped list, no scrim over the chat. Boards: default light, dark and German; a nested Appearance dialog; signed out (main-owned rows disabled with a reason).
 - Proposed: C9 toast, a Mac toast (`openspec/changes/mac-toast`). A small capsule in the content pane, top centre under the toolbar (bottom above the composer is the alternative), an icon and a word per tone, an optional 28 pt action, announced to VoiceOver. Boards: four tones, with and without action, one and three lines, German, largest text, compact and wide window, hovered.
 - Proposed: C11, sub-pages keep the sidebar (`openspec/changes/mac-subpages-keep-sidebar`). Skills, Memory, Files, Tools and the other pushed pages open in the content pane beside the docked sidebar. Boards: 1100 x 760, 760 x 480 (the narrowest docked case) and 640 x 480 (compact), the toolbar with the sidebar toggle beside Back, and the sidebar's selected state.
+
+First design pass: Claude Design canvas "Hermes: Mac Settings window, toast, sub-pages", built on the Hermes App design system: https://claude.ai/artifact/Q36fmBuDK9Gy3jkgBF2g5R (private; ask its owner for access). 11 artboards, Mac 1280 x 800 unless stated. One decision per board:
+
+- C4 today, the Settings dialog over the window: Command-comma opens a modal list with a scrim over the whole window and a pick closes it; replaced on the Mac.
+- C4 proposed, the Settings window beside the main window: a separate window, 520 x 640 (minimum 420 x 480), no scrim, the existing grouped list in one scrolling column (Appearance, Notifications, Dictation, Voice calls, Quick panel, Spotlight, App Lock; Menu bar item; About Hermes, Change Server).
+- C4 proposed, locked and signed out: App Lock closes the window and unlock does not reopen it. Signed out, Command-comma stays off; if the owner allows Settings then (open question 3), the main-owned rows dim with "Sign in to change this." and Change Server is left out.
+- Toast today, the full-width SnackBar: a dark Material bar across the bottom, text only, no tone; it covers the composer and the send button.
+- Toast proposed, top centre, light, with action: top centre of the content pane, 12 pt under the toolbar, never over the sidebar or the composer; 360 pt wide at most; one 28 pt action.
+- Toast proposed, top centre, dark, error: the same capsule on the raised surface with a 1 px border; the error reads "Error" beside its icon, not red alone.
+- Toast tones, light and dark: each tone leads with an icon and a bold word (Info, Done, Warning, Error); colour tints only the icon; at most one action, a 28 pt text button; three lines at most.
+- Toast alternative, bottom centre above the composer: not chosen. It must track the composer's height and clashes with other bottom bars.
+- C11 today, Skills over the whole window: pushed on the root navigator, the sidebar and its toggle are gone until Back.
+- C11 proposed, Skills in the content pane: the sidebar stays live; the Chat destination stays current but no chat row is selected while a sub-page is open (open question 2); Back (Command-[) leads the toolbar.
+- C11 proposed at 760 x 480: the sidebar still docks (280) and the page gets 480; the toolbar keeps Back, title, tabs and +, and the search field becomes a search button, because with the field the subtitle was cut to "defaul…".
+
+Not yet on the canvas (still owed before the catalog work): German, largest text, the nested Appearance dialog in the window, the Settings window in dark, the toast hovered and in a compact window, and sub-pages at 640 x 480 and with Memory, Files and Tools.
+
+Copy the design adds: the tone words Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler), new l10n strings. "Sign in to change this." comes from `mac-settings-window/design.md`.
+
+New components needed: `SettingsWindowFrame` (window title bar with traffic lights and title, closest: `ConversationWindowScreen`), `AppToast` capsule (closest: `AppBanner`), a narrow-pane mode of `SettingsScaffold` on the Mac that shows search as a toolbar button (closest: the chat toolbar's `medium` search button), and the content-pane frame (`ContentPaneFrame`, closest: `AppShell` with a page child).
 
 ## Accessibility
 

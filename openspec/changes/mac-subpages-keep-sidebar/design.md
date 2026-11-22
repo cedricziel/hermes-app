@@ -59,3 +59,13 @@ Recommendation: B, Mac first.
 - Workflow tests (`test/workflows/`) keep passing; look at the new screenshots.
 - Architecture guard `arch.subpage-push`: a sub-page route pushed with `Navigator.of(context).push` or `rootNavigator: true` outside the helper fails, baseline of the current sites that ratchets down.
 - Spec scenarios in `specs/mac-subpages/spec.md`.
+
+## Design pass
+
+Canvas "Hermes: Mac Settings window, toast, sub-pages" (private, ask its owner for access): https://claude.ai/artifact/Q36fmBuDK9Gy3jkgBF2g5R. Its "C11" row, one decision per board:
+
+- Today, Skills over the whole window: pushed on the root navigator; the sidebar and its toggle are gone until Back.
+- Proposed, Skills in the content pane (1280 x 800): the sidebar stays live; the Chat destination stays current but no chat row is selected while a sub-page is open (open question 2); Back (Command-[) is the toolbar's leading button and the page has no traffic-light padding.
+- Proposed at 760 x 480, the narrowest docked window: the sidebar still docks at 280 and the page gets 480. With the search field in the toolbar the subtitle was cut to "defaul…", so in a narrow pane the field becomes a 28 pt search button beside +; Back, title, tabs and + stay. `SettingsScaffold` needs that narrow mode on the Mac.
+
+Still owed: 640 x 480 (compact, sidebar over the page), Memory, Files and Tools in the pane, the toolbar with the sidebar toggle beside Back, dark and German.

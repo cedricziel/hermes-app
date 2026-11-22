@@ -63,3 +63,13 @@ Recommendation: A, after the spike of E. If the owner would rather not pay for t
 - Widget test: ⌘, while the window is open focuses it and opens no second one; ⌘, while covered does nothing.
 - Spec scenarios in `specs/mac-settings-window/spec.md`.
 - A real run on a Mac (`verify-in-app`): open, change Appearance, see the main window follow, lock the app, see the window go. Listed under "Not verified on a device" until run.
+
+## Design pass
+
+Canvas "Hermes: Mac Settings window, toast, sub-pages" (private, ask its owner for access): https://claude.ai/artifact/Q36fmBuDK9Gy3jkgBF2g5R. Its "C4" row, one decision per board:
+
+- Today, the Settings dialog over the window: a modal list with a scrim over the whole window, and a pick closes it. Replaced on the Mac.
+- Proposed, the Settings window beside the main window: a separate window at 520 x 640 (minimum 420 x 480), no scrim, the existing grouped list in one scrolling column; rows keep their values and open their dialogs as today. The quick-panel recorder (28 pt) and the menu bar switch stay inline.
+- Proposed, locked and signed out: on App Lock the window closes and unlock does not reopen it. Signed out, Command-comma stays off; if the owner answers yes to open question 3, the main-owned rows (Notifications, Quick panel, Spotlight, App Lock, Menu bar item) dim with "Sign in to change this.", Appearance, Dictation and Voice calls stay on, and Change Server is left out. Rendering showed that a disabled row dims its reason line too; the catalog pass checks its contrast and moves the reason to the section footer if it fails AA.
+
+Still owed: the window in dark and German, at the largest text size, and with the Appearance dialog open in it.

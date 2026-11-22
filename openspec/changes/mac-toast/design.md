@@ -53,3 +53,15 @@ Recommendation: A, with B's theme as the floor on other platforms (they keep the
 - Semantics test: the live region and the announcement carry the text once; the tone has an icon and a word in the label.
 - Architecture guard test: a new raw `showSnackBar` fails; a baseline count that drops without an edit fails (the ratchet's own rule).
 - Spec scenarios in `specs/mac-toast/spec.md`.
+
+## Design pass
+
+Canvas "Hermes: Mac Settings window, toast, sub-pages" (private, ask its owner for access): https://claude.ai/artifact/Q36fmBuDK9Gy3jkgBF2g5R. Its "Mac toast" row, one decision per board:
+
+- Today, the full-width SnackBar: a dark Material bar across the bottom, text only, no tone; it covers the composer and the send button.
+- Proposed, top centre, light, with action: placement decided (open question 1): top centre of the content pane, 12 pt under the toolbar, never over the sidebar or the composer; 360 pt wide at most; one 28 pt action.
+- Proposed, top centre, dark, error: the same capsule on the raised surface (`--h-apple-elevated`) with a 1 px border and the menu shadow; the error reads "Error" beside its icon, not red alone, and is announced assertively.
+- Tones, light and dark: each tone leads with its icon and a bold word, Info, Done, Warning, Error (German: Info, Erledigt, Warnung, Fehler; new strings); colour tints only the icon; at most one action, a 28 pt text button; text wraps to three lines at most.
+- Alternative, bottom centre 16 pt above the composer: not chosen; it must track the composer's height and clashes with other bottom bars.
+
+Still owed: German, the largest text size, a compact window, over a Kanban board, and the hovered state.
