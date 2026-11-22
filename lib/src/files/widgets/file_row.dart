@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'safe_path_text.dart';
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
@@ -79,8 +80,6 @@ class FileRow extends StatefulWidget {
 }
 
 class _FileRowState extends State<FileRow> {
-  bool _focused = false;
-
   String _label(AppLocalizations l10n) {
     final model = widget.model;
     final name = safePathText(model.name);
@@ -217,17 +216,12 @@ class _FileRowState extends State<FileRow> {
       label: _label(l10n),
       child: Material(
         color: widget.selected ? scheme.outline : Colors.transparent,
-        child: Container(
-          foregroundDecoration: _focused
-              ? BoxDecoration(
-                  border: Border.all(color: scheme.primary, width: 2),
-                )
-              : null,
+        child: FocusRing(
+          radius: 0,
           child: InkWell(
             onTap: widget.onTap,
             autofocus: widget.autofocus,
             focusNode: widget.focusNode,
-            onFocusChange: (focused) => setState(() => _focused = focused),
             child: ExcludeSemantics(child: content),
           ),
         ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import 'workspace_widget_support.dart';
@@ -173,15 +174,18 @@ class WorkingDirectoryLine extends StatelessWidget {
         shape: below
             ? Border(bottom: BorderSide(color: scheme.outlineVariant))
             : null,
-        child: InkWell(
-          onTap: onTap,
-          child: ExcludeSemantics(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: minHeight),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                widthFactor: below ? null : 1,
-                child: content,
+        child: FocusRing(
+          radius: 0,
+          child: InkWell(
+            onTap: onTap,
+            child: ExcludeSemantics(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minHeight),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  widthFactor: below ? null : 1,
+                  child: content,
+                ),
               ),
             ),
           ),
