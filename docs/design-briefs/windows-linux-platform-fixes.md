@@ -173,6 +173,49 @@ Lowest: 3.54 (light, selected Mac tile with the tint). The Kanban selected borde
 
 Each PR adds a catalog use case per shape (light and dark, phone and desktop width) before any screen is touched, and a geometry-test case per ring on Android, macOS, Linux and Windows, including a macOS case for the attachment retry card and a 3x text-scale case for the Material effort pill.
 
+## F.441 popup trigger (design pass)
+
+Decision only; no code in this change. Canvas (private; ask its owner for access): https://claude.ai/artifact/Y7J5DHdX6iPc9gpsADJj4S. Read at `origin/main` ``17a3ae29``. The ring and its rule are the F.427 ones above: 2 px, link colour, keyboard only; inside (the control's radius minus 2, inset 2) when a container clips the control or it is full-bleed, outside (the control's radius plus 4 for the ring's outer edge, as `FocusRing.outside` computes it) otherwise.
+
+**Problem.** On iOS `AdaptivePopupMenuButton` builds `_pullDown` (`adaptive_popup_menu_button.dart`, the `trigger` branch near line 395) as a `Semantics` over a bare `GestureDetector`. It takes no focus, so a keyboard user (iPad, or an external keyboard on an iPhone) cannot reach five menus. F.427 listed it under "Not focusable at all". It becomes focusable (Tab, Enter and Space open the menu) and draws a ring. The icon path (`IconButton`) already rings and is not touched; Mac and Material build a `PopupMenuButton`, also untouched.
+
+**Artboards** (7, 390 wide unless noted; each shows today and keyboard focus, light and dark):
+
+1. Log level pill.
+2. Settings subtitle menu: today, focus with no room (rejected), focus with 4 pt of room (decision).
+3. Grouped value row.
+4. Kanban filter chip: today, outside (clipped, rejected), inside (decision).
+5. Account footer, iPhone drawer.
+6. Account footer, iPad, light (1180 x 820, persistent sidebar).
+7. Account footer, iPad, dark.
+
+The iPad case differs only for the footer (a persistent sidebar, so the ring is the only cue of where Tab landed); the other four sit in the same layout on iPad, only wider.
+
+**Callers** (paths and lines checked at the base above; every one passes a custom `child`):
+
+| Caller | File:line | Ring | Control radius | Reason |
+| --- | --- | --- | --- | --- |
+| Log level pill | `server_care/widgets/log_level_menu_button.dart:49` | outside | stadium (half the painted height, so it follows text size) | Sliver padding 16 / 8 / 16 / 8 leaves room for 4 pt |
+| Settings subtitle menu | `widgets/settings_scaffold.dart:160` | outside | 4 | Text only, hugs its width. On iOS the trigger gets 4 pt of padding all round so the ring sits in it; without it the ring runs through the title's descender (artboard 2) |
+| Grouped value row (`GroupedMenuRow`) | `widgets/grouped_form.dart:222` | inside | 12 (iOS section radius), ring 10, inset 2 | The section clips; rows touch. Same ring as `GroupedRowInk`; the inner `GroupedRow` has no `onTap`, so no second ring |
+| Kanban filter chip | `kanban/widgets/kanban_board_toolbar.dart:150` | inside | 8 (chip theme), ring 6, inset 2 | A horizontal `SingleChildScrollView` clips an outside ring on three sides (artboard 4) |
+| Account footer | `chat/widgets/thread_sidebar.dart:930` | outside | 8 (as the sidebar rows) | The footer's own 8 pt padding takes the 4 pt; thread list above stays clear |
+
+Not a caller of the new ring: `chat/widgets/quick_look_target.dart:200` is an `ExcludeFocus` anchor with a zero-size child and stays unfocusable (a test pins it). The Mac callers with a `child` (`mac_toolbar.dart`, `mac_profile_switcher.dart`, `mac_account_footer.dart`) take the Mac path and are unchanged.
+
+**No double tab stop.** Read at the base: none of the five children holds a focusable control. The pill, the subtitle row and the footer are `Padding`, `Row`, `Text`, icons and an avatar; the `Chip` has no `onPressed` or `onDeleted`, so it takes no focus; `GroupedValueRow._inMenu` passes `onTap: null`, so it builds no ink.
+
+**API decision.** Two optional parameters on `AdaptivePopupMenuButton`, used only with a `child`:
+
+- `focusRadius` (double, default 8): the control's own corner radius. The widget derives the ring from it, as `GroupedRowInk` does (inside: radius minus `kFocusRingOffset`; outside: `FocusRing.outside(radius:)`). A stadium passes a large value (999); Flutter scales an oversized radius down.
+- `focusInside` (bool, default false): inside placement, for a trigger a container clips.
+
+The default (outside, 8) is the account footer's, so it needs nothing. The other four pass values explicitly: pill `focusRadius: 999`; subtitle `focusRadius: 4`; value row `focusRadius: 12, focusInside: true`; chip `focusRadius: 8, focusInside: true`. One parameter pair, no new type, because the five cases are all "a radius and a side". The trigger becomes a `Focus` with an activate action (Enter, Space) inside the `FocusRing`; `ExcludeFocus` above it still wins for the quick-look anchor. The subtitle's iOS padding is the caller's change (`SettingsSubtitleMenu`), not the widget's.
+
+**Tests to carry.** A geometry case per caller on iOS with a keyboard (ring present, radius and side as above), Enter and Space open the menu, no ring after a pointer tap, the quick-look anchor takes no focus, and 3x text for the pill.
+
+**Could not check.** The canvas was rendered locally in headless Chrome as HTML, not Flutter, so type, anti-aliasing and the ring's stroke are approximate; it was not looked at in the claude.ai viewer. Not checked: real iPad or an external keyboard on an iPhone; Tab order and the Enter and Space handling against `CupertinoMenuAnchor`; the subtitle at large text sizes (the bar is 44 pt and the padded content 42.8 pt, so it grows past that at larger sizes, and at 1x the title's `g` still grazes the ring by about 1 pt, so look at it in the catalog first and fall back to a ring inside the padded box); right-to-left; `ServerAttentionBadge` was not read for focusability; the iPad sidebar width (320) and the footer copy are assumptions. Contrast is the F.427 table (link on the sidebar and page surfaces, 4.3 to 11.4); the chip's `outline` border and the pill's outline sit under the ring and were not measured separately.
+
 ## F1 command set
 
 | Command                                       | Mac               | Windows and Linux                                                 |
