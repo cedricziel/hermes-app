@@ -25,6 +25,14 @@ import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
+/// The rows of the open bulk picker, whatever the value type behind them.
+final _choiceRows = find.byWidgetPredicate(
+  (widget) => widget is GroupedChoiceRow,
+);
+
+Finder _choiceRow(String label) =>
+    find.descendant(of: _choiceRows, matching: find.text(label));
+
 /// The Kanban screens `kanban_workflow_test.dart` does not walk: workers,
 /// orchestration, boards management, the task panel and its dialogs, the
 /// bulk-action bar, a crowded board and its filters.
@@ -837,7 +845,7 @@ void main() {
       await shots.capture(tester, 'move-dialog');
       expect(find.text('Move to'), findsOneWidget);
       // The statuses a person may set, and not Running or Archived.
-      expect(find.byType(SimpleDialogOption), findsNWidgets(7));
+      expect(_choiceRows, findsNWidgets(7));
       for (final status in [
         'Triage',
         'Todo',
@@ -847,11 +855,7 @@ void main() {
         'Review',
         'Done',
       ]) {
-        expect(
-          find.widgetWithText(SimpleDialogOption, status),
-          findsOneWidget,
-          reason: status,
-        );
+        expect(_choiceRow(status), findsOneWidget, reason: status);
       }
       await popRoute(tester);
       expect(find.text('Move to'), findsNothing);
@@ -862,32 +866,22 @@ void main() {
       await shots.capture(tester, 'assign-dialog');
       expect(find.text('Assign to'), findsOneWidget);
       // Nobody, then everyone the board knows.
-      expect(find.byType(SimpleDialogOption), findsNWidgets(9));
-      expect(find.widgetWithText(SimpleDialogOption, 'Nobody'), findsOneWidget);
-      expect(
-        find.widgetWithText(SimpleDialogOption, 'designer'),
-        findsOneWidget,
-      );
-      expect(
-        find.widgetWithText(SimpleDialogOption, opsAssignee),
-        findsOneWidget,
-      );
+      expect(_choiceRows, findsNWidgets(9));
+      expect(_choiceRow('Nobody'), findsOneWidget);
+      expect(_choiceRow('designer'), findsOneWidget);
+      expect(_choiceRow(opsAssignee), findsOneWidget);
       await popRoute(tester);
       expect(find.text('Assign to'), findsNothing);
 
       await tester.tap(find.text('Priority'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'priority-dialog');
-      expect(find.byType(SimpleDialogOption), findsNWidgets(4));
+      expect(_choiceRows, findsNWidgets(4));
       for (final priority in ['Normal', 'P1', 'P2', 'P3']) {
-        expect(
-          find.widgetWithText(SimpleDialogOption, priority),
-          findsOneWidget,
-          reason: priority,
-        );
+        expect(_choiceRow(priority), findsOneWidget, reason: priority);
       }
       await popRoute(tester);
-      expect(find.byType(SimpleDialogOption), findsNothing);
+      expect(_choiceRows, findsNothing);
 
       await tester.tap(find.text('Archive'));
       await tester.pumpAndSettle();
