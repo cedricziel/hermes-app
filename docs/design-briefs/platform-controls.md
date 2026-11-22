@@ -181,3 +181,41 @@ Accepted differences (canvas against Flutter):
 - Memory choice has no design-system component; the canvas builds it from `GroupedDialog` and `GroupedChoiceRow`.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device. Barrier values read from the Flutter SDK source and `lib/src/theme/hermes_theme.dart`; contrast computed and confirmed by pixel samples of the renders.
+
+## Kanban dialog presentation
+
+### Design (done)
+
+- Canvas: https://claude.ai/artifact/2Y5jDgBmAMsX316sodvT9D (private; ask the owner for access)
+- Date: 2026-11-22
+- Boards (8, after only): Mac 1280 x 800 over the Kanban board: export light, import dark, edit task light, orchestration dark. iPhone 390 x 844 over the Kanban list: export dark, import light, edit task dark, orchestration light.
+
+Scope: four `GroupedDialog`s with their own actions move from `showDialog` to `showAppDialog` (`lib/src/widgets/dialog_presentation.dart`) through `showKanbanDialog`: board export (`_ExportDialog`), board import (`_ImportDialog`), edit task (`_EditTaskDialog`) and orchestration (`KanbanOrchestrationDialog`). Their content and footers (Cancel and the filled action) do not change. iOS gets the Cupertino route and macOS the 150 ms fade, as in "Settings dialog presentation" and "Mac dialog presentation". Android, Windows and Linux are unchanged. `showKanbanDetentSheet` and `showKanbanFormSheet` stay hand-built (detents; the single edge pinned by `test/dialog_edge_test.dart`; the detent sheet is shared with the Activity panel) and are exempted from `style.dialog` in `tool/style_score_allowlist.yaml`.
+
+Decisions:
+
+- Route and barrier: as in "Settings dialog presentation" (iOS: scale-in, Cupertino barrier, tap outside does not close, safe area kept) and "Mac dialog presentation" (macOS: 150 ms fade, theme barrier). Not repeated here.
+- Export, import and edit task have text fields. On macOS a click outside does not close them, so typed text is kept; Esc and Cancel close them (the rule of "Mac dialog presentation" for the thread rename and Kanban text dialogs).
+- Orchestration has no text field, so on macOS a click outside closes it. Nothing typed can be lost; Save still sends only what changed.
+- On iOS a tap outside closes none of the four. Their way out is Cancel in the footer, not Done in the header; the loss of tap-outside is accepted for the reasons in "Settings dialog presentation".
+- Esc closes all four on iOS (a hardware keyboard) and macOS, closing with no result like Cancel.
+
+Contrast (dialog panel against the dimmed page, from the local render):
+
+| Theme | Platform | Before | After |
+|---|---|---|---|
+| Light | Mac | 4.61:1 | 4.61:1 (barrier unchanged) |
+| Dark | Mac | 1.04:1 | 1.04:1 (barrier unchanged) |
+| Light | iPhone | 4.61:1 | 1.61:1 |
+| Dark | iPhone | 1.03:1 | 1.03:1 |
+
+iPhone light falls below 3:1 as in the Settings dialogs; the shadow and 14 pt corners still separate the panel, and the open hairline-edge question in "Settings dialog presentation" covers it. In dark the panel is carried by its zinc500 edge (4.24:1 off the page), as before.
+
+Accepted differences from the Flutter build:
+
+- Motion, click-outside, Esc and focus are behaviour and are not shown on static boards.
+- The design system's `GroupedDialog` has no actions prop: the canvas hides its Done with a CSS rule and draws the footer as plain markup. The barrier is an overlay div and the shadow an approximation.
+- The design system's `GroupedSwitchRow` ellipsizes a long title on iPhone ("Auto-decompose triage ta..."); the Flutter row was not compared.
+- Orchestration is drawn loaded with its pickers closed; its loading and error states are not drawn.
+
+Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device.
