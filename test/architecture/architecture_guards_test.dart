@@ -147,7 +147,7 @@ final _rawExpansionTile = RegExp(
 /// A floating button not directly inside `FocusRing.outside(radius: ..., child:`.
 final _bareFloatingButton = RegExp(
   r'(?<!FocusRing\.outside\(\s*radius:\s*[^,()]+,\s*child:\s*)'
-  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:(?:\.\w+)?\s*[<(]|\.new\b)',
+  r'(?<![\w.])(?:\w+\.)*\bFloatingActionButton(?:(?:\.\w+)?\s*[<(]|\.\w+)',
 );
 
 /// A raw popup menu: `PopupMenuButton<T>(`, the inferred `PopupMenuButton(`,
@@ -914,6 +914,10 @@ void main() {
       expect(bare('child: m.FloatingActionButton(onPressed: f)'), isTrue);
       expect(bare('child: m.FloatingActionButton.extended(a)'), isTrue);
       expect(bare('builder: FloatingActionButton.new'), isTrue);
+      expect(bare('builder: FloatingActionButton.extended'), isTrue);
+      expect(bare('f(FloatingActionButton.small)'), isTrue);
+      expect(bare('f(m.FloatingActionButton.large)'), isTrue);
+      expect(bare('class MyFloatingActionButton {}'), isFalse);
       expect(
         bare('FocusRing.outside(radius: 28, child: m.FloatingActionButton(a))'),
         isFalse,

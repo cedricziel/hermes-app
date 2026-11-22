@@ -460,6 +460,38 @@ void main() {
       },
     );
 
+    testWidgets('an unfocused Mac menu row is not rebuilt when the input '
+        'changes ($name)', (tester) async {
+      _strategy(FocusHighlightStrategy.alwaysTraditional);
+      await _pump(
+        tester,
+        on(TargetPlatform.macOS),
+        const SizedBox(width: 200, child: MacMenuRow(child: Text('Idle'))),
+      );
+      CustomPaint ring() => tester.widget<CustomPaint>(
+        find
+            .descendant(
+              of: find.byType(KeyboardFocusBuilder),
+              matching: find.byType(CustomPaint),
+            )
+            .first,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      final before = ring();
+      // Away from the row, so its hover state is not what rebuilds it.
+      final press = await tester.startGesture(
+        const Offset(700, 500),
+        kind: PointerDeviceKind.mouse,
+      );
+      await press.up();
+      await tester.pumpAndSettle();
+      expect(identical(ring(), before), isTrue, reason: 'pointer press');
+      await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(identical(ring(), before), isTrue, reason: 'key press');
+    });
+
     group('Mac menus, $name', () {
       final mac = on(TargetPlatform.macOS);
 
