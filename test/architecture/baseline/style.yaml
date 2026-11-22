@@ -447,7 +447,7 @@ style.string:
   lib/src/quick_panel/widgets/quick_panel_view.dart: 2
   lib/src/quick_panel/widgets/shortcut_recorder_row.dart: 1
   lib/src/schedules/blueprint_screens.dart: 6
-  lib/src/schedules/job_form_screen.dart: 11
+  lib/src/schedules/job_form_screen.dart: 10
   lib/src/schedules/schedule_actions.dart: 4
   lib/src/schedules/schedule_alerts.dart: 1
   lib/src/schedules/schedule_picker.dart: 5

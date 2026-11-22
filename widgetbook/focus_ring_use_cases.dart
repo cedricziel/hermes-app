@@ -19,8 +19,7 @@ import 'package:hermes_app/src/chat/widgets/tool_json_tree.dart';
 import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
-import 'package:hermes_app/src/schedules/job_form_screen.dart'
-    show ScheduleAdvancedRow;
+import 'package:hermes_app/src/schedules/widgets/schedule_advanced_row.dart';
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_action_row.dart';
