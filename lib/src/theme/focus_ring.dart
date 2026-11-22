@@ -504,6 +504,7 @@ class HostFocusRing<H extends Widget> extends StatefulWidget {
 
 class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
   bool _keyboard = keyboardFocusShows;
+  bool _focused = false;
 
   @override
   void initState() {
@@ -521,7 +522,10 @@ class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
   void _onInput() {
     final next = keyboardFocusShows;
     if (next == _keyboard) return;
-    setState(() => _keyboard = next);
+    _keyboard = next;
+    // Only a focused ring paints differently; the rest reads it when focus
+    // arrives.
+    if (_focused) setState(() {});
   }
 
   Element? _host() {
@@ -538,7 +542,8 @@ class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
 
   @override
   Widget build(BuildContext context) {
-    final focused = Focus.maybeOf(context, scopeOk: false)?.hasFocus ?? false;
+    final focused = _focused =
+        Focus.maybeOf(context, scopeOk: false)?.hasFocus ?? false;
     final host = focused && _keyboard ? _host() : null;
     return CustomPaint(
       foregroundPainter: host == null
@@ -557,9 +562,17 @@ class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
 
 /// Builds with whether the keyboard has the last input ([keyboardFocusShows]),
 /// and again when a pointer press or a key press changes it, for a control
-/// that draws its own focus state and must hide it after a pointer press.
+/// that draws its own focus state and must hide it after a pointer press. An
+/// unfocused control is not rebuilt for it ([focused]).
 class KeyboardFocusBuilder extends StatefulWidget {
-  const KeyboardFocusBuilder({super.key, required this.builder});
+  const KeyboardFocusBuilder({
+    super.key,
+    required this.focused,
+    required this.builder,
+  });
+
+  /// Whether the control has focus. Only then does an input change rebuild.
+  final bool focused;
 
   final Widget Function(BuildContext context, bool keyboard) builder;
 
@@ -584,7 +597,9 @@ class _KeyboardFocusBuilderState extends State<KeyboardFocusBuilder> {
 
   void _onInput() {
     final next = keyboardFocusShows;
-    if (next != _keyboard) setState(() => _keyboard = next);
+    if (next == _keyboard) return;
+    _keyboard = next;
+    if (widget.focused) setState(() {});
   }
 
   @override

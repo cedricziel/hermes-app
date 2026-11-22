@@ -483,6 +483,7 @@ class _MacMenuRowState extends State<MacMenuRow> {
       // the focused row is filled with the primary colour, where the link
       // colour measures 1.68:1 (dark) and 3.08:1 (light).
       child: KeyboardFocusBuilder(
+        focused: focused,
         builder: (context, keyboard) => CustomPaint(
           foregroundPainter: keyboard && widget.enabled && focused
               ? FocusRingPainter(color: scheme.onPrimary, radius: 4)

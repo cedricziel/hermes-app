@@ -188,7 +188,21 @@ void main() {
         final segment = tester.getRect(find.byType(TextButton).at(1));
         expect(host.localToGlobal(Offset.zero) & host.size, segment);
         expect(painter.host.widget, isA<TextButton>());
-        expect(painter.maxHeight, lessThanOrEqualTo(28));
+        // What is drawn: the ring's rectangle stops inside the control's
+        // 28 dp (3 px in from the top and the bottom edge), though the
+        // segment is laid out 32 high.
+        expect(host.size.height, greaterThan(28));
+        expect(
+          tester.renderObject(_ringPainter),
+          paints..rrect(
+            rrect: RRect.fromRectAndRadius(
+              Rect.fromLTWH(3, 3, host.size.width - 6, 28 - 6),
+              const Radius.circular(11),
+            ),
+            color: link,
+            strokeWidth: 2,
+          ),
+        );
       });
     });
 
@@ -417,6 +431,34 @@ void main() {
         expect(_ringPainter, findsNothing);
       });
     });
+
+    testWidgets(
+      'an unfocused ring is not rebuilt when the input changes ($name)',
+      (tester) async {
+        _strategy(FocusHighlightStrategy.alwaysTraditional);
+        await _pump(
+          tester,
+          theme,
+          const DisclosureTile(title: Text('Idle'), children: [Text('x')]),
+        );
+        CustomPaint ring() => tester.widget<CustomPaint>(
+          find
+              .descendant(
+                of: find.byType(HostFocusRing<ListTile>),
+                matching: find.byType(CustomPaint),
+              )
+              .first,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        final before = ring();
+        await _pointerPress(tester);
+        expect(identical(ring(), before), isTrue, reason: 'pointer press');
+        await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(identical(ring(), before), isTrue, reason: 'key press');
+      },
+    );
 
     group('Mac menus, $name', () {
       final mac = on(TargetPlatform.macOS);
