@@ -400,11 +400,8 @@ void main() {
         'Alt+Left, Alt+Right and Alt+Up move the caret on $platform',
         (tester) async {
           await _onPlatform(platform, () async {
-            final controller = TextEditingController(
-              text: 'one two\nthree four',
-            );
+            final controller = TextEditingController();
             addTearDown(controller.dispose);
-            controller.selection = const TextSelection.collapsed(offset: 14);
             await tester.pumpWidget(
               _app(
                 platform,
@@ -417,13 +414,18 @@ void main() {
               ),
             );
             await tester.pump();
+            // Typed in, so the caret is at the end of the second line.
+            await tester.enterText(
+              find.byType(TextField),
+              'one two\nthree four',
+            );
+            await tester.pump();
+            expect(controller.selection.baseOffset, 18);
 
+            // Linux and Windows: line start, line end, start of the text.
             await _press(tester, 'Alt+Left');
             expect(controller.selection.baseOffset, 8, reason: 'start of line');
-            await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-            await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-            await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-            await tester.pump();
+            await _press(tester, 'Alt+Right');
             expect(controller.selection.baseOffset, 18, reason: 'end of line');
             await _press(tester, 'Alt+Up');
             expect(controller.selection.baseOffset, 0, reason: 'start of text');
