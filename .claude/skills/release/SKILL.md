@@ -17,8 +17,8 @@ A release goes through three steps:
 2. **Test**: testers use the TestFlight build.
 3. **Ship** (the owner's step): promote the pre-release to a full release.
    `app-store.yml` then submits that version's TestFlight build to App Review on
-   iOS and macOS. It does not rebuild. `automatic_release: true` in the `submit` lane makes an approved
-   version go live without further action.
+   iOS and macOS. It does not rebuild. `automatic_release: true` in the `submit`
+   lane makes an approved version go live without further action.
 
 Merging the release PR and promoting a release are outward steps. The
 orchestrator cuts a pre-release at its discretion, an interim cut as well as one
