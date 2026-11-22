@@ -199,27 +199,31 @@ class _BoundAgentDetailState extends State<BoundAgentDetail> {
             },
           ),
         },
-        child: Focus(
-          focusNode: _focus,
-          autofocus: true,
-          child: AgentDetailView(
-            model: model,
-            onBack: widget.onBack,
-            onClose: widget.onClose,
-            onStop: controller != null && controller.canStop
-                ? controller.startStop
-                : null,
-            onSendNote: controller != null && controller.canSendNote
-                ? () => unawaited(controller.sendNote())
-                : null,
-            onNoteChanged: (text) => controller?.setNote(text),
-            onCopyNote: () => unawaited(
-              Clipboard.setData(ClipboardData(text: controller?.note ?? '')),
+        // A scope below the binding: a click that takes focus out of the note
+        // field lands here, not on the route's scope above the Actions.
+        child: FocusScope(
+          child: Focus(
+            focusNode: _focus,
+            autofocus: true,
+            child: AgentDetailView(
+              model: model,
+              onBack: widget.onBack,
+              onClose: widget.onClose,
+              onStop: controller != null && controller.canStop
+                  ? controller.startStop
+                  : null,
+              onSendNote: controller != null && controller.canSendNote
+                  ? () => unawaited(controller.sendNote())
+                  : null,
+              onNoteChanged: (text) => controller?.setNote(text),
+              onCopyNote: () => unawaited(
+                Clipboard.setData(ClipboardData(text: controller?.note ?? '')),
+              ),
+              onJumpToLatest: () => controller?.jumpToLatest(),
+              onHolding: (holding) => controller?.setReaderHolding(holding),
+              noteController: _noteField,
+              outputMaxHeight: widget.outputMaxHeight,
             ),
-            onJumpToLatest: () => controller?.jumpToLatest(),
-            onHolding: (holding) => controller?.setReaderHolding(holding),
-            noteController: _noteField,
-            outputMaxHeight: widget.outputMaxHeight,
           ),
         ),
       ),

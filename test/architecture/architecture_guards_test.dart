@@ -768,11 +768,16 @@ final guardRules = <Rule>[
     allow: {
       'lib/src/widgets/route_dismissal.dart': 'DismissOnEscape, the block',
       'lib/src/widgets/grouped_dialog.dart':
-          'GroupedDialog Done-only iOS binding; its dialog test covers it',
-      'lib/src/widgets/anchored_popover.dart': 'a popover, not a dialog',
-      'lib/src/chat/subagents/bound_agent_detail.dart': 'a page, not a dialog',
+          'Done-only GroupedDialogs have no text field, and a click does not '
+          'move focus off the autofocused wrapper (the Appearance test)',
+      'lib/src/widgets/anchored_popover.dart':
+          'its barrier is dismissible, so the route\'s own Esc still closes '
+          'it when focus lands on the route scope',
+      'lib/src/chat/subagents/bound_agent_detail.dart':
+          '"go back" is not a route pop; a FocusScope sits below its Actions '
+          '(bound_activity_panel_agents_test.dart)',
       'lib/src/bot_screen/viewer/bot_screen_viewer.dart':
-          'a full-screen viewer with its own key handling',
+          'no text field, so nothing moves focus out of its Focus',
     },
   ),
 
