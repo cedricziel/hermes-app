@@ -81,13 +81,13 @@ The pass above did not record these; they are checked against the real theme tok
 
 Decision only; no code in this change. Canvas (private; ask its owner for access): https://claude.ai/artifact/5jiNCpJ6Wgpn33EKrFGjAe, one section per control with today's light and dark shot, grouped by the three PRs below. The ring, rule and colour are the F7 ones: 2 px, link colour, keyboard only; inside (the row's radius minus 2, inset 2) when a container clips the control, it is full-bleed in a list, or something flush against it would be covered; outside (the control's radius plus 2) otherwise. Answers marked "owner may overrule" are line-manager defaults.
 
-**Method.** `grep -rn "InkWell\|InkResponse\|GestureDetector" lib` gave 61 hits in 56 files, each read in context; those already inside a `FocusRing` (26 files) were dropped; a second grep for `ListTile`, `CupertinoButton`, `TextButton`, `MenuItemButton` found nothing new (`CupertinoButton`, the non-Mac `ThreadSectionHeader`, draws Apple's own focus outline). Result: 26 focusable controls with no ring, in 24 files. No item has a primary-filled face, so the ring is the link colour everywhere (no `onPrimary` case).
+**Method.** `grep -rn "InkWell\|InkResponse\|GestureDetector" lib` gave 61 hits in 51 files at the inventory base (`828d580`), each read in context; 14 of those files contain a `FocusRing`, and the controls already inside one were dropped; a second grep for `ListTile`, `CupertinoButton`, `TextButton`, `MenuItemButton` found nothing new (`CupertinoButton`, the non-Mac `ThreadSectionHeader`, draws Apple's own focus outline). Result: 26 focusable controls with no ring, in 24 files. No item has a primary-filled face, so the ring is the link colour everywhere (no `onPrimary` case).
 
 **Corrections to the brief.**
 
 - `CheckpointRow` is a `GroupedRow` (already ringed); its `GestureDetector` is only the Mac secondary click. The changed-files row is a `GroupedRow` too. Neither is an item.
 - `FileRow` already has a hand-rolled 2 px `primary` border on any focus (also after a click). It is an item: replace it.
-- The attachment card has no `onTap` on a Mac (click selects, `QuickLookTarget` opens), so it takes no focus there. The image thumbnail is a `GestureDetector`, not focusable anywhere.
+- The attachment card's open tap is off on a Mac (click selects, `QuickLookTarget` opens), but the failed-download retry card passes `onTap: _load` with no Mac check (`attachment_views.dart:125`), so the `InkWell` takes focus there too: the card is focusable on every platform. The image thumbnail is a `GestureDetector`, not focusable anywhere.
 - Items found beyond the brief: `SidebarAction`, `MacSourceListTile`, `MacSearchHitRow`, `ToolJsonTree` rows, the sub-agent header and lines, `ActivityLine`, the working-folder row and line, the Kanban card, the effort pills, the iOS `GroupedValueRow` wrapper and the Mac pop-up value.
 
 **Contrast of the link ring** (WCAG 1.4.11, 3:1; fills composited from the theme tokens; "with tint" adds Flutter's default `InkWell` focus tint, `onSurface` at 0.12, which stays under the ring).
@@ -146,10 +146,10 @@ Lowest: 3.54 (light, selected Mac tile with the tint). The Kanban selected borde
 | ---------------------- | ----------------------------- | --------- | ---------------------------------- | --------------------------------------------------------------------------------------- |
 | Tool-call group header | `tool_call_group.dart:202`    | all       | outside, radius 8                  | Hug-width                                                                               |
 | Reasoning toggle       | `reasoning_block.dart:95`     | all       | outside, 8                         | Hug-width, 4 px below                                                                   |
-| Attachment card        | `attachment_views.dart:394`   | not Mac   | outside, 14                        | Nothing clips it                                                                        |
+| Attachment card        | `attachment_views.dart:394`   | all (Mac: failed-retry state) | outside, 14                        | Nothing clips it                                                                        |
 | Bot Screen preview     | `bot_screen_preview.dart:242` | all       | outside, 8                         | A ring on the picture could not be held at 3:1; the top edge has no room (see answer 4) |
 | Welcome card           | `welcome_view.dart:180`       | all       | outside, 14                        | Cards 10 apart inside 24 px padding                                                     |
-| Effort pill            | `model_picker.dart:702`       | all       | outside, 20 Material, 9 iOS, 7 Mac | Around the painted pill, not the 44/48 hit area                                         |
+| Effort pill            | `model_picker.dart:702`       | all       | outside; radius half the painted height on Material (a `StadiumBorder` with only a minimum height, so it grows with text size), 9 iOS, 7 Mac | Around the painted pill, not the 44/48 hit area; a fixed 20 would stop following the shape at large text |
 | Mac pop-up value       | `grouped_form.dart:172`       | macOS     | outside, 6                         | 12 pt of row padding                                                                    |
 
 **Own-focus ring.** `FocusRing` follows focus anywhere inside its child, so a thread row with its inline More button (non-iOS) or the Mac thread row with Archive and More would draw the row ring around a focused button that draws its own. PR 1 adds a mode that follows only the row's own focus node.
@@ -160,7 +160,7 @@ Lowest: 3.54 (light, selected Mac tile with the tint). The Kanban selected borde
 2. The Mac sidebar is translucent; the solid sidebar colour is an acceptable proxy. Check on a real Mac under "Not verified on a device".
 3. Kanban ring inset 3 or 4: accepted.
 4. Bot Screen preview: the ring paints 4 px into the empty padding above; accepted, no layout room added.
-5. The not-focusable list below is out of scope here; a roadmap row covers it.
+5. The not-focusable list below is out of scope here; reported to the orchestrator for a roadmap row.
 6. The new geometry cases include `TargetPlatform.windows`.
 
 **Not focusable at all (out of scope).** These `GestureDetector` buttons take no keyboard focus, so a ring has nothing to follow: settings search clear (`settings_search_field.dart:183`), Mac toolbar "End search" (`mac_toolbar_search_field.dart:160`), Mac sidebar section header (`mac_source_list.dart:178`), the popup menu's custom `trigger` (`adaptive_popup_menu_button.dart:395`), the image thumbnail (`attachment_views.dart:138`), the Bot Screen card's Enlarge wrapper (`bot_screen_card.dart:408`), the voice hold control (`voice_recording_controls.dart:83`), the Tools switch hit area (`tools_switch.dart:97`).
@@ -171,7 +171,7 @@ Lowest: 3.54 (light, selected Mac tile with the tint). The Kanban selected borde
 2. Inside rows (B and C, 15 items): `FocusRing` with the row's radius, and the grouped-row ink extracted from `GroupedRow` so `GroupedActionRow`, the iOS value wrapper and the Advanced row share it.
 3. Outside tap targets (D, 7 items): `FocusRing.outside`, plus the guard `arch.inkwell-without-focus-ring`, which lands last with an empty baseline (an `InkWell(` or `InkResponse(` with a non-null `onTap` outside a `FocusRing`, `GroupedRow` or button fails; rings owned by other widgets go on the allowlist) and rewrites the "Not covered" paragraph of `docs/architecture/settings-screens.md`.
 
-Each PR adds a catalog use case per shape (light and dark, phone and desktop width) before any screen is touched, and a geometry-test case per ring on Android, macOS, Linux and Windows.
+Each PR adds a catalog use case per shape (light and dark, phone and desktop width) before any screen is touched, and a geometry-test case per ring on Android, macOS, Linux and Windows, including a macOS case for the attachment retry card and a 3x text-scale case for the Material effort pill.
 
 ## F1 command set
 
