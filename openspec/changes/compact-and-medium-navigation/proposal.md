@@ -1,6 +1,6 @@
 # Proposal
 
-**Owner decides:** whether iPhone and Android phones get a bottom tab bar with a More tab in place of today's drawer, and whether Android and desktop windows of 600 to 899 dp get a navigation rail with a list-detail Chats page, both as one change in three PRs.
+**Owner decides:** whether iPhone and Android phones get a bottom tab bar with a More tab in place of today's drawer, and whether Android and desktop windows of 600 to 899 dp get a navigation rail with a list-detail Chats page, both as one change in three PRs; and what Android Back does on the root of a destination other than Chats: select Chats first (recommended by the design pass), or leave the app as from Chats today.
 
 Audit items D1 (roadmap F.229) and E6 (roadmap F.210).
 
@@ -17,15 +17,16 @@ One rule picks the shell's form from the available width, in one function next t
 
 | Form     | Width         | iPhone, iPad Split View, Android phone        | Android tablet, foldable, Windows, Linux                      | iPad full screen                                   | macOS             |
 | -------- | ------------- | --------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------- | ----------------- |
-| Compact  | under 600 dp  | bottom tab bar                                | bottom navigation bar on Android, drawer on Windows and Linux | not reachable (a full-screen iPad is at least 700) | sidebar, as today |
-| Medium   | 600 to 899 dp | tab bar (an iPhone in landscape is under 700) | navigation rail, with Chats as list and detail from 720 dp    | sidebar, as today (700 dp and up counts as wide)   | sidebar           |
+| Compact  | under 600 dp  | bottom tab bar on iOS, bottom navigation bar on Android | bottom navigation bar on Android, drawer on Windows and Linux | not reachable (a full-screen iPad is at least 700) | sidebar, as today |
+| Medium   | 600 to 899 dp | tab bar on iOS (an iPhone in landscape up to 899 pt, such as 852 x 393); navigation rail on an Android phone in landscape | navigation rail, with Chats as list and detail from 720 dp    | sidebar, as today (700 dp and up counts as wide)   | sidebar           |
 | Expanded | 900 dp and up | sidebar, as today                             | sidebar, as today                                             | sidebar, as today                                  | sidebar           |
 
 Details of the compact and medium forms:
 
 - **Destinations.** Chats; then Bots, Kanban and Schedules only while the server offers them (the existing gates); then **More**. More is a grouped page that holds what the drawer holds today: Profiles, Skills, Memory, Messaging, Plugins, MCP servers, Providers, Tools, Helper models (each with its current gate), **Server** (with the attention mark) and **Settings** (the account menu's entries: Appearance, Notifications, Dictation, Voice calls, Spotlight, App lock, Connection details, About, then Sign out and Change server).
 - **Cupertino and Material.** The Apple form is a translucent tab bar with a filled icon and a bold label for the selected tab. The Material form is a Material 3 `NavigationBar` (compact) or `NavigationRail` (medium) with labels always shown and the indicator pill. Both live behind one plain-model widget so the shell does not know which it draws.
-- **The drawer goes away** on touch phones. Windows and Linux windows under 600 dp keep it, because a bottom bar is not a desktop idiom.
+- **Expanded from 900 everywhere.** An iPhone in landscape that is 900 pt or wider (932 x 430) is expanded and keeps today's sidebar, as `isWideLayout` already makes it.
+- **The drawer goes away** on touch phones. Windows and Linux windows under 600 dp keep it as it is today (destinations, management entries, Server and the account menu, with no More row), because a bottom bar is not a desktop idiom; a window with no destination beyond Chats keeps the chat alone with the chat's own drawer.
 - **Chats at 720 to 899 dp** shows the thread list (the existing full-page list) beside the conversation, with the rail at the left. From 600 to 719 dp it stays a pushed conversation with the rail. The other destinations keep their own layouts: they measure their own width, which the rail narrows.
 - The existing rule stays: a Mac window always has its sidebar, and a full-screen iPad keeps today's sidebar.
 
@@ -49,6 +50,11 @@ Details of the compact and medium forms:
 
 - `kanban`: the requirement "Chat and Kanban navigation adapts to screen width" no longer says there is no bottom bar.
 - `messenger-navigation`: "Chats is the compact home" reaches other destinations through the tab bar, rail or More instead of a menu.
+- `memory-navigation`: "Memory entry in the chat sidebar" names the More page instead of the phone drawer.
+- `mcp-servers`: "Sidebar entry" adds the More page, and closes the drawer only where one is open.
+- `deep-links`: "Opening the oldest request" selects Chats and shows the list where the shell has a bar or rail, instead of opening the chat drawer.
+
+Two specs mention the chat drawer and still hold unchanged: `chat` ("Opening a thread from a notification") and `notifications` ("Tapping a notification opens its chat") close the thread drawer only "when it is open". On a touch phone there is no drawer to close, and a Windows or Linux window under 600 keeps it, so both read true in every form; selecting Chat for a notification tap is what the bar does too.
 
 ## Impact
 
@@ -56,5 +62,5 @@ Details of the compact and medium forms:
 - Backend: none. No route, no Hermes version.
 - Native: none. No entitlement, manifest or Xcode change.
 - Security and privacy: None. Tab and rail labels are fixed words. The only dynamic part is the server attention mark, which already exists and is covered by App Lock with the rest of the shell.
-- Observability: the existing breadcrumb `nav.destination` (`lib/src/shell/app_shell_navigation.dart:52`) gains the fixed attributes `form` (`compact`, `medium`, `expanded`) and `via` (`bar`, `rail`, `drawer`, `sidebar`, `more`). One new breadcrumb `nav.more.opened` (no attributes). No span or log event: switching a tab does no work that takes time. Fixed names and flags only.
+- Observability: the existing breadcrumb `nav.destination` (`lib/src/shell/app_shell_navigation.dart:52`) gains the fixed attributes `form` (`compact`, `medium`, `expanded`) and `via` (`bar`, `rail`, `drawer`, `sidebar` for a tap on that control, `link` for a deep link, notification target or share, `fallback` when a destination went away). One new breadcrumb `nav.more.opened` (no attributes). No span or log event: switching a tab does no work that takes time. Fixed names and flags only.
 - Delivery: three PRs (see tasks.md).

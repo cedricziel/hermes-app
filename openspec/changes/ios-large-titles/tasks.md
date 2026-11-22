@@ -1,6 +1,6 @@
 # Tasks
 
-Three PRs, each about 500 changed lines or fewer with tests. Every behaviour task starts with a failing test. UI starts in the catalog. The design pass (`docs/design-briefs/ios-large-titles.md`) runs before PR 1; PR 3 also waits for its search decision.
+Three PRs, each about 500 changed lines or fewer with tests. Every behaviour task starts with a failing test. UI starts in the catalog. The design pass (`docs/design-briefs/ios-large-titles.md`) runs before PR 1; PR 3 also waits for the owner to confirm its search placement.
 
 ## 1. PR 1: `feat(widgets): add the large title header and scope behind a flag`
 
@@ -21,9 +21,9 @@ Server overview, MCP servers, Tools, Profiles, Messaging and Helper models, and 
 
 ## 3. PR 3: `feat(ui): large titles on Providers, Bots, Schedules and Chats`
 
-Starts after the design pass has decided where the search field sits.
+Starts after the owner confirms the search placement of design decision 7 (the field under the large title).
 
-- [ ] 3.1 Failing tests for the chosen search placement (the field scrolls with the content or pins once focused or holding a query; the keyboard and the query survive a collapse).
+- [ ] 3.1 Failing tests for the search placement in `specs/large-titles/spec.md` ("Search sits under the large title"): the field is under the large title at rest, scrolls away with it when empty and unfocused, pins under the bar while focused or holding a query, and the keyboard and the query survive a collapse.
 - [ ] 3.2 Move Schedules' custom `AppBar` onto the same header, and give the Chats list its large title (`chat_screen_layout.dart`, `ThreadSidebar(fullPage: true)`), keeping New message in the bar and `NewChatFab` in place.
 - [ ] 3.3 Rerun the workflow screenshots and the Chats tests in `test/messenger_navigation_test.dart`.
 - [ ] 3.4 Report to the orchestrator whether Android (`SliverAppBar.large`) and iPad should follow, as roadmap rows.

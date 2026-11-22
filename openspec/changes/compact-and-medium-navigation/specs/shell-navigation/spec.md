@@ -17,11 +17,13 @@ The system SHALL choose the shell's form from the available width. Expanded is 9
 #### Scenario: iPhone in landscape
 
 - **WHEN** an iPhone is 852 logical pixels wide and 393 high
-- **THEN** it is not expanded, because its shortest side is under 600, and it shows the tab bar
+- **THEN** it is medium, not expanded, because it is under 900 and its shortest side is under 600, and it shows the tab bar
+- **AND WHEN** an iPhone is 932 logical pixels wide and 430 high
+- **THEN** it is expanded, because it is 900 or more, and it shows the sidebar
 
 ### Requirement: Destination bar and rail
 
-On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and Slide Over) and on Android below 600, the shell SHALL show a bottom bar whose items are Chats, then Bots, Kanban and Schedules while the server offers each, then More. On Android, Windows and Linux from 600 to 899 logical pixels it SHALL show a navigation rail with the same items. On Windows and Linux below 600 it SHALL keep a drawer.
+On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and Slide Over) and on Android below 600, the shell SHALL show a bottom bar whose items are Chats, then Bots, Kanban and Schedules while the server offers each, then More. On Android, Windows and Linux from 600 to 899 logical pixels it SHALL show a navigation rail with the same items.
 
 #### Scenario: Server offers everything
 
@@ -37,6 +39,15 @@ On iOS below 900 logical pixels when not expanded (iPhone, iPad Split View and S
 
 - **WHEN** the server stops offering Kanban while it is selected
 - **THEN** its item disappears and Chats is selected
+
+### Requirement: Narrow desktop windows keep the drawer
+
+On Windows and Linux below 600 logical pixels the shell SHALL keep today's drawer: the destinations at the top, then the management entries, Server and the account menu that More holds elsewhere, with no More row of its own. A window whose server offers no destination beyond Chats SHALL keep the chat alone with the chat's own drawer and SHALL NOT gain a shell drawer.
+
+#### Scenario: Narrow desktop window
+
+- **WHEN** a Windows or Linux window is 500 logical pixels wide and the server offers Kanban
+- **THEN** the drawer lists Chats and Kanban, then the management entries, Server and the account menu, and has no More row
 
 ### Requirement: Destination items are labelled and large enough
 
@@ -125,11 +136,34 @@ While App Lock covers the app, the bar, rail and drawer SHALL be hidden and unre
 - **WHEN** App Lock covers the app
 - **THEN** no tab or rail item is in the accessibility tree or focusable, and unlocking restores the same selected destination
 
+### Requirement: Android Back on a tab root returns to Chats
+
+On Android, the system Back action on the root of a selected destination other than Chats SHALL select Chats. Back on the root of Chats SHALL leave the app, as today. This is the design pass's recommendation and awaits the owner; if the owner keeps today's behaviour, this requirement is replaced by the alternative in `design.md` (decision 11), where Back leaves the app from any tab root.
+
+#### Scenario: Back from Kanban
+
+- **WHEN** Kanban is selected on an Android phone with nothing pushed over it and the user presses Back
+- **THEN** Chats is selected and the app stays open
+
+#### Scenario: Back from Chats
+
+- **WHEN** Chats is selected on an Android phone with no conversation open and the user presses Back
+- **THEN** the app leaves the foreground
+
 ### Requirement: Navigation telemetry holds fixed values
 
-Selecting a destination SHALL record the existing `nav.destination` breadcrumb with the destination name, the form (`compact`, `medium`, `expanded`) and how it was reached (`bar`, `rail`, `drawer`, `sidebar`, `more`). Opening More SHALL record `nav.more.opened`. No breadcrumb, span or log event SHALL carry a title, a profile name, a server address or an id.
+Selecting a destination SHALL record the existing `nav.destination` breadcrumb with the destination name, the form (`compact`, `medium`, `expanded`) and a `via` value. Opening More SHALL record `nav.more.opened`. No breadcrumb, span or log event SHALL carry a title, a profile name, a server address or an id.
 
 #### Scenario: Breadcrumb
 
 - **WHEN** the user taps Schedules in the bar
 - **THEN** the breadcrumb holds `destination: schedules`, `form: compact` and `via: bar` and nothing else
+
+### Requirement: The via value says how a destination was reached
+
+`via` SHALL be `bar`, `rail`, `drawer` or `sidebar` for a tap on that control, `link` for a deep link, a notification target or the share entry, and `fallback` when the selected destination went away and Chats was selected instead. More is a destination selected through the bar or rail, so `more` SHALL NOT be a `via` value.
+
+#### Scenario: Selected by a link
+
+- **WHEN** a Kanban link selects Kanban on a phone
+- **THEN** the breadcrumb holds `destination: kanban`, `form: compact` and `via: link` and nothing else

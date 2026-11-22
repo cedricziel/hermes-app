@@ -53,12 +53,31 @@ The following SHALL keep the 44 point bar and its centred 17 point title: pages 
 
 ### Requirement: The bar keeps its controls
 
-Turning a large title on SHALL NOT change the bar's back button, menu button, actions, form actions, 44 point targets or the search field's place in the first version. A search field that the bar holds stays there.
+Turning a large title on SHALL NOT change the bar's back button, menu button, actions, form actions or 44 point targets.
 
 #### Scenario: Actions stay
 
 - **WHEN** a page with a large title has two bar actions
 - **THEN** both are in the bar at 44 points at every scroll position and text size
+
+### Requirement: Search sits under the large title
+
+On a page with a large title and a search field, the search field SHALL sit in the content directly under the large title and its subtitle, not in the bar. While the field is empty and unfocused it SHALL scroll away with the large title. While it is focused or holds a query it SHALL stay pinned under the bar. Collapsing or restoring the large title SHALL keep the query, the focus and the keyboard.
+
+#### Scenario: Search at rest
+
+- **WHEN** the Chats list opens on an iPhone
+- **THEN** the search field is shown under the large "Chats" title and its subtitle, and the bar holds no search field
+
+#### Scenario: Empty search scrolls away
+
+- **WHEN** the user scrolls the list up with the search field empty and unfocused
+- **THEN** the field leaves the screen with the large title
+
+#### Scenario: Focused or holding a query
+
+- **WHEN** the search field is focused or holds a query and the user scrolls the results up
+- **THEN** the field stays pinned under the bar, and the query and the keyboard are kept
 
 ### Requirement: Titles carry no user content in telemetry
 

@@ -7,7 +7,7 @@ Read in the code at the base commit of this branch.
 - `SettingsScaffold` (`lib/src/widgets/settings_scaffold.dart:189`) takes `title`, `subtitle`, `subtitleMenu`, `previousTitle`, `actions`, `tabs`, `tabController`, `search`, `formAction`, `cancel`, `macCancel`, `shrinkTitle` and a free `body` widget. On a phone it builds an `AppBar` with the title, and the tabs and search in `AppBar.bottom` (`:366-440`).
 - The title text is `SettingsBarTitle` (`:497-545`): 17 pt on iOS, one line, ellipsis (or `FittedBox` with `shrinkTitle`), the subtitle at 12 pt under it.
 - Leading: `AdaptiveBackButton`, or `ShellMenu.button` on a shell page, or Cancel for a form (`:379-399`). Pages inside a detail pane have no leading (`inSettingsPane`, `lib/src/widgets/settings_pane.dart`).
-- `GroupedListView` (`lib/src/widgets/grouped_list.dart:148`) is a `ListView` with an optional `controller` (so it uses the primary scroll controller when none is given). 48 call sites.
+- `GroupedListView` (`lib/src/widgets/grouped_list.dart:148`) is a `ListView` with an optional `controller` (so it uses the primary scroll controller when none is given). 55 calls in 48 files.
 - Chats: `buildChatAppBar` (`chat_app_bar.dart:107`) and the list `ThreadSidebar(fullPage: true)` (`chat_screen_layout.dart:465`) with `NewChatFab` over it on iOS. Kanban: `kanban_screen.dart:244-270`. Schedules: `schedules_screen.dart:249-275`.
 - The iOS bar is 44 pt (`kAppleNavBarHeight`, `lib/src/theme/platform_chrome.dart:27`). The tab bar of a page uses `AdaptiveTabBar`, which clamps text to 1.3x (`adaptive_tab_bar.dart:33-35`).
 - `cupertino_ui` 1.1.7 has `CupertinoSliverNavigationBar` (`nav_bar.dart:979`) with `largeTitle` and `bottomMode` (it can hold a search field).
@@ -27,13 +27,13 @@ Read in the code at the base commit of this branch.
 4. **The header.** `LargeTitleHeader`: title at 34 pt, weight 700, the page's text colour, left aligned at the grouped gutter; the subtitle below it at 15 pt in the muted colour; a subtitle menu keeps its button. It wraps freely and is never clamped (checked to text scale 3.1). It is `Semantics(header: true)`.
 5. **The collapse.** The bar title's opacity goes from 0 to 1 over the last 24 pt of the header's scroll-off. With Reduce Motion on it switches at the end instead of fading. While the header is on screen the bar title is excluded from semantics, and once it is off screen the header is, so a screen reader finds one heading.
 6. **The bar.** Its hairline appears when the content has scrolled under it (offset above 0), and is absent at rest. The design pass confirms or reverts this.
-7. **Search and tabs.** Pages with tabs keep small titles: each tab is its own scroll view and a header cannot scroll with all of them. A search field stays in `AppBar.bottom` in the first version, below the bar's title row; with a large title that puts the field above the title, which iOS never does, so the PR for search pages waits for the design pass decision (search in the content under the title, pinned once focused or holding a query).
+7. **Search and tabs.** Pages with tabs keep small titles: each tab is its own scroll view and a header cannot scroll with all of them. On a page without a large title the search field stays in `AppBar.bottom`. Leaving it there on a large-title page would put the field above the title, which iOS never does, so on a large-title page (PR 3) the field sits in the content directly under the large title, scrolls away with it, and pins under the bar while it is focused or holds a query; the query, focus and keyboard survive a collapse. The design pass recommended this placement and the owner confirms it before PR 3; the alternative (the field pinned in the bar) is rejected for the reason above.
 8. **Which pages.**
 
 | Page                                                                          | Platform | Large title                           | Why                                           |
 | ----------------------------------------------------------------------------- | -------- | ------------------------------------- | --------------------------------------------- |
 | Server overview, MCP servers, Tools, Profiles, Messaging, Helper models, More | iPhone   | yes (PR 2)                            | one list, no tabs, no search                  |
-| Providers, Bots, Schedules, Chats list                                        | iPhone   | yes (PR 3, after the search decision) | one list with a search field or a custom bar  |
+| Providers, Bots, Schedules, Chats list                                        | iPhone   | yes (PR 3, search under the title)    | one list with a search field or a custom bar  |
 | Skills, Plugins, Memory                                                       | iPhone   | no                                    | tabs in the bar                               |
 | Kanban                                                                        | iPhone   | no                                    | a board of columns, no single vertical scroll |
 | Files, file preview                                                           | iPhone   | no                                    | the path bar needs the room                   |
@@ -77,7 +77,7 @@ iOS only (iPhone and any compact iOS layout). Android, macOS, Windows, Linux and
 
 ## Design pass
 
-The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/ios-large-titles.md`. It confirms decision 6 (no hairline at rest) and recommends the search placement decision 7 waits for: the field under the large title, scrolling with it, pinned under the bar once focused or holding a query. That unblocks PR 3 once the owner agrees.
+The pass ran; its canvas and per-artboard decisions are in `docs/design-briefs/ios-large-titles.md`. It confirms decision 6 (no hairline at rest) and recommends the search placement that decision 7 now records: the field under the large title, scrolling with it, pinned under the bar once focused or holding a query. PR 3 starts once the owner confirms it.
 
 ## Open questions for the design pass
 

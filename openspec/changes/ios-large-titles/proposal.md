@@ -1,6 +1,6 @@
 # Proposal
 
-**Owner decides:** whether list and overview pages on iPhone get a Cupertino large title that collapses into the 44 pt bar on scroll, starting with the pages that have no tabs or search field, and leaving tab pages, detail pages and forms with small titles.
+**Owner decides:** whether list and overview pages on iPhone get a Cupertino large title that collapses into the 44 pt bar on scroll, starting with the pages that have no tabs or search field, and leaving tab pages, detail pages and forms with small titles; and whether, on the large-title pages that search (PR 3), the search field moves from the bar to under the title (recommended by the design pass) or stays pinned in the bar.
 
 Audit item D5 (roadmap F.230). It does not depend on the navigation change (`compact-and-medium-navigation`) and does not block it.
 
@@ -21,8 +21,8 @@ On iPhone and other compact iOS layouts, a page that opts in shows its title at 
 
 - **Where it applies.** A page that is a list or an overview, reached from a tab, from More or from a row, and that has one vertical scroll view. First PR of pages: Server, MCP servers, Tools, Profiles, Messaging, Helper models, and More when the navigation change lands. Second: Providers, Bots, Schedules and the Chats list, which have a search field (see the interaction below).
 - **Where it does not.** Pages that stay small: the open conversation, Kanban (a board of columns), Files and the file preview (a path bar needs the room, `docs/design-briefs/server-files.md:91`), Skills, Plugins and Memory (they have tabs in the bar), every detail page (a skill, a server, a task, a schedule), every form with Cancel or Save, the Server sub-pages (Usage, Update, Logs, Check), anything in an iPad detail pane, and anything at regular width.
-- **`SettingsScaffold`.** A new `largeTitle` flag, default false. When true on compact iOS and not in a pane and not a form (`cancel` or `formAction` set), the scaffold wraps the body in a scope that holds a scroll controller, puts the large header in front of the body's content, and lets the bar title fade in. `GroupedListView` reads the scope and inserts the header as its first child, so the 48 pages that use it need no layout change. A page with its own list places the header itself with the same widget.
-- **Subtitle and search.** The subtitle moves from the bar into the header, under the large title; a subtitle menu (Schedules' profile scope) stays a button. A search field that sits in the bar today stays pinned there for the first version; the placement beside a large title is a design pass decision (see the brief).
+- **`SettingsScaffold`.** A new `largeTitle` flag, default false. When true on compact iOS and not in a pane and not a form (`cancel` or `formAction` set), the scaffold wraps the body in a scope that holds a scroll controller, puts the large header in front of the body's content, and lets the bar title fade in. `GroupedListView` reads the scope and inserts the header as its first child, so the pages that use it (55 calls in 48 files) need no layout change. A page with its own list places the header itself with the same widget.
+- **Subtitle and search.** The subtitle moves from the bar into the header, under the large title; a subtitle menu (Schedules' profile scope) stays a button. PR 2's pages have no search field. On a large-title page with search (PR 3), the field moves out of the bar into the content, directly under the large title: it scrolls away with the title, and pins under the bar while it is focused or holds a query. The design pass recommended this placement; the owner confirms it before PR 3.
 - **Text size.** The header is not clamped: at 2.0 and 3.1 it wraps over as many lines as it needs, which is what fixes the truncated title. The small bar title keeps one line and shrinks (`shrinkTitle`) at the largest sizes.
 - **Material and macOS.** No change.
 
@@ -33,7 +33,7 @@ On iPhone and other compact iOS layouts, a page that opts in shows its title at 
 - Shared-element title animation between pages on push and pop.
 - Making the bar translucent or blurred.
 - Large titles on pages with tabs, forms and detail pages.
-- Moving the search field into the scrolling content (decided in the design pass).
+- Moving the search field on pages that keep a small title. Only large-title pages move it.
 
 ## Capabilities
 

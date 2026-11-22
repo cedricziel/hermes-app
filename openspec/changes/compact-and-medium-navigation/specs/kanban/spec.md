@@ -7,7 +7,7 @@ The system SHALL offer the Kanban destination only while the server reports the 
 #### Scenario: Plugin is off
 
 - **WHEN** the server lists no plugin named `kanban` and offers no other destination
-- **THEN** an expanded layout shows only the chat and no sidebar, and a compact or medium layout shows Chats and More and no Kanban item
+- **THEN** an expanded layout shows only the chat and no sidebar, a destination bar or rail shows Chats and More and no Kanban item, and a Windows or Linux window under 600 logical pixels shows the chat alone with the chat's own drawer
 
 #### Scenario: Plugin is on
 
@@ -37,7 +37,7 @@ While more than one destination is offered, the system SHALL list them (Chat, Ka
 
 ### Requirement: Home without Kanban
 
-While the Kanban plugin is off and no other destination is offered, the signed-in home screen SHALL be the chat alone, without any sidebar, on an expanded layout and on a Mac; on a compact or medium layout the destination bar or rail SHALL hold Chats and More only, with no Kanban item.
+While the Kanban plugin is off and no other destination is offered, the signed-in home screen SHALL be the chat alone, without any sidebar, on an expanded layout and on a Mac, and a destination bar or rail SHALL hold Chats and More only, with no Kanban item. A Windows or Linux window under 600 logical pixels SHALL keep the chat alone with the chat's own drawer, as today, and SHALL NOT gain a shell drawer.
 
 #### Scenario: Compact layout with Kanban off
 
@@ -46,7 +46,7 @@ While the Kanban plugin is off and no other destination is offered, the signed-i
 
 ### Requirement: Kanban navigation below the wide breakpoint
 
-Below 900 logical pixels, on iPhone, on iPad Split View and on Android phones, the destinations SHALL be the items of a bottom tab bar or navigation bar, with a More item last; from 600 to 899 logical pixels on Android, Windows and Linux they SHALL be the items of a navigation rail, with More last; and on Windows and Linux below 600 they SHALL be in a drawer opened from the menu button in each page's app bar. Picking a destination SHALL close a drawer it sits in.
+On iPhone and iPad Split View below the expanded form, and on Android below 600 logical pixels, the destinations SHALL be items of a bottom tab bar or navigation bar, More last. From 600 to 899 logical pixels on Android, Windows and Linux they SHALL be items of a navigation rail, More last. On Windows and Linux below 600 they SHALL be in today's drawer, opened from the menu button in each page's app bar, with no More row; picking a destination SHALL close that drawer.
 
 #### Scenario: Medium layout
 
