@@ -7,13 +7,13 @@ description: Use when cutting, checking or shipping a hermes-app release — mer
 
 A release goes through three steps:
 
-1. **Cut**: merge the release-please PR; the orchestrator does this at its
-   discretion, on the conditions below. The tag `vX.Y.Z` and a GitHub
-   **pre-release** are created, and `release-please.yml` uploads the build to
-   TestFlight (iOS and macOS, external group "Public beta") and attaches the
-   downloads: a notarized macOS DMG, the Linux tar.gz and .deb (x86_64, arm64),
-   an Android APK and AAB, and a Windows x64 zip (unsigned, so SmartScreen warns
-   on first launch).
+1. **Cut**: the release-please PR merges through auto-merge, which the
+   orchestrator arms at its discretion on the conditions below. The tag `vX.Y.Z`
+   and a GitHub **pre-release** are created, and `release-please.yml` uploads
+   the build to TestFlight (iOS and macOS, external group "Public beta") and
+   attaches the downloads: a notarized macOS DMG, the Linux tar.gz and .deb
+   (x86_64, arm64), an Android APK and AAB, and a Windows x64 zip (unsigned, so
+   SmartScreen warns on first launch).
 2. **Test**: testers use the TestFlight build.
 3. **Ship** (the owner's step): promote the pre-release to a full release.
    `app-store.yml` then submits that version's TestFlight build to App Review on
