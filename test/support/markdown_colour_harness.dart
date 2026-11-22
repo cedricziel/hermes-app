@@ -140,20 +140,30 @@ class Step {
   final Duration? hold;
 }
 
-/// What a streamed document reached.
+/// What a streamed document reached. The `max` and `pumps` fields count the
+/// fresh-mount passes after the stream too; the `stream` ones stop before them.
 class Streamed {
   int maxColoured = 0;
   int pumps = 0;
+  int streamMaxColoured = 0;
+  int streamPumps = 0;
   int colourableCharsAtEnd = 0;
 }
 
-void _check(WidgetTester tester, Streamed seen, String where) {
+void _check(
+  WidgetTester tester,
+  Streamed seen,
+  String where, {
+  bool fresh = false,
+}) {
   seen.pumps++;
+  if (!fresh) seen.streamPumps++;
   final blocks = codeBlocks(tester);
   final sum = blocks
       .where((b) => b.highlightCode)
       .fold(0, (s, b) => s + b.codes.length);
   if (sum > seen.maxColoured) seen.maxColoured = sum;
+  if (!fresh && sum > seen.streamMaxColoured) seen.streamMaxColoured = sum;
   expect(
     sum,
     lessThanOrEqualTo(kDocumentLimit),
@@ -181,9 +191,10 @@ void _check(WidgetTester tester, Streamed seen, String where) {
 /// pass the document limit. An unclosed block is judged like a closed one (the
 /// code block style never turns off colouring while streaming).
 ///
-/// The same lower bound is left out per pump on purpose. On main, 143 of 145
-/// cases fail it: 105 settle plain and 38 are refused mid-stream at 1,132 to
-/// 3,841 coloured characters. A later fix PR turns it on.
+/// The same lower bound is left out after each pump on purpose. On main, 143
+/// of 145 cases fail it once time passes after a pump (140 while settling, 3
+/// while a frame is held); none fails on the streaming pump itself. A later fix
+/// PR turns it on.
 Future<void> _checkFreshMount(
   WidgetTester tester,
   Streamed seen,
@@ -196,7 +207,7 @@ Future<void> _checkFreshMount(
     await tester.pump(const Duration(milliseconds: 500));
   }
   void nothingRefused(String where) {
-    _check(tester, seen, where);
+    _check(tester, seen, where, fresh: true);
     var colouredBefore = 0;
     for (final b in codeBlocks(tester)) {
       final length = b.codes.length;
@@ -322,8 +333,9 @@ Future<Streamed> streamDocument(
   await _checkFreshMount(tester, seen, text, env);
   if (const bool.fromEnvironment('COLOUR_REPORT')) {
     debugPrint(
-      'COLOUR_REPORT max=${seen.maxColoured} pumps=${seen.pumps} '
-      'colourable=${seen.colourableCharsAtEnd}',
+      'COLOUR_REPORT streamMax=${seen.streamMaxColoured} '
+      'max=${seen.maxColoured} streamPumps=${seen.streamPumps} '
+      'pumps=${seen.pumps} colourable=${seen.colourableCharsAtEnd}',
     );
   }
   if (expectOverflow) {
@@ -532,6 +544,19 @@ String loneSurrogates() {
   return '${identicalFences(3, 20)}${fenced(high)}\n\n${fenced(low)}\n\n'
       '${identicalFences(4, 20)}';
 }
+
+/// Code of exactly [length] characters, 78 per line, never ending in a line
+/// break.
+String exactCode(int length) {
+  final lines = List.filled((length / 79).ceil(), 'x' * 78).join('\n');
+  final code = lines.substring(0, length);
+  assert(!code.endsWith('\n'));
+  return code;
+}
+
+/// Five fitting blocks of 2,000 characters: exactly the document limit.
+String blocksSummingToTheDocumentLimit() =>
+    paragraphs(5, (_) => fenced(exactCode(2000)));
 
 String windowsLineEnds(String doc) => doc.replaceAll('\n', '\r\n');
 

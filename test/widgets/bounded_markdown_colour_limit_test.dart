@@ -30,6 +30,52 @@ final _documents = <String, String Function()>{
 void main() {
   defineStreamCases(_documents);
 
+  // The limits at their exact boundaries. Each document stays under the
+  // document limit once its blocks are counted, so none of them needs to
+  // overflow.
+  testWidgets('a fitting block of exactly 8000 characters is coloured', (
+    tester,
+  ) async {
+    final document = 'Intro\n\n${fenced(exactCode(kBlockLimit))}\n';
+    await streamDocument(tester, document, expectOverflow: false);
+    expect(
+      codeBlocks(tester).single.highlightCode,
+      isTrue,
+      reason: 'a block of 8000 characters fits the block limit',
+    );
+  });
+
+  testWidgets('a block pumped at exactly 8001 characters is plain', (
+    tester,
+  ) async {
+    final document = 'Intro\n\n${fenced(exactCode(kBlockLimit + 1))}\n';
+    // Pumps at the length where the block holds 8001 characters of code (the
+    // opening line is 'Intro\n\n```js\n').
+    final at = 'Intro\n\n${fence}js\n'.length + kBlockLimit + 1;
+    await streamDocument(
+      tester,
+      document,
+      steps: [Step(at)],
+      expectOverflow: false,
+    );
+    expect(codeBlocks(tester).single.highlightCode, isFalse);
+  });
+
+  testWidgets('fitting blocks summing to exactly 10000 are all coloured', (
+    tester,
+  ) async {
+    await streamDocument(
+      tester,
+      blocksSummingToTheDocumentLimit(),
+      expectOverflow: false,
+    );
+    expect(
+      codeBlocks(tester).every((b) => b.highlightCode),
+      isTrue,
+      reason: 'five blocks of 2000 characters fill the document limit exactly',
+    );
+  });
+
   testWidgets('lone surrogates in a static mount', (tester) async {
     tester.view.physicalSize = const Size(900, 3000);
     tester.view.devicePixelRatio = 1;
