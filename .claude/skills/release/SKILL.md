@@ -15,9 +15,9 @@ A release goes through three steps:
    an Android APK and AAB, and a Windows x64 zip (unsigned, so SmartScreen
    warns on first launch).
 2. **Test**: testers use the TestFlight build.
-3. **Ship** (the owner's step): promote the pre-release to a full release. `app-store.yml` then
-   submits that version's TestFlight build to App Review on iOS and macOS. It does
-   not rebuild. `automatic_release: true` in the `submit` lane makes an approved
+3. **Ship** (the owner's step): promote the pre-release to a full release.
+   `app-store.yml` then submits that version's TestFlight build to App Review on
+   iOS and macOS. It does not rebuild. `automatic_release: true` in the `submit` lane makes an approved
    version go live without further action.
 
 Merging the release PR and promoting a release are outward steps. The
@@ -51,8 +51,8 @@ and has no isolated review. The orchestrator arms auto-merge on it at its
 discretion, once main's tip has a full green run (the five builds included) and
 the release PR's own five builds are green. Arm it last: release-please pushes
 to it on every merge to main, so do not arm it while other armed PRs are about
-to merge. The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
-missing or expired.
+to merge. The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on
+it. If CI did not run, the token is missing or expired.
 
 ## Follow the builds
 
