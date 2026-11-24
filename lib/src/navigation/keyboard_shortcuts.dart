@@ -1,7 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import 'package:provider/provider.dart';
+
 import '../../l10n/l10n.dart';
+import 'desktop_menu_bar_settings.dart';
 import '../macos/mac_commands.dart';
 import '../macos/menu_layout.dart';
 import 'keyboard_shortcut_models.dart';
@@ -89,13 +92,16 @@ List<ShortcutChord> chordsOf(
 /// declarations, so a command is listed once.
 List<ShortcutSectionModel> keyboardShortcutSections(
   AppLocalizations l10n,
-  MenuPlatform platform,
-) => [
+  MenuPlatform platform, {
+  bool menuBarShown = false,
+}) => [
   for (final section in menuLayout)
     if ([
           for (final group in section.groupsOn(platform))
             for (final entry in group)
-              if (entry.shortcutsOn(platform).isNotEmpty)
+              // F10 means something only while the menu bar is shown.
+              if (entry.shortcutsOn(platform).isNotEmpty &&
+                  (menuBarShown || entry.command != MacCommand.focusMenuBar))
                 ShortcutRowModel(
                   label: _withoutEllipsis(entry.label(l10n)),
                   chords: chordsOf(entry, platform, l10n),
@@ -128,6 +134,7 @@ Future<void> showKeyboardShortcuts(BuildContext context) {
   final sections = keyboardShortcutSections(
     context.l10n,
     shortcutsPlatformOf(Theme.of(context).platform),
+    menuBarShown: _menuBarShown(context),
   );
   return navigator.push<void>(
     MaterialPageRoute<void>(
@@ -135,6 +142,15 @@ Future<void> showKeyboardShortcuts(BuildContext context) {
       builder: (_) => KeyboardShortcutsPage(sections: sections),
     ),
   );
+}
+
+bool _menuBarShown(BuildContext context) {
+  try {
+    return bindsDesktopChords(Theme.of(context).platform) &&
+        context.read<DesktopMenuBarSettings>().enabled;
+  } on ProviderNotFoundException {
+    return false;
+  }
 }
 
 /// [label] with the first Windows or Linux chord of [command] after it, such

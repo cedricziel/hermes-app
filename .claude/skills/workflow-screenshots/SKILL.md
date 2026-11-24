@@ -37,6 +37,10 @@ To see one widget in every state without a flow around it, use the
 
 ## Traps
 
+- Since the move to `material_ui` (#1354), `AppThemeScopes` and
+  `MaterialUiThemeScope` add nothing: a test app's `MaterialApp` already gives
+  `gpt_markdown` the app's theme. The guard below still requires the mount
+  until both scopes are removed.
 - Third-party widgets that read a theme from a scope (`gpt_markdown` reads
   `material_ui`'s) need the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`).
   `HermesApp`, `pumpScreen` and the Widgetbook catalog all mount that one widget;

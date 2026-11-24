@@ -38,8 +38,10 @@ class _EnglishFallbackDelegate<T> extends LocalizationsDelegate<T> {
   bool shouldReload(_EnglishFallbackDelegate<T> old) => false;
 }
 
-/// Provides the `material_ui` theme to everything below it. Put it above the
-/// `Navigator` (a `MaterialApp.builder`) so dialogs pushed as routes see it.
+/// Adds nothing since the app moved to `material_ui`: its `MaterialApp`
+/// already provides the theme that `gpt_markdown` and the other
+/// `material_ui` readers see. Kept, with [AppThemeScopes], until the
+/// scope guard in `test/app_theme_scopes_test.dart` goes with them.
 class MaterialUiThemeScope extends StatelessWidget {
   const MaterialUiThemeScope({super.key, required this.child});
 
@@ -53,10 +55,8 @@ class MaterialUiThemeScope extends StatelessWidget {
 
 /// The theme scopes the app puts above its home route. `HermesApp`, the
 /// workflow tests' `pumpScreen` and the Widgetbook catalog all mount this one
-/// widget, so a scope added here reaches all three. Third-party widgets that
-/// read their theme from a scope (`gpt_markdown` reads `material_ui`'s) fall
-/// back to the light default without it, which draws near-black headings on
-/// a dark surface.
+/// widget, so a scope added here reaches all three. It holds none today; see
+/// [MaterialUiThemeScope].
 ///
 /// Put it above the `Navigator` (a `MaterialApp.builder`) so routes see it.
 class AppThemeScopes extends StatelessWidget {
