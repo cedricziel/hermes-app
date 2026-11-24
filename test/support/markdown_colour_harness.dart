@@ -36,6 +36,7 @@ class Env {
     this.accessibleNavigation = false,
     this.tick = 0,
     this.defaultFontSize = 14,
+    this.appMarkdownTheme = true,
   });
 
   final bool dark;
@@ -50,6 +51,11 @@ class Env {
 
   /// The size of the `DefaultTextStyle` above the markdown.
   final double defaultFontSize;
+
+  /// Whether `AppMarkdownTheme` wraps the markdown, as in the chat. Without
+  /// it the style sheet is the package's own, whose theme data is stable
+  /// between pumps, so a pump re-renders only the segment whose text changed.
+  final bool appMarkdownTheme;
 }
 
 /// Mounts [text] as `ChatTextMessage` does: `AppMarkdownTheme` around
@@ -74,8 +80,9 @@ Widget markdownApp(String text, Env env) => MaterialApp(
           child: Column(
             children: [
               Text('tick ${env.tick}'),
-              AppMarkdownTheme(
-                child: BoundedMarkdown(
+              _wrap(
+                env,
+                BoundedMarkdown(
                   text,
                   style: const TextStyle(fontSize: 15, height: 1.4),
                 ),
@@ -87,6 +94,9 @@ Widget markdownApp(String text, Env env) => MaterialApp(
     ),
   ),
 );
+
+Widget _wrap(Env env, Widget markdown) =>
+    env.appMarkdownTheme ? AppMarkdownTheme(child: markdown) : markdown;
 
 List<HermesCodeBlock> codeBlocks(WidgetTester tester) =>
     tester.widgetList<HermesCodeBlock>(find.byType(HermesCodeBlock)).toList();
@@ -234,6 +244,7 @@ Future<void> _checkFreshMount(
         accessibleNavigation: env.accessibleNavigation,
         tick: env.tick + 1,
         defaultFontSize: env.defaultFontSize,
+        appMarkdownTheme: env.appMarkdownTheme,
       ),
     ),
   );
@@ -259,6 +270,7 @@ Future<Streamed> streamDocument(
   List<Step> steps = const [],
   bool expectOverflow = true,
   double width = 400,
+  Env initialEnv = const Env(),
 }) async {
   tester.view.physicalSize = Size(width, 2000);
   tester.view.devicePixelRatio = 1;
@@ -266,7 +278,7 @@ Future<Streamed> streamDocument(
   var fineLeft = finePumps;
   final seen = Streamed();
   final pending = [...steps]..sort((a, b) => a.at.compareTo(b.at));
-  var env = const Env();
+  var env = initialEnv;
   var text = document;
   var n = 0;
   await tester.pumpWidget(markdownApp('', env));
@@ -343,6 +355,26 @@ Future<Streamed> streamDocument(
     );
   }
   return seen;
+}
+
+/// Which blocks are drawn with colours, in document order.
+List<bool> drawnColours(WidgetTester tester) => [
+  for (final b in codeBlocks(tester)) b.highlightCode,
+];
+
+/// Mounts [text] anew, lets the package's hold run out, and returns which
+/// blocks are coloured: the in-order judgement of a document nobody streamed.
+Future<List<bool>> freshColours(
+  WidgetTester tester,
+  String text, [
+  Env env = const Env(),
+]) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pumpWidget(markdownApp(text, env));
+  for (var k = 0; k < 6; k++) {
+    await tester.pump(const Duration(milliseconds: 500));
+  }
+  return drawnColours(tester);
 }
 
 /// Where the k-th (0-based) closing triple backtick of [doc] ends.
