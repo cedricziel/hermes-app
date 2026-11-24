@@ -1,4 +1,3 @@
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:material_ui/material_ui.dart' as mui;
@@ -31,9 +30,16 @@ const kHighlightMaxDocument = 10000;
 /// subsets of them again (a changed segment, the end of a held reply released
 /// by a timer, a dependency change). So the decision is made once per text, by
 /// parsing it with the package's own public parser (`Plusparse.parse`, no
-/// `BuildContext`), and the builder only looks its block up by
-/// `(code, occurrence)`, where the occurrence counts identical code strings in
-/// document order. A block the plan does not know is plain.
+/// `BuildContext`), and the builder only looks its block up by its code. A
+/// block the plan does not know is plain.
+///
+/// Identical copies that straddle the limit stay plain. The builder cannot
+/// tell which copy of a code string it is drawing (the package may draw one
+/// copy alone), so copies of one code share one decision. When the greedy rule
+/// would colour some copies of a code and refuse others, every copy of it is
+/// refused, and the room the coloured copies would have taken goes to later
+/// blocks (the pass is run again until no group is split). Identical copies that
+/// all fit stay coloured.
 ///
 /// Where the plan can disagree with what the renderer draws, it fails safe
 /// (the block stays plain; a block is never coloured because of a mismatch):
@@ -46,14 +52,12 @@ const kHighlightMaxDocument = 10000;
 ///   LF, the text is trimmed, a lone surrogate becomes U+FFFD (one at the very
 ///   end is dropped). A change in that preparation makes blocks mismatch.
 /// * An unclosed fence at the end of a streaming reply is a block like any
-///   other, with the code so far; its key changes with every chunk, so it is
-///   always judged on its current text.
+///   other, with the code so far. The renderer holds back the last characters
+///   of a stream, so it may draw a start of that code: a start of the tail is
+///   judged on its own text, after the characters coloured before the tail,
+///   unless the tail belongs to a group of identical copies that stays plain.
 /// * Blocks the parser does not report as code nodes (inside raw HTML such as
 ///   `<details>`, in a table cell) are not in the plan.
-/// * Identical code strings are told apart only by how often one was asked
-///   about in the render in progress. When the package draws just one of
-///   several identical blocks again, that block takes the decision of an
-///   earlier copy.
 class CodeColourPlan {
   CodeColourPlan._(
     this._admitted,
@@ -71,17 +75,33 @@ class CodeColourPlan {
     int maxBlock = kHighlightMaxBlock,
     int maxDocument = kHighlightMaxDocument,
   }) {
-    final admitted = <String, List<bool>>{};
-    var used = 0;
-    String? tail;
-    var tailUsed = 0;
-    for (final (code, closed) in _codeBlocks(markdown)) {
-      final ok = _fits(code, used, maxLine, maxBlock, maxDocument);
-      tail = closed ? null : code;
-      tailUsed = used;
-      if (ok) used += code.length;
-      (admitted[code] ??= []).add(ok);
+    final blocks = _codeBlocks(markdown).toList();
+    var refused = <String>{};
+    // While a stream's end is held back, the open block at the end is drawn
+    // with a start of its code that can equal an earlier block's code: one
+    // more copy of it. Groups that straddle the limit with that copy are
+    // refused as well, so the plan holds in both states.
+    if (blocks.isNotEmpty && !blocks.last.$2) {
+      final tail = blocks.last.$1;
+      for (final (code, _) in blocks.take(blocks.length - 1)) {
+        if (code.isNotEmpty &&
+            code != tail &&
+            tail.startsWith(code) &&
+            tail.length - code.length <= _heldMax) {
+          final held = [...blocks.take(blocks.length - 1), (code, false)];
+          refused = _settle(held, refused, maxLine, maxBlock, maxDocument).$4;
+          // The tail drawn in full is a copy of the group as well.
+          if (refused.contains(code)) refused = {...refused, tail};
+        }
+      }
     }
+    final (admitted, tail, tailUsed, _) = _settle(
+      blocks,
+      refused,
+      maxLine,
+      maxBlock,
+      maxDocument,
+    );
     return CodeColourPlan._(
       admitted,
       tail,
@@ -92,7 +112,48 @@ class CodeColourPlan {
     );
   }
 
-  final Map<String, List<bool>> _admitted;
+  /// The most characters the renderer holds back at the end of a stream: a
+  /// lone line of up to three backticks.
+  static const _heldMax = 3;
+
+  /// Runs the greedy rule over [blocks] until no group of identical copies is
+  /// split, starting with the codes in [refused]: each group the rule splits
+  /// is refused as a whole, so its room goes to the blocks after it. The set
+  /// only grows, so the passes end. Returns what each code is decided, the
+  /// open block at the end (null unless it is coloured-eligible), the
+  /// characters coloured before it, and the refused codes.
+  static (Map<String, bool>, String?, int, Set<String>) _settle(
+    List<(String, bool)> blocks,
+    Set<String> refused,
+    int maxLine,
+    int maxBlock,
+    int maxDocument,
+  ) {
+    refused = {...refused};
+    while (true) {
+      final admitted = <String, bool>{};
+      final split = <String>{};
+      var used = 0;
+      String? tail;
+      var tailUsed = 0;
+      for (final (code, closed) in blocks) {
+        final ok =
+            !refused.contains(code) &&
+            _fits(code, used, maxLine, maxBlock, maxDocument);
+        tail = closed || refused.contains(code) ? null : code;
+        tailUsed = used;
+        if (ok) used += code.length;
+        final before = admitted[code];
+        if (before != null && before != ok) split.add(code);
+        admitted[code] = (before ?? ok) && ok;
+      }
+      if (split.isEmpty) return (admitted, tail, tailUsed, refused);
+      refused.addAll(split);
+    }
+  }
+
+  /// Whether the copies of each code are coloured.
+  final Map<String, bool> _admitted;
 
   /// The code of the unclosed block the document ends in, and the characters
   /// coloured before it.
@@ -102,18 +163,13 @@ class CodeColourPlan {
   final int _maxBlock;
   final int _maxDocument;
 
-  /// Whether the [occurrence]th (0-based) block with body [code] may be
-  /// coloured. False for a block the plan does not know, except for the start
-  /// of the unclosed block the document ends in: the renderer holds back the
-  /// last characters of a streaming reply (a partly typed fence line), so it
-  /// draws that block with a start of its code. The start is judged on its own
-  /// text, where the block is.
-  bool admits(String code, int occurrence) {
+  /// Whether a block with body [code] may be coloured. False for a block the
+  /// plan does not know, except for the start of the unclosed block the
+  /// document ends in (see the class comment).
+  bool admits(String code) {
     final key = _key(code);
-    final list = _admitted[key];
-    if (list != null && occurrence >= 0 && occurrence < list.length) {
-      return list[occurrence];
-    }
+    final known = _admitted[key];
+    if (known != null) return known;
     final tail = _tail;
     if (tail != null && tail.startsWith(key)) {
       return _fits(key, _tailUsedBefore, _maxLine, _maxBlock, _maxDocument);
@@ -251,32 +307,12 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
   CodeColourPlan? _plan;
   String? _planFor;
 
-  /// How often each code string was asked about in the render in progress.
-  final _seen = <String, int>{};
-
-  /// Whether the frame in progress already started its count.
-  bool _frameOpen = false;
-
-  /// Marks the frame as counted until it ends. Only the first call of a frame
-  /// clears the count: `build` clears it itself, and a block `GptMarkdown`
-  /// draws again in a frame where `build` did not run (the end of a held reply
-  /// released by its timer) starts its own.
-  void _openFrame() {
-    if (_frameOpen) return;
-    _frameOpen = true;
-    _seen.clear();
-    SchedulerBinding.instance.addPostFrameCallback((_) => _frameOpen = false);
-  }
-
   bool _admit(String code) {
-    _openFrame();
     if (_planFor != widget.data) {
       _plan = (widget.debugPlanFor ?? CodeColourPlan.scan)(widget.data);
       _planFor = widget.data;
     }
-    final seen = (_seen[code] ?? 0) + 1;
-    _seen[code] = seen;
-    return _plan!.admits(code, seen - 1);
+    return _plan!.admits(code);
   }
 
   Widget _code(BuildContext context, String name, String code, bool closed) {
@@ -300,8 +336,6 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   @override
   Widget build(BuildContext context) {
-    _openFrame();
-    _seen.clear();
     return GptMarkdown(
       widget.data,
       style: widget.style,

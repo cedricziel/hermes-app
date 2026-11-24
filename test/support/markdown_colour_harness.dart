@@ -5,6 +5,8 @@
 /// constant fails the cases that use this file.
 library;
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -201,13 +203,64 @@ void _check(
       );
     }
   }
+  // The one exception to the lower bound: identical copies that straddle the
+  // limit stay plain. The renderer cannot tell which copy it draws, so copies
+  // of one code share a decision, and a code whose copies the greedy rule
+  // would split (some coloured, the rest over the limit) is plain as a whole.
+  // A plain copy is excused only when every copy of its code is plain and
+  // colouring them all, with what is coloured before the last one, would pass
+  // the document limit.
+  // The open block at the end is drawn without the last characters of the
+  // stream while the renderer holds them (a line of at most 3 backticks) and
+  // while its last line is still being written, so it counts as a copy of a
+  // block whose code it is the start of, within 3 characters.
+  bool held(String start, String whole) =>
+      start.isNotEmpty &&
+      whole.startsWith(start) &&
+      whole.length - start.length <= 3;
+
+  bool sameCode(int i, int j) {
+    final a = blocks[i].codes;
+    final b = blocks[j].codes;
+    final last = blocks.length - 1;
+    return a == b || (j == last && held(b, a)) || (i == last && held(a, b));
+  }
+
+  bool straddles(int index) {
+    final copies = [
+      for (var i = 0; i < blocks.length; i++)
+        if (sameCode(index, i)) i,
+    ];
+    // A start of the copies that is drawn coloured while it is still written
+    // (judged on its own text) does not void the exception.
+    final last = blocks.length - 1;
+    bool startOnly(int i) =>
+        i == last &&
+        copies.any((j) => j != i && blocks[j].codes != blocks[i].codes);
+    if (copies.length < 2 ||
+        copies.any((i) => blocks[i].highlightCode && !startOnly(i))) {
+      return false;
+    }
+    var before = 0;
+    for (var i = 0; i < copies.last; i++) {
+      if (blocks[i].highlightCode) before += blocks[i].codes.length;
+    }
+    // Every copy counts at the length of the longest one: an open copy is
+    // still growing towards it.
+    final whole = copies.fold(0, (m, i) => max(m, blocks[i].codes.length));
+    final all = whole * copies.length;
+    return before + all > kDocumentLimit;
+  }
+
   var colouredBefore = 0;
-  for (final b in blocks) {
+  for (var index = 0; index < blocks.length; index++) {
+    final b = blocks[index];
     final length = b.codes.length;
     if (b.highlightCode) {
       colouredBefore += length;
     } else if (length <= kBlockLimit &&
-        !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit)) {
+        !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit) &&
+        !straddles(index)) {
       expect(
         colouredBefore + length,
         greaterThan(kDocumentLimit),

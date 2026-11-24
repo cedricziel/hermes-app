@@ -138,6 +138,10 @@ void main() {
   };
 
   final inLimits = {'normal js 40 lines', ...worst.keys};
+  final straddling = {
+    'js a+spaces x19, 50 identical fences',
+    'python 100 fences, 20 lines',
+  };
 
   for (final e in cases.entries) {
     testWidgets(e.key, (tester) async {
@@ -154,7 +158,10 @@ void main() {
       expect(fields, isNotEmpty, reason: e.key);
       // A fast plain fallback must not pass as a benchmark of colouring.
       final coloured = fields.where((f) => f.highlightCode).length;
-      if (e.key.contains('fences')) {
+      if (straddling.contains(e.key)) {
+        // Identical copies that straddle the limit stay plain.
+        expect(coloured, 0, reason: e.key);
+      } else if (e.key.contains('fences')) {
         expect(coloured, inInclusiveRange(1, fields.length - 1), reason: e.key);
       } else if (inLimits.contains(e.key)) {
         expect(coloured, fields.length, reason: e.key);

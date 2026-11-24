@@ -129,4 +129,80 @@ void main() {
     expect(codeBlocks(tester), hasLength(2));
     expect(drawnColours(tester), [false, false]);
   });
+
+  group('identical copies that straddle the limit stay plain', () {
+    // The renderer cannot tell which copy it draws, so the copies of one code
+    // share a decision: when the greedy rule would split them, none is
+    // coloured. Every case here checks the document limit after every pump
+    // (`streamDocument`).
+    String copies(int count, int length) {
+      final a = exactCode(length);
+      return paragraphs(count, (_) => fenced(a));
+    }
+
+    List<bool> plainAll(int n) => List.filled(n, false);
+
+    testWidgets('two copies around the limit', (tester) async {
+      await streamDocument(tester, copies(2, 6000), chunk: 400);
+      expect(drawnColours(tester), plainAll(2));
+    });
+
+    testWidgets('three copies around the limit', (tester) async {
+      await streamDocument(tester, copies(3, 4000), chunk: 400);
+      expect(drawnColours(tester), plainAll(3));
+    });
+
+    testWidgets('eight identical fences', (tester) async {
+      await streamDocument(tester, identicalFences());
+      expect(drawnColours(tester), plainAll(8));
+    });
+
+    testWidgets('a tail-only redraw of the last copy, by the hold release', (
+      tester,
+    ) async {
+      // The closed copy and the open tail hold the same code, which ends in a
+      // lone backtick line: the renderer holds the stream's end for 1.5 s and
+      // then draws only the tail again.
+      final body = '${exactCode(6000)}\n`';
+      final document =
+          'Intro\n\n${fenced(body)}\n\nMiddle.\n\n${fence}js\n$body';
+      await streamDocument(
+        tester,
+        document,
+        chunk: 400,
+        steps: [
+          Step(document.length, hold: const Duration(milliseconds: 3000)),
+        ],
+      );
+      expect(drawnColours(tester), plainAll(2));
+      expect(await freshColours(tester, document), plainAll(2));
+    });
+
+    testWidgets('a stable-theme redraw without AppMarkdownTheme', (
+      tester,
+    ) async {
+      // Without AppMarkdownTheme only the tail segment is drawn on a pump.
+      await streamDocument(
+        tester,
+        copies(3, 4000),
+        chunk: 400,
+        initialEnv: const Env(appMarkdownTheme: false),
+      );
+      expect(drawnColours(tester), plainAll(3));
+    });
+
+    testWidgets('copies that all fit are all coloured', (tester) async {
+      final document = copies(4, 2000);
+      await streamDocument(tester, document, chunk: 400, expectOverflow: false);
+      expect(drawnColours(tester), [true, true, true, true]);
+      await streamDocument(
+        tester,
+        document,
+        chunk: 400,
+        expectOverflow: false,
+        initialEnv: const Env(appMarkdownTheme: false),
+      );
+      expect(drawnColours(tester), [true, true, true, true]);
+    });
+  });
 }

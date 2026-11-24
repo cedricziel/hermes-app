@@ -240,12 +240,23 @@ void main() {
         .where((f) => f.highlightCode)
         .length;
 
-    testWidgets('50 identical blocks are charged one by one', (tester) async {
+    testWidgets('50 identical blocks that straddle the limit stay plain', (
+      tester,
+    ) async {
       final body = List.filled(19, '1+' * 200).join('\n');
       final text = List.filled(50, '```js\n$body\n```').join('\n\n');
       await _pump(tester, (t) => BoundedMarkdown(t), text);
       expect(tester.widgetList(find.byType(HermesCodeBlock)), hasLength(50));
-      expect(coloured(tester), 1);
+      expect(coloured(tester), 0);
+    });
+
+    testWidgets('identical blocks that all fit are all coloured', (
+      tester,
+    ) async {
+      final body = List.filled(19, '1+' * 20).join('\n');
+      final text = List.filled(4, '```js\n$body\n```').join('\n\n');
+      await _pump(tester, (t) => BoundedMarkdown(t), text);
+      expect(coloured(tester), 4);
     });
 
     testWidgets('blocks with prefix-related bodies are charged each', (
