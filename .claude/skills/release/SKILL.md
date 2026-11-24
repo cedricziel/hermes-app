@@ -8,12 +8,13 @@ description: Use when cutting, checking or shipping a hermes-app release — mer
 A release goes through three steps:
 
 1. **Cut**: the release-please PR merges through auto-merge, which the
-   orchestrator arms at its discretion on the conditions below. The tag `vX.Y.Z`
-   and a GitHub **pre-release** are created, and `release-please.yml` uploads
-   the build to TestFlight (iOS and macOS, external group "Public beta") and
-   attaches the downloads: a notarized macOS DMG, the Linux tar.gz and .deb
-   (x86_64, arm64), an Android APK and AAB, and a Windows x64 zip (unsigned, so
-   SmartScreen warns on first launch).
+   orchestrator arms at its discretion on the conditions below (when GitHub
+   refuses to arm it because it is already clean, it merges directly, see
+   below). The tag `vX.Y.Z` and a GitHub **pre-release** are created, and
+   `release-please.yml` uploads the build to TestFlight (iOS and macOS, external
+   group "Public beta") and attaches the downloads: a notarized macOS DMG, the
+   Linux tar.gz and .deb (x86_64, arm64), an Android APK and AAB, and a Windows
+   x64 zip (unsigned, so SmartScreen warns on first launch).
 2. **Test**: testers use the TestFlight build.
 3. **Ship** (the owner's step): promote the pre-release to a full release.
    `app-store.yml` then submits that version's TestFlight build to App Review on
@@ -53,9 +54,14 @@ only when no other PR is about to merge, and only once the release PR's current
 head has its five builds green. release-please pushes a new head on every merge
 to main, and an earlier green run does not count for a new head: the
 orchestrator disarms the PR if a new head arrives before the merge, and arms it
-again only after that head's five builds are green. The PR is opened with
-`RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
-missing or expired.
+again only after that head's five builds are green. When every one of those
+conditions holds, no other PR is armed or about to merge, and GitHub refuses to
+arm auto-merge because the PR is already clean (every required check green,
+nothing pending), the orchestrator merges the release PR directly: a squash with
+the head SHA pinned (`expectedHeadSha`, or the merge API's `sha`). Otherwise,
+once those conditions hold, it is armed (and disarmed when a new head arrives).
+The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did
+not run, the token is missing or expired.
 
 ## Follow the builds
 
