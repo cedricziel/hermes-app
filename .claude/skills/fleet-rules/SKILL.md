@@ -148,47 +148,37 @@ A session reports READY to the orchestrator when all of these hold:
   again in a shared file, provided (1) `git merge-tree` against current
   origin/main is clean, (2) the later main commits do not change the same
   functions, classes or doc section the PR changes, (3) `Analyze & test` is
-  green on the reviewed head, and (4) for a Dart PR, the trial check below
-  passes. The READY report names the later main commits checked for (2). If
+  green on the reviewed head. The READY report names the later main commits
+  checked for (2). If
   (2) fails, re-merge and get a scoped merge-only review.
 
 A "Dart PR" is one that touches any `.dart` file, `pubspec.*`,
-`analysis_options.yaml` or `l10n.yaml`. The "trial check" is
-`scripts/premerge_check.sh <pr>`, run from an origin/main checkout; use
-`--stack <pr>...` for back-to-back merges. It runs pub get, analyze,
-`test/architecture` and the affected tests, and prints the base SHA and the head
-SHA of the PR (and of every `--stack` PR) it checked. A pass (exit 0) counts
-only while origin/main still equals that base SHA and each of those PR heads
-still equals the head SHA it printed; otherwise rerun it. Exit 6 (budget cut)
-and exit 7 (capped) are not a pass (exit codes below).
+`analysis_options.yaml` or `l10n.yaml`.
+
+The trial merge (`scripts/premerge_check.sh`) is not a merge gate. Decision of
+the owner, 2026-11-24 21:55 UTC, asked what to stop: "Drop trial merges". READY
+is the list above, with the required checks green on the head; the trial is not
+part of it. After a merge,
+the orchestrator reads main's push run, and a break is fixed forward at once (or
+the merge reverted). The script stays as an optional tool for a risky pair of
+PRs, such as two PRs touching the same files, or a stack (`premerge-check`
+skill).
 
 A READY report names the directories the PR touches under `lib/`, `test/`,
 `widgetbook/` and `packages/` (or "none").
-
-`scripts/premerge_check.sh` exit codes: 0 pass, 5 affected tests failed, 6 cut short by
-the budget (not a pass), 7 capped (`PASS (CAPPED: ...)`: directory-wide tests were skipped;
-not a full pass). Read the PASS line, not only the exit status. Exit 7 is not a pass; a capped
-run passes only when rerun with `PREMERGE_ALLOW_CAPPED=1` (exit 0, and the PASS line still says
-CAPPED). Any other non-zero exit is a failure. A theme-wide or helper-wide PR needs `PREMERGE_TEST_CAP` and
-`PREMERGE_TEST_BUDGET` raised (one run needed 3000 s).
 
 The orchestrator then arms squash auto-merge when READY, and GitHub waits for
 the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
 
 The orchestrator has at most one armed or hand-merged Dart PR at a time, until
-it has merged. (The overlap report of `scripts/premerge_check.sh` is information
-only.) Exception: a hand merge may proceed while another Dart PR is armed, if
-both `scripts/premerge_check.sh <pr> --stack <armed pr>` and the unstacked
-`scripts/premerge_check.sh <pr>` pass, each under the same base and head rule
-(the hand-merged PR lands first, so main plus that PR alone must be tested too).
+it has merged.
 
 Every hand merge but the release-please PR's (below) needs a READY report, a
 clean recorded review for the exact head, and every required check green on
 that head, except the per-shard checks in the docs-only case. It is a squash
 merge, and the orchestrator does it. A Dart PR (the release-please PR aside) is
-hand-merged only when auto-merge cannot merge it (the one-armed-Dart-PR limit),
-and then only after the trial check.
+hand-merged only when auto-merge cannot merge it (the one-armed-Dart-PR limit).
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
