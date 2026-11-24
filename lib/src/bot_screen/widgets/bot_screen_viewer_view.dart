@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
+
 import '../../macos/mac_window.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -49,7 +51,7 @@ class BotScreenViewerView extends StatelessWidget {
     this.aspectRatio = 16 / 10,
     this.presentation = BotScreenViewerPresentation.page,
     this.control = BotScreenControl.watching,
-    this.lostText = 'Someone else took control.',
+    this.lostToAgent = false,
     this.canForce = false,
     this.onClose,
     this.onRetry,
@@ -81,7 +83,9 @@ class BotScreenViewerView extends StatelessWidget {
 
   /// What the notice of lost control says ("Hermes took control back." when
   /// the lease went back to Hermes).
-  final String lostText;
+
+  /// Whether the notice of lost control names Hermes, not someone else.
+  final bool lostToAgent;
 
   /// Whether the lease someone else holds can be handed back to Hermes from
   /// here (a person holds it under a viewer id this app does not).
@@ -164,7 +168,12 @@ class BotScreenViewerView extends StatelessWidget {
                 ),
                 if (control == BotScreenControl.lost &&
                     (_live || phase == BotScreenViewerPhase.blanked))
-                  _Banner(text: lostText, onDismiss: onDismissLost),
+                  _Banner(
+                    text: lostToAgent
+                        ? context.l10n.botScreenLostToAgent
+                        : context.l10n.botScreenLostToOther,
+                    onDismiss: onDismissLost,
+                  ),
                 if (tools != null && _live)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,

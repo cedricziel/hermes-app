@@ -79,7 +79,8 @@ class MoaReference {
 class MoaProgress {
   const MoaProgress({
     required this.turn,
-    this.phase = 'Advisors',
+    this.phase,
+    this.aggregating = false,
     this.aggregator,
     this.done,
     this.total,
@@ -88,7 +89,13 @@ class MoaProgress {
     this.referencesAvailable = true,
   });
   final Object turn;
-  final String phase;
+
+  /// The phase name the server reported, or null while the advisors work
+  /// without one (the widget words it).
+  final String? phase;
+
+  /// Whether the aggregator is combining the advisors' answers.
+  final bool aggregating;
   final String? aggregator;
   final int? done, total;
   final bool live, referencesAvailable;
@@ -149,10 +156,15 @@ class MoaProgressState {
       turn: turn,
       live: old.live,
       phase: switch (update.kind) {
-        MoaKind.progress => 'Advisors',
-        MoaKind.phase => update.phase!.isEmpty ? 'Advisors' : update.phase!,
-        MoaKind.aggregating => 'Aggregating',
+        MoaKind.progress => null,
+        MoaKind.phase => update.phase!.isEmpty ? null : update.phase,
+        MoaKind.aggregating => null,
         MoaKind.reference => old.phase,
+      },
+      aggregating: switch (update.kind) {
+        MoaKind.aggregating => true,
+        MoaKind.reference => old.aggregating,
+        _ => false,
       },
       aggregator: update.aggregator ?? old.aggregator,
       done: counts ? update.done : old.done,
@@ -170,6 +182,7 @@ class MoaProgressState {
     _turns[turn] = MoaProgress(
       turn: turn,
       phase: old.phase,
+      aggregating: old.aggregating,
       aggregator: old.aggregator,
       done: old.done,
       total: old.total,
@@ -192,6 +205,7 @@ class MoaProgressState {
       _turns[old.turn] = MoaProgress(
         turn: old.turn,
         phase: old.phase,
+        aggregating: old.aggregating,
         aggregator: old.aggregator,
         done: old.done,
         total: old.total,

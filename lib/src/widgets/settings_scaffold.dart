@@ -207,7 +207,7 @@ class SettingsScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.subtitleMenu,
-    this.previousTitle = 'Chat',
+    this.previousTitle,
     this.actions = const [],
     this.tabs,
     this.tabController,
@@ -396,7 +396,9 @@ class SettingsScaffold extends StatelessWidget {
     final leading = pane
         ? null
         : back
-        ? AdaptiveBackButton(previousTitle: previousTitle)
+        ? AdaptiveBackButton(
+            previousTitle: previousTitle ?? context.l10n.widgetsChatBackTitle,
+          )
         : ShellMenu.button(context);
     return Scaffold(
       appBar: AppBar(

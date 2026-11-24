@@ -349,7 +349,7 @@ style.string:
   lib/src/chat/widgets/memory_tool_body.dart: 3
   lib/src/chat/widgets/message_actions.dart: 1
   lib/src/chat/widgets/message_drag_grip.dart: 1
-  lib/src/chat/widgets/moa_progress_card.dart: 5
+  lib/src/chat/widgets/moa_progress_card.dart: 4
   lib/src/chat/widgets/process_output_card.dart: 4
   lib/src/chat/widgets/queued_prompts.dart: 9
   lib/src/chat/widgets/quick_look_target.dart: 5
