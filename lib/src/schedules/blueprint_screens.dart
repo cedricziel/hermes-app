@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../l10n/l10n.dart';
+
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 
 import '../theme/app_icons.dart';
@@ -284,7 +287,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
         return SettingsScaffold(
           title: blueprint.title,
           subtitle: _form.profile,
-          previousTitle: null,
+          previousTitle: context.l10n.widgetsBack,
           formAction: SettingsFormAction(
             label: 'Create',
             busy: _form.saving,

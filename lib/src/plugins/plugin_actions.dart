@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/l10n.dart';
+
 import '../theme/app_icons.dart';
 import '../widgets/adaptive_dialog.dart';
 import '../widgets/row_actions.dart';
 import 'installed_plugin.dart';
 import 'plugins_controller.dart';
 
-const _fallback = 'Could not update this plugin';
-
 /// Runs a change to a plugin and says so in a snack bar when the server
 /// refused it, or when [success] has something to report.
 Future<void> runPluginChange(
   BuildContext context,
   Future<PluginActionResult> Function() change, {
-  String failure = _fallback,
+  String? failure,
   String? Function(PluginActionResult result)? success,
 }) async {
   final messenger = ScaffoldMessenger.of(context);
+  final fallback = failure ?? context.l10n.pluginsUpdateFailed;
   final result = await change();
-  final message = result.ok ? success?.call(result) : result.message ?? failure;
+  final message = result.ok
+      ? success?.call(result)
+      : result.message ?? fallback;
   if (message != null) {
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
