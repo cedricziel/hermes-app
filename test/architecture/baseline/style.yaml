@@ -210,7 +210,8 @@ style.spacing:
   lib/src/bot_mode/widgets/bot_handoff_body.dart: 1
   lib/src/bot_screen/widgets/bot_screen_key_bar.dart: 1
   lib/src/bot_screen/widgets/bot_screen_preview.dart: 2
-  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 2
+  lib/src/bot_screen/widgets/bot_screen_viewer_header.dart: 1
+  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 1
   lib/src/bot_screen/widgets/takeover_confirmation.dart: 1
   lib/src/chat/activity/widgets/activity_line.dart: 4
   lib/src/chat/activity/widgets/activity_page_scaffold.dart: 1
@@ -320,7 +321,8 @@ style.string:
   lib/src/bot_screen/widgets/bot_screen_desktop_tools.dart: 2
   lib/src/bot_screen/widgets/bot_screen_key_bar.dart: 9
   lib/src/bot_screen/widgets/bot_screen_preview.dart: 3
-  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 13
+  lib/src/bot_screen/widgets/bot_screen_viewer_header.dart: 2
+  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 11
   lib/src/bot_screen/widgets/force_hand_back.dart: 5
   lib/src/bot_screen/widgets/sudo_password_prompt.dart: 5
   lib/src/bot_screen/widgets/takeover_confirmation.dart: 4
@@ -343,7 +345,7 @@ style.string:
   lib/src/chat/widgets/composer_stop_button.dart: 2
   lib/src/chat/widgets/connector_operation_card.dart: 9
   lib/src/chat/widgets/image_viewer.dart: 3
-  lib/src/chat/widgets/mac_chat_toolbar.dart: 9
+  lib/src/chat/widgets/mac_chat_toolbar.dart: 4
   lib/src/chat/widgets/mac_search_results.dart: 3
   lib/src/chat/widgets/mac_thread_row.dart: 3
   lib/src/chat/widgets/memory_tool_body.dart: 3
@@ -372,7 +374,7 @@ style.string:
   lib/src/kanban/kanban_create_screen.dart: 8
   lib/src/kanban/kanban_errors.dart: 1
   lib/src/kanban/kanban_screen.dart: 13
-  lib/src/kanban/kanban_workers_screen.dart: 8
+  lib/src/kanban/kanban_workers_screen.dart: 5
   lib/src/kanban/widgets/kanban_board_menu.dart: 3
   lib/src/kanban/widgets/kanban_board_toolbar.dart: 4
   lib/src/kanban/widgets/kanban_card.dart: 1
@@ -459,7 +461,7 @@ style.string:
   lib/src/screens/widgets/connection_setup_field.dart: 2
   lib/src/screens/widgets/connection_summary.dart: 5
   lib/src/skills/discover_tab.dart: 9
-  lib/src/skills/hub_skill_screen.dart: 11
+  lib/src/skills/hub_skill_screen.dart: 7
   lib/src/skills/skill_detail_screen.dart: 8
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1

@@ -69,16 +69,31 @@ class GroupedValueRow extends StatelessWidget {
         chevron: false,
         onTap: onTap,
       ),
-      PlatformChrome.macos => GroupedRow(
-        title: title,
-        caption: caption,
-        warning: warning,
-        // The pop-up draws its own ring, so the row must not draw a second one
-        // round the whole row when the pop-up has focus.
-        focusable: false,
-        trailing:
-            progress ??
-            _PopUpValue(value: value, enabled: enabled, onPressed: onTap),
+      // One semantics node for the row, as the row's own merge makes it, so
+      // the LayoutBuilder above it adds no node of its own.
+      PlatformChrome.macos => MergeSemantics(
+        child: LayoutBuilder(
+          builder: (context, box) => GroupedRow(
+            title: title,
+            // The pop-up takes the rest of the row, so the title keeps a third
+            // of it and wraps.
+            titleMaxLines: 2,
+            caption: caption,
+            warning: warning,
+            // The pop-up draws its own ring, so the row must not draw a second
+            // one round the whole row when the pop-up has focus.
+            focusable: false,
+            trailing:
+                progress ??
+                _PopUpValue(
+                  value: value,
+                  enabled: enabled,
+                  onPressed: onTap,
+                  maxWidth: _popUpMaxWidth(context, box.maxWidth, title),
+                  tooltip: !_inMenu,
+                ),
+          ),
+        ),
       ),
       // The value stays inside the row's tap target, which a trailing
       // widget beside a tappable GroupedRow would not.
@@ -88,27 +103,52 @@ class GroupedValueRow extends StatelessWidget {
           title: title,
           caption: caption,
           warning: warning,
-          // GroupedRow's own value does not shrink for a long one.
-          trailing:
-              progress ??
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                ),
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: GroupedMetrics.of(context).subtitleSize,
-                    color: context.hermesColors.subtleText,
-                  ),
-                ),
-              ),
+          // Beside the title while both fit on one line, under it otherwise.
+          value: progress == null ? value : null,
+          valueStyle: const TextStyle(),
+          stackCrampedValue: true,
+          wrapWhenStacked: true,
+          trailing: progress,
           chevron: enabled,
         ),
       ),
     };
+  }
+
+  /// The widest the Mac pop-up gets in a row [rowWidth] wide: at most 260,
+  /// and what is left once the title has its longest word or a third of the
+  /// row inside its padding, whichever is wider, and the gap to the pop-up.
+  /// The longest word is reserved only while the pop-up keeps room for its
+  /// chrome and about three characters of the value and an ellipsis;
+  /// otherwise the title gets a third.
+  static double _popUpMaxWidth(
+    BuildContext context,
+    double rowWidth,
+    String title,
+  ) {
+    final inner = rowWidth - 2 * GroupedMetrics.of(context).rowPadding;
+    // The row draws its text over its Material's body style, so both the
+    // title word and the pop-up text are measured in that.
+    final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+    final style = base.copyWith(fontSize: GroupedMetrics.of(context).titleSize);
+    var word = 0.0;
+    for (final part in title.split(RegExp(r'(?<=-)|\s+'))) {
+      if (part.isEmpty) continue;
+      word = math.max(word, measureRowText(context, part, style));
+    }
+    // The pop-up's padding, gap and chevron, and "Abc…" at its 12 pt size.
+    final readable =
+        31 +
+        measureRowText(
+          context,
+          'Abc…',
+          base.merge(_popUpTextStyle(Colors.transparent)),
+        );
+    final wordMin = word + 1;
+    final titleMin = inner - 8 - wordMin >= readable
+        ? math.max(inner / 3, wordMin)
+        : inner / 3;
+    return math.max(32, math.min(260, inner - 8 - titleMin));
   }
 
   static Widget _tappable(VoidCallback? onTap, Widget row) => onTap == null
@@ -121,17 +161,26 @@ class GroupedValueRow extends StatelessWidget {
         );
 }
 
+TextStyle _popUpTextStyle(Color color) => TextStyle(fontSize: 12, color: color);
+
 /// A Mac pop-up button showing [value].
 class _PopUpValue extends StatelessWidget {
   const _PopUpValue({
     required this.value,
     required this.enabled,
     required this.onPressed,
+    required this.maxWidth,
+    required this.tooltip,
   });
 
   final String value;
   final bool enabled;
   final VoidCallback? onPressed;
+  final double maxWidth;
+
+  /// Whether a tooltip shows the whole [value], for a pop-up whose own menu
+  /// does not.
+  final bool tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -149,7 +198,7 @@ class _PopUpValue extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: color),
+              style: _popUpTextStyle(color),
             ),
           ),
           AppIcon(AppIcons.expandMore, size: 12, color: color),
@@ -157,8 +206,8 @@ class _PopUpValue extends StatelessWidget {
       ),
     );
     final onPressed = this.onPressed;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
+    final pill = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
       child: Material(
         color: scheme.surface,
         shape: RoundedRectangleBorder(
@@ -185,6 +234,9 @@ class _PopUpValue extends StatelessWidget {
               ),
       ),
     );
+    return tooltip
+        ? Tooltip(message: value, excludeFromSemantics: true, child: pill)
+        : pill;
   }
 }
 

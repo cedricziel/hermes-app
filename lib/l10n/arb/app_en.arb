@@ -2140,6 +2140,10 @@
   "@chatWidgetsHistoryLoading": {
     "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
   },
+  "chatWidgetsMacToolbarMore": "More",
+  "@chatWidgetsMacToolbarMore": {
+    "description": "Accessibility label and tooltip of the \"…\" button in the Mac chat toolbar that opens the overflow menu."
+  },
   "chatWidgetsMoaFinished": "Finished",
   "@chatWidgetsMoaFinished": {
     "description": "Shown in the advisor progress card title once the advisors are done."
@@ -3102,6 +3106,74 @@
   "kanbanImportTitle": "Import a board",
   "@kanbanImportTitle": {
     "description": "Title of the dialog that imports a Kanban board from a server-side archive."
+  },
+  "kanbanInspectClose": "Close",
+  "@kanbanInspectClose": {
+    "description": "Button that closes the dialog showing a Kanban worker's process details."
+  },
+  "kanbanInspectGone": "The process is not running.",
+  "@kanbanInspectGone": {
+    "description": "Body of the worker inspection dialog when the run's process is gone and the server gave no note."
+  },
+  "kanbanInspectGoneNote": "The process is not running: {note}.",
+  "@kanbanInspectGoneNote": {
+    "description": "Body of the worker inspection dialog when the run's process is gone; the note is the server's explanation, shown as it came.",
+    "placeholders": {
+      "note": {
+        "type": "String",
+        "example": "exited with code 1"
+      }
+    }
+  },
+  "kanbanInspectMemory": "Memory: {megabytes} MB",
+  "@kanbanInspectMemory": {
+    "description": "Line in the worker inspection dialog: memory the process uses, in megabytes.",
+    "placeholders": {
+      "megabytes": {
+        "type": "String",
+        "example": "128"
+      }
+    }
+  },
+  "kanbanInspectProcess": "Process {pid}",
+  "@kanbanInspectProcess": {
+    "description": "Line in the worker inspection dialog: the operating-system process id of the worker.",
+    "placeholders": {
+      "pid": {
+        "type": "int",
+        "example": "4321"
+      }
+    }
+  },
+  "kanbanInspectStatus": "Status: {status}",
+  "@kanbanInspectStatus": {
+    "description": "Line in the worker inspection dialog: the process status as the server reports it.",
+    "placeholders": {
+      "status": {
+        "type": "String",
+        "example": "sleeping"
+      }
+    }
+  },
+  "kanbanInspectThreads": "Threads: {count}",
+  "@kanbanInspectThreads": {
+    "description": "Line in the worker inspection dialog: number of threads the process runs.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "kanbanInspectTitle": "Run #{runId}",
+  "@kanbanInspectTitle": {
+    "description": "Title of the dialog that shows the process details of a Kanban worker's run.",
+    "placeholders": {
+      "runId": {
+        "type": "int",
+        "example": "42"
+      }
+    }
   },
   "kanbanNewTaskAction": "New task",
   "@kanbanNewTaskAction": {
@@ -7427,6 +7499,28 @@
       },
       "archive": {
         "type": "int"
+      }
+    }
+  },
+  "skillsHubInstallAnyway": "Install anyway",
+  "@skillsHubInstallAnyway": {
+    "description": "Confirm button of the dialog that asks before installing a hub skill whose security scan raised findings."
+  },
+  "skillsHubInstallCancel": "Cancel",
+  "@skillsHubInstallCancel": {
+    "description": "Cancel button of the dialog that asks before installing a hub skill whose security scan raised findings."
+  },
+  "skillsHubInstallScanAsks": "The security scan asks for your confirmation.",
+  "@skillsHubInstallScanAsks": {
+    "description": "Message of the hub skill install confirmation when the scan gave no reason of its own."
+  },
+  "skillsHubInstallTitle": "Install {name}?",
+  "@skillsHubInstallTitle": {
+    "description": "Title of the dialog that asks before installing a hub skill whose security scan raised findings.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "github-review"
       }
     }
   },
