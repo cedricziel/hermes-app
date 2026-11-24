@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -16,6 +16,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 /// What a user sees and can do in the Kanban text prompt (new board, rename
 /// board, the task panel's Block and Complete prompts) and the task edit
@@ -151,7 +152,7 @@ void main() {
   }
 
   Future<void> openNewBoard(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
   }
 
@@ -192,7 +193,7 @@ void main() {
 
     testWidgets('the same dialog speaks German', (tester) async {
       await openBoards(tester, locale: const Locale('de'));
-      await tester.tap(find.byTooltip('New board'));
+      await tester.tap(find.tooltip('New board'));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppDialogAction, 'Abbrechen'), findsOneWidget);
@@ -297,7 +298,7 @@ void main() {
       Locale locale = const Locale('en'),
     }) async {
       await openPanel(tester, locale: locale);
-      await tester.tap(find.byTooltip('Edit'));
+      await tester.tap(find.tooltip('Edit'));
       await tester.pumpAndSettle();
     }
 

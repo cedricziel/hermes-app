@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
