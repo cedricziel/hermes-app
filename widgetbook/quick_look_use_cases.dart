@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
@@ -12,11 +14,17 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'keyboard_focused.dart';
 import 'platform_theme.dart';
 
 // A solid colour; stretched, it stands in for a photo.
 final Uint8List _photo = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOoXn7zPwAGlwL73vKgVwAAAABJRU5ErkJggg==',
+);
+
+// A 240 by 160 landscape, for the thumbnail that has to show at its size.
+final Uint8List _landscape = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAABU0lEQVR42u3SQREAEBQA0Z9JCCGchRBCEsHkcFXB92Zegp2NsTakERJgaDA0GBoMjaHB0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgyNocHQYGgwNBgaQ4OhwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2GxtBgaDA0GBpDg6HB0GBoMDSGBkODocHQYGgMDc8OXWeDNAyNocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgwNhsbQYGgwNBgaDI2hwdBgaDA0vw9deoU0DI2hwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2XAy3QjoI76FvSAAAAAElFTkSuQmCC',
 );
 
 const _report = ChatAttachment(
@@ -178,6 +186,33 @@ WidgetbookNode quickLookNode() => WidgetbookComponent(
         ('Selected and loading', _thumbnail(selected: true, loading: true)),
       ]),
     ),
+    for (final (name, platform) in [
+      ('iPhone', TargetPlatform.iOS),
+      ('Material', TargetPlatform.android),
+    ])
+      WidgetbookUseCase(
+        name: 'Image thumbnail with keyboard focus ($name)',
+        builder: (context) => Theme(
+          data: platformTheme(context, platform),
+          child: Provider<MediaStore?>.value(
+            value: null,
+            child: KeyboardFocused(
+              target: const Key('attachment-thumbnail'),
+              child: frame(
+                AttachmentThumbnail(
+                  key: const Key('attachment-thumbnail'),
+                  attachment: ChatAttachment(
+                    name: 'photo.png',
+                    kind: AttachmentKind.image,
+                    bytes: _landscape,
+                  ),
+                ),
+                maxWidth: 520,
+              ),
+            ),
+          ),
+        ),
+      ),
     WidgetbookUseCase(
       name: 'Kanban attachment row states',
       builder: (_) => _states([
