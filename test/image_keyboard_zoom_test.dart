@@ -394,7 +394,7 @@ void main() {
         expect(controller.value.storage[10], closeTo(1, 1e-9));
       });
 
-      testWidgets('Tab skips the picture: Close, then Save', (tester) async {
+      testWidgets('Tab never lands on the picture', (tester) async {
         await viewer.pump(tester, TargetPlatform.linux);
         final block = FocusManager.instance.primaryFocus;
         expect(block?.debugLabel, 'ZoomKeyboardShortcuts');
@@ -485,6 +485,32 @@ void main() {
 
       await _chord(tester, LogicalKeyboardKey.space, modifier: null);
       expect(toggles, 1);
+    });
+
+    testWidgets('keys the block leaves alone pass through the relay', (
+      tester,
+    ) async {
+      await pumpPage(tester, wrap: preview(() {}, relay: true));
+      await tester.runAsync(
+        () => precacheImage(
+          MemoryImage(kTinyPng),
+          tester.element(find.byType(ImagePreview)),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump(kDoubleTapTimeout);
+      _bubbled.clear();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+
+      expect(_bubbled, [
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.tab,
+        LogicalKeyboardKey.escape,
+      ]);
     });
   });
 

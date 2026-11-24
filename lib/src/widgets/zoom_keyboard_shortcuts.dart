@@ -21,7 +21,6 @@ class ZoomKeyboardShortcuts extends StatefulWidget {
     required this.controller,
     required this.maxScale,
     required this.child,
-    this.autofocus = true,
   });
 
   /// The viewer's controller.
@@ -29,8 +28,6 @@ class ZoomKeyboardShortcuts extends StatefulWidget {
 
   /// The viewer's `maxScale`. Fit (scale 1) is the smallest keyboard zoom.
   final double maxScale;
-
-  final bool autofocus;
 
   final Widget child;
 
@@ -184,7 +181,7 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
         return Focus(
           focusNode: _focus,
           includeSemantics: false,
-          autofocus: widget.autofocus,
+          autofocus: true,
           onKeyEvent: (_, event) => _onKey(viewport, event),
           child: Listener(
             behavior: HitTestBehavior.translucent,
