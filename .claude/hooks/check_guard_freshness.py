@@ -63,9 +63,11 @@ GUARD_COMMANDS = ('python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"'
 
 def _runs_guard(command):
     command = str(command)
-    if "\n" in command or "\r" in command:
-        return False  # bash would run the lines as separate commands
-    return re.sub(r"[ \t]+", " ", command).strip() in GUARD_COMMANDS
+    # Allow rule: printable ASCII and tabs only; anything else (newlines, other
+    # control or Unicode whitespace) would make bash run something else.
+    if not all(c == "\t" or " " <= c <= "~" for c in command):
+        return False
+    return re.sub(r"[ \t]+", " ", command).strip(" \t") in GUARD_COMMANDS
 
 
 def has_pretooluse_wiring(settings_path):

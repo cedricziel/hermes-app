@@ -1,6 +1,7 @@
 """Tests for .claude/hooks/check_guard_freshness.py (the session-start warning)."""
 
 import hashlib
+import importlib.util
 import json
 import os
 import subprocess
@@ -253,6 +254,16 @@ class FreshnessTest(unittest.TestCase):
             "python3 -I\n" + g,
             "python3\n-I " + g,
             "python3 -I\r\n" + g,
+            "\x0bpython3 -I " + g,
+            "\x0cpython3 -I " + g,
+            "\xa0python3 -I " + g,
+            "\x1cpython3 -I " + g,
+            "\u200bpython3 -I " + g,
+            "python3\x0b-I " + g,
+            "python3\x0c-I " + g,
+            "python3\xa0-I " + g,
+            "python3\x1c-I " + g,
+            "python3\u200b-I " + g,
             "FOO=1 python3 -I " + g,
             "env python3 -I " + g,
             g,
@@ -263,6 +274,24 @@ class FreshnessTest(unittest.TestCase):
                         Path(d) / "r", settings=self._settings("Bash", cmd)
                     )
                     self.assertWarns(run(r), "PreToolUse")
+
+    def test_stray_characters_never_count(self):
+        spec = importlib.util.spec_from_file_location("cgf", HELPER)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        canon = mod.GUARD_COMMANDS[0]
+        self.assertTrue(mod._runs_guard(canon))
+        chars = [chr(i) for i in range(0x20) if i != 9]
+        chars += [chr(c) for c in (0x7F, 0x80, 0xA0, 0x200B, 0x2028, 0xFEFF)]
+        for ch in chars:
+            variants = {
+                "start": ch + canon,
+                "inner": canon.replace("python3 -I", "python3" + ch + "-I", 1),
+                "end": canon + ch,
+            }
+            for where, cmd in variants.items():
+                with self.subTest(char=hex(ord(ch)), where=where):
+                    self.assertFalse(mod._runs_guard(cmd))
 
     def test_canonical_command_is_accepted(self):
         g = '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"'
