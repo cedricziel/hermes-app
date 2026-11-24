@@ -1,6 +1,10 @@
 #!/bin/bash
 set -uo pipefail
 
+# Warn when this checkout loads no Bash guard (stale checkout). Local and cloud
+# sessions alike; read-only and never fails the session.
+python3 -I "$(dirname "$0")/check_guard_freshness.py" 2>/dev/null || true
+
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
