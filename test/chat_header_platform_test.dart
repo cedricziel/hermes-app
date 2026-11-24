@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -11,6 +11,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_share_inbox.dart';
+import 'support/tooltip_finder.dart';
 
 const _statusBar = 59.0;
 
@@ -60,8 +61,8 @@ void main() {
     expect(bar.height, 44 + _statusBar);
     expect(tester.widget<AppBar>(find.byType(AppBar)).centerTitle, isTrue);
     final title = _barTitleCenter(tester);
-    final menu = tester.getRect(find.byTooltip('Open navigation menu'));
-    final compose = tester.getRect(find.byTooltip('New message'));
+    final menu = tester.getRect(find.tooltip('Open navigation menu'));
+    final compose = tester.getRect(find.tooltip('New message'));
     expect(find.text('Chats'), findsOneWidget);
     expect(title.dx, greaterThan(menu.right));
     expect(title.dx, lessThan(compose.left));

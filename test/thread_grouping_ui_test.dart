@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/files/widgets/server_path_text.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -11,6 +11,8 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/tooltip_finder.dart';
 
 void main() {
   setUp(() {
@@ -52,7 +54,7 @@ void main() {
       await show(tester, platform, []);
       expect(find.text('Chats'), findsOneWidget);
       expect(find.byType(ThreadGroupingMenu), findsOneWidget);
-      await tester.tap(find.byTooltip('Group chats'));
+      await tester.tap(find.tooltip('Group chats'));
       await tester.pumpAndSettle();
       await tester.tap(
         find
@@ -93,7 +95,7 @@ void main() {
         await tester.tap(find.text('Pinned'));
         await tester.pumpAndSettle();
         expect(find.text('Pinned plan'), findsNothing);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         await tester.tap(
           find
@@ -113,7 +115,7 @@ void main() {
         await show(tester, platform, rows);
         expect(find.text('Pinned'), findsNothing);
         expect(find.byType(ThreadGroupingMenu), findsOneWidget);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         await tester.tap(
           find
@@ -132,7 +134,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Working chat'), findsNothing);
         expect(find.byType(ThreadGroupingMenu), findsOneWidget);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         await tester.tap(
           find
@@ -173,7 +175,7 @@ void main() {
             updatedAt: DateTime.now(),
           ),
         ]);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         await tester.tap(
           find
@@ -199,7 +201,7 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.byTooltip('/workspace/very-long-work-directory/app'),
+          find.tooltip('/workspace/very-long-work-directory/app'),
           findsOneWidget,
         );
         // A path heading is cut in the middle, so the full path is the widget's
@@ -213,11 +215,11 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.byTooltip('/workspace/very-long-personal-directory/app'),
+          find.tooltip('/workspace/very-long-personal-directory/app'),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         expect(find.text('Recent'), findsOneWidget);
       },
@@ -299,7 +301,7 @@ void main() {
         );
         expect(find.byType(CupertinoSwitch), findsNothing);
         expect(find.byType(Switch), findsNothing);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         await tester.tap(
           find
@@ -330,7 +332,7 @@ void main() {
         await pumpSidebar();
         expect(find.text('hermes'), findsOneWidget);
         expect(find.text('Fix session search'), findsNothing);
-        await tester.tap(find.byTooltip('Group chats'));
+        await tester.tap(find.tooltip('Group chats'));
         await tester.pumpAndSettle();
         await tester.tap(
           find

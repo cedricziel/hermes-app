@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/messaging/messaging_screen.dart';
 import 'package:hermes_app/src/messaging/messaging_setup_screen.dart';

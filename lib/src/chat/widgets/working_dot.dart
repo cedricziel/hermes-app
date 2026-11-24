@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The sidebar's mark for a thread a turn is running in: a small spinner,
 /// announced to screen readers as Working.

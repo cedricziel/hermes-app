@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+
+import 'support/tooltip_finder.dart';
 
 void main() {
   testWidgets('shows managed bots, filters them and offers explicit add', (
@@ -83,7 +85,7 @@ void main() {
       findsWidgets,
     );
     expect(
-      find.descendant(of: row, matching: find.byTooltip('Edit bot')),
+      find.descendant(of: row, matching: find.tooltip('Edit bot')),
       findsOneWidget,
     );
     expect(find.text('Add'), findsNothing);
@@ -124,7 +126,7 @@ void main() {
       MaterialApp(home: BotModeRosterScreen(repository: repository)),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Edit bot'));
+    await tester.tap(find.tooltip('Edit bot'));
     await tester.pumpAndSettle();
     expect(find.byType(GroupedDialog), findsOneWidget);
     await tester.tap(find.text('Save'));

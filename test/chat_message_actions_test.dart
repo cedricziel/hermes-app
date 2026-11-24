@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +20,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 /// The action bar under a finished reply: copy, and asking again on the
 /// latest one.
@@ -116,9 +117,9 @@ void main() {
     await tester.pump();
   }
 
-  final copy = find.byTooltip('Copy');
-  final tryAgain = find.byTooltip('Try again');
-  final editPrompt = find.byTooltip('Edit prompt');
+  final copy = find.tooltip('Copy');
+  final tryAgain = find.tooltip('Try again');
+  final editPrompt = find.tooltip('Edit prompt');
   Finder inTranscript(String text) => find.descendant(
     of: find.byType(Chat),
     matching: find.textContaining(text, findRichText: true),
@@ -132,7 +133,7 @@ void main() {
     await tester.pump();
 
     expect(copied, ['A connection reset.']);
-    expect(find.byTooltip('Copied'), findsOneWidget);
+    expect(find.tooltip('Copied'), findsOneWidget);
   });
 
   chatTest('the copied tick goes away after a moment', (tester) async {
@@ -141,7 +142,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.byTooltip('Copied'), findsNothing);
+    expect(find.tooltip('Copied'), findsNothing);
     expect(copy, findsOneWidget);
   });
 

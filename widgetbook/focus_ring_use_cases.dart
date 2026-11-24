@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';

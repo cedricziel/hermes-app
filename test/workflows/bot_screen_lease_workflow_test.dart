@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
@@ -17,6 +17,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/tooltip_finder.dart';
 
 /// Who holds the bot's screen: the viewer while this device is in control and
 /// hands back, and the lease nobody here holds, which the card and the viewer
@@ -143,7 +144,7 @@ void main() {
           tester,
           flow: 'bot-screen-takeover',
           body: (shots, display, channel) async {
-            await tester.tap(find.byTooltip('Enlarge screen'));
+            await tester.tap(find.tooltip('Enlarge screen'));
             await _settle(tester);
             await tester.pump(const Duration(milliseconds: 500));
             await serve(tester, channel());
@@ -168,12 +169,12 @@ void main() {
             await shots.capture(tester, 'in-control');
 
             if (phone) {
-              await tester.tap(find.byTooltip('Keyboard'));
+              await tester.tap(find.tooltip('Keyboard'));
               await tester.pump();
               tester.testTextInput.enterText('\u200b481');
               await tester.pump();
-              await tester.ensureVisible(find.byTooltip('Use Trackpad mode'));
-              await tester.tap(find.byTooltip('Use Trackpad mode'));
+              await tester.ensureVisible(find.tooltip('Use Trackpad mode'));
+              await tester.tap(find.tooltip('Use Trackpad mode'));
               await tester.pump();
               await shots.capture(tester, 'trackpad');
             }
@@ -193,7 +194,7 @@ void main() {
           tester,
           flow: 'bot-screen-lease-in-control',
           body: (shots, display, channel) async {
-            await tester.tap(find.byTooltip('Enlarge screen'));
+            await tester.tap(find.tooltip('Enlarge screen'));
             await _settle(tester);
             await serve(tester, channel());
             display.takeBy(display.mintedIds.single);
@@ -243,7 +244,7 @@ void main() {
             expect(find.text('Hand back to Hermes'), findsNothing);
             await shots.capture(tester, 'handed-back');
 
-            await tester.tap(find.byTooltip('Enlarge screen'));
+            await tester.tap(find.tooltip('Enlarge screen'));
             await _settle(tester);
             await serve(tester, channel());
             expect(find.byType(BotScreenViewerView), findsOneWidget);

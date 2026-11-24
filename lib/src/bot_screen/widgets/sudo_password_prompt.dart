@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart' show CupertinoTextField;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoTextField;
+import 'package:material_ui/material_ui.dart';
 
 import '../../telemetry/breadcrumbs.dart';
 import '../../theme/platform_chrome.dart';

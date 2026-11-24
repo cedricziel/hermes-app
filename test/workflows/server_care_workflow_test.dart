@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -29,6 +29,7 @@ import '../support/find_app_icon.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart' show letSocketsIdle;
 import '../support/test_localizations.dart';
+import '../support/tooltip_finder.dart';
 
 /// Server care through the real shell: the account menu's Server entry with
 /// its attention dot (phone) or the sidebar row with its caption (Mac), the
@@ -149,7 +150,7 @@ void main() {
   /// Opens the Server screen from the account menu, as on a phone-less
   /// shell with a sidebar footer.
   Future<void> openServerFromAccount(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.textContaining('Server').first);
@@ -234,7 +235,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       // The drawer's account button carries the attention dot.
       await shots.capture(tester, 'drawer');
-      await tester.tap(find.byTooltip('Account'));
+      await tester.tap(find.tooltip('Account'));
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pump(const Duration(milliseconds: 600));
       await shots.capture(tester, 'account-menu');
@@ -286,7 +287,7 @@ void main() {
     await tester.tap(findAppIcon(AppIcons.menu).first);
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.ensureVisible(find.textContaining('Server'));
