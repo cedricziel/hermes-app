@@ -399,7 +399,7 @@ class _FilesScreenState extends State<FilesScreen> {
         final mac = _mac;
         final scaffold = SettingsScaffold(
           title: folderTitleOf(_controller, l10n.filesEntryLabel),
-          previousTitle: widget.previousTitle,
+          previousTitle: widget.previousTitle ?? l10n.widgetsBack,
           actions: [
             if (mac)
               SettingsBarAction(
