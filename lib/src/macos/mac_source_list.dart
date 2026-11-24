@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_icons.dart';
 import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
+import '../widgets/focusable_tap.dart';
 import '../workspaces/widgets/folder_section_label.dart';
 
 /// The height of a row in a Mac sidebar.
@@ -149,7 +150,9 @@ TextStyle macSectionHeaderStyle(BuildContext context) => TextStyle(
 );
 
 /// The header of a section of a Mac sidebar. A click folds the section away
-/// or opens it again; the chevron shows on hover, turned while folded.
+/// or opens it again, by pointer or with Enter or Space once it has keyboard
+/// focus; the chevron shows on hover and with keyboard focus, turned while
+/// folded.
 class MacSidebarSectionHeader extends StatefulWidget {
   const MacSidebarSectionHeader({
     super.key,
@@ -171,6 +174,7 @@ class MacSidebarSectionHeader extends StatefulWidget {
 
 class _MacSidebarSectionHeaderState extends State<MacSidebarSectionHeader> {
   var _hovered = false;
+  var _focused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -182,40 +186,53 @@ class _MacSidebarSectionHeaderState extends State<MacSidebarSectionHeader> {
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: widget.onToggle,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 10, 4, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FolderSectionLabel(
-                    widget.label,
-                    style: macSectionHeaderStyle(context),
-                  ),
-                ),
-                if (widget.count != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '${widget.count}',
-                    style: macSectionHeaderStyle(context),
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                Opacity(
-                  opacity: _hovered ? 1 : 0,
-                  child: AnimatedRotation(
-                    turns: widget.collapsed ? -0.25 : 0,
-                    duration: const Duration(milliseconds: 150),
-                    child: AppIcon(
-                      AppIcons.expandMore,
-                      size: 14,
-                      color: subtle,
+        // Full-bleed, so the ring sits inside the header's edge, as the
+        // tile's does; there is nothing focusable inside it.
+        child: FocusRing(
+          radius: 4,
+          ownFocus: true,
+          child: FocusableTap(
+            onActivate: widget.onToggle,
+            onFocusChange: (focused) => setState(() => _focused = focused),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onToggle,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 10, 4, 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FolderSectionLabel(
+                        widget.label,
+                        style: macSectionHeaderStyle(context),
+                      ),
                     ),
-                  ),
+                    if (widget.count != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '${widget.count}',
+                        style: macSectionHeaderStyle(context),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    KeyboardFocusBuilder(
+                      focused: _focused,
+                      builder: (context, keyboard) => Opacity(
+                        opacity: _hovered || (_focused && keyboard) ? 1 : 0,
+                        child: AnimatedRotation(
+                          turns: widget.collapsed ? -0.25 : 0,
+                          duration: const Duration(milliseconds: 150),
+                          child: AppIcon(
+                            AppIcons.expandMore,
+                            size: 14,
+                            color: subtle,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

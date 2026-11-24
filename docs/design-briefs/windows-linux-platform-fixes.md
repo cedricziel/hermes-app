@@ -93,7 +93,7 @@ Decision only; no code in this change. Canvas (private; ask its owner for access
 
 - `CheckpointRow` is a `GroupedRow` (already ringed); its `GestureDetector` is only the Mac secondary click. The changed-files row is a `GroupedRow` too. Neither is an item.
 - `FileRow` already has a hand-rolled 2 px `primary` border on any focus (also after a click). It is an item: replace it.
-- The attachment card's open tap is off on a Mac (click selects, `QuickLookTarget` opens), but the failed-download retry card passes `onTap: _load` with no Mac check (`attachment_views.dart:125`), so the `InkWell` takes focus there too: the card is focusable on every platform. The image thumbnail is a `GestureDetector`, not focusable anywhere.
+- The attachment card's open tap is off on a Mac (click selects, `QuickLookTarget` opens), but the failed-download retry card passes `onTap: _load` with no Mac check (`attachment_views.dart:125`), so the `InkWell` takes focus there too: the card is focusable on every platform. The image thumbnail was a `GestureDetector`; F.441 made it focusable off the Mac (`FocusRing.outside`, see `docs/architecture/settings-screens.md`).
 - Items found beyond the brief: `SidebarAction`, `MacSourceListTile`, `MacSearchHitRow`, `ToolJsonTree` rows, the sub-agent header and lines, `ActivityLine`, the working-folder row and line, the Kanban card, the effort pills, the iOS `GroupedValueRow` wrapper and the Mac pop-up value.
 
 **Contrast of the link ring** (WCAG 1.4.11, 3:1; fills composited from the theme tokens; "with tint" adds Flutter's default `InkWell` focus tint, `onSurface` at 0.12, which stays under the ring).
@@ -169,7 +169,7 @@ Lowest: 3.54 (light, selected Mac tile with the tint). The Kanban selected borde
 5. The not-focusable list below is out of scope here; reported to the orchestrator for a roadmap row.
 6. The new geometry cases include `TargetPlatform.windows`.
 
-**Not focusable at all (out of scope).** These `GestureDetector` buttons take no keyboard focus, so a ring has nothing to follow: settings search clear (`settings_search_field.dart:183`), Mac toolbar "End search" (`mac_toolbar_search_field.dart:160`), Mac sidebar section header (`mac_source_list.dart:178`), the popup menu's custom `trigger` (`adaptive_popup_menu_button.dart:395`), the image thumbnail (`attachment_views.dart:138`), the Bot Screen card's Enlarge wrapper (`bot_screen_card.dart:408`), the voice hold control (`voice_recording_controls.dart:83`), the Tools switch hit area (`tools_switch.dart:97`).
+**Not focusable at all (out of scope).** These `GestureDetector` buttons take no keyboard focus, so a ring has nothing to follow: the popup menu's custom `trigger` (`adaptive_popup_menu_button.dart:395`), the Bot Screen card's Enlarge wrapper (`bot_screen_card.dart:408`), the voice hold control (`voice_recording_controls.dart:83`), the Tools switch hit area (`tools_switch.dart:97`).
 
 **Three PRs** (independent; any order, except the guard).
 
