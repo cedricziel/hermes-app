@@ -1,6 +1,6 @@
 import 'dart:ui' show SemanticsAction;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/voice_recording_view.dart';
 import 'package:hermes_app/src/voice/widgets/voice_recording_controls.dart';

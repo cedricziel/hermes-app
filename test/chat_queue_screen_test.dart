@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -13,6 +13,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -126,7 +127,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
-    await tester.tap(find.byTooltip('Remove from queue'));
+    await tester.tap(find.tooltip('Remove from queue'));
     await tester.pump();
 
     expect(find.text('Two'), findsNothing);
@@ -166,11 +167,11 @@ void main() {
     final first = await send(tester, 'One');
     inbox.emit([report]);
     await tester.pump();
-    expect(find.byTooltip('Remove report.pdf'), findsOneWidget);
+    expect(find.tooltip('Remove report.pdf'), findsOneWidget);
 
     await send(tester, 'Two');
 
-    expect(find.byTooltip('Remove report.pdf'), findsNothing);
+    expect(find.tooltip('Remove report.pdf'), findsNothing);
     first
       ..emit(const ReplyCompleted('Done.'))
       ..finish();
@@ -196,12 +197,12 @@ void main() {
     inbox.emit([report]);
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    expect(find.byTooltip('Remove report.pdf'), findsOneWidget);
+    expect(find.tooltip('Remove report.pdf'), findsOneWidget);
 
     await send(tester, 'One');
 
     expect(transport.sends, hasLength(1));
-    expect(find.byTooltip('Remove report.pdf'), findsNothing);
+    expect(find.tooltip('Remove report.pdf'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 

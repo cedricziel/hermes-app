@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/chat_models.dart' show ToolCallStatus;
 import 'package:hermes_app/src/chat/tool_value_language.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart'
@@ -26,7 +26,6 @@ const _jsonResult = '''
 }''';
 
 const _dartOutput = '''
-import 'package:flutter/material.dart';
 
 /// Starts the app.
 void main() {

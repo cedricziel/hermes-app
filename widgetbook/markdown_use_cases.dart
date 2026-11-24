@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show TextMessage;
 import 'package:hermes_app/src/chat/widgets/chat_text_message.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';

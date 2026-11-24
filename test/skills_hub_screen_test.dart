@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -11,6 +11,7 @@ import 'package:hermes_app/src/skills/skill_detail_screen.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
+import 'support/tooltip_finder.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/test_localizations.dart';
 
@@ -534,7 +535,7 @@ void main() {
       await pumpFor(tester, 800);
       await tester.tap(find.text('Run in background'));
       await pumpFor(tester, 800);
-      await tester.tap(find.byTooltip('Zurück'));
+      await tester.tap(find.tooltip('Zurück'));
       await pumpFor(tester, 800);
       server.on('GET', status, after, status: httpStatus);
       await pumpFor(tester, 2500);

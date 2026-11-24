@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/widgets/conversation_window_toolbar.dart';
+
+import 'support/tooltip_finder.dart';
 
 void main() {
   late List<String> calls;
@@ -60,24 +62,24 @@ void main() {
   testWidgets('names each action with its shortcut', (tester) async {
     await pump(tester);
 
-    expect(find.byTooltip('Show in Main Window'), findsOneWidget);
-    expect(find.byTooltip('Pin ⇧⌘P'), findsOneWidget);
-    expect(find.byTooltip('Share'), findsOneWidget);
-    expect(find.byTooltip('More'), findsOneWidget);
+    expect(find.tooltip('Show in Main Window'), findsOneWidget);
+    expect(find.tooltip('Pin ⇧⌘P'), findsOneWidget);
+    expect(find.tooltip('Share'), findsOneWidget);
+    expect(find.tooltip('More'), findsOneWidget);
   });
 
   testWidgets('a pinned chat offers Unpin', (tester) async {
     await pump(tester, pinned: true);
 
-    expect(find.byTooltip('Unpin ⇧⌘P'), findsOneWidget);
+    expect(find.tooltip('Unpin ⇧⌘P'), findsOneWidget);
   });
 
   testWidgets('the buttons call back', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Show in Main Window'));
-    await tester.tap(find.byTooltip('Pin ⇧⌘P'));
-    await tester.tap(find.byTooltip('Share'));
+    await tester.tap(find.tooltip('Show in Main Window'));
+    await tester.tap(find.tooltip('Pin ⇧⌘P'));
+    await tester.tap(find.tooltip('Share'));
 
     expect(calls, ['main', 'pin', 'share']);
   });
@@ -87,7 +89,7 @@ void main() {
   ) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.tooltip('More'));
     await tester.pumpAndSettle();
 
     final labels = ['Rename…', 'Copy Transcript', 'Archive', 'Delete…'];

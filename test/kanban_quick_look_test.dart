@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +24,7 @@ import 'support/fake_quick_look.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/recorded_events.dart';
 import 'support/wait_until.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -104,7 +105,7 @@ void main() {
       tester
           .widget<IconButton>(
             find.descendant(
-              of: find.byTooltip('Save attachment'),
+              of: find.tooltip('Save attachment'),
               matching: find.byType(IconButton),
             ),
           )
@@ -360,7 +361,7 @@ void main() {
       tester
           .widget<IconButton>(
             find.descendant(
-              of: find.byTooltip('Save attachment'),
+              of: find.tooltip('Save attachment'),
               matching: find.byType(IconButton),
             ),
           )

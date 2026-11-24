@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
-import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
-import '../../theme/material_ui_bridge.dart';
 import '../../bot_mode/bot_chat_context.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
@@ -231,10 +229,8 @@ class _ComposerSlotState extends State<_ComposerSlot> {
   }
 }
 
-/// Supplies what flutter_chat_ui's message widgets need from `material_ui`, a
-/// package separate from Flutter's own material library: a `Material`
-/// ancestor, `MaterialLocalizations` and a theme seeded from the app's
-/// colors. Wrap the `Chat` in this.
+/// Gives flutter_chat_ui's message widgets the `Material` ancestor they
+/// assert on, without painting anything. Wrap the `Chat` in this.
 class FlyerMaterialScope extends StatelessWidget {
   const FlyerMaterialScope({super.key, required this.child});
 
@@ -242,13 +238,6 @@ class FlyerMaterialScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Localizations.override(
-      context: context,
-      delegates: const [mui.DefaultMaterialLocalizations.delegate],
-      child: mui.Theme(
-        data: buildMaterialUiTheme(Theme.of(context).colorScheme),
-        child: mui.Material(type: mui.MaterialType.transparency, child: child),
-      ),
-    );
+    return Material(type: MaterialType.transparency, child: child);
   }
 }

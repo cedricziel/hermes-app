@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 /// On Android the chat list and the message actions are touch-sized (48dp)
 /// and every tappable node has a name.
@@ -73,9 +74,9 @@ void main() {
     await pump(tester);
     await tester.tap(find.text('Release notes'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('Copy'), findsWidgets);
+    expect(find.tooltip('Copy'), findsWidgets);
     for (final tip in ['Copy', 'Try again']) {
-      for (final element in find.byTooltip(tip).evaluate()) {
+      for (final element in find.tooltip(tip).evaluate()) {
         final size = (element.renderObject! as RenderBox).size;
         expect(size.width, greaterThanOrEqualTo(48), reason: tip);
         expect(size.height, greaterThanOrEqualTo(48), reason: tip);
@@ -159,10 +160,10 @@ void main() {
     final row = find.byKey(const ValueKey('thread-s2'));
     final targets = [
       (
-        find.descendant(of: row, matching: find.byTooltip('Chat actions')),
+        find.descendant(of: row, matching: find.tooltip('Chat actions')),
         find.text('Rename'),
       ),
-      (find.byTooltip('Group chats'), find.text('Group by')),
+      (find.tooltip('Group chats'), find.text('Group by')),
     ];
     for (final (target, menuItem) in targets) {
       final rect = tester.getRect(target);
@@ -203,7 +204,7 @@ void main() {
         expect(tester.getSize(row).height, 32);
         final more = find.descendant(
           of: row,
-          matching: find.byTooltip('Chat actions'),
+          matching: find.tooltip('Chat actions'),
         );
         expect(tester.getSize(more).width, 28);
         final search = find.descendant(
@@ -213,7 +214,7 @@ void main() {
         expect(tester.getSize(search).height, 28);
         await tester.tap(row);
         await tester.pumpAndSettle();
-        for (final element in find.byTooltip('Copy').evaluate()) {
+        for (final element in find.tooltip('Copy').evaluate()) {
           expect((element.renderObject! as RenderBox).size, const Size(24, 24));
         }
       });

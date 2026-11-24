@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -18,6 +18,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 /// What a user sees and can do in the Kanban board Export and Import dialogs
 /// the Boards screen opens: their texts, the actions' semantics, each option
@@ -123,7 +124,7 @@ void main() {
     }
 
     Future<void> openImport(WidgetTester tester) async {
-      await tester.tap(find.byTooltip('Import a board'));
+      await tester.tap(find.tooltip('Import a board'));
       await tester.pumpAndSettle();
     }
 

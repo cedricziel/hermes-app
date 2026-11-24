@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 /// The Skills pages against a fake dashboard, through the real generated
 /// client.
@@ -273,7 +274,7 @@ void main() {
     testWidgets('the page chrome and filters are in German', (tester) async {
       await pumpSkills(tester, locale: de);
 
-      expect(find.byTooltip('Neuer Skill'), findsOneWidget);
+      expect(find.tooltip('Neuer Skill'), findsOneWidget);
       expect(find.text('Skills durchsuchen'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('settings-search-filter')));
@@ -571,7 +572,7 @@ void main() {
   group('new skill', () {
     Future<void> openCreate(WidgetTester tester) async {
       await pumpSkills(tester);
-      await tester.tap(find.byTooltip('New skill'));
+      await tester.tap(find.tooltip('New skill'));
       await tester.pumpAndSettle();
     }
 

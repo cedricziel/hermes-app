@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -14,6 +14,7 @@ import 'support/local_dashboard.dart';
 import 'support/memory_token_store.dart';
 import 'support/screenshot_recorder.dart';
 import 'support/workflow_app.dart';
+import 'support/tooltip_finder.dart';
 
 /// Renders the README screenshots from the demo chats in
 /// `scripts/demo_sessions.json`, the same ones `scripts/seed_demo_sessions.py`
@@ -215,7 +216,7 @@ void main() {
               await tester.tap(find.byType(BackButton));
               await _settle(tester);
               await shot('threads');
-              await tester.tap(find.byTooltip('New message'));
+              await tester.tap(find.tooltip('New message'));
             } else {
               final macNewChat = find.byKey(const Key('toolbar-new-chat'));
               await tester.tap(
