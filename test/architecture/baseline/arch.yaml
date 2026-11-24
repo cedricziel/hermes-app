@@ -9,6 +9,22 @@
 # `UPDATE_BASELINE=1 flutter test test/architecture` lowers it for you and
 # never raises it. A rule with no violations has no entry.
 
+# arch.gesture-detector-without-focus: open gaps, not allowlisted, each with its
+# roadmap item. The reasons live next to `_gestureDetectorKeyboardElsewhere` in
+# architecture_guards_test.dart.
+#   voice_recording_controls.dart  F.463  the keyboard cannot start a recording
+#                                         (hold-to-record); Send is another action
+#   swipeable_thread_row.dart,     F.474  thread actions have no keyboard path on
+#   touch_row_menu.dart                   iPhone and iPad; Enter opens the chat
+#   row_actions.dart               new row (to be numbered): row actions without
+#                                         a keyboard path (the profile row's
+#                                         Change default model on iOS)
+arch.gesture-detector-without-focus:
+  lib/src/chat/widgets/swipeable_thread_row.dart: 1
+  lib/src/chat/widgets/touch_row_menu.dart: 1
+  lib/src/voice/widgets/voice_recording_controls.dart: 1
+  lib/src/widgets/row_actions.dart: 2
+
 arch.english-default-label:
   lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 1
   lib/src/chat/moa_progress_state.dart: 1
