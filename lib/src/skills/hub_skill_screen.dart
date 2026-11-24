@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 
+import '../../l10n/l10n.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
 import 'widgets/skill_security_scan.dart';
@@ -89,40 +90,43 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
     if (scan == null) return;
     final go = await showAppDialog<bool>(
       context: context,
-      builder: (context) => AppAlertDialog(
-        title: Text('Install ${widget.skill.name}?'),
-        // Findings are data: start-aligned on every platform, not centred as
-        // an Apple alert would centre its message.
-        content: DefaultTextStyle.merge(
-          textAlign: TextAlign.start,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  scan.policyReason.isNotEmpty
-                      ? scan.policyReason
-                      : 'The security scan asks for your confirmation.',
-                ),
-                const SizedBox(height: 12),
-                for (final f in scan.findings) SkillScanFinding(f),
-              ],
+      builder: (context) {
+        final l10n = context.l10n;
+        return AppAlertDialog(
+          title: Text(l10n.skillsHubInstallTitle(widget.skill.name)),
+          // Findings are data: start-aligned on every platform, not centred as
+          // an Apple alert would centre its message.
+          content: DefaultTextStyle.merge(
+            textAlign: TextAlign.start,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    scan.policyReason.isNotEmpty
+                        ? scan.policyReason
+                        : l10n.skillsHubInstallScanAsks,
+                  ),
+                  const SizedBox(height: 12),
+                  for (final f in scan.findings) SkillScanFinding(f),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          AppDialogAction(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          AppDialogAction(
-            isDefault: true,
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Install anyway'),
-          ),
-        ],
-      ),
+          actions: [
+            AppDialogAction(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.skillsHubInstallCancel),
+            ),
+            AppDialogAction(
+              isDefault: true,
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.skillsHubInstallAnyway),
+            ),
+          ],
+        );
+      },
     );
     if (go == true) await _install(confirmed: true);
   }

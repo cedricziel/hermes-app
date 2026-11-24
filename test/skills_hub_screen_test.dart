@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
@@ -11,6 +12,7 @@ import 'package:hermes_app/src/skills/skills_screen.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/test_localizations.dart';
 
 /// The Discover tab, the hub skill page and the job sheet against a fake
 /// dashboard, through the real generated client.
@@ -25,9 +27,11 @@ Future<void> pumpFor(WidgetTester tester, int milliseconds) async {
 void main() {
   late FakeHermesServer server;
   var platform = TargetPlatform.android;
+  Locale? locale;
 
   setUp(() {
     platform = TargetPlatform.android;
+    locale = null;
     server = FakeHermesServer()
       ..on('GET', '/api/skills', [
         skillRow(name: 'compose', category: 'devops', provenance: 'hub'),
@@ -97,6 +101,9 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (_, child) => AppThemeScopes(child: child!),
         theme: ThemeData(platform: platform),
         home: SkillsScreen(
@@ -318,6 +325,27 @@ void main() {
         server.requestsTo('POST', '/api/skills/hub/install'),
         hasLength(1),
       );
+    });
+
+    testWidgets('the install confirmation is in German', (tester) async {
+      locale = const Locale('de');
+      server.on(
+        'GET',
+        '/api/skills/hub/scan',
+        hubScanBody(policy: 'ask', findings: [hubFindingRow()]),
+      );
+      await openWebScraper(tester);
+
+      await tester.tap(find.text('Install anyway…'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('web-scraper installieren?'), findsOneWidget);
+      expect(
+        find.text('Die Sicherheitsprüfung verlangt deine Bestätigung.'),
+        findsOneWidget,
+      );
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Trotzdem installieren'), findsOneWidget);
     });
 
     testWidgets(

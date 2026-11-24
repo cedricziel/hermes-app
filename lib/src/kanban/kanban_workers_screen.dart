@@ -105,27 +105,35 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     final i = inspection!;
     await showAppDialog<void>(
       context: context,
-      builder: (context) => AppAlertDialog(
-        title: Text('Run #${worker.runId}'),
-        content: Text(
-          i.alive
-              ? [
-                  if (i.pid != null) 'Process ${i.pid}',
-                  if (i.status != null) 'Status: ${i.status}',
-                  if (i.memoryBytes != null)
-                    'Memory: ${(i.memoryBytes! / (1024 * 1024)).toStringAsFixed(0)} MB',
-                  if (i.threads != null) 'Threads: ${i.threads}',
-                  if (i.note != null) i.note!,
-                ].join('\n')
-              : 'The process is not running${i.note == null ? '' : ': ${i.note}'}.',
-        ),
-        actions: [
-          AppDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+      builder: (context) {
+        final l10n = context.l10n;
+        return AppAlertDialog(
+          title: Text(l10n.kanbanInspectTitle(worker.runId)),
+          content: Text(
+            i.alive
+                ? [
+                    if (i.pid != null) l10n.kanbanInspectProcess(i.pid!),
+                    if (i.status != null) l10n.kanbanInspectStatus(i.status!),
+                    if (i.memoryBytes != null)
+                      l10n.kanbanInspectMemory(
+                        (i.memoryBytes! / (1024 * 1024)).toStringAsFixed(0),
+                      ),
+                    if (i.threads != null)
+                      l10n.kanbanInspectThreads(i.threads!),
+                    if (i.note != null) i.note!,
+                  ].join('\n')
+                : i.note == null
+                ? l10n.kanbanInspectGone
+                : l10n.kanbanInspectGoneNote(i.note!),
           ),
-        ],
-      ),
+          actions: [
+            AppDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: Text(l10n.kanbanInspectClose),
+            ),
+          ],
+        );
+      },
     );
   }
 
