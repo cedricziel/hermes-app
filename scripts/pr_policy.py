@@ -106,7 +106,7 @@ def _scan_line(line, close_later, at_start):
     `<!--` inside an inline code span is literal. An unclosed `<!--` opens a
     comment only at the start of a line (up to 3 spaces of indent: an HTML
     block, which runs to the next `-->` or the end of the text) or when a
-    `-->` follows on a later line; mid-line with no `-->` it is plain text."""
+    `-->` follows later in the same paragraph; mid-line with no `-->` it is plain text."""
     masked = _INLINE_CODE_RE.sub(lambda m: m.group(0).replace("<!--", _MASK), line)
     out, pos = [], 0
     while True:
@@ -125,13 +125,28 @@ def _scan_line(line, close_later, at_start):
         pos = i + 4
 
 
+_BLOCK_START_RE = re.compile(r" {0,3}(#{1,6}(\s|$)|<!--)")
+
+
+def _closes_in_paragraph(lines):
+    """Whether a `-->` arrives in `lines` before the paragraph ends: a blank
+    line, or a line that starts a block (ATX heading, fence, `<!--` HTML
+    block). An inline comment spans soft line breaks of one paragraph only."""
+    for line in lines:
+        if not line.strip() or _FENCE_RE.match(line) or _BLOCK_START_RE.match(line):
+            return False
+        if "-->" in line:
+            return True
+    return False
+
+
 def _strip_comments(text):
     """Text as GitHub renders it, minus HTML comments. A fence line inside a
     comment is hidden with it, so it does not toggle the fence state."""
     lines = text.split("\n")
     out, fenced, in_comment = [], False, False
     for n, line in enumerate(lines):
-        close_later = "-->" in "\n".join(lines[n + 1 :])
+        close_later = _closes_in_paragraph(lines[n + 1 :])
         if in_comment:
             end = line.find("-->")
             if end < 0:

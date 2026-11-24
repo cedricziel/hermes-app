@@ -160,6 +160,25 @@ class CommentInCodeTest(unittest.TestCase):
         self.assertEqual(run(b=b), [])
         self.assertNotIn("hidden", pr_policy._strip_comments(b))
 
+    def test_mid_line_opener_ends_at_its_paragraph(self):
+        for sep in ("\n\n", "\n## Other\n", "\n```\n", "\n<!-- x -->\n"):
+            out = pr_policy._strip_comments("Typing <!-- here." + sep + "Visible.\n-->\n")
+            self.assertIn("Visible.", out, repr(sep))
+            self.assertIn("<!-- here.", out, repr(sep))
+
+    def test_mid_line_opener_spans_soft_breaks_of_one_paragraph(self):
+        out = pr_policy._strip_comments("A <!-- x\nsoft\n-->\nB")
+        self.assertEqual(out, "A \n\nB")
+
+    def test_mid_line_opener_does_not_hide_later_sections(self):
+        b = body(proof="Typing <!-- here.", review="Notes\n-->\n")
+        self.assertEqual(run(b=b), [])
+        self.assertEqual(pr_policy._sections(b)[0], pr_policy._sections(body())[0])
+
+    def test_fence_inside_a_closed_comment_does_not_toggle_the_fence(self):
+        text = "a\n<!--\n```\n-->\nb <!-- gone --> c\n"
+        self.assertEqual(pr_policy._strip_comments(text), "a\n\n\nb  c\n")
+
     def test_fence_inside_a_comment_does_not_hide_the_hatch(self):
         proof = "<!--\n```\n-->"
         line = "Catalog-first: not applicable, a pure helper with no states"
