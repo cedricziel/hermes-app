@@ -1,4 +1,7 @@
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
+import 'package:hermes_app/src/kanban/kanban_errors.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_board_export_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_board_import_dialog.dart';
@@ -10,6 +13,24 @@ import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
 import 'kanban_screen_use_cases.dart';
+
+/// The text dialog as `askKanbanText` opens it, so the macOS barrier rule
+/// that ships applies; the other states are in the `askKanbanText` component.
+Widget _text({String? initial}) => openOnShow(
+  (context) => askKanbanText(
+    context,
+    title: 'Rename board',
+    initial: initial,
+    confirm: 'Rename',
+  ),
+);
+
+const _describedTask = KanbanTask(
+  id: 't_1a2b3c',
+  title: 'Write the release notes',
+  status: 'todo',
+  body: 'Cover the new board filters and the keyboard shortcuts.',
+);
 
 /// The four Kanban dialogs with their own actions, opened by the functions the
 /// screens call, so the route (barrier, Esc, motion) is the one that ships.
@@ -101,6 +122,22 @@ WidgetbookNode kanbanDialogsNode() => WidgetbookFolder(
         'Open',
         (_) => openOnShow(
           (context) => showKanbanTaskEditDialog(context, busyTask),
+        ),
+      ),
+    ),
+    WidgetbookComponent(
+      name: 'KanbanTextDialog',
+      useCases: [
+        ...onEachPlatform('Empty', (_) => _text()),
+        ...onEachPlatform('Prefilled', (_) => _text(initial: 'Ops')),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'KanbanTaskEditDialog',
+      useCases: onEachPlatform(
+        'With a description',
+        (_) => openOnShow(
+          (context) => showKanbanTaskEditDialog(context, _describedTask),
         ),
       ),
     ),
