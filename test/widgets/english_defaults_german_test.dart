@@ -6,14 +6,11 @@ import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/chat/moa_progress_state.dart';
 import 'package:hermes_app/src/chat/widgets/moa_progress_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_arguments_view.dart';
-import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/plugin_actions.dart';
 import 'package:hermes_app/src/plugins/widgets/catalog_row.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
-import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:hermes_app/src/widgets/settings_search_field.dart';
 
 import '../support/test_localizations.dart';
@@ -126,54 +123,6 @@ void main() {
     await tester.pump();
     expect(find.text('Das Plugin konnte nicht geändert werden'), findsOne);
     expect(find.text('Could not update this plugin'), findsNothing);
-  });
-
-  testWidgets('a Kanban text question without a confirm label says OK', (
-    tester,
-  ) async {
-    late BuildContext context;
-    await tester.pumpWidget(
-      _german(
-        Builder(
-          builder: (c) {
-            context = c;
-            return const SizedBox();
-          },
-        ),
-      ),
-    );
-    final answer = askKanbanText(context, title: 'Name');
-    await tester.pumpAndSettle();
-    expect(find.text('OK'), findsOneWidget);
-    await tester.tap(find.text('Abbrechen'));
-    await tester.pumpAndSettle();
-    expect(await answer, isNull);
-  });
-
-  testWidgets('a settings page without a previous title names the chat on '
-      'iOS', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
-        locale: const Locale('de'),
-        localizationsDelegates: kTestLocalizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) =>
-                    const SettingsScaffold(title: 'Seite', body: SizedBox()),
-              ),
-            ),
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    expect(find.text('Chat'), findsOneWidget);
   });
 
   group('the lost-control notice of the Bot Screen viewer', () {

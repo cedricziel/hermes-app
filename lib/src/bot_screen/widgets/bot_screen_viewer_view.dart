@@ -81,9 +81,6 @@ class BotScreenViewerView extends StatelessWidget {
   /// Who is driving: this device, or only watching.
   final BotScreenControl control;
 
-  /// What the notice of lost control says ("Hermes took control back." when
-  /// the lease went back to Hermes).
-
   /// Whether the notice of lost control names Hermes, not someone else.
   final bool lostToAgent;
 

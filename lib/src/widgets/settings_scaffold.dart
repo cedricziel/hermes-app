@@ -227,7 +227,9 @@ class SettingsScaffold extends StatelessWidget {
   /// Makes the [subtitle] a button that opens this menu.
   final SettingsSubtitleMenu<Object?>? subtitleMenu;
 
-  /// The title of the page underneath, which the iOS back button shows.
+  /// The title of the page underneath, which the iOS back button shows. Null
+  /// reads the localized "Chat" (`widgetsChatBackTitle`); a page that is not
+  /// opened from the chat passes its own title or `widgetsBack`.
   final String? previousTitle;
   final List<SettingsBarAction> actions;
   final List<String>? tabs;

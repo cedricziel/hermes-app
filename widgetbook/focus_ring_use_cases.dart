@@ -467,12 +467,14 @@ Widget _settingsFormAction() => SizedBox(
   height: 320,
   child: _KeyboardFocus(
     button: 0,
-    child: SettingsScaffold(
-      title: 'New task',
-      subtitle: 'work',
-      previousTitle: null,
-      formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
-      body: ListView(children: const [ListTile(title: Text('Name'))]),
+    child: Builder(
+      builder: (context) => SettingsScaffold(
+        title: 'New task',
+        subtitle: 'work',
+        previousTitle: context.l10n.widgetsBack,
+        formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
+        body: ListView(children: const [ListTile(title: Text('Name'))]),
+      ),
     ),
   ),
 );
