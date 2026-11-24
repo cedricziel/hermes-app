@@ -58,19 +58,18 @@ Widget _window(
   data: platformTheme(context, platform),
   child: Builder(
     builder: (context) => Scaffold(
-      body: Align(
-        alignment: Alignment.topLeft,
-        child: SizedBox(
-          width: 960,
-          child: Column(
-            children: [
-              DesktopMenuBar(
-                menus: _menus(context, commands),
-                initiallyOpen: open,
-              ),
-              const Expanded(child: Center(child: Text('Chat'))),
-            ],
-          ),
+      // `fill`, not `frame`: the window's Expanded needs a bounded height,
+      // which frame's scroll view would take away.
+      body: fill(
+        width: 960,
+        Column(
+          children: [
+            DesktopMenuBar(
+              menus: _menus(context, commands),
+              initiallyOpen: open,
+            ),
+            const Expanded(child: Center(child: Text('Chat'))),
+          ],
         ),
       ),
     ),
@@ -104,6 +103,18 @@ WidgetbookNode desktopMenuBarNode() => WidgetbookFolder(
             }, open: index),
           ),
         WidgetbookUseCase(
+          name: 'Bar alone (framed)',
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.linux),
+            child: Builder(
+              builder: (context) => frame(
+                maxWidth: 960,
+                DesktopMenuBar(menus: _menus(context, {..._app, ..._chat})),
+              ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Chat open, no chat on screen (disabled items)',
           builder: (context) =>
               _window(context, TargetPlatform.linux, _app, open: 2),
@@ -121,7 +132,7 @@ WidgetbookNode desktopMenuBarNode() => WidgetbookFolder(
         for (final on in [false, true])
           WidgetbookUseCase(
             name: on ? 'On' : 'Off (default)',
-            builder: (_) => fill(
+            builder: (_) => frame(
               GroupedDialog(
                 title: 'Settings',
                 children: [DesktopMenuBarSection(value: on, onChanged: (_) {})],
