@@ -5,6 +5,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/type_scale.dart';
 import 'package:hermes_app/src/widgets/app_markdown_theme.dart';
 import 'package:hermes_app/src/widgets/bounded_markdown.dart';
+import 'package:hermes_app/src/widgets/markdown_task_box.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:widgetbook/widgetbook.dart';
 
@@ -111,10 +112,13 @@ setting.
 Text after the rule.''';
 
 class _Sample {
-  const _Sample(this.name, this.text, [this.note]);
+  const _Sample(this.name, this.text, [this.note, this.chatOnly = false]);
   final String name;
   final String text;
   final String? note;
+
+  /// The note describes the chat host (`FlyerMaterialScope`), not other sites.
+  final bool chatOnly;
 }
 
 final _samples = <_Sample>[
@@ -130,6 +134,7 @@ final _samples = <_Sample>[
     _tasks,
     "Shows the package's Material checkbox in chat task lists, not the app's "
         'own checkbox.',
+    true,
   ),
   const _Sample(
     'Inline code',
@@ -143,12 +148,14 @@ final _samples = <_Sample>[
     _overLimitCode,
     'The first block is over kHighlightMaxBlock (8000 characters) and is '
         'plain; the short block after it is coloured.',
+    false,
   ),
 ];
 
-/// [child] under a one-line caption naming the known inconsistencies the case
-/// shows (the catalog has no description field).
-Widget _noted(String? note, Widget child) => note == null
+/// [child] under a one-line caption (the catalog has no description field).
+/// A [known] caption names an inconsistency the case shows; otherwise it only
+/// describes the case.
+Widget _noted(String? note, Widget child, {bool known = true}) => note == null
     ? child
     : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,7 +164,7 @@ Widget _noted(String? note, Widget child) => note == null
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Builder(
               builder: (context) => Text(
-                'Known: $note',
+                known ? 'Known: $note' : note,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
@@ -187,11 +194,18 @@ TextStyle _body(BuildContext context) => TextStyle(
 Widget _onMaterial(Widget child) =>
     mui.Material(type: mui.MaterialType.transparency, child: child);
 
-Widget _bounded(BuildContext context, String text) => _onMaterial(
-  frame(
-    AppMarkdownTheme(child: BoundedMarkdown(text, style: _body(context))),
-    maxWidth: 560,
+/// A `BoundedMarkdown` the way its non-chat call sites build it (see
+/// `SkillMarkdownPanel`): no chat style, read-only task and radio boxes.
+Widget _bounded(BuildContext context, String text) => frame(
+  AppMarkdownTheme(
+    child: BoundedMarkdown(
+      text,
+      onLinkTap: (_, _) {},
+      checkboxBuilder: readOnlyTaskBox,
+      radioOptionBuilder: readOnlyRadioOption,
+    ),
   ),
+  maxWidth: 560,
 );
 
 Widget _chatText(BuildContext context, String text, {bool sentByMe = false}) {
@@ -216,17 +230,24 @@ Widget _chatText(BuildContext context, String text, {bool sentByMe = false}) {
   );
 }
 
-List<WidgetbookUseCase> _cases(Widget Function(BuildContext, String) build) => [
+List<WidgetbookUseCase> _cases(
+  Widget Function(BuildContext, String) build, {
+  required bool chat,
+}) => [
   for (final s in _samples)
     WidgetbookUseCase(
       name: s.name,
-      builder: (context) => _noted(s.note, build(context, s.text)),
+      builder: (context) => _noted(
+        chat || !s.chatOnly ? s.note : null,
+        build(context, s.text),
+        known: s.name != 'Code over the colouring limit (plain)',
+      ),
     ),
   WidgetbookUseCase(
     name: 'Largest text',
     builder: (context) => _noted(
       'about 3.1x text on iPhone and 2x on Mac; the 26/22/19/17/15/14 '
-      "heading scale and the package's Material task checkbox.",
+      'heading scale${chat ? " and the package's Material task checkbox" : ""}.',
       _scaled(
         context,
         _largest(context),
@@ -239,11 +260,14 @@ List<WidgetbookUseCase> _cases(Widget Function(BuildContext, String) build) => [
 WidgetbookNode markdownNode() => WidgetbookFolder(
   name: 'Markdown',
   children: [
-    WidgetbookComponent(name: 'BoundedMarkdown', useCases: _cases(_bounded)),
+    WidgetbookComponent(
+      name: 'BoundedMarkdown',
+      useCases: _cases(_bounded, chat: false),
+    ),
     WidgetbookComponent(
       name: 'ChatTextMessage',
       useCases: [
-        ..._cases(_chatText),
+        ..._cases(_chatText, chat: true),
         WidgetbookUseCase(
           name: 'Sent by me (bubble)',
           builder: (context) => _noted(
@@ -264,10 +288,11 @@ WidgetbookNode markdownNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Headings, links and inline code',
           builder: (context) => _noted(
-            "the theme's tokens in action (on-surface headings, the app's "
-            'link colour, the outline-colour rule); the 26/22/19/17/15/14 '
+            "The theme's tokens in action: on-surface headings, the app's link "
+            'colour and the outline-colour rule. Known: the 26/22/19/17/15/14 '
             'heading scale and the stock inline-code colours of the package.',
             _bounded(context, _links),
+            known: false,
           ),
         ),
       ],
