@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
+import 'package:hermes_app/src/widgets/focusable_tap.dart';
 
 /// Opens an [AdaptivePopupMenuButton]'s menu from outside, for a right-click
 /// or a long press on the row the button sits in.
@@ -386,16 +387,10 @@ class _AdaptivePopupMenuButtonState<T>
   /// [child] as a control the keyboard reaches: Enter and Space toggle the
   /// menu, and the ring shows on keyboard focus. An `ExcludeFocus` above wins.
   Widget _ringed(Widget child, VoidCallback toggle) {
-    final focusable = Actions(
-      actions: {
-        ActivateIntent: CallbackAction<ActivateIntent>(
-          onInvoke: (_) {
-            toggle();
-            return null;
-          },
-        ),
-      },
-      child: Focus(focusNode: _trigger, child: child),
+    final focusable = FocusableTap(
+      focusNode: _trigger,
+      onActivate: toggle,
+      child: child,
     );
     return widget.focusInside
         ? FocusRing(
