@@ -210,7 +210,8 @@ style.spacing:
   lib/src/bot_mode/widgets/bot_handoff_body.dart: 1
   lib/src/bot_screen/widgets/bot_screen_key_bar.dart: 1
   lib/src/bot_screen/widgets/bot_screen_preview.dart: 2
-  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 2
+  lib/src/bot_screen/widgets/bot_screen_viewer_header.dart: 1
+  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 1
   lib/src/bot_screen/widgets/takeover_confirmation.dart: 1
   lib/src/chat/activity/widgets/activity_line.dart: 4
   lib/src/chat/activity/widgets/activity_page_scaffold.dart: 1
@@ -320,7 +321,8 @@ style.string:
   lib/src/bot_screen/widgets/bot_screen_desktop_tools.dart: 2
   lib/src/bot_screen/widgets/bot_screen_key_bar.dart: 9
   lib/src/bot_screen/widgets/bot_screen_preview.dart: 3
-  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 13
+  lib/src/bot_screen/widgets/bot_screen_viewer_header.dart: 2
+  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 11
   lib/src/bot_screen/widgets/force_hand_back.dart: 5
   lib/src/bot_screen/widgets/sudo_password_prompt.dart: 5
   lib/src/bot_screen/widgets/takeover_confirmation.dart: 4
