@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'
+    show GlobalWidgetsLocalizations;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/gpt_markdown.dart' show CodeBlockStyle;
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -367,7 +368,10 @@ void main() {
             return MaterialApp(
               locale: locale,
               supportedLocales: const [Locale('en'), Locale('ar')],
-              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              localizationsDelegates: const [
+                ...kMaterialUiLocalizationsDelegates,
+                GlobalWidgetsLocalizations.delegate,
+              ],
               theme: buildHermesLightTheme(),
               builder: (_, child) => AppThemeScopes(child: child!),
               home: Scaffold(
