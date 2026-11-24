@@ -358,10 +358,11 @@ Widget _viewer(
   Widget? tools,
   String? notice,
   Widget? pictureOverlay,
+  String profile = 'research',
 }) => fill(
   BotScreenViewerView(
     phase: phase,
-    profile: 'research',
+    profile: profile,
     picture: picture ? _desktop() : null,
     aspectRatio: aspectRatio,
     presentation: presentation,
@@ -415,6 +416,42 @@ WidgetbookUseCase _on(
     data: platformTheme(context, platform),
     child: Builder(builder: builder),
   ),
+);
+
+/// The viewer's header on a Mac: the traffic-light gap, the profile and who is
+/// in control, Take over and Close on the right, at the toolbar's height. The
+/// header is part of the viewer, so each case is the whole viewer on the
+/// Mac look.
+WidgetbookNode botScreenViewerHeaderNode() => WidgetbookComponent(
+  name: 'Bot screen viewer header',
+  useCases: [
+    _on(
+      'Mac',
+      TargetPlatform.macOS,
+      (_) => _viewer(BotScreenViewerPhase.live, picture: true, actions: true),
+    ),
+    _on(
+      'Mac, in control',
+      TargetPlatform.macOS,
+      (_) => _viewer(
+        BotScreenViewerPhase.live,
+        control: BotScreenControl.inControl,
+        picture: true,
+        actions: true,
+      ),
+    ),
+    _on(
+      'Mac, in control, over the window',
+      TargetPlatform.macOS,
+      (_) => _viewer(
+        BotScreenViewerPhase.live,
+        presentation: BotScreenViewerPresentation.overlay,
+        control: BotScreenControl.inControl,
+        picture: true,
+        actions: true,
+      ),
+    ),
+  ],
 );
 
 WidgetbookNode botScreenViewerNode() {

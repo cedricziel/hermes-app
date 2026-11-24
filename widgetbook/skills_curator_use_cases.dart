@@ -328,6 +328,59 @@ class _ScreenState extends State<_Screen> with SingleTickerProviderStateMixin {
   );
 }
 
+const _installedGroups = [
+  SkillGroup('apple', [
+    HermesSkill(
+      name: 'apple-notes',
+      description: 'Read and write Apple Notes',
+      category: 'apple',
+      usage: 14,
+    ),
+    HermesSkill(
+      name: 'apple-reminders',
+      description: 'Add reminders and read the lists',
+      category: 'apple',
+      enabled: false,
+    ),
+  ]),
+  SkillGroup('devops', [
+    HermesSkill(
+      name: 'compose',
+      description: 'Manage Compose stacks',
+      category: 'devops',
+      source: SkillSource.hub,
+      usage: 3,
+    ),
+  ]),
+  SkillGroup('github', [
+    HermesSkill(
+      name: 'pr-review',
+      description: 'Review a pull request',
+      category: 'github',
+      source: SkillSource.agent,
+    ),
+  ]),
+];
+
+/// The installed tab as the screen builds it with a curator: the section above
+/// every category, then the hub update row and the link that ends the list.
+Widget _installedWithCurator(
+  CuratorSectionModel model, {
+  bool updating = false,
+}) => _Screen(
+  hub: true,
+  body: InstalledSkillsList(
+    groups: _installedGroups,
+    onOpen: (_) {},
+    onToggle: (_, _) {},
+    onClearFilters: () {},
+    onCheckForUpdates: () {},
+    updating: updating,
+    onWhatsTheDifference: () {},
+    header: _section(model),
+  ),
+);
+
 const _knownDays = CuratorRunConfirmationModel(
   staleAfterDays: 14,
   archiveAfterDays: 30,
@@ -708,6 +761,28 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
           ),
           where: _Where.android,
           german: true,
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'Skills',
+      useCases: [
+        ...onEachPlatform(
+          'Installed with curator section',
+          (_) => _calm(_installedWithCurator(_model())),
+        ),
+        ...onEachPlatform(
+          'Installed with curator section, paused and updating',
+          (_) => _calm(
+            _installedWithCurator(
+              _model(status: _status(paused: true), paused: true),
+              updating: true,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Installed with curator section, largest text',
+          builder: (_) => _largest(_calm(_installedWithCurator(_model()))),
         ),
       ],
     ),
