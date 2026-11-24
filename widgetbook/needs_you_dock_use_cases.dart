@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_bodies.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';

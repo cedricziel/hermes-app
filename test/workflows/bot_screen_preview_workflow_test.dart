@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
@@ -14,6 +14,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/tooltip_finder.dart';
 
 /// The Bot screen's still preview in the transcript while a reply drives the
 /// screen: under a single call's card, under a folded group's header, and the
@@ -101,7 +102,7 @@ void main() {
 
         await tester.enterText(composerField, 'Book a table for two');
         await tester.pump();
-        await tester.tap(find.byTooltip('Send'));
+        await tester.tap(find.tooltip('Send'));
         await tester.pump();
         await settle();
         emit('message.start');

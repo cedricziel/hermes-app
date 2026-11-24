@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -22,6 +22,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../../support/fake_attachment_source.dart';
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
+import '../../support/tooltip_finder.dart';
 
 const _audit =
     'Audit the dependency tree for packages with known vulnerabilities';
@@ -423,9 +424,9 @@ void main() {
         findsNothing,
         reason: 'the sections are covered while the detail is open',
       );
-      expect(find.byTooltip('Back to Activity'), findsOneWidget);
+      expect(find.tooltip('Back to Activity'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
       expect(selection.key, isNull);
       expect(find.byKey(const Key('activity-panel')), findsOneWidget);
@@ -501,7 +502,7 @@ void main() {
         tester.widget<TextField>(noteField()).controller!.text,
         'Only check the Go modules',
       );
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
       await openDetail(tester, 'a1');
       await tester.ensureVisible(noteField());
@@ -1008,7 +1009,7 @@ void main() {
       await tapText(tester, 'Stop agent');
       await tester.tap(dialogText('Stop agent'));
       await settle(tester);
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
 
       final crumbs = [
@@ -1105,7 +1106,7 @@ void main() {
         await pumpEventQueue();
       });
       await settle(tester);
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
 
       final crumbs = [for (final crumb in trail.recent) crumb.name];

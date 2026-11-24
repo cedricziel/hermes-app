@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:clock/clock.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
@@ -28,6 +28,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_voice_recorder.dart';
 import 'support/pump_chat.dart' show composerField;
+import 'support/tooltip_finder.dart';
 
 const _readyModels = {
   'provider': 'nous',
@@ -594,7 +595,7 @@ bool _sendEnabled(WidgetTester tester) =>
         .widget<IconButton>(
           find
               .descendant(
-                of: find.byTooltip('Send'),
+                of: find.tooltip('Send'),
                 matching: find.byType(IconButton),
               )
               .first,

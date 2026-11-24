@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 const _options = ModelOptions(
   current: ModelChoice('anthropic', 'claude-opus-4'),
@@ -235,7 +236,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byTooltip('Could not load models, selected model claude-opus-4'),
+      find.tooltip('Could not load models, selected model claude-opus-4'),
       findsOneWidget,
     );
     semantics.dispose();

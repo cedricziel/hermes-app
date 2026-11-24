@@ -1,14 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
+
+import '../support/test_localizations.dart';
 
 /// Answers the menu channel as the macOS engine does and keeps the last menu
 /// hierarchy the app set.
@@ -459,10 +460,7 @@ void main() {
           builder: (context, locale, _) => MaterialApp(
             navigatorKey: navigatorKey,
             locale: locale,
-            localizationsDelegates: const [
-              ...AppLocalizations.localizationsDelegates,
-              GlobalMaterialLocalizations.delegate,
-            ],
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             builder: (context, child) =>
                 MacMenuBar(navigatorKey: navigatorKey, child: child!),

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -28,6 +28,7 @@ import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/mac_commands_builder.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -390,7 +391,7 @@ void main() {
         await release.future;
         return (status: 200, body: {'workers': <Object?>[]});
       });
-      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.tap(find.tooltip('Refresh ⌘R'));
       await tester.pump();
       expect(find.byType(MotionSpinner), findsOneWidget);
       release.complete();

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -19,6 +19,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 /// Branching a chat from one of its replies into a new chat.
 void main() {
@@ -99,7 +100,7 @@ void main() {
     });
   }
 
-  final branch = find.byTooltip('Branch in new chat');
+  final branch = find.tooltip('Branch in new chat');
   Finder inTranscript(String text) => find.descendant(
     of: find.byType(Chat),
     matching: find.textContaining(text, findRichText: true),

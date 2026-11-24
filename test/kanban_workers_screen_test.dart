@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/l10n/l10n.dart';
@@ -13,6 +13,7 @@ import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -295,7 +296,7 @@ void main() {
     server.on('GET', '/api/plugins/kanban/workers/active', {
       'detail': 'gateway timeout',
     }, status: 504);
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
 
     expect(find.text('Migrate webhooks'), findsOneWidget);
@@ -313,7 +314,7 @@ void main() {
     server.on('GET', '/api/plugins/kanban/workers/active', {
       'detail': 'gateway timeout',
     }, status: 504);
-    await tester.tap(find.byTooltip('Aktualisieren'));
+    await tester.tap(find.tooltip('Aktualisieren'));
     await tester.pumpAndSettle();
 
     expect(find.text('Migrate webhooks'), findsOneWidget);
@@ -349,9 +350,9 @@ void main() {
     await pump(tester);
     expect(find.text('Migrate webhooks'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
     slow.complete();
     await tester.pumpAndSettle();
