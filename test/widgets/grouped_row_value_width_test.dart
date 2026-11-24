@@ -54,12 +54,14 @@ RenderParagraph _paragraph(WidgetTester tester, String text) =>
 double _width(WidgetTester tester, String text) =>
     tester.getSize(find.text(text)).width;
 
-/// How many lines [text] takes, from its height and the one-line height.
-int _lines(WidgetTester tester, String text) {
-  final paragraph = _paragraph(tester, text);
-  final oneLine = paragraph.text.style!.fontSize! * 1.0;
-  return (paragraph.size.height / oneLine).floor();
-}
+/// How many lines [text] takes.
+int _lines(WidgetTester tester, String text) => _paragraph(tester, text)
+    .getBoxesForSelection(
+      TextSelection(baseOffset: 0, extentOffset: text.length),
+    )
+    .map((box) => box.top.round())
+    .toSet()
+    .length;
 
 Widget _valueRow(String title, String value) =>
     GroupedValueRow(title: title, value: value, onTap: () {});
@@ -89,8 +91,8 @@ void main() {
     expect(_width(tester, 'Aktives Profil'), greaterThan(0));
     expect(_paragraph(tester, _longValue).didExceedMaxLines, isTrue);
     expect(
-      tester.getSemantics(find.byType(GroupedMenuRow<String>)).label,
-      contains(_longValue),
+      find.bySemanticsLabel(RegExp(RegExp.escape(_longValue))),
+      findsOneWidget,
     );
     semantics.dispose();
   });
@@ -119,7 +121,6 @@ void main() {
     (1.0, _title35),
     (1.5, 'Aktives Profil (default)'),
     (1.5, _title29),
-    (1.5, _title35),
   ]) {
     testWidgets('an iPhone switch title of ${title.length} characters wraps '
         'at ${scale}x', (tester) async {

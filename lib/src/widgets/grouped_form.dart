@@ -69,16 +69,27 @@ class GroupedValueRow extends StatelessWidget {
         chevron: false,
         onTap: onTap,
       ),
-      PlatformChrome.macos => GroupedRow(
-        title: title,
-        caption: caption,
-        warning: warning,
-        // The pop-up draws its own ring, so the row must not draw a second one
-        // round the whole row when the pop-up has focus.
-        focusable: false,
-        trailing:
-            progress ??
-            _PopUpValue(value: value, enabled: enabled, onPressed: onTap),
+      PlatformChrome.macos => LayoutBuilder(
+        builder: (context, box) => GroupedRow(
+          title: title,
+          // The pop-up takes the rest of the row, so the title keeps a third
+          // of it and wraps.
+          titleMaxLines: 2,
+          caption: caption,
+          warning: warning,
+          // The pop-up draws its own ring, so the row must not draw a second
+          // one round the whole row when the pop-up has focus.
+          focusable: false,
+          trailing:
+              progress ??
+              _PopUpValue(
+                value: value,
+                enabled: enabled,
+                onPressed: onTap,
+                maxWidth: _popUpMaxWidth(context, box.maxWidth),
+                tooltip: !_inMenu,
+              ),
+        ),
       ),
       // The value stays inside the row's tap target, which a trailing
       // widget beside a tappable GroupedRow would not.
@@ -88,27 +99,23 @@ class GroupedValueRow extends StatelessWidget {
           title: title,
           caption: caption,
           warning: warning,
-          // GroupedRow's own value does not shrink for a long one.
-          trailing:
-              progress ??
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                ),
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: GroupedMetrics.of(context).subtitleSize,
-                    color: context.hermesColors.subtleText,
-                  ),
-                ),
-              ),
+          // Beside the title while both fit on one line, under it otherwise.
+          value: progress == null ? value : null,
+          valueStyle: const TextStyle(),
+          stackCrampedValue: true,
+          wrapWhenStacked: true,
+          trailing: progress,
           chevron: enabled,
         ),
       ),
     };
+  }
+
+  /// The widest the Mac pop-up gets in a row [rowWidth] wide: at most 260,
+  /// and two thirds of the row inside its padding, less the gap to the title.
+  static double _popUpMaxWidth(BuildContext context, double rowWidth) {
+    final inner = rowWidth - 2 * GroupedMetrics.of(context).rowPadding;
+    return math.min(260, inner * 2 / 3 - 8);
   }
 
   static Widget _tappable(VoidCallback? onTap, Widget row) => onTap == null
@@ -127,11 +134,18 @@ class _PopUpValue extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onPressed,
+    required this.maxWidth,
+    required this.tooltip,
   });
 
   final String value;
   final bool enabled;
   final VoidCallback? onPressed;
+  final double maxWidth;
+
+  /// Whether a tooltip shows the whole [value], for a pop-up whose own menu
+  /// does not.
+  final bool tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -157,8 +171,8 @@ class _PopUpValue extends StatelessWidget {
       ),
     );
     final onPressed = this.onPressed;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
+    final pill = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
       child: Material(
         color: scheme.surface,
         shape: RoundedRectangleBorder(
@@ -185,6 +199,7 @@ class _PopUpValue extends StatelessWidget {
               ),
       ),
     );
+    return tooltip ? Tooltip(message: value, child: pill) : pill;
   }
 }
 
