@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/adaptive_dialog.dart';
-import '../hermes_skills_hub_repository.dart';
+import '../hub_scan.dart';
 import 'skill_security_scan.dart';
 
 /// The confirmation before a hub skill whose scan policy is `ask` installs:

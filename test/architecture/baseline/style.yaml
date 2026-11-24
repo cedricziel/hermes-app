@@ -343,7 +343,8 @@ style.string:
   lib/src/chat/widgets/composer_stop_button.dart: 2
   lib/src/chat/widgets/connector_operation_card.dart: 9
   lib/src/chat/widgets/image_viewer.dart: 3
-  lib/src/chat/widgets/mac_chat_toolbar.dart: 9
+  lib/src/chat/widgets/mac_chat_more_menu.dart: 5
+  lib/src/chat/widgets/mac_chat_toolbar.dart: 4
   lib/src/chat/widgets/mac_search_results.dart: 3
   lib/src/chat/widgets/mac_thread_row.dart: 3
   lib/src/chat/widgets/memory_tool_body.dart: 3
@@ -372,7 +373,7 @@ style.string:
   lib/src/kanban/kanban_create_screen.dart: 8
   lib/src/kanban/kanban_errors.dart: 1
   lib/src/kanban/kanban_screen.dart: 13
-  lib/src/kanban/kanban_workers_screen.dart: 8
+  lib/src/kanban/kanban_workers_screen.dart: 5
   lib/src/kanban/widgets/kanban_board_menu.dart: 3
   lib/src/kanban/widgets/kanban_board_toolbar.dart: 4
   lib/src/kanban/widgets/kanban_card.dart: 1
@@ -380,6 +381,7 @@ style.string:
   lib/src/kanban/widgets/kanban_inspector_layout.dart: 1
   lib/src/kanban/widgets/kanban_list_rows.dart: 6
   lib/src/kanban/widgets/kanban_mac_toolbar.dart: 6
+  lib/src/kanban/widgets/kanban_run_inspect_dialog.dart: 3
   lib/src/kanban/widgets/kanban_task_log_dialog.dart: 2
   lib/src/kanban/widgets/kanban_task_panel.dart: 14
   lib/src/kanban/widgets/kanban_worker_log.dart: 1
@@ -459,13 +461,14 @@ style.string:
   lib/src/screens/widgets/connection_setup_field.dart: 2
   lib/src/screens/widgets/connection_summary.dart: 5
   lib/src/skills/discover_tab.dart: 9
-  lib/src/skills/hub_skill_screen.dart: 11
+  lib/src/skills/hub_skill_screen.dart: 7
   lib/src/skills/skill_detail_screen.dart: 8
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1
   lib/src/skills/skills_screen.dart: 10
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_detail_actions.dart: 4
+  lib/src/skills/widgets/skill_install_confirm_dialog.dart: 4
   lib/src/skills/widgets/skill_security_scan.dart: 3
   lib/src/spotlight/spotlight_dialog.dart: 1
   lib/src/spotlight/widgets/spotlight_settings_view.dart: 1
