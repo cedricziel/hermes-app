@@ -3194,6 +3194,13 @@
   "@kanbanSaveAction": {
     "description": "Button that saves the Kanban dialog that is open (edit task, orchestration)."
   },
+  "kanbanTaskPriorityLevel": "P{priority}",
+  "@kanbanTaskPriorityLevel": {
+    "description": "Option in the task panel's Priority picker: priority level 1 to 3, P for priority; keep it short.",
+    "placeholders": {
+      "priority": {"type": "int", "example": "2"}
+    }
+  },
 
   "@@x-area-live_activities": "",
 
@@ -3687,6 +3694,10 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsInstallMissingEnvTitle": "Set these on the server",
+  "@pluginsInstallMissingEnvTitle": {
+    "description": "Title of the dialog after an install that lists environment variables the plugin needs and the server lacks."
+  },
   "pluginsRefreshAction": "Refresh",
   "@pluginsRefreshAction": {
     "description": "Name of the Mac toolbar button that reads the open Plugins tab again."

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -43,7 +44,7 @@ Future<void> reportInstall(
   await showAppDialog<void>(
     context: context,
     builder: (context) => AppAlertDialog(
-      title: const Text('Set these on the server'),
+      title: Text(context.l10n.pluginsInstallMissingEnvTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,7 +56,7 @@ Future<void> reportInstall(
       actions: [
         AppDialogAction(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
+          child: Text(MaterialLocalizations.of(context).okButtonLabel),
         ),
       ],
     ),

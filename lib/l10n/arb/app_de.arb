@@ -665,6 +665,7 @@
   "kanbanOrchestrationTitle": "Orchestrierung",
   "kanbanRefreshAction": "Aktualisieren",
   "kanbanSaveAction": "Speichern",
+  "kanbanTaskPriorityLevel": "P{priority}",
 
   "@@x-area-live_activities": "",
 
@@ -790,6 +791,7 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsInstallMissingEnvTitle": "Auf dem Server festlegen",
   "pluginsRefreshAction": "Aktualisieren",
 
   "@@x-area-profiles": "",
