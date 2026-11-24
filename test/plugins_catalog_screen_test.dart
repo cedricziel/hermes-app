@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -16,6 +17,7 @@ import 'hermes_plugin_manager_repository_test.dart'
     show catalogBody, catalogRow, hubBody, hubRow;
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/test_localizations.dart';
 
 Finder _tab(String name) =>
     find.descendant(of: find.byType(AdaptiveTabBar), matching: find.text(name));
@@ -99,6 +101,7 @@ void main() {
     WidgetTester tester, {
     double width = 400,
     TargetPlatform? platform,
+    Locale? locale,
   }) async {
     launched.clear();
     events.clear();
@@ -111,6 +114,13 @@ void main() {
         theme: platform == null
             ? null
             : buildHermesLightTheme(platform: platform),
+        locale: locale,
+        localizationsDelegates: locale == null
+            ? null
+            : kTestLocalizationsDelegates,
+        supportedLocales: locale == null
+            ? const [Locale('en', 'US')]
+            : AppLocalizations.supportedLocales,
         home: PluginsScreen(
           repository: HermesPluginManagerRepository(server.client().raw),
           events: (name, [attributes = const {}]) =>
@@ -125,8 +135,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> openCatalog(WidgetTester tester, {double width = 400}) async {
-    await pump(tester, width: width);
+  Future<void> openCatalog(
+    WidgetTester tester, {
+    double width = 400,
+    Locale? locale,
+  }) async {
+    await pump(tester, width: width, locale: locale);
     await tester.tap(_tab('Catalog'));
     await tester.pumpAndSettle();
   }
@@ -609,6 +623,26 @@ void main() {
       expect(find.text('NETBOX_URL'), findsOneWidget);
       expect(find.text('NETBOX_TOKEN'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('names the missing variables dialog in German', (tester) async {
+      server.on('POST', install, {
+        'ok': true,
+        'plugin_name': 'chrome',
+        'missing_env': ['NETBOX_URL'],
+      });
+      await openCatalog(tester, locale: const Locale('de'));
+
+      await tester.tap(
+        find.byKey(const Key('catalog-install-hermes-plugin-chrome-profiles')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Auf dem Server festlegen'), findsOneWidget);
+      expect(find.text('chrome installiert'), findsOneWidget);
+      expect(find.text('Installed chrome'), findsNothing);
+      expect(find.text('Set these on the server'), findsNothing);
+      expect(find.text('NETBOX_URL'), findsOneWidget);
     });
 
     testWidgets('shows the server\'s reason and changes nothing when refused', (

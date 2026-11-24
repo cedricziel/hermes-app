@@ -2998,7 +2998,7 @@
   },
   "kanbanBulkAssignTitle": "Assign to",
   "@kanbanBulkAssignTitle": {
-    "description": "Title of the picker that assigns the selected Kanban tasks."
+    "description": "Title of the Assign picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel."
   },
   "kanbanBulkEffortDefault": "Profile default",
   "@kanbanBulkEffortDefault": {
@@ -3014,7 +3014,7 @@
   },
   "kanbanBulkNobody": "Nobody",
   "@kanbanBulkNobody": {
-    "description": "Option in the bulk Assign picker: clear the assignee."
+    "description": "Option in the Assign picker, in the bulk bar and in the task panel: clear the assignee."
   },
   "kanbanBulkPickerFooter": "{count, plural, =1{Applies to the selected task.} other{Applies to the {count} selected tasks.}}",
   "@kanbanBulkPickerFooter": {
@@ -3027,11 +3027,11 @@
   },
   "kanbanBulkPriorityNormal": "Normal",
   "@kanbanBulkPriorityNormal": {
-    "description": "Option in the bulk Priority picker: priority zero, no urgency."
+    "description": "Option in the Priority picker, in the bulk bar and in the task panel: priority zero, no urgency."
   },
   "kanbanBulkPriorityTitle": "Priority",
   "@kanbanBulkPriorityTitle": {
-    "description": "Title of the picker that sets the priority of the selected Kanban tasks."
+    "description": "Title of the Priority picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel."
   },
   "kanbanEditTaskDescriptionLabel": "Description",
   "@kanbanEditTaskDescriptionLabel": {
@@ -3224,6 +3224,13 @@
   "kanbanSaveAction": "Save",
   "@kanbanSaveAction": {
     "description": "Button that saves the Kanban dialog that is open (edit task, orchestration)."
+  },
+  "kanbanTaskPriorityLevel": "P{priority}",
+  "@kanbanTaskPriorityLevel": {
+    "description": "Option in the task panel's Priority picker: priority level 1 to 3, P for priority; keep it short.",
+    "placeholders": {
+      "priority": {"type": "int", "example": "2"}
+    }
   },
 
   "@@x-area-live_activities": "",
@@ -3721,6 +3728,29 @@
   "pluginsInstall": "Install",
   "@pluginsInstall": {
     "description": "Button on a plugin catalog row that installs the plugin on the server."
+  },
+  "pluginsInstallFailed": "Could not install this plugin",
+  "@pluginsInstallFailed": {
+    "description": "Snackbar line after an install the server refused without giving a reason."
+  },
+  "pluginsInstallMissingEnvTitle": "Set these on the server",
+  "@pluginsInstallMissingEnvTitle": {
+    "description": "Title of the dialog after an install that lists environment variables the plugin needs and the server lacks."
+  },
+  "pluginsInstallStillRunning": "The server is still installing. Pull the list down in a moment to check.",
+  "@pluginsInstallStillRunning": {
+    "description": "Snackbar line when the install request got no answer in time; the server may still be installing. Pull down refers to pull-to-refresh on the plugin list."
+  },
+  "pluginsInstalled": "Installed",
+  "@pluginsInstalled": {
+    "description": "Snackbar line after a plugin install succeeded and the server gave no plugin name."
+  },
+  "pluginsInstalledNamed": "Installed {pluginName}",
+  "@pluginsInstalledNamed": {
+    "description": "Snackbar line after a plugin install succeeded, naming the plugin.",
+    "placeholders": {
+      "pluginName": {"type": "String", "example": "hermes-snapcompact"}
+    }
   },
   "pluginsRefreshAction": "Refresh",
   "@pluginsRefreshAction": {

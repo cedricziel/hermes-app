@@ -672,6 +672,7 @@
   "kanbanOrchestrationTitle": "Orchestrierung",
   "kanbanRefreshAction": "Aktualisieren",
   "kanbanSaveAction": "Speichern",
+  "kanbanTaskPriorityLevel": "P{priority}",
 
   "@@x-area-live_activities": "",
 
@@ -798,6 +799,11 @@
 
   "@@x-area-plugins": "",
   "pluginsInstall": "Installieren",
+  "pluginsInstallFailed": "Das Plugin konnte nicht installiert werden",
+  "pluginsInstallMissingEnvTitle": "Auf dem Server festlegen",
+  "pluginsInstallStillRunning": "Der Server installiert noch. Zieh die Liste gleich nach unten, um es zu prüfen.",
+  "pluginsInstalled": "Installiert",
+  "pluginsInstalledNamed": "{pluginName} installiert",
   "pluginsRefreshAction": "Aktualisieren",
   "pluginsUpdateFailed": "Das Plugin konnte nicht geändert werden",
 

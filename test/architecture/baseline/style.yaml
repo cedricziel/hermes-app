@@ -383,7 +383,7 @@ style.string:
   lib/src/kanban/widgets/kanban_list_rows.dart: 6
   lib/src/kanban/widgets/kanban_mac_toolbar.dart: 6
   lib/src/kanban/widgets/kanban_task_log_dialog.dart: 2
-  lib/src/kanban/widgets/kanban_task_panel.dart: 14
+  lib/src/kanban/widgets/kanban_task_panel.dart: 12
   lib/src/kanban/widgets/kanban_worker_log.dart: 1
   lib/src/kanban/widgets/task_panel/kanban_task_actions.dart: 8
   lib/src/kanban/widgets/task_panel/kanban_task_attachments.dart: 5
@@ -424,7 +424,6 @@ style.string:
   lib/src/plugins/catalog_detail.dart: 5
   lib/src/plugins/catalog_tab.dart: 7
   lib/src/plugins/git_install_dialog.dart: 10
-  lib/src/plugins/install_report.dart: 2
   lib/src/plugins/installed_tab.dart: 4
   lib/src/plugins/plugin_actions.dart: 3
   lib/src/plugins/plugin_detail.dart: 8
