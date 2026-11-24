@@ -20,6 +20,8 @@ Files:
   `test/` helper, see "Keep the lists honest"), and for a `part of` file
   the importers of its parent library, plus `test/workflows/*`),
   an optional `quick_tests` subset, and `mutants`.
+- `scripts/mutant_importers.py` (tests in `scripts/test_mutant_importers.py`): reports
+  the test files a list's `tests` is missing, see "Keep the lists honest".
 - `scripts/test_mutation_sample.py`: the runner's own tests (fake repo, fake
   `flutter`); CI runs them with `python3 -m unittest discover -s scripts -p 'test_*.py'`.
 - Results: `.dart_tool/mutation-sample/<subject>.json` (not committed).
@@ -105,16 +107,18 @@ killed / (killed + survived).
 
 - `--check` must pass for every list before a list is committed. It checks
   anchors and that the files exist; it does not check importers.
-- Missing importers: a test that imports a subject's library but is not in
-  `tests` can kill a mutant the list says survives. Scan `test/` for
-  `import`/`export` of each mutated file (for a `part of` file, of the parent
-  library that has its `part '...'` line) and diff against `tests`. Go one
-  hop deeper: also take tests that import a `lib/` library which itself
-  imports a mutated library (a listener test reaches the parser through the
-  listener), and tests that import a non-test Dart file under `test/` (a
-  helper such as `test/support/pump_chat.dart` or a harness) that imports a
-  mutated library. Run that scan after a pull that adds test files, and add
-  what it finds.
+- Missing importers: a test that reaches a subject's library but is not in
+  `tests` can kill a mutant the list says survives. Check with
+  `python3 scripts/mutant_importers.py [subject ...]` (`--apply` adds what it
+  finds; it exits 1 while a list is missing files). It counts four ways: a
+  direct `import`/`export` of a mutated file (for a `part of` file, of the
+  parent library with its `part '...'` line); one hop through a `lib/` library
+  that itself imports a mutated library (a listener test reaches the parser
+  through the listener); a non-test Dart file under `test/` (a harness or fake
+  such as `test/support/pump_chat.dart`) that imports a mutated library; and
+  helper chains, which it follows transitively: a helper that imports a helper
+  that imports the library counts, at any depth. `test/workflows/*` is always
+  included. Run it after a pull that adds test files, and add what it finds.
 - A survivor is a test gap only after it ran against the full `tests` list,
   not only `quick_tests`: a quick survivor is a lead, not a finding.
 - Re-run a subject's mutants after any merge that touches it (its product
