@@ -177,10 +177,10 @@ both `scripts/premerge_check.sh <pr> --stack <armed pr>` and the unstacked
 `scripts/premerge_check.sh <pr>` pass, each under the same base and head rule
 (the hand-merged PR lands first, so main plus that PR alone must be tested too).
 
-Every hand merge needs a READY report, a clean recorded review for the exact
-head, and every required check green on that head, except the per-shard checks
-in the docs-only case. It is a squash merge, and the orchestrator does it. A
-Dart PR is hand-merged only when auto-merge cannot merge it (the
+Every hand merge (the release-please PR excepted, below) needs a READY report,
+a clean recorded review for the exact head, and every required check green on
+that head, except the per-shard checks in the docs-only case. It is a squash
+merge, and the orchestrator does it. A Dart PR is hand-merged only when auto-merge cannot merge it (the
 one-armed-Dart-PR limit), and then only after the trial check.
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
@@ -197,7 +197,10 @@ one-armed-Dart-PR limit), and then only after the trial check.
   that closes a wave, once main's tip has a full green run (the five builds
   included) and the release PR's current head has its five builds green; it
   disarms it when a new head arrives, and arms it last (see the `release`
-  skill).
+  skill). When every one of those conditions holds and GitHub refuses to arm
+  auto-merge because nothing is pending, the orchestrator squash-merges it
+  directly with the head SHA pinned (`expectedHeadSha`, or the merge API's
+  `sha`); in every other state it is armed.
 - Docs-only PRs cannot auto-merge while the ruleset requires the individual
   test shards (they never report on a docs-only PR). Docs-only means the
   `Changes` job output `code=false` on the exact head, so the shards show
