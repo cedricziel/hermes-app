@@ -234,15 +234,25 @@ class FreshnessTest(unittest.TestCase):
         self.assertWarns(run(self.repo(settings=s)), "PreToolUse")
 
     def test_non_running_commands_warn(self):
+        g = '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"'
         for cmd in (
-            'echo "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
+            "echo " + g,
             "cat .claude/hooks/guard_bash.py",
             "true || python3 x/.claude/hooks/guard_bash.py",
             "true; python3 x/.claude/hooks/guard_bash.py",
             "python3 x/.claude/hooks/guard_bash.py && true",
             "echo $(python3 x/.claude/hooks/guard_bash.py)",
             "python3 -c x/.claude/hooks/guard_bash.py",
-            'python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py" --post',
+            "python3 -I " + g + " --post",
+            "python3 -V " + g,
+            "python3 --version " + g,
+            "python3 -h " + g,
+            "python3 -I " + g + " < /dev/null",
+            "python3 -I " + g + " <<< x",
+            "python3 -I /tmp/evil/.claude/hooks/guard_bash.py",
+            "FOO=1 python3 -I " + g,
+            "env python3 -I " + g,
+            g,
         ):
             with self.subTest(cmd=cmd):
                 with tempfile.TemporaryDirectory() as d:
@@ -251,19 +261,24 @@ class FreshnessTest(unittest.TestCase):
                     )
                     self.assertWarns(run(r), "PreToolUse")
 
-    def test_plain_invocations_are_accepted(self):
-        for cmd in (
-            'python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
-            'FOO=1 python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
-            'env FOO=1 /usr/bin/python3.12 -u -B x/.claude/hooks/guard_bash.py',
-            '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
-        ):
+    def test_canonical_command_is_accepted(self):
+        g = '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"'
+        for cmd in ("python3 -I " + g, "  python3   -I\t" + g + " "):
             with self.subTest(cmd=cmd):
                 with tempfile.TemporaryDirectory() as d:
                     r = make_repo(
                         Path(d) / "r", settings=self._settings("Bash", cmd)
                     )
                     self.assertSilent(run(r))
+
+    def test_real_repo_settings_are_recognised(self):
+        # If the committed PreToolUse command changes, update GUARD_COMMANDS in
+        # check_guard_freshness.py in the same PR.
+        root = HELPER.parent.parent.parent
+        settings = (root / ".claude" / "settings.json").read_text()
+        with tempfile.TemporaryDirectory() as d:
+            r = make_repo(Path(d) / "r", settings=settings)
+            self.assertSilent(run(r))
 
     def test_committed_wiring_form_is_accepted(self):
         self.assertSilent(run(self.repo(settings=GOOD_SETTINGS)))

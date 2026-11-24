@@ -15,7 +15,6 @@ session: every error path ends in exit 0.
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 
@@ -57,41 +56,13 @@ def _matcher_covers_bash(matcher):
         return False
 
 
-_PYTHON = re.compile(r"python(3(\.\d+)?)?")
-_ENV_ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+# The PreToolUse command committed in .claude/settings.json. Matched exactly
+# (whitespace-normalised); change it together with that file.
+GUARD_COMMANDS = ('python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',)
 
 
 def _runs_guard(command):
-    """True for one plain invocation of the guard: [VAR=x] [env] python3 [-flags]
-    .../guard_bash.py, or the script itself as the program. No --post, no
-    compound commands."""
-    command = str(command)
-    if re.search(r"[;&|`]|\$\(", command):
-        return False
-    try:
-        words = shlex.split(command)
-    except ValueError:
-        return False
-    if "--post" in words:
-        return False
-    while words and _ENV_ASSIGN.match(words[0]):
-        words.pop(0)
-    if words and os.path.basename(words[0]) == "env":
-        words.pop(0)
-        while words and _ENV_ASSIGN.match(words[0]):
-            words.pop(0)
-    if not words:
-        return False
-    if words[0].endswith(GUARD):
-        return True
-    if not _PYTHON.fullmatch(os.path.basename(words[0])):
-        return False
-    rest = words[1:]
-    while rest and rest[0].startswith("-"):
-        flag = rest.pop(0)
-        if not flag.startswith("--") and set(flag) & set("cmWX"):
-            return False  # -c/-m run code or a module; -W/-X take an argument
-    return bool(rest) and rest[0].endswith(GUARD)
+    return " ".join(str(command).split()) in GUARD_COMMANDS
 
 
 def has_pretooluse_wiring(settings_path):
