@@ -1048,6 +1048,45 @@ void main() {
         name: 'Mac pop-up value',
       );
     });
+
+    // The case above builds a GroupedValueRow with an onTap, which draws its
+    // own ring; the screens build a GroupedMenuRow, whose pop-up is a
+    // PopupMenuButton around the whole row. Reached by Tab, as a user does.
+    testWidgets('Mac pop-up value of a GroupedMenuRow, reached by Tab: '
+        'radius 6', (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        SizedBox(
+          width: 360,
+          child: GroupedSection(
+            children: [
+              GroupedMenuRow<String>(
+                title: 'Model',
+                options: const ['opus', 'sonnet'],
+                labelOf: (option) => option,
+                selected: 'opus',
+                onSelected: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      final face = find
+          .ancestor(of: find.text('opus'), matching: find.byType(Material))
+          .first;
+      expect(_ringFinder, findsOneWidget, reason: 'the pop-up shows a ring');
+      expect(tester.getRect(_ringFinder), tester.getRect(face));
+      final (band, painter) = _ring(tester);
+      expect(painter.width, kFocusRingWidth);
+      expect(painter.inset, -(kFocusRingOffset + kFocusRingWidth));
+      expectRingHugs(band, (
+        tester.getRect(face),
+        6,
+      ), reason: 'Mac pop-up value of a GroupedMenuRow');
+    });
   });
 
   group('rings merged earlier follow the painted shape too', () {
