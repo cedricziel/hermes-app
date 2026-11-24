@@ -147,7 +147,7 @@ Last turn lines (`VoiceTurnList`):
 
 - Two plain lines, not bubbles, in the call's state block under the hint, with 12 pt above them and 8 pt between them and the elapsed time. Line one is "You" and what the user said, as it was sent. Line two is "Hermes" and the reply as it streams in. Each name is muted (`onSurfaceVariant`), semibold (w600), followed by two spaces and the words in `bodyMedium` in the normal text colour. The lines are 4 pt apart.
 - The "You" line stops at 2 lines and the "Hermes" line at 3, each with an end ellipsis; the chat has the whole turn. Nothing is drawn until there is a line: the "Hermes" line is left out until the first words of the reply arrive, and the whole list is empty before the first turn.
-- They are not shown while a caption or an error is showing: the caption of a turn being sent replaces them. A stopped call (ended, failed) shows none. Under App Lock the caller leaves the words out. The words live in call memory only and are dropped by the teardown.
+- They are not shown while a caption or an error is showing: the caption of a turn being sent replaces them. A stopped call (ended, failed) shows none. Under App Lock the lock cover hides them with the rest of the screen. The words live in call memory only and are dropped by the teardown.
 - Tokens: `onSurfaceVariant` for the names and the note, the theme's `bodyMedium`. Dark follows the theme.
 - Large text: the line caps hold, so long words end in an ellipsis rather than growing the block; the state word above uses a shrink-to-fit scale in a narrow column. The tests check long lines in bounds at 1x and 2x (`test/voice/widgets/voice_turn_list_test.dart`); there is no dedicated 3x case, the catalog's text scale addon (1x to 3x) is the way to look.
 
