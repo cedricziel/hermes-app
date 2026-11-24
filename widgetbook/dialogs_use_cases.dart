@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_task_log_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_sheet.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
@@ -71,6 +72,18 @@ class _NoFiles implements KanbanFiles {
   @override
   Future<bool> save(String name, Uint8List bytes) async => true;
 }
+
+/// [build] under the Mac look, whatever the viewport's platform is, for the
+/// dialogs that `showAppDialog` draws as a fading, click-dismissible window
+/// there.
+WidgetbookUseCase _mac(String name, Widget Function(BuildContext) build) =>
+    WidgetbookUseCase(
+      name: name,
+      builder: (context) => Theme(
+        data: platformTheme(context, TargetPlatform.macOS),
+        child: Builder(builder: build),
+      ),
+    );
 
 WidgetbookNode dialogsNode() => WidgetbookFolder(
   name: 'Dialogs and sheets',
@@ -211,6 +224,52 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
                   child: const Text('Install anyway'),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    ),
+    // Dialogs opened through showAppDialog are, on macOS, a fading window
+    // with a barrier a click closes. Only the task log is a widget of its
+    // own; the others are built inline in their screens.
+    WidgetbookComponent(
+      name: 'showAppDialog (Mac)',
+      useCases: [
+        _mac(
+          'Kanban task log',
+          (_) => Hosted<KanbanRepository>(
+            create: () => KanbanRepository(kanbanServer().client()),
+            builder: (_, repository) => openOnShow(
+              (context) => showAppDialog<void>(
+                context: context,
+                builder: (_) => KanbanTaskLogDialog(
+                  repository: repository,
+                  taskId: 't_run',
+                ),
+              ),
+            ),
+          ),
+        ),
+        _mac(
+          'Kanban task log unavailable',
+          (_) => Hosted<KanbanRepository>(
+            create: () => KanbanRepository(
+              (kanbanServer()..on(
+                    'GET',
+                    '/api/plugins/kanban/tasks/t_run/log',
+                    {'detail': 'gone'},
+                    status: 500,
+                  ))
+                  .client(),
+            ),
+            builder: (_, repository) => openOnShow(
+              (context) => showAppDialog<void>(
+                context: context,
+                builder: (_) => KanbanTaskLogDialog(
+                  repository: repository,
+                  taskId: 't_run',
+                ),
+              ),
             ),
           ),
         ),

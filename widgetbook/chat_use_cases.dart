@@ -48,6 +48,11 @@ import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/touch_row_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/thread_housekeeping.dart';
+
+import '../test/support/fake_hermes_server.dart';
+
 import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart'
     show ActivityButton;
 import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
@@ -287,6 +292,81 @@ class _RemountedToolRunsState extends State<_RemountedToolRuns> {
     ],
   );
 }
+
+/// A thread menu as it opens from the header's button, for the catalog to
+/// look at. The button gets a real [ThreadHousekeeping], as in the app, so
+/// the menu has Rename, Pin, Archive and Delete around the export row.
+class _OpenThreadMenu extends StatefulWidget {
+  const _OpenThreadMenu({required this.exportJson, this.mac = false});
+
+  final ExportJsonOffer exportJson;
+  final bool mac;
+
+  @override
+  State<_OpenThreadMenu> createState() => _OpenThreadMenuState();
+}
+
+class _OpenThreadMenuState extends State<_OpenThreadMenu> {
+  final _button = GlobalKey<ThreadActionsButtonState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _button.currentState?.open();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topRight,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: ThreadActionsButton(
+        key: _button,
+        thread: threads[0],
+        includeCopyTranscript: true,
+        exportJson: widget.exportJson,
+        onOpenInNewWindow: widget.mac ? (_) {} : null,
+        housekeeping: ThreadHousekeeping(
+          repository: HermesChatRepository(FakeHermesServer().client().raw),
+          threads: () => threads,
+          profile: () => 'default',
+          changed: () {},
+          report: (_) {},
+          removed: (_) {},
+          history: (thread, {cancelled}) async => const [],
+        ),
+      ),
+    ),
+  );
+}
+
+WidgetbookUseCase _threadMenu(
+  String name,
+  TargetPlatform platform, {
+  bool enabled = true,
+  bool german = false,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) {
+    Widget menu = Theme(
+      data: platformTheme(context, platform),
+      child: _OpenThreadMenu(
+        exportJson: ExportJsonOffer(onSelected: () {}, enabled: enabled),
+        mac: platform == TargetPlatform.macOS,
+      ),
+    );
+    if (german) {
+      menu = Localizations.override(
+        context: context,
+        locale: const Locale('de'),
+        child: menu,
+      );
+    }
+    return menu;
+  },
+);
 
 WidgetbookNode chatNode() => WidgetbookFolder(
   name: 'Chat',
@@ -560,6 +640,29 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool(
           'Local thread: copy transcript only',
           ThreadActionsButton(thread: threads[2], includeCopyTranscript: true),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'Thread actions menu',
+      useCases: [
+        _threadMenu('Export chat as JSON (Mac)', TargetPlatform.macOS),
+        _threadMenu(
+          'Export chat as JSON, running (Mac)',
+          TargetPlatform.macOS,
+          enabled: false,
+        ),
+        _threadMenu(
+          'Export chat as JSON, German (Mac)',
+          TargetPlatform.macOS,
+          german: true,
+        ),
+        _threadMenu('Export chat as JSON (iPhone)', TargetPlatform.iOS),
+        _threadMenu('Export chat as JSON (Material)', TargetPlatform.android),
+        _threadMenu(
+          'Export chat as JSON, running (Material)',
+          TargetPlatform.android,
+          enabled: false,
         ),
       ],
     ),
