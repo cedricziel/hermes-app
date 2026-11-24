@@ -13,18 +13,16 @@ import '../tool_value_language.dart';
 /// Readable, selectable argument values without JSON quoting around commands.
 /// Strings keep their exact whitespace; formatting never rewrites shell code.
 class ToolArgumentsView extends StatelessWidget {
-  const ToolArgumentsView({
-    super.key,
-    required this.arguments,
-    this.title = 'Input',
-  });
+  const ToolArgumentsView({super.key, required this.arguments, this.title});
 
   final Map<String, Object?> arguments;
-  final String title;
+
+  /// The frame's label; null reads the localized "Input".
+  final String? title;
 
   @override
   Widget build(BuildContext context) => ToolBodyFrame(
-    label: title,
+    label: title ?? context.l10n.chatWidgetsToolArgumentsTitle,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
