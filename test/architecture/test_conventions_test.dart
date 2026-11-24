@@ -112,7 +112,7 @@ void main() {
       id: 'test.geometry-focus-by-tab',
       message:
           'reach focus in a focus ring geometry case with tabTo(tester, '
-          'finder) (test/support/tab_to.dart), not requestFocus or _focus: a '
+          'finder) (test/support/tab_to.dart), not requestFocus, _focus or _focusInk: a '
           'node focused by hand can be one no Tab reaches, and then the case '
           'passes while the real control shows no ring. A helper whose '
           'definition must focus a node by hand goes on _focusByRequestHelpers '
