@@ -2928,6 +2928,59 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanBulkActionArchive": "Archive",
+  "@kanbanBulkActionArchive": {
+    "description": "Button in the Kanban selection bar: archive the selected tasks."
+  },
+  "kanbanBulkActionAssign": "Assign",
+  "@kanbanBulkActionAssign": {
+    "description": "Button in the Kanban selection bar: assign the selected tasks to someone."
+  },
+  "kanbanBulkActionEffort": "Effort",
+  "@kanbanBulkActionEffort": {
+    "description": "Button in the Kanban selection bar: set the reasoning effort of the selected tasks."
+  },
+  "kanbanBulkActionMove": "Move",
+  "@kanbanBulkActionMove": {
+    "description": "Button in the Kanban selection bar: move the selected tasks to another status."
+  },
+  "kanbanBulkActionPriority": "Priority",
+  "@kanbanBulkActionPriority": {
+    "description": "Button in the Kanban selection bar: set the priority of the selected tasks."
+  },
+  "kanbanBulkArchiveConfirm": "Archive",
+  "@kanbanBulkArchiveConfirm": {
+    "description": "Confirm button of the dialog that asks before archiving the selected Kanban tasks."
+  },
+  "kanbanBulkArchiveTitle": "{count, plural, =1{Archive 1 task?} other{Archive {count} tasks?}}",
+  "@kanbanBulkArchiveTitle": {
+    "description": "Title of the dialog that asks before archiving the selected Kanban tasks. {count} is how many are selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanBulkAssignTitle": "Assign to",
+  "@kanbanBulkAssignTitle": {
+    "description": "Title of the picker that assigns the selected Kanban tasks."
+  },
+  "kanbanBulkEffortDefault": "Profile default",
+  "@kanbanBulkEffortDefault": {
+    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile."
+  },
+  "kanbanBulkEffortTitle": "Reasoning effort",
+  "@kanbanBulkEffortTitle": {
+    "description": "Title of the picker that sets the reasoning effort of the selected Kanban tasks."
+  },
+  "kanbanBulkMoveTitle": "Move to",
+  "@kanbanBulkMoveTitle": {
+    "description": "Title of the picker that moves the selected Kanban tasks to a status."
+  },
+  "kanbanBulkNobody": "Nobody",
+  "@kanbanBulkNobody": {
+    "description": "Option in the bulk Assign picker: clear the assignee."
+  },
   "kanbanBulkPickerFooter": "{count, plural, =1{Applies to the selected task.} other{Applies to the {count} selected tasks.}}",
   "@kanbanBulkPickerFooter": {
     "description": "Note under the choices of a bulk action in Kanban selection mode (Move to, Assign to, Priority, Reasoning effort). {count} is how many tasks are selected.",
@@ -2936,6 +2989,14 @@
         "type": "int"
       }
     }
+  },
+  "kanbanBulkPriorityNormal": "Normal",
+  "@kanbanBulkPriorityNormal": {
+    "description": "Option in the bulk Priority picker: priority zero, no urgency."
+  },
+  "kanbanBulkPriorityTitle": "Priority",
+  "@kanbanBulkPriorityTitle": {
+    "description": "Title of the picker that sets the priority of the selected Kanban tasks."
   },
   "kanbanEditTaskDescriptionLabel": "Description",
   "@kanbanEditTaskDescriptionLabel": {

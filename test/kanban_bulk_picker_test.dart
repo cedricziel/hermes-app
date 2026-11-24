@@ -30,11 +30,13 @@ Future<void> _open(
   _Calls calls,
   String action, {
   int selected = 3,
+  Locale? locale,
 }) async {
   await pumpOnPlatform(
     tester,
     const SizedBox.shrink(),
     platform: platform,
+    locale: locale,
     bottom: _bar(calls, selected: selected),
   );
   await tester.tap(find.text(action));
@@ -80,7 +82,81 @@ const _platforms = {
   'Android': TargetPlatform.android,
 };
 
+/// German action, then the title and options of its picker, then the row to
+/// pick and what the bar must report.
+const _germanPicks = [
+  (
+    'Verschieben',
+    'Verschieben nach',
+    ['Review', 'Done'],
+    'Review',
+    'move:review',
+  ),
+  ('Zuweisen', 'Zuweisen an', ['Niemand', 'coder'], 'Niemand', 'assign:'),
+  ('Priorität', 'Priorität', ['Normal', 'P1', 'P3'], 'Normal', 'priority:0'),
+  (
+    'Aufwand',
+    'Denkaufwand',
+    ['Profilstandard', 'High'],
+    'Profilstandard',
+    'effort:',
+  ),
+];
+
 void main() {
+  group('on a German device', () {
+    const de = Locale('de');
+    for (final (action, title, options, row, reported) in _germanPicks) {
+      testWidgets('$action opens a German picker', (tester) async {
+        final calls = _Calls();
+        await _open(tester, TargetPlatform.android, calls, action, locale: de);
+
+        expect(
+          find.descendant(of: _dialog, matching: find.text(title)),
+          findsOneWidget,
+        );
+        for (final option in options) {
+          expect(find.text(option), findsOneWidget, reason: option);
+        }
+        await tester.tap(find.text(row));
+        await tester.pumpAndSettle();
+        expect(calls.log, [reported]);
+      });
+    }
+
+    testWidgets('Archivieren asks in German and archives', (tester) async {
+      final calls = _Calls();
+      await _open(
+        tester,
+        TargetPlatform.android,
+        calls,
+        'Archivieren',
+        locale: de,
+      );
+
+      expect(find.text('3 Aufgaben archivieren?'), findsOneWidget);
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Cancel'), findsNothing);
+      await tester.tap(find.text('Archivieren').last);
+      await tester.pumpAndSettle();
+      expect(calls.log, ['archive']);
+    });
+
+    testWidgets('Archivieren asks about one task in the singular', (
+      tester,
+    ) async {
+      await _open(
+        tester,
+        TargetPlatform.android,
+        _Calls(),
+        'Archivieren',
+        selected: 1,
+        locale: de,
+      );
+      expect(find.text('1 Aufgabe archivieren?'), findsOneWidget);
+    });
+  });
+
   for (final MapEntry(key: name, value: platform) in _platforms.entries) {
     group('bulk picker on $name', () {
       for (final (action, row, reported) in _picks) {
