@@ -115,6 +115,13 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.f10);
     await tester.pumpAndSettle();
     expect(fieldFocused(tester), isFalse);
+    // Also after moving along the bar and into a menu.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
