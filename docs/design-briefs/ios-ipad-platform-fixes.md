@@ -21,7 +21,7 @@ Decisions taken in the design pass (each bullet is one decision; code references
 
 B3, attach menu and skill job status:
 
-- Width: on macOS `showAdaptiveSheet` always opens a dialog, at any width, before it checks the layout. Elsewhere it switches on `isWideLayout` (`lib/src/theme/breakpoints.dart`): 900 pt on every platform, and 700 pt only on a full-screen iPad (iOS chrome, shortest side at least 600 pt). Above the switch both are dialogs, 420 pt for the attach menu and 520 pt for the skill job status. Android, Windows and Linux at 800 pt keep the sheet. The 700/900 rule is F.187, not F.160.
+- Width: `showAdaptiveSheet` switches on `isWideLayout` (`lib/src/theme/breakpoints.dart`): 900 pt on every platform, and 700 pt only on a full-screen iPad (iOS chrome, shortest side at least 600 pt). Above the switch both are dialogs, 420 pt for the attach menu and 520 pt for the skill job status. Android, Windows and Linux at 800 pt keep the sheet. The 700/900 rule is F.187, not F.160.
 - Phone: keeps the bottom sheet. Today's sheets set `showDragHandle: true` (`attachment_surface.dart` ~36, `skill_job_sheet.dart` ~36); the sheet branch of `showAdaptiveSheet` (`adaptive_sheet.dart` ~25-30) does not, and sets `isScrollControlled` and `useSafeArea`. Decision: keep the handle, so `showAdaptiveSheet` gets a `showDragHandle` option that the two call sites pass.
 - Content, rows and copy do not change. Photo Library, Take Photo and Files keep their rows.
 - One origin only (Mac and desktop: Files): `+` opens the file picker directly and shows no menu. This single origin also satisfies the macOS brief's no-bottom-sheets rule. iPhone and iPad keep the menu.
@@ -43,7 +43,7 @@ B2, chat-row actions on iPad:
 - Delete: today's confirmation is `showConfirmDialog(destructive: true)` with a filled, default confirm (`runThreadAction`, `thread_actions_menu.dart` ~280-287; Bot Chat retire at ~266-271), which breaks the no-filled-destructive rule. This menu's Delete goes through `showDestructiveConfirm` (`adaptive_dialog.dart` ~251): Cancel is the default and Delete is red text. The sweep of the other raw dialogs belongs to the style session.
 - Accessible name: "Chat actions for <title>" (`thread_actions_menu.dart` ~168).
 - The doc comment at `thread_sidebar.dart` ~50 says the menu opens from a secondary click; iOS has none today. Fix it with the wrapper.
-- Overlap: Android brief E7 also touches `_ThreadRow` and `ThreadActionsButton`; the two PRs must be sequenced. After E7 (PR #1163) the iOS-only flag in `_ThreadRow` is named `ios` and `touch` means iOS or Android, so the iPad menu wrapper keys on `ios` (and the iPad layout), never on `touch`.
+- Overlap: Android brief E7 also touches `_ThreadRow` and `ThreadActionsButton`; the two PRs must be sequenced.
 
 D2 (GroupedDialog header at large text):
 
@@ -126,14 +126,14 @@ Where a decision differs from the canvas:
 
 Every new string needs English and German in `app_en.arb` and `app_de.arb`, under its area anchor.
 
-| English                                                | German                                                          | Area anchor                      |
-| ------------------------------------------------------ | --------------------------------------------------------------- | -------------------------------- |
-| Couldn't refresh your chats.                           | Chats konnten nicht aktualisiert werden.                        | `@@x-area-chat` (thread list)    |
-| Pull down to try again.                                | Zum Wiederholen nach unten ziehen.                              | `@@x-area-chat` (thread list)    |
-| Refreshing chats                                       | Chats werden aktualisiert                                       | `@@x-area-chat` (thread list)    |
-| Attach                                                 | Anhängen                                                        | `@@x-area-chat/attachments`      |
-| Photo Library, Take Photo, Files (hard-coded today)    | Fotomediathek, Foto aufnehmen, Dateien                          | `@@x-area-chat/attachments`      |
-| Rename, Pin, Unpin, Archive, Delete (hard-coded today) | Umbenennen, Anheften, Nicht mehr anheften, Archivieren, Löschen | `@@x-area-chat` (thread actions) |
+| English                                                | German                                               | Area anchor                      |
+| ------------------------------------------------------ | ---------------------------------------------------- | -------------------------------- |
+| Couldn't refresh your chats.                           | Chats konnten nicht aktualisiert werden.             | `@@x-area-chat` (thread list)    |
+| Pull down to try again.                                | Zum erneuten Versuch nach unten ziehen.              | `@@x-area-chat` (thread list)    |
+| Refreshing chats                                       | Chats werden aktualisiert                            | `@@x-area-chat` (thread list)    |
+| Attach                                                 | Anhängen                                             | `@@x-area-chat/attachments`      |
+| Photo Library, Take Photo, Files (hard-coded today)    | Fotomediathek, Foto aufnehmen, Dateien               | `@@x-area-chat/attachments`      |
+| Rename, Pin, Unpin, Archive, Delete (hard-coded today) | Umbenennen, Anheften, Loslösen, Archivieren, Löschen | `@@x-area-chat` (thread actions) |
 
 The "Set up a model" alert text is the existing English text moved under `@@x-area-models` with a German translation. The memory dialogs keep their current wording ("Leave this memory?", "Permanently delete this memory?", "Keep draft", "Discard and leave", "Cancel", "Delete permanently"); they move into the ARB files under `@@x-area-memory` (PR #1136 keeps the key `memoryDeleteConfirmAction`).
 
