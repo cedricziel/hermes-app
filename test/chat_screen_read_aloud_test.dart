@@ -10,6 +10,7 @@ import 'support/attachment_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 /// Read aloud on the chat screen follows the profile's `voice-config`.
 void main() {
@@ -64,8 +65,8 @@ void main() {
   ) async {
     await pump(tester, {'mode': 'relay', 'reason': 'local provider'});
 
-    expect(find.byTooltip('Read aloud'), findsOneWidget);
-    expect(find.byTooltip('Copy'), findsOneWidget);
+    expect(find.tooltip('Read aloud'), findsOneWidget);
+    expect(find.tooltip('Copy'), findsOneWidget);
     // Nothing is spoken until the user asks.
     expect(server.requestsTo('POST', '/api/audio/speak'), isEmpty);
   });
@@ -80,14 +81,14 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Read aloud'), findsOneWidget);
+    expect(find.tooltip('Read aloud'), findsOneWidget);
   });
 
   testWidgets('no Read aloud when text to speech is off', (tester) async {
     await pump(tester, {'mode': 'relay', 'reason': 'tts disabled'});
 
     expect(find.text('A connection reset during upload.'), findsOneWidget);
-    expect(find.byTooltip('Copy'), findsOneWidget);
-    expect(find.byTooltip('Read aloud'), findsNothing);
+    expect(find.tooltip('Copy'), findsOneWidget);
+    expect(find.tooltip('Read aloud'), findsNothing);
   });
 }

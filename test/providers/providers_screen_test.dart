@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/providers/widgets/provider_list_view.dart';
 
 import 'fake_provider_backend.dart';
 import 'providers_screen_rig.dart';
+import '../support/tooltip_finder.dart';
 
 const _fakeKey = 'sk-or-v1-test-aaaa-4f2a';
 
@@ -162,7 +163,7 @@ void main() {
       final heading = find.text('Add a provider');
       expect(tester.getTopLeft(heading).dy, greaterThan(360 - 100));
 
-      await tester.tap(find.byTooltip('Add Provider'));
+      await tester.tap(find.tooltip('Add Provider'));
       await _settle(tester);
 
       expect(tester.getTopLeft(heading).dy, lessThan(200));

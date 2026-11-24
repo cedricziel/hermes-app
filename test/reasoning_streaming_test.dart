@@ -4,6 +4,7 @@ import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   Future<FakeSend> start(WidgetTester tester) async {
@@ -11,7 +12,7 @@ void main() {
     await pumpChatScreen(tester, transport: transport);
     await tester.enterText(composerField, 'Check the logs');
     await tester.pump();
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.tooltip('Send'));
     await tester.pump();
     return transport.sends.single;
   }

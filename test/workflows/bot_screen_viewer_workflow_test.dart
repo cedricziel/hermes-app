@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/viewer/bot_screen_viewer.dart';
@@ -15,6 +15,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/tooltip_finder.dart';
 
 /// The live viewer opened from the Bot screen card: as a full-window layer on
 /// a Mac-sized window and as a full-screen page on a phone, live and with the
@@ -134,7 +135,7 @@ void main() {
 
         await settle();
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Enlarge screen'));
+        await tester.tap(find.tooltip('Enlarge screen'));
         await settle();
         await check(shots, channel);
         await tester.pumpWidget(const SizedBox());

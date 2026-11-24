@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 /// Rename, pin, archive and delete on the sidebar's threads, against a fake
 /// dashboard through the real generated client.
@@ -50,7 +51,7 @@ void main() {
   Finder titleInRow(String id, String title) => inRow(id, find.text(title));
 
   Future<void> openMenu(WidgetTester tester, String id) async {
-    await tester.tap(inRow(id, find.byTooltip('Chat actions')));
+    await tester.tap(inRow(id, find.tooltip('Chat actions')));
     await tester.pumpAndSettle();
   }
 
@@ -110,7 +111,7 @@ void main() {
       await tester.tap(find.text('New chat'));
       await tester.pumpAndSettle();
 
-      expect(find.byTooltip('Chat actions'), findsNWidgets(3));
+      expect(find.tooltip('Chat actions'), findsNWidgets(3));
     });
 
     testWidgets('a draft gets them once the dashboard stores it', (
@@ -128,14 +129,14 @@ void main() {
       transport.sends.single.emit(const ThreadBound('dash-1'));
       await tester.pump();
 
-      expect(inRow('dash-1', find.byTooltip('Chat actions')), findsOneWidget);
+      expect(inRow('dash-1', find.tooltip('Chat actions')), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
     });
 
     testWidgets('mock threads have no actions', (tester) async {
       await pumpChatScreen(tester);
 
-      expect(find.byTooltip('Chat actions'), findsNothing);
+      expect(find.tooltip('Chat actions'), findsNothing);
     });
   });
 
@@ -546,7 +547,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('header-connection')), findsNothing);
-      expect(find.byTooltip('New message'), findsOneWidget);
+      expect(find.tooltip('New message'), findsOneWidget);
     });
 
     testWidgets('has no menu for a local draft or mock thread', (tester) async {

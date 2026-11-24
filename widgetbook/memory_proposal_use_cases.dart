@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/memory/memory_decisions.dart';
 import 'package:hermes_app/src/memory/memory_proposals.dart';
 import 'package:hermes_app/src/memory/memory_proposals_controller.dart';

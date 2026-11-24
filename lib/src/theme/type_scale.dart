@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Body text in a chat message: Apple's 17 point Body on iOS, where the user's
 /// Dynamic Type setting scales it, and the compact size everywhere else.

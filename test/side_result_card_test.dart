@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_state.dart';
 import 'package:hermes_app/src/chat/side_results/side_result_card.dart';

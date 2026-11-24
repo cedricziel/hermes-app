@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/menu_bar_extra/menu_bar_extra_settings.dart';
 import 'package:hermes_app/src/settings/settings_dialog.dart';

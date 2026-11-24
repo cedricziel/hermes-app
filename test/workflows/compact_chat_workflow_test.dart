@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -8,6 +8,7 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   for (final dark in [false, true]) {
@@ -92,7 +93,7 @@ void main() {
         for (var i = 0; i < 6; i++) {
           await tester.pump(const Duration(milliseconds: 100));
         }
-        expect(find.byTooltip('Remove from queue'), findsOneWidget);
+        expect(find.tooltip('Remove from queue'), findsOneWidget);
         await shots.capture(tester, 'queue-expanded');
         await tester.tap(find.text('1 queued · Done!'));
         for (var i = 0; i < 4; i++) {

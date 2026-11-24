@@ -1,15 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 /// A `GptMarkdown.checkboxBuilder` that draws a task-list item (`- [x] done`)
 /// as a state, not a control.
 ///
-/// gpt_markdown 1.4.1 builds its `Checkbox` and `Radio` from the separate
-/// `material_ui` package, whose `debugCheckHasMaterial` wants a `material_ui`
-/// Material, not Flutter's: a Scaffold above the text does not satisfy it.
-/// Chat works only because `FlyerMaterialScope` provides one. These builders
-/// need no Material, cannot be tapped or focused, and read as checked or
-/// unchecked (or selected) to a screen reader.
+/// gpt_markdown 1.4.1 builds a tappable `Checkbox` and `Radio`, which assert
+/// on a `Material` ancestor. These builders need no Material, cannot be
+/// tapped or focused, and read as checked or unchecked (or selected) to a
+/// screen reader.
 Widget readOnlyTaskBox(
   BuildContext context,
   bool checked,

@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart' show CupertinoMenuItem;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoMenuItem;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -20,6 +20,7 @@ import '../support/find_app_icon.dart';
 import '../support/pump_chat.dart' show composerField;
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 const _notes = '/srv/field-notes';
 const _soil = '/srv/soil-survey';
@@ -238,7 +239,7 @@ void main() {
       await tester.pumpAndSettle();
     }
     await openSidebar(tester);
-    final group = find.byTooltip('Group chats');
+    final group = find.tooltip('Group chats');
     if (group.evaluate().isNotEmpty) {
       await tester.tap(group.first);
       await tester.pumpAndSettle();

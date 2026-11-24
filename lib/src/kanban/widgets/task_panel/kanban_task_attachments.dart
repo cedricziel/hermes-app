@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show Uint8List;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../chat/widgets/quick_look_target.dart';
 import '../../../widgets/busy_bar.dart';

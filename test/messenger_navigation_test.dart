@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -11,6 +11,7 @@ import 'support/fake_share_inbox.dart';
 import 'support/fake_hermes_server.dart';
 
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   testWidgets('phone opens Chats before showing a conversation', (
@@ -21,7 +22,7 @@ void main() {
     expect(find.text('Chats'), findsWidgets);
     expect(find.byType(ThreadSidebar), findsOneWidget);
     expect(composerField, findsNothing);
-    expect(find.byTooltip('New message'), findsOneWidget);
+    expect(find.tooltip('New message'), findsOneWidget);
   });
 
   testWidgets('Back returns to Chats and reopening keeps the draft', (

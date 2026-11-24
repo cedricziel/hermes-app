@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Keeps a page's content to a readable width on a wide window, centered under
 /// the app bar, instead of stretching a list row or a form across it.

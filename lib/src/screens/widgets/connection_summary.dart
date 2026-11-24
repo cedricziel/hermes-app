@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../models/hermes_status.dart';
 import '../../theme/app_icons.dart';

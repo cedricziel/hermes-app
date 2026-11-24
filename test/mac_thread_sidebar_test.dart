@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -27,6 +27,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/tooltip_finder.dart';
 
 /// The thread list of the Mac sidebar: sections by recency, 28pt rows with
 /// hover buttons and a Mac context menu.
@@ -194,14 +195,14 @@ void main() {
     await pump(tester);
     final archive = find.descendant(
       of: row('s2'),
-      matching: find.byTooltip('Archive'),
+      matching: find.tooltip('Archive'),
     );
     expect(tester.widget<Visibility>(_visibility(archive)).visible, isFalse);
 
     await hover(tester, row('s2'));
     expect(tester.widget<Visibility>(_visibility(archive)).visible, isTrue);
     expect(
-      find.descendant(of: row('s2'), matching: find.byTooltip('More')),
+      find.descendant(of: row('s2'), matching: find.tooltip('More')),
       findsOneWidget,
     );
     await tester.tap(archive);

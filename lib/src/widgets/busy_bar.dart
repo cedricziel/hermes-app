@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Whether the system asks for less motion. iOS reports Reduce Motion through
 /// the platform's accessibility features, other platforms through

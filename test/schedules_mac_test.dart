@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -25,6 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/mac_commands_builder.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -121,8 +122,8 @@ void main() {
       expect(find.byType(AppBar), findsNothing);
       expect(find.text('Schedules'), findsOneWidget);
       expect(find.text('2 jobs'), findsOneWidget);
-      expect(find.byTooltip('New Schedule ⌘N'), findsOneWidget);
-      expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+      expect(find.tooltip('New Schedule ⌘N'), findsOneWidget);
+      expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
     });
 
     testWidgets('View > Reload lists the jobs again', (tester) async {
@@ -177,7 +178,7 @@ void main() {
         return (status: 200, body: [healthy, failing]);
       });
 
-      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.tap(find.tooltip('Refresh ⌘R'));
       await tester.pump();
       expect(find.byType(MotionSpinner), findsOneWidget);
       expect(commands.handlerFor(MacCommand.reload)?.enabled, isFalse);
@@ -192,7 +193,7 @@ void main() {
       await pumpScreen(tester);
       final before = server.requestsTo('GET', '/api/cron/jobs').length;
 
-      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.tap(find.tooltip('Refresh ⌘R'));
       await tester.pumpAndSettle();
 
       expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);
@@ -350,7 +351,7 @@ void main() {
       server.on('POST', '/api/cron/jobs/job2/pause', {'ok': true});
       await pumpScreen(tester);
 
-      await tester.tap(find.byTooltip('More'));
+      await tester.tap(find.tooltip('More'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Pause'));
       await tester.pumpAndSettle();
