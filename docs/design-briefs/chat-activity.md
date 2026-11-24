@@ -264,3 +264,53 @@ This extends an existing designed surface (the action bar under a reply, `Messag
 **Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions, `widgetbook/chat_thread_use_cases.dart`): held with the failure line, held on a reply without text, held with Read aloud, held at the largest text on a 320 pt screen, the busy answer (also at the largest text), a refused edit, a failed try again, and two whole-thread cases (a failed reply that may still run, and "could not confirm"). Light and dark, phone and desktop and English and German come from the catalog's addons.
 
 **Not checked.** VoiceOver and TalkBack output on a device, the contrast of the dimmed glyphs on the dark surface beyond an eye check, the German sentences read by a German speaker.
+
+## Composer recipient chip
+
+Recorded after the fact on 2026-11-24; describes what #1114 built. The chip is not part of the activity line or the Needs-you dock; it sits in the same composer area and was recorded here by the audit. Read from `lib/src/chat/chat_screen_layout.dart`, `lib/src/chat/chat_thread_bindings.dart`, `lib/src/profiles/widgets/recipient_picker.dart` and `lib/src/widgets/composer_selector_chip.dart` on main. The spec scenario is "Existing conversation shows no recipient selector" in `openspec/specs/messenger-navigation/spec.md`.
+
+When it shows and when it is hidden:
+
+- Shown, beside the model pill: no chat is selected, or the selected chat is a new local chat with no messages (not from the server). The chip opens the recipient picker.
+- Hidden, the model pill alone: the selected chat comes from the server, or has at least one message. The chip does not stay as a disabled control; the chat belongs to its profile, which the chat header shows. The model pill stays visible and changeable.
+- It comes back if a first send leaves the conversation with no messages.
+
+Layout: the chip and the pill sit in one row (`mainAxisSize: min`), each `Flexible`, 8 pt apart. With no chip the row is the pill alone and no gap is left.
+
+Chip (`ProfileRecipientChip` on `ComposerSelectorChip`): a pill with a 20 pt radius, the on-surface colour at 6% as fill, 10 pt side and 8 pt vertical padding, at least 44 pt tall, at most 320 pt wide. The profile avatar (24 pt, then a 6 pt gap) shows only when the chip is at least 80 pt wide. The label is one line in `labelMedium` with an end ellipsis; the full text is in the tooltip and the semantics label. States and their words: "To: <profile>" (ready), "Choose a recipient", "Loading recipients", "No profiles available" with the action "Set up profiles", "<profile> unavailable" with "Retry", "Could not load recipients" with "Retry". The action is a text button, at least 48 x 44 pt, at most 104 pt or 45% of the chip wide. Only ready, choose and unavailable open the picker.
+
+Tokens: the colour scheme's on-surface (fill, label) and the theme's text styles only. Dark has no branch of its own. Large text: the row's children are `Flexible`, so long labels and the large-text failure case truncate instead of overflowing or stacking.
+
+Use cases, in `widgetbook/messenger_identity_use_cases.dart`, folder "Messenger identity", component "Composer selectors":
+
+- `New chat, recipient and model` (the chip in its choose state, beside a ready pill, 720 pt)
+- `Ongoing chat, model only` (the pill alone)
+- `Compact composer width, ready` and `Compact composer width, large text failure` (200 pt wide, the second at 2x)
+- `Large text, long labels` and `Large text, both failed` (2x, 720 pt)
+- one case per state: ready with long labels, loading recipients, choose recipient, no profiles, unavailable recipient, recipient failure, loading models, model setup, model failure, legacy model default, both failed
+
+Test: `test/messenger_recipient_test.dart`.
+
+## Markdown colours in chat
+
+Recorded after the fact on 2026-11-24; describes what #1198 built. Read from `lib/src/widgets/app_markdown_theme.dart`, `lib/src/chat/widgets/chat_text_message.dart`, `lib/src/theme/hermes_theme.dart` and the "Markdown colours" paragraph of `docs/architecture/chat.md`.
+
+`ChatTextMessage` wraps its `BoundedMarkdown` in `AppMarkdownTheme`, the markdown theme the skills, files and Bot Mode views already used. It applies to the assistant's replies and to the user's bubble alike.
+
+| Element | Now | Token |
+| --- | --- | --- |
+| Link text | the app link colour, #1565C0 light and #90CAF9 dark | `HermesChatColors.link` (mirrors `--h-link`) |
+| Link underline | underlined (`linksDecoration`), decoration colour the same as the text | `HermesChatColors.link` |
+| Link hover (desktop) | the link colour (the package default was red) | `HermesChatColors.link` |
+| Headings h1 to h6 | 26, 22, 19, 17, 15 and 14 pt; w700 for h1 and h2, w600 for h3 to h6; line height 1.3 | on-surface of the colour scheme |
+| Horizontal rule | the outline colour | `ColorScheme.outline` |
+| Paragraph text | the chat's own text style | the chat theme |
+| Inline code | not set by the app theme (see below) | the package's defaults |
+
+Before #1198 the link was the package's `Colors.blue` (3.12:1 on white) and the underline took the chat theme's colour. The chat doc states the link is at least 4.5:1 on the surface and on the user's bubble in both themes; `test/chat/widgets/chat_markdown_contrast_test.dart` checks a link and a heading at 4.5:1 against the bubble they sit on (the user's bubble is translucent, so it is blended over the surface first), light and dark, for both authors, under the app's real theme scopes.
+
+Inline code is not styled by the app. As `docs/architecture/chat.md` records, it takes the package's stock Material colours: text #E6E0E9 in dark and #1D1B20 in light (not the app's #FAFAFA and zinc900), on a slightly lavender chip. By the package's defaults (`gpt_markdown` 1.4.1, `InlineCodeStyle`), the chip fill is the text colour at 10% (light) or 14% (dark), its outline the text colour at 28% or 34%, the radius 4 pt, and the font the package's bundled JetBrains Mono at 0.94 of the surrounding size.
+
+Heading sizes are the other surfaces' sizes, so an h1 in chat is 26 pt, not the app type scale's 34. Large text: the sizes are `fontSize` values in a `TextStyle`, so they follow the text scaler like the rest of the text; the catalog's text scale addon (1x to 3x) is the check.
+
+Use cases, in `widgetbook/chat_thread_use_cases.dart`, folder "Chat thread", component "Messages": `Links and headings` (a user message with a link; a reply with an h2 and two links) and `Conversation` (a reply with inline code, a list and a code block). For the same markdown on the other surfaces see `Markdown, rendered` in `widgetbook/files_use_cases.dart`. The catalog shows each in light and dark, at phone and desktop width.
