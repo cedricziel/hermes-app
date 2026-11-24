@@ -445,8 +445,11 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'MacChatMoreMenu',
       useCases: [
-        _case('Idle', () => const _OpenMoreMenu()),
-        _case('Export running', () => const _OpenMoreMenu(exportRunning: true)),
+        _case('Idle', () => frame(const _OpenMoreMenu())),
+        _case(
+          'Export running',
+          () => frame(const _OpenMoreMenu(exportRunning: true)),
+        ),
       ],
     ),
     WidgetbookComponent(

@@ -22,25 +22,34 @@ import 'inline_dialog_extraction_expected.dart';
 /// (the Kanban Inspect dialog, the hub skill's install confirmation and the
 /// Mac chat toolbar's "…" menu) so that building them from their own widgets
 /// changes nothing a user or a screen reader can see. Each dump is the
-/// element tree under the piece (widget types, indented), its texts and the
+/// element tree under the piece (each widget's type and its diagnostics
+/// properties, indented; callbacks and hashes normalized), its texts and the
 /// semantics tree, recorded from the screens as they were before the
 /// extraction.
 
-/// Class names of the extracted widgets: the dump skips them without
-/// changing the depth, so it reads the same with or without them.
-const _extracted = {
-  'KanbanRunInspectDialog',
-  'SkillInstallConfirmDialog',
-  'MacChatMoreMenu',
-};
+String _props(Widget w) {
+  final props = <String>[];
+  for (final p in w.toDiagnosticsNode().getProperties()) {
+    if (p.level == DiagnosticLevel.hidden) continue;
+    props.add('${p.name}: ${p.toDescription()}');
+  }
+  // Not in the widget's diagnostics: the "…" button's own size request.
+  if (w is PopupMenuButton) props.add('iconSize: ${w.iconSize}');
+  return props
+      .join('; ')
+      .replaceAll(RegExp(r'#[0-9a-f]{5}'), '#')
+      .replaceAll(RegExp(r'Closure: [^;]*'), 'Closure');
+}
 
 String _types(Element root) {
   final out = StringBuffer();
   void walk(Element e, int depth) {
-    final name = e.widget.runtimeType.toString();
-    final skip = _extracted.contains(name);
-    if (!skip) out.writeln('${'  ' * depth}$name');
-    e.visitChildren((c) => walk(c, skip ? depth : depth + 1));
+    final box = e.renderObject;
+    final size = box is RenderBox && box.hasSize ? ' size=${box.size}' : '';
+    out.writeln(
+      '${'  ' * depth}${e.widget.runtimeType} {${_props(e.widget)}}$size',
+    );
+    e.visitChildren((c) => walk(c, depth + 1));
   }
 
   walk(root, 0);
@@ -186,7 +195,7 @@ void main() {
               alignment: Alignment.topCenter,
               child: MacChatToolbar(
                 title: 'Plan the release',
-                subtitle: 'default · claude-sonnet-4',
+                subtitle: 'default · example-model',
                 onNewChat: () {},
                 onShowConnection: () {},
                 onCopyTranscript: () {},
