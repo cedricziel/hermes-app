@@ -252,7 +252,7 @@ Rendered locally with headless Chrome; not checked in the claude.ai viewer or on
 
 ## Grouped row value width
 
-How the shared grouped rows split width between the title and the trailing value when space is short. Design pass only, no app code.
+How the shared grouped rows split width between the title and the trailing value when space is short. The pick is built; see "Design (done)" below.
 
 Decision: picked by the orchestrator on 2026-11-24, per platform (see "Design (done)" below).
 
@@ -286,7 +286,7 @@ Measured with a throwaway Flutter widget test kept outside the repo (scratchpad)
 - macOS: a System Settings or `NSPopUpButton` form row puts the label on the left and the pop-up on the right; the pop-up sizes to its selected title and truncates it at the tail when narrow. Unconfirmed: whether a narrow sheet stacks the label over the pop-up.
 - Android: Material 3 list items put supporting text below the headline (one to three lines) and keep trailing supporting text for a short value; AndroidX `ListPreference` shows the choice as the summary under the title. Unconfirmed: the exact clamp of the M3 trailing text (believed one line).
 
-### Options, none chosen
+### Options (the pick is under "Design (done)")
 
 - A: the value takes what is left and is ellipsized; the title keeps at least a third and wraps to 2 lines. Never overflows and short pairs are unchanged; a long value is cut, and both can be cut in the worst case.
 - B: when title and value do not fit on one line the value moves under the title. Nothing is cut that fits in two lines, and it is the iOS accessibility behaviour; row heights vary in a list and it needs a measuring layout (more code and tests). `GroupedRow` already stacks above 1x text through `_stacksValue`, but only for its own `value`, not for `GroupedValueRow`'s trailing widget.

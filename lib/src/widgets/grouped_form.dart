@@ -69,26 +69,30 @@ class GroupedValueRow extends StatelessWidget {
         chevron: false,
         onTap: onTap,
       ),
-      PlatformChrome.macos => LayoutBuilder(
-        builder: (context, box) => GroupedRow(
-          title: title,
-          // The pop-up takes the rest of the row, so the title keeps a third
-          // of it and wraps.
-          titleMaxLines: 2,
-          caption: caption,
-          warning: warning,
-          // The pop-up draws its own ring, so the row must not draw a second
-          // one round the whole row when the pop-up has focus.
-          focusable: false,
-          trailing:
-              progress ??
-              _PopUpValue(
-                value: value,
-                enabled: enabled,
-                onPressed: onTap,
-                maxWidth: _popUpMaxWidth(context, box.maxWidth),
-                tooltip: !_inMenu,
-              ),
+      // One semantics node for the row, as the row's own merge makes it, so
+      // the LayoutBuilder above it adds no node of its own.
+      PlatformChrome.macos => MergeSemantics(
+        child: LayoutBuilder(
+          builder: (context, box) => GroupedRow(
+            title: title,
+            // The pop-up takes the rest of the row, so the title keeps a third
+            // of it and wraps.
+            titleMaxLines: 2,
+            caption: caption,
+            warning: warning,
+            // The pop-up draws its own ring, so the row must not draw a second
+            // one round the whole row when the pop-up has focus.
+            focusable: false,
+            trailing:
+                progress ??
+                _PopUpValue(
+                  value: value,
+                  enabled: enabled,
+                  onPressed: onTap,
+                  maxWidth: _popUpMaxWidth(context, box.maxWidth, title),
+                  tooltip: !_inMenu,
+                ),
+          ),
         ),
       ),
       // The value stays inside the row's tap target, which a trailing
@@ -112,10 +116,23 @@ class GroupedValueRow extends StatelessWidget {
   }
 
   /// The widest the Mac pop-up gets in a row [rowWidth] wide: at most 260,
-  /// and two thirds of the row inside its padding, less the gap to the title.
-  static double _popUpMaxWidth(BuildContext context, double rowWidth) {
+  /// and what is left once the title has its longest word or a third of the
+  /// row inside its padding, whichever is wider, and the gap to the pop-up.
+  static double _popUpMaxWidth(
+    BuildContext context,
+    double rowWidth,
+    String title,
+  ) {
     final inner = rowWidth - 2 * GroupedMetrics.of(context).rowPadding;
-    return math.min(260, inner * 2 / 3 - 8);
+    final style = (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
+        .copyWith(fontSize: GroupedMetrics.of(context).titleSize);
+    var word = 0.0;
+    for (final part in title.split(RegExp(r'(?<=-)|\s+'))) {
+      if (part.isEmpty) continue;
+      word = math.max(word, measureRowText(context, part, style));
+    }
+    final titleMin = math.max(inner / 3, word + 1);
+    return math.max(32, math.min(260, inner - 8 - titleMin));
   }
 
   static Widget _tappable(VoidCallback? onTap, Widget row) => onTap == null
@@ -199,7 +216,9 @@ class _PopUpValue extends StatelessWidget {
               ),
       ),
     );
-    return tooltip ? Tooltip(message: value, child: pill) : pill;
+    return tooltip
+        ? Tooltip(message: value, excludeFromSemantics: true, child: pill)
+        : pill;
   }
 }
 

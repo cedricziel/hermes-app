@@ -105,6 +105,20 @@ class _Rows extends StatelessWidget {
         selected: 'Hermes',
         onSelected: (_) {},
       ),
+      GroupedMenuRow<String>(
+        title: 'Orchestrator-Profil',
+        options: const ['Aktives Profil (default)', 'Hermes'],
+        labelOf: (option) => option,
+        selected: 'Aktives Profil (default)',
+        onSelected: (_) {},
+      ),
+      GroupedMenuRow<String>(
+        title: 'Standardmäßig zuständig',
+        options: const ['Niemand', 'coder'],
+        labelOf: (option) => option,
+        selected: 'Niemand',
+        onSelected: (_) {},
+      ),
       GroupedSwitchRow(
         title: 'Automatisch Unteraufgaben erstellen',
         value: true,

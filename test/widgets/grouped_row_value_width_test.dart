@@ -219,4 +219,93 @@ void main() {
     expect(_width(tester, 'Hermes'), lessThan(60));
     expect(_paragraph(tester, 'Hermes').didExceedMaxLines, isFalse);
   });
+
+  testWidgets('a Mac title keeps a third of the row, wraps to two lines and '
+      'a value stays in semantics once', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await _pump(
+      tester,
+      TargetPlatform.macOS,
+      _valueRow(_title29, _longValue),
+      rowWidth: 246,
+    );
+    expect(tester.takeException(), isNull);
+    expect(_width(tester, _title29), greaterThanOrEqualTo(246 / 3 - 16));
+    expect(_lines(tester, _title29), 2);
+    expect(_paragraph(tester, _title29).didExceedMaxLines, isFalse);
+    expect(
+      find.byWidgetPredicate((w) => w is Tooltip && w.message == _longValue),
+      findsOneWidget,
+    );
+    final text = StringBuffer();
+    void walk(SemanticsNode node) {
+      final data = node.getSemanticsData();
+      if (!node.isMergedIntoParent) {
+        text
+          ..write(data.label)
+          ..write(data.value)
+          ..write(data.tooltip);
+      }
+      node.visitChildren((child) {
+        walk(child);
+        return true;
+      });
+    }
+
+    walk(
+      tester
+          .renderObject(find.byType(Scaffold))
+          .owner!
+          .semanticsOwner!
+          .rootSemanticsNode!,
+    );
+    expect(RegExp(RegExp.escape(_longValue)).allMatches('$text'), hasLength(1));
+    semantics.dispose();
+  });
+
+  testWidgets('a Mac menu row has no tooltip: its menu shows the value', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      TargetPlatform.macOS,
+      _menuRow('Aktives Profil', _longValue),
+      rowWidth: 246,
+    );
+    expect(
+      find.byWidgetPredicate((w) => w is Tooltip && w.message == _longValue),
+      findsNothing,
+    );
+  });
+
+  for (final scale in [1.0, 1.5]) {
+    for (final title in ['Orchestrator-Profil', 'Standardmäßig zuständig']) {
+      testWidgets('a Mac title "$title" in a 246 px row breaks no word at '
+          '${scale}x', (tester) async {
+        await _pump(
+          tester,
+          TargetPlatform.macOS,
+          _menuRow(title, 'Aktives Profil (default)'),
+          rowWidth: 246,
+          scale: scale,
+        );
+        expect(tester.takeException(), isNull);
+        final paragraph = _paragraph(tester, title);
+        for (var i = 1; i < title.length; i++) {
+          double top(int at) => paragraph
+              .getBoxesForSelection(
+                TextSelection(baseOffset: at, extentOffset: at + 1),
+              )
+              .first
+              .top;
+          if (top(i) <= top(i - 1)) continue;
+          expect(
+            ' -'.contains(title[i - 1]),
+            isTrue,
+            reason: 'a line starts mid-word at $i of "$title"',
+          );
+        }
+      });
+    }
+  }
 }
