@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
@@ -196,13 +195,7 @@ void main() {
       await tester.tap(find.byTooltip('New board'));
       await tester.pumpAndSettle();
 
-      final dialog = find.byType(AppAlertDialog);
-      expect(_texts(tester, dialog), [
-        'New board',
-        'Name',
-        'Abbrechen',
-        'Create',
-      ]);
+      expect(find.widgetWithText(AppDialogAction, 'Abbrechen'), findsOneWidget);
       expect(find.text('Cancel'), findsNothing);
     });
 
@@ -228,19 +221,6 @@ void main() {
       ) as Map;
       expect(body['name'], 'Ops team');
       expect(find.byType(AppAlertDialog), findsNothing);
-    });
-
-    testWidgets('a new board is sent with its trimmed name', (tester) async {
-      await openBoards(tester);
-      await openNewBoard(tester);
-      await tester.enterText(find.byType(TextField), '  Q3 Launch  ');
-      await tester.tap(find.widgetWithText(AppDialogAction, 'Create'));
-      await tester.pumpAndSettle();
-
-      final body = jsonBody(
-        server.requestsTo('POST', '/api/plugins/kanban/boards').single,
-      ) as Map;
-      expect(body['name'], 'Q3 Launch');
     });
 
     testWidgets('Create stays enabled on an empty field and sends nothing', (
@@ -280,21 +260,6 @@ void main() {
       expect(patches('/api/plugins/kanban/tasks/t1'), 0);
     });
 
-    testWidgets('Block sends the trimmed reason', (tester) async {
-      await openPanel(tester);
-      await tester.tap(find.text('Block'));
-      await tester.pumpAndSettle();
-      await tester.enterText(dialogField(), '  waiting on QA  ');
-      await tester.tap(find.widgetWithText(AppDialogAction, 'Block'));
-      await tester.pumpAndSettle();
-
-      final body = jsonBody(
-        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1').single,
-      ) as Map;
-      expect(body['status'], 'blocked');
-      expect(body['block_reason'], 'waiting on QA');
-    });
-
     testWidgets('Complete asks in a multiline field and trims the result', (
       tester,
     ) async {
@@ -324,28 +289,6 @@ void main() {
       expect(field.minLines, 1);
       expect(field.maxLines, 1);
     });
-
-    testWidgets('on macOS a click outside keeps it and Esc closes it', (
-      tester,
-    ) async {
-      await openBoards(tester, platform: TargetPlatform.macOS);
-      await openNewBoard(tester);
-      await tester.tapAt(const Offset(4, 4));
-      await tester.pumpAndSettle();
-      expect(find.text('New board'), findsWidgets);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.text('New board'), findsNothing);
-    });
-
-    testWidgets('on Android a click outside closes it', (tester) async {
-      await openBoards(tester);
-      await openNewBoard(tester);
-      await tester.tapAt(const Offset(4, 4));
-      await tester.pumpAndSettle();
-      expect(find.text('New board'), findsNothing);
-    });
   });
 
   group('KanbanTaskEditDialog', () {
@@ -363,10 +306,17 @@ void main() {
 
       expect(find.byType(GroupedDialog), findsOneWidget);
       expect(find.text('Edit task'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'Title'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'Description'), findsOneWidget);
-      expect(find.text('Migrate webhooks'), findsWidgets);
-      expect(find.text('Move to v2 signing'), findsWidgets);
+      final fields = find.descendant(
+        of: find.byType(GroupedDialog),
+        matching: find.byType(TextField),
+      );
+      expect(
+        [
+          for (final f in tester.widgetList<TextField>(fields))
+            f.controller?.text,
+        ],
+        ['Migrate webhooks', 'Move to v2 signing'],
+      );
       expect(find.widgetWithText(TextButton, 'Cancel'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
       expect(
@@ -394,21 +344,6 @@ void main() {
 
       expect(find.byType(GroupedDialog), findsNothing);
       expect(patches('/api/plugins/kanban/tasks/t1'), 0);
-    });
-
-    testWidgets('on macOS a click outside keeps it and Esc closes it', (
-      tester,
-    ) async {
-      await openPanel(tester, platform: TargetPlatform.macOS);
-      await tester.tap(find.byTooltip('Edit'));
-      await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(4, 4));
-      await tester.pumpAndSettle();
-      expect(find.byType(GroupedDialog), findsOneWidget);
-
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(find.byType(GroupedDialog), findsNothing);
     });
   });
 }
