@@ -45,6 +45,7 @@ class _DesktopMenuBarState extends State<DesktopMenuBar> {
     }
     return SizedBox(
       height: DesktopMenuBar.height,
+      width: double.infinity,
       child: MenuBar(
         children: [
           for (final (index, menu) in widget.menus.indexed)

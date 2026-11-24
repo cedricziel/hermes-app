@@ -75,6 +75,10 @@ void main() {
           tester.getSize(find.byType(DesktopMenuBar)).height,
           DesktopMenuBar.height,
         );
+        expect(
+          tester.getSize(find.byType(DesktopMenuBar)).width,
+          tester.view.physicalSize.width / tester.view.devicePixelRatio,
+        );
         expect(find.text('Chat'), findsWidgets);
 
         await settings.setEnabled(false);
