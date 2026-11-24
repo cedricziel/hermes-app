@@ -39,33 +39,31 @@ final _geometryFile = RegExp(
   r'\b(?:expectRingHugs|expectInsideClip|expectInsideRow)\s*\(',
 );
 
-/// Reaching focus by hand: a call of the `_focus` helper (which calls
-/// `requestFocus` on the first node in the control's subtree) or of
-/// `requestFocus` itself.
-final _byRequest = RegExp(r'\b_focus\s*\(|\.\s*requestFocus\s*\(');
+/// Reaching focus by hand: a call of the `_focus` or `_focusInk` helper (each
+/// calls `requestFocus` on a node it finds) or of `requestFocus` itself.
+final _byRequest = RegExp(r'\b_focus(?:Ink)?\s*\(|\.\s*requestFocus\s*\(');
 
-/// The helpers that reach focus by `requestFocus` on purpose. Their
-/// definitions and their calls are not counted.
-const _focusByRequestAllow = {
-  '_focus':
-      'the helper itself: its call sites are the violations, and it is the '
-      'only place that may call requestFocus on a found node',
-  '_focusInk':
-      'gives the row\'s own ink well primary focus, the node one level above '
-      'the row\'s content, so that a button inside the row that draws its own '
-      'ring (the thread row\'s More button) is not the focused control; a Tab '
-      'would land on that button or on the next row, never on the ink well '
-      'alone',
-};
+/// The helpers whose definitions reach focus by `requestFocus`: a definition
+/// is not counted, every call of one is. Why each exists:
+///
+/// - `_focus` focuses the first node in a control's subtree, or the nearest
+///   one above it.
+/// - `_focusInk` gives a row's own ink well primary focus, the node one level
+///   above the row's content, so that a button inside the row that draws its
+///   own ring (the thread row's More button) is not the focused control; a
+///   Tab would land on that button or on the next row, never on the ink well
+///   alone. Its calls are baselined like any other, and move to `tabTo` once
+///   a case can name the ink well.
+const _focusByRequestHelpers = ['_focus', '_focusInk'];
 
 final _helperDefinition = RegExp(
-  r'^(?:Future<void>|void) (' + _focusByRequestAllow.keys.join('|') + r')\s*\(',
+  r'^(?:Future<void>|void) (' + _focusByRequestHelpers.join('|') + r')\s*\(',
   multiLine: true,
 );
 
-/// [file]'s code with the allowed helpers' definitions and calls blanked, so
-/// only a case that reaches focus by hand is left.
-String _withoutAllowedHelpers(SourceFile file) {
+/// [file]'s code with the helpers' definitions blanked, so that only a case
+/// that reaches focus by hand is left.
+String _withoutHelperDefinitions(SourceFile file) {
   final chars = file.code.split('');
   void blank(int from, int to) {
     for (var i = from; i < to && i < chars.length; i++) {
@@ -78,18 +76,13 @@ String _withoutAllowedHelpers(SourceFile file) {
     final end = code.indexOf('\n}\n', m.start);
     blank(m.start, end < 0 ? code.length : end + 2);
   }
-  for (final name in _focusByRequestAllow.keys.where((n) => n != '_focus')) {
-    for (final m in RegExp('\\b$name\\s*\\(').allMatches(code)) {
-      blank(m.start, m.end);
-    }
-  }
   return chars.join();
 }
 
-/// The hits of the `test.geometry-focus-by-key` rule in [file].
+/// The hits of the `test.geometry-focus-by-tab` rule in [file].
 List<Hit> geometryFocusHits(SourceFile file) {
   if (!_geometryFile.hasMatch(file.code)) return const [];
-  final body = _withoutAllowedHelpers(file);
+  final body = _withoutHelperDefinitions(file);
   return [
     for (final m in _byRequest.allMatches(body))
       Hit(file.path, file.lineOf(m.start), file.lineText(file.lineOf(m.start))),
@@ -116,19 +109,20 @@ void main() {
       locate: (path) => hitLines(run(), path),
     ),
     Rule(
-      id: 'test.geometry-focus-by-key',
+      id: 'test.geometry-focus-by-tab',
       message:
           'reach focus in a focus ring geometry case with tabTo(tester, '
           'finder) (test/support/tab_to.dart), not requestFocus or _focus: a '
           'node focused by hand can be one no Tab reaches, and then the case '
-          'passes while the real control shows no ring. A helper that must '
-          'focus a node by hand goes on _focusByRequestAllow with its reason.',
+          'passes while the real control shows no ring. A helper whose '
+          'definition must focus a node by hand goes on _focusByRequestHelpers '
+          'with its reason.',
       scan: () => countByPath(runFocus()),
       locate: (path) => hitLines(runFocus(), path),
     ),
   ], namespace: 'test');
 
-  group('test.geometry-focus-by-key reads a geometry case', () {
+  group('test.geometry-focus-by-tab reads a geometry case', () {
     SourceFile file(String body) => SourceFile(
       'test/x_ring_test.dart',
       'void main() {\n  testWidgets(\'a\', (tester) async {\n$body\n'
@@ -150,19 +144,25 @@ void main() {
       );
     });
 
-    test('the allowed helpers are not', () {
+    test('a _focusInk call is a violation, its definition is not', () {
       const helpers =
           'Future<void> _focus(WidgetTester tester, Finder f) async {\n'
           '  node.requestFocus();\n}\n\n'
           'Future<void> _focusInk(WidgetTester tester, Finder f) async {\n'
           '  Focus.of(c).requestFocus();\n}\n';
-      final source = SourceFile(
+      final definitionsOnly = SourceFile(
+        'test/x_ring_test.dart',
+        '$helpers\nvoid main() {\n  testWidgets(\'a\', (t) async {\n'
+            '    expectInsideClip(r);\n  });\n}\n',
+      );
+      expect(geometryFocusHits(definitionsOnly), isEmpty);
+      final withCall = SourceFile(
         'test/x_ring_test.dart',
         '$helpers\nvoid main() {\n  testWidgets(\'a\', (t) async {\n'
             '    await _focusInk(tester, ink);\n    expectInsideClip(r);\n'
             '  });\n}\n',
       );
-      expect(geometryFocusHits(source), isEmpty);
+      expect(geometryFocusHits(withCall), hasLength(1));
     });
 
     test('a file that checks no ring geometry is not read', () {

@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// `requestFocus`: a node focused by hand can be one no Tab ever reaches (a
 /// row's inert node, a control above the one that draws the ring), which is
 /// how a Mac `GroupedMenuRow` showed no ring while its test passed
-/// (`test.geometry-focus-by-key`).
+/// (`test.geometry-focus-by-tab`).
 Future<void> tabTo(
   WidgetTester tester,
   Finder finder, {
@@ -21,7 +21,8 @@ Future<void> tabTo(
   bool onTarget() {
     final context = FocusManager.instance.primaryFocus?.context;
     if (context == null) return false;
-    var within = identical(context, target);
+    if (identical(context, target)) return true;
+    var within = false;
     context.visitAncestorElements((e) {
       within = identical(e, target);
       return !within;

@@ -31,6 +31,30 @@ void main() {
     expect(inside, isTrue, reason: 'the focus is inside the second button');
   });
 
+  testWidgets('tabTo accepts a finder that matches the focused Focus itself', (
+    tester,
+  ) async {
+    const key = ValueKey('focus');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Column(
+          children: [
+            TextButton(onPressed: () {}, child: const Text('One')),
+            const Focus(key: key, child: Text('Reachable')),
+          ],
+        ),
+      ),
+    );
+    await tabTo(tester, find.byKey(key));
+    expect(
+      identical(
+        FocusManager.instance.primaryFocus!.context,
+        tester.element(find.byKey(key)),
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('tabTo fails with a message when Tab never reaches it', (
     tester,
   ) async {
