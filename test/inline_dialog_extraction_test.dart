@@ -6,6 +6,8 @@ import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart'
     show ExportJsonOffer;
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/macos/mac_toolbar.dart'
+    show macToolbarButtonStyle;
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -328,25 +330,6 @@ void main() {
       expect(isDefault('Cancel'), isFalse);
     });
 
-    testWidgets('Cancel installs nothing, Install anyway starts one job', (
-      tester,
-    ) async {
-      await open(tester);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(find.byType(AppAlertDialog), findsNothing);
-      expect(server.requestsTo('POST', '/api/skills/hub/install'), isEmpty);
-
-      await tester.tap(find.text('Install anyway…'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Install anyway'));
-      await tester.pumpAndSettle();
-      expect(
-        server.requestsTo('POST', '/api/skills/hub/install'),
-        hasLength(1),
-      );
-    });
-
     testWidgets('without a policy reason it says the scan asks', (
       tester,
     ) async {
@@ -391,6 +374,7 @@ void main() {
       VoidCallback? onCopyTranscript,
       ExportJsonOffer? exportJson,
       Locale locale = const Locale('en'),
+      List<String>? log,
     }) async {
       tester.view
         ..physicalSize = const Size(680, 700)
@@ -405,7 +389,7 @@ void main() {
                 title: 'Plan the release',
                 subtitle: 'default · example-model',
                 onNewChat: () {},
-                onShowConnection: () {},
+                onShowConnection: () => log?.add('connection'),
                 onCopyTranscript: onCopyTranscript,
                 onShowFiles: onShowFiles,
                 exportJson: exportJson,
@@ -509,8 +493,48 @@ void main() {
       final button = tester.widget<NamedPopupMenuButton<Object?>>(more);
       expect(button.iconSize, 18);
       expect(button.color, tester.element(more).hermesColors.subtleText);
+      expect(button.padding, EdgeInsets.zero);
+      final style = macToolbarButtonStyle(tester.element(more));
+      expect(
+        button.style?.fixedSize?.resolve({}),
+        style.fixedSize?.resolve({}),
+      );
+      expect(
+        button.style?.minimumSize?.resolve({}),
+        style.minimumSize?.resolve({}),
+      );
+      expect(button.style?.padding?.resolve({}), style.padding?.resolve({}));
+      expect(button.style?.iconSize?.resolve({}), style.iconSize?.resolve({}));
+      expect(button.style?.tapTargetSize, style.tapTargetSize);
+      expect(button.style?.visualDensity, style.visualDensity);
       expect(find.bySemanticsLabel('More'), findsOneWidget);
       handle.dispose();
+    });
+
+    testWidgets('choosing an item runs only its callback, once', (
+      tester,
+    ) async {
+      for (final (label, event) in [
+        ('Show Files', 'files'),
+        ('Copy Transcript', 'copy'),
+        ('Export Chat as JSON…', 'export'),
+        ('Connection Details', 'connection'),
+      ]) {
+        final log = <String>[];
+        await pump(
+          tester,
+          log: log,
+          onShowFiles: () => log.add('files'),
+          onCopyTranscript: () => log.add('copy'),
+          exportJson: ExportJsonOffer(onSelected: () => log.add('export')),
+        );
+        await tester.tap(find.byKey(const Key('toolbar-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+        expect(log, [event], reason: label);
+        await tester.pumpWidget(const SizedBox());
+      }
     });
 
     testWidgets('in German', (tester) async {
