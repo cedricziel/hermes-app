@@ -48,6 +48,7 @@ class LogLevelMenuButton extends StatelessWidget {
         label: l10n.serverCareLogLevelMenuLabel(value.label(l10n)),
         child: AdaptivePopupMenuButton<LogLevelFilter>(
           tooltip: '',
+          focusRadius: 999,
           position: PopupMenuPosition.under,
           onSelected: onChanged,
           itemBuilder: (context) => [

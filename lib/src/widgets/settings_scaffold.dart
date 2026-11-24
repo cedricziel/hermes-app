@@ -157,20 +157,28 @@ class SettingsSubtitleMenu<T> {
         child: Semantics(
           button: true,
           label: label,
-          child: AdaptivePopupMenuButton<T>(
-            key: const Key('settings-subtitle-menu'),
-            tooltip: '',
-            padding: EdgeInsets.zero,
-            position: PopupMenuPosition.under,
-            onSelected: onSelected,
-            itemBuilder: itemBuilder,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 2,
-              children: [
-                Flexible(child: subtitle),
-                AppIcon(AppIcons.expandMore, size: 12, color: muted),
-              ],
+          child: Padding(
+            // Room for the iOS focus ring, which sits 2 to 4 px outside the
+            // text and would run through the title above without it.
+            padding: EdgeInsets.all(
+              platformChromeOf(context) == PlatformChrome.ios ? 4 : 0,
+            ),
+            child: AdaptivePopupMenuButton<T>(
+              key: const Key('settings-subtitle-menu'),
+              tooltip: '',
+              focusRadius: 4,
+              padding: EdgeInsets.zero,
+              position: PopupMenuPosition.under,
+              onSelected: onSelected,
+              itemBuilder: itemBuilder,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 2,
+                children: [
+                  Flexible(child: subtitle),
+                  AppIcon(AppIcons.expandMore, size: 12, color: muted),
+                ],
+              ),
             ),
           ),
         ),
