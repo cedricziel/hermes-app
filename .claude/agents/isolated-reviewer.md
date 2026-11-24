@@ -68,6 +68,16 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
 10. UI behaviour change to an existing widget: which Widgetbook use case
     shows it? Expect a `## Proof` line naming it. Advisory: record a
     finding only when the change is visible and no use case covers it.
+11. Design line. If the diff changes any file under `lib/src/**/widgets/`, any
+    `lib/**/*_screen.dart` or anything under `lib/src/theme/`, the PR body
+    must carry exactly one of `Design: <claude.ai artifact link to a canvas,
+    or a repo path to a design record under docs/design-briefs/ or
+    openspec/changes/**/design.md>` or `Design: not needed, <reason>`.
+    Reasons that count: text-only, behaviour-only, test-only, a refactor with
+    no visual change, or a bug fix restoring the designed look. Check that a
+    linked record exists and covers what the diff changes, and that a "not
+    needed" reason holds against the diff. A missing or false line is a
+    finding. Advisory for now: a reviewer finding, not a `PR policy` failure.
 
 ## Output
 
@@ -84,6 +94,9 @@ after them:
   characters, plain words, not `n/a` or `<reason>`) after the `Findings:`
   lines and before `Revert-the-fix:`. `pr-policy` reads it only between your
   `Reviewer:` and `Proof reproduced:` lines.
+- Only when item 11 applies: one line `Design: confirmed <link or reason>`
+  after the `Catalog-first:` line (if any) and before `Revert-the-fix:`. A
+  missing or false line is a finding under `Findings:` instead.
 - The `Revert-the-fix:` line names the test and the fix reverted and says it
   failed, or says `not applicable`.
 - The `Proof reproduced:` line says `yes`, or `no` and what.

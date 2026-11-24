@@ -14,3 +14,4 @@
 
 <!-- Paste the isolated reviewer's block: Reviewer: ... Head: <full sha> Verdict: clean | changes-requested, then Findings: ... and Proof reproduced: ... -->
 <!-- A new public widget under lib/src/**/widgets/ needs a Widgetbook use case naming it. If none applies, the isolated reviewer emits "Catalog-first: not applicable, <reason>" in its block; paste the block unchanged. -->
+<!-- A UI PR (lib/src/**/widgets/, *_screen.dart, lib/src/theme/) names its design record in the PR body: "Design: <canvas link or docs/design-briefs/ or openspec design.md path>", or "Design: not needed, <reason>" (text-only, behaviour-only, test-only, no-visual-change refactor, bug fix restoring the designed look). The isolated reviewer confirms it; advisory for now. -->
