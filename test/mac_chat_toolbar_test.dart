@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/test_localizations.dart';
 
 void main() {
   Future<List<String>> pump(
     WidgetTester tester, {
     required double width,
     bool searchActive = false,
+    Locale? locale,
   }) async {
     final events = <String>[];
     tester.view
@@ -17,6 +21,9 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: Scaffold(
           body: Align(
@@ -79,5 +86,16 @@ void main() {
     await tester.tap(find.text('Connection Details'));
     await tester.pumpAndSettle();
     expect(events, ['connection']);
+  });
+
+  testWidgets('the … menu is in German', (tester) async {
+    await pump(tester, width: 680, locale: const Locale('de'));
+    expect(find.byTooltip('Mehr'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('toolbar-more')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Verlauf kopieren'), findsOneWidget);
+    expect(find.text('Verbindungsdetails'), findsOneWidget);
   });
 }
