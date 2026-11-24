@@ -870,10 +870,8 @@ List<EnglishDefault> englishDefaultsIn(SourceFile file) {
   unit.accept(
     _DefaultClauses((clause) {
       final value = clause.value;
-      if (value is! SimpleStringLiteral ||
-          !looksLikeEnglishLabel(value.value)) {
-        return;
-      }
+      final text = value is StringLiteral ? value.stringValue : null;
+      if (text == null || !looksLikeEnglishLabel(text)) return;
       final parameter = clause.parent;
       if (parameter is! FormalParameter) return;
       final name = parameter.name;
@@ -1919,6 +1917,18 @@ void main() {
         names("final x = 'Cancel'; void f() { var y = 'Hello there'; }"),
         isEmpty,
       );
+    });
+
+    test('adjacent literals read as one; interpolated ones do not hit', () {
+      expect(names("void f({String a = 'Someone else ' 'took control.'}) {}"), [
+        'lib/y.dart#a',
+      ]);
+      expect(names("void f({String a = 'Someone ' '\$x'}) {}"), isEmpty);
+    });
+
+    test('the letter guard: no letter, no label', () {
+      expect(looksLikeEnglishLabel(' \u00b7 '), isFalse);
+      expect(looksLikeEnglishLabel('...'), isFalse);
     });
 
     test('the word heuristic', () {
