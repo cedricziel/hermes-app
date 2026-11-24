@@ -216,10 +216,11 @@ void main() {
       ),
       throwsStateError,
     );
-    expect((await store().load(scope)).records.single.text, 'prior');
-    expect(await original.readAsString(), 'source stays');
+    // Before any load, which would sweep orphans itself.
     expect(await stored('.blob'), isEmpty);
     expect(await stored('.tmp'), isEmpty);
+    expect((await store().load(scope)).records.single.text, 'prior');
+    expect(await original.readAsString(), 'source stays');
   });
 
   test(
@@ -412,6 +413,9 @@ void main() {
         QueueRecordState.submissionStarted,
       );
       await store().setState(scope, record.id, QueueRecordState.accepted);
+      // Before any load, which would purge accepted records itself.
+      expect(await stored('.rec'), isEmpty);
+      expect(await stored('.blob'), isEmpty);
       expect((await store().load(scope)).records, isEmpty);
       expect(await stored('.rec'), isEmpty);
       expect(await stored('.blob'), isEmpty);
@@ -591,4 +595,60 @@ void main() {
       );
     },
   );
+
+  Future<void> expectReason(Future<Object?> call, String reason) => expectLater(
+    call,
+    throwsA(
+      isA<QueueStorageException>().having(
+        (error) => error.reason,
+        'reason',
+        reason,
+      ),
+    ),
+  );
+
+  for (final length in [31, 33]) {
+    test('a stored key of $length bytes is refused', () async {
+      await store().commit(scope, 'retained');
+      final account = keys.values.keys.single;
+      keys.values[account] = List.filled(length, 7);
+      await expectReason(store().load(scope), 'invalid_key');
+    });
+  }
+
+  test('a failed server deletion keeps hiding the queue', () async {
+    await store().commit(scope, 'must stay hidden');
+    keys.unavailable = true;
+    await expectLater(store().deleteServer(scope.serverKey), throwsStateError);
+    expect(await stored('.delete'), hasLength(1));
+    await expectReason(store().load(scope), 'cleanup_pending');
+  });
+
+  test('an attachment of exactly the size limit is accepted', () async {
+    final original = File('${directory.path}/limit');
+    final handle = await original.open(mode: FileMode.write);
+    await handle.truncate(kMaxAttachmentBytes);
+    await handle.close();
+    await store().commit(
+      scope,
+      'at the limit',
+      files: [QueueAttachmentInput(path: original.path, name: 'limit')],
+    );
+    final loaded = (await store().load(scope)).records.single;
+    expect(loaded.attachments.single.size, kMaxAttachmentBytes);
+  });
+
+  test('a malformed submission claim is refused and changes nothing', () async {
+    final record = await store().commit(scope, 'prompt');
+    for (final claim in ['not-hex', 'a' * 33]) {
+      await expectReason(
+        store().beginSubmission(scope, record.id, claim),
+        'invalid_claim',
+      );
+    }
+    expect(
+      (await store().load(scope)).records.single.state,
+      QueueRecordState.queued,
+    );
+  });
 }

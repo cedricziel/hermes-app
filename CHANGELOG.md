@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.84](https://github.com/cedricziel/hermes-app/compare/v0.1.83...v0.1.84) (2026-11-24)
+
+
+### Features
+
+* **widgetbook:** add Markdown and chat text use cases ([#1329](https://github.com/cedricziel/hermes-app/issues/1329)) ([a0ab091](https://github.com/cedricziel/hermes-app/commit/a0ab0915bbc09d85317a96c578a8252b494b8f1f))
+
+
+### Bug Fixes
+
+* **bot-screen:** keep the viewer header inside its bar at large text ([#1333](https://github.com/cedricziel/hermes-app/issues/1333)) ([6fc9c12](https://github.com/cedricziel/hermes-app/commit/6fc9c12f10fba65730d814eaccb02a6d31697eae))
+* **harness:** warn at session start when the Bash guard is not active ([#1335](https://github.com/cedricziel/hermes-app/issues/1335)) ([c853b4f](https://github.com/cedricziel/hermes-app/commit/c853b4fb357fdff8178902aee9291c9f5b09b383))
+* **l10n:** localize the Inspect dialog, install confirmation and toolbar menu strings ([#1331](https://github.com/cedricziel/hermes-app/issues/1331)) ([54052a6](https://github.com/cedricziel/hermes-app/commit/54052a66064f35f3e27dd6db3379634e23b19303))
+* **widgets:** share a narrow grouped row between title and value ([#1332](https://github.com/cedricziel/hermes-app/issues/1332)) ([13094a0](https://github.com/cedricziel/hermes-app/commit/13094a0432ef5c99648110aa1e0486fb63447362))
+* **widgets:** show the keyboard focus ring on the Mac pop-up of a GroupedMenuRow ([#1336](https://github.com/cedricziel/hermes-app/issues/1336)) ([9d77755](https://github.com/cedricziel/hermes-app/commit/9d777557f0627cd15c07d7bb91b35a15d2ff6117))
+
+
+### Documentation
+
+* **roadmap:** record pre-release 0.1.83, the missing focus indication and the stale guards ([#1339](https://github.com/cedricziel/hermes-app/issues/1339)) ([962bc1a](https://github.com/cedricziel/hermes-app/commit/962bc1a8e19ce6e40545dc4c178b6d9e6b3f08dd))
+* **roadmap:** update 22, six merges, [#1321](https://github.com/cedricziel/hermes-app/issues/1321) closed, shortcut decisions ([#1340](https://github.com/cedricziel/hermes-app/issues/1340)) ([debc76d](https://github.com/cedricziel/hermes-app/commit/debc76dd922fb2678bd90ae43c014027cc03ae95))
+
 ## [0.1.83](https://github.com/cedricziel/hermes-app/compare/v0.1.82...v0.1.83) (2026-11-24)
 
 

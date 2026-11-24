@@ -144,6 +144,13 @@ void main() {
       expect(find.text('hello from the notes'), findsOneWidget);
     });
 
+    testWidgets('on iOS a Files page without a previous title says Back, not '
+        'Chat', (tester) async {
+      await pump(tester, platform: TargetPlatform.iOS);
+      expect(find.text('Back'), findsOneWidget);
+      expect(find.text('Chat'), findsNothing);
+    });
+
     testWidgets('reduced motion pushes the preview without a transition', (
       tester,
     ) async {

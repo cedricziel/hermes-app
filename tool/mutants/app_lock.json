@@ -140,6 +140,7 @@
     "test/moa_progress_integration_test.dart",
     "test/moa_progress_ownership_test.dart",
     "test/model_selector_state_test.dart",
+    "test/navigation/desktop_command_shortcuts_test.dart",
     "test/notifications/inline_reply_test.dart",
     "test/notifications/reply_handoff_test.dart",
     "test/notifications/signed_in_account_key_test.dart",
