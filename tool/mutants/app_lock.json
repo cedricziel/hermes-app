@@ -156,6 +156,7 @@
     "test/providers/providers_telemetry_test.dart",
     "test/reaction_integration_test.dart",
     "test/reaction_queue_test.dart",
+    "test/readme_screenshots_test.dart",
     "test/request_answers_test.dart",
     "test/server_care/server_logs_page_test.dart",
     "test/server_care/server_screen_wide_test.dart",
@@ -178,6 +179,11 @@
     "test/tools/tools_screen_test.dart",
     "test/tools/tools_setup_actions_test.dart",
     "test/tools/tools_setup_fixes_test.dart",
+    "test/tools/tools_setup_install_lock_test.dart",
+    "test/tools/tools_setup_lifetime_test.dart",
+    "test/tools/tools_setup_ownership_test.dart",
+    "test/tools/tools_setup_screen_test.dart",
+    "test/tools/tools_setup_secret_test.dart",
     "test/voice/calls/app_lock_call_test.dart",
     "test/voice/calls/call_agent_test.dart",
     "test/voice/calls/voice_call_interrupted_test.dart",
@@ -195,6 +201,7 @@
     "test/watch_session_publication_test.dart",
     "test/watch_status_reuse_test.dart",
     "test/widget_test.dart",
+    "test/workflow_cleanup_test.dart",
     "test/workflows/activity_line_workflow_test.dart",
     "test/workflows/activity_panel_workflow_test.dart",
     "test/workflows/bot_chat_workflow_test.dart",
@@ -377,6 +384,13 @@
       "note": "concurrent unlock does not share one prompt"
     },
     {
+      "id": "a16",
+      "file": "lib/src/app_lock/app_lock_controller.dart",
+      "old": "if (_authenticating) return false;",
+      "new": "if (false) return false;",
+      "note": "unlock during confirm prompt"
+    },
+    {
       "id": "a17",
       "file": "lib/src/app_lock/app_lock_controller.dart",
       "old": "if (_available == null) {",
@@ -416,7 +430,7 @@
       "file": "lib/src/app_lock/app_lock_controller.dart",
       "old": "if (_enforced && !_locked) {",
       "new": "if (!_locked) {",
-      "note": "locks when not enforced (lockout)"
+      "note": "locks when not enforced (an unwanted cover and prompt, not a lockout)"
     },
     {
       "id": "a23",

@@ -175,6 +175,7 @@
     "test/chat/durable_queue_composer_test.dart",
     "test/chat/durable_queue_dispatch_test.dart",
     "test/chat/durable_queue_recovery_test.dart",
+    "test/chat/queue_storage/durable_queue_store_binding_test.dart",
     "test/chat/queue_storage/durable_queue_store_test.dart",
     "test/chat/queue_storage/queue_broker_test.dart",
     "test/chat/queue_storage/queue_persistence_scope_test.dart",
@@ -256,6 +257,20 @@
       "note": "accepted records not purged on load"
     },
     {
+      "id": "q11",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "jsonEncode(value['scope']) != jsonEncode(scope.toJson())) {",
+      "new": "false) {",
+      "note": "record scope binding unchecked on load"
+    },
+    {
+      "id": "q12",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (_recordName(record.id) != name) throw const FormatException();",
+      "new": "if (false) throw const FormatException();",
+      "note": "record id vs file name unchecked"
+    },
+    {
       "id": "q13",
       "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
       "old": "records.sort((a, b) => a.sequence.compareTo(b.sequence));",
@@ -289,6 +304,13 @@
       "old": "record.submissionClaimHash != _hash(claim))) {",
       "new": "false)) {",
       "note": "wrong claim may restore a started submission (resend)"
+    },
+    {
+      "id": "q18",
+      "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
+      "old": "if (bytes.length != attachment.size) {",
+      "new": "if (false) {",
+      "note": "attachment corruption unchecked"
     },
     {
       "id": "q19",
@@ -330,7 +352,7 @@
       "file": "lib/src/chat/queue_storage/durable_queue_store.dart",
       "old": "'queue.v1/${_server(scope)}/${_account(scope)}/${_scope(scope)}/$name',",
       "new": "'queue.v1/$name',",
-      "note": "scope no longer in the AAD (observable only through error.type)"
+      "note": "scope no longer in the AAD; killed only because the binding test's plantValid copies the AAD format, so its planted record stops opening (depends on that copy)"
     },
     {
       "id": "q25",

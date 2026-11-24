@@ -399,7 +399,7 @@
       "file": "lib/src/chat/gateway/hermes_gateway_transport_reconnect.dart",
       "old": "            replayEpoch != recordedEpoch ||",
       "new": "            replayEpoch == recordedEpoch ||",
-      "note": "epochChanged inverted"
+      "note": "epochChanged: only the epoch comparison flips; the _restartedSince disjunct is unchanged"
     },
     {
       "id": "rc29",

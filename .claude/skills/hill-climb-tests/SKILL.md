@@ -16,7 +16,8 @@ Files:
 
 - `scripts/mutation_sample.py`: the runner (Python 3, no packages).
 - `tool/mutants/<subject>.json`: one list per subject: `tests` (every test
-  file that imports the subject's library directly, and for a `part of` file
+  file that imports the subject's library (directly, one hop deeper, or through a
+  `test/` helper, see "Keep the lists honest"), and for a `part of` file
   the importers of its parent library, plus `test/workflows/*`),
   an optional `quick_tests` subset, and `mutants`.
 - `scripts/test_mutation_sample.py`: the runner's own tests (fake repo, fake
@@ -110,8 +111,10 @@ killed / (killed + survived).
   library that has its `part '...'` line) and diff against `tests`. Go one
   hop deeper: also take tests that import a `lib/` library which itself
   imports a mutated library (a listener test reaches the parser through the
-  listener). Run that scan after a pull that adds test files, and add what it
-  finds.
+  listener), and tests that import a non-test Dart file under `test/` (a
+  helper such as `test/support/pump_chat.dart` or a harness) that imports a
+  mutated library. Run that scan after a pull that adds test files, and add
+  what it finds.
 - A survivor is a test gap only after it ran against the full `tests` list,
   not only `quick_tests`: a quick survivor is a lead, not a finding.
 - Re-run a subject's mutants after any merge that touches it (its product
@@ -120,20 +123,18 @@ killed / (killed + survived).
 
 ## Known equivalent mutants
 
-A mutant that no test can kill because the code has a second defence is not a
-gap. It is dropped from its list and recorded here with the reason; the
-runner applies one edit per mutant, so a pair of defences cannot be removed
-together.
+A mutant moves here only after it SURVIVED a full-list run (`--only <id>`, no
+`--quick`) and has a reason that holds against tests that plant data
+directly (a test that writes a record or file itself skips the defence the
+reason names). Reasoning alone is not enough: `queue` q11 and q12 looked
+equivalent by reading the code, and `durable_queue_store_binding_test.dart`
+kills both. The runner applies one edit per mutant, so a pair of defences
+cannot be removed together. Record the reason and the main commit of the run.
 
-- `queue` q11 (JSON scope check on load): the AAD binds the scope hash, so a
-  record moved between scopes already fails to decrypt. (q24, the scope in
-  the AAD, is not equivalent: the JSON check then rejects the record with a
-  `FormatException` instead, which changes `error.type`; it is kept, and
-  observable only through that.)
-- `queue` q12 (record id vs file name): the AAD binds the file name and
-  `_save` derives the name from the id, so a record that opens always matches.
-- `queue` q18 (attachment size check): the blob is sealed under a name-bound
-  AAD and its size is taken from the same bytes (`bytes.length`).
+Each entry below survived a full-list run on main `c04b9fce`, and the mutant
+stays in its list (it is not dropped); the entry only says why it is not a
+test gap.
+
 - `model` mo05 (`profile != _profile` after the await in `_loadModelOptions`):
   `_profile` only changes in `_loadThreads`. A late answer started before it
   fails the `_loadGeneration` guard. A `refreshModelOptions()` started after
@@ -147,6 +148,13 @@ together.
   through `unlock()`, which needs `_locked`, and `_locked` is true only while
   the lock is enforced, so `setEnabled(true)`'s prompt (which runs while
   `_enabled` is false) never overlaps it. Holds unless `load()` runs twice.
+
+Not equivalent, though they looked it: `queue` q11 (JSON scope check), q12
+(record id vs file name) and q24 (scope in the AAD) are all killed by
+`durable_queue_store_binding_test.dart`, whose planted records skip the
+defence the reasoning named (q24 is killed only because its `plantValid`
+copies the AAD format). `queue` q18 (attachment size check) survives a full
+run, and a planted blob with a wrong size would kill it, so it is a test gap.
 
 ## The removal rule
 
