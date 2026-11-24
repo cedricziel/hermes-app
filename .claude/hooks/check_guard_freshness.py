@@ -62,7 +62,10 @@ GUARD_COMMANDS = ('python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"'
 
 
 def _runs_guard(command):
-    return " ".join(str(command).split()) in GUARD_COMMANDS
+    command = str(command)
+    if "\n" in command or "\r" in command:
+        return False  # bash would run the lines as separate commands
+    return re.sub(r"[ \t]+", " ", command).strip() in GUARD_COMMANDS
 
 
 def has_pretooluse_wiring(settings_path):
