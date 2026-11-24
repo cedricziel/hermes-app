@@ -1,3 +1,4 @@
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:material_ui/material_ui.dart' as mui;
@@ -32,7 +33,10 @@ const kHighlightMaxDocument = 10000;
 /// asked about again at the same place (a rebuild, or a reply that streams and
 /// grows by a few characters) is judged again in place of its old self, since
 /// a block's decision only reads the blocks before it. Only the length granted
-/// to each block is kept.
+/// to each block is kept. [BoundedMarkdown] starts a pass whenever a frame
+/// asks about its first block, not only when it builds itself: the renderer
+/// also redraws the document without a rebuild of its parent (a timer, a
+/// theme change).
 class CodeHighlightBudget {
   CodeHighlightBudget({
     this.maxLine = kHighlightMaxLine,
@@ -130,6 +134,22 @@ class BoundedMarkdown extends StatefulWidget {
 class _BoundedMarkdownState extends State<BoundedMarkdown> {
   final _budget = CodeHighlightBudget();
 
+  /// Whether the frame in progress already started a pass of [_budget].
+  bool _passOpen = false;
+
+  /// Starts a pass over the document, once per frame. `GptMarkdown` redraws
+  /// its code blocks without `build` here when a timer fires (the held end of
+  /// a streaming reply is released after 1.5 s) or the theme changes; a pass
+  /// that kept counting from the one before judged the same blocks again as
+  /// blocks after the document's end, which refused them for the characters
+  /// they were already charged.
+  void _beginPass() {
+    _budget.begin();
+    if (_passOpen) return;
+    _passOpen = true;
+    SchedulerBinding.instance.addPostFrameCallback((_) => _passOpen = false);
+  }
+
   @override
   void didUpdateWidget(BoundedMarkdown old) {
     super.didUpdateWidget(old);
@@ -139,6 +159,7 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   Widget _code(BuildContext context, String name, String code, bool closed) {
     const config = GptMarkdownConfig();
+    if (!_passOpen) _beginPass();
     final style =
         (resolvedStyleSheet(context, config).codeBlock ??
                 const CodeBlockStyle())
@@ -159,7 +180,7 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   @override
   Widget build(BuildContext context) {
-    _budget.begin();
+    _beginPass();
     return GptMarkdown(
       widget.data,
       style: widget.style,

@@ -150,6 +150,9 @@ class Streamed {
   int colourableCharsAtEnd = 0;
 }
 
+/// Checks the colouring after a pump: at most the document, block and line
+/// limits are coloured, and no block that fits every limit is plain unless the
+/// characters coloured before it plus its own size pass the document limit.
 void _check(
   WidgetTester tester,
   Streamed seen,
@@ -183,19 +186,27 @@ void _check(
       );
     }
   }
+  var colouredBefore = 0;
+  for (final b in blocks) {
+    final length = b.codes.length;
+    if (b.highlightCode) {
+      colouredBefore += length;
+    } else if (length <= kBlockLimit &&
+        !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit)) {
+      expect(
+        colouredBefore + length,
+        greaterThan(kDocumentLimit),
+        reason:
+            'a block of $length characters that fits every limit is plain '
+            'after $colouredBefore coloured characters $where',
+      );
+    }
+  }
 }
 
-/// Mounts a new `BoundedMarkdown` with the final [text] and checks that no
-/// block is refused that fits: a block within the block and line limits may
-/// stay plain only because the coloured blocks before it plus its own size
-/// pass the document limit. An unclosed block is judged like a closed one (the
-/// code block style never turns off colouring while streaming).
-///
-/// The same lower bound is left out after each pump on purpose. On main, 145
-/// of 147 streamed cases fail it once time passes after a pump (142 while
-/// settling, 3 while a frame is held); none fails on the streaming pump
-/// itself. Only the small one-character case and the 8001 case pass. A later
-/// fix PR turns it on.
+/// Mounts a new `BoundedMarkdown` with the final [text] and checks it as after
+/// any pump (see `_check`: both bounds, the lower one included), then again
+/// after the parent rebuilt it with the same text.
 Future<void> _checkFreshMount(
   WidgetTester tester,
   Streamed seen,
@@ -207,25 +218,7 @@ Future<void> _checkFreshMount(
   for (var k = 0; k < 6; k++) {
     await tester.pump(const Duration(milliseconds: 500));
   }
-  void nothingRefused(String where) {
-    _check(tester, seen, where, fresh: true);
-    var colouredBefore = 0;
-    for (final b in codeBlocks(tester)) {
-      final length = b.codes.length;
-      if (b.highlightCode) {
-        colouredBefore += length;
-      } else if (length <= kBlockLimit &&
-          !b.codes.split(RegExp('[\r\n]')).any((l) => l.length > kLineLimit)) {
-        expect(
-          colouredBefore + length,
-          greaterThan(kDocumentLimit),
-          reason:
-              'a block of $length characters that fits every limit is plain '
-              'after $colouredBefore coloured characters $where',
-        );
-      }
-    }
-  }
+  void nothingRefused(String where) => _check(tester, seen, where, fresh: true);
 
   nothingRefused('in a fresh mount of the final text');
   // The parent rebuilds the same mount with the same text: a second pass over
@@ -248,8 +241,9 @@ Future<void> _checkFreshMount(
 }
 
 /// Streams [document] in chunks of [chunk] characters, applying [steps], and
-/// checks the limit after every pump and after the document settled. It does
-/// not compare the settled colours with a fresh mount.
+/// checks both bounds after every pump: while streaming, while a frame is
+/// held and while the document settles. It does not compare the settled
+/// colours with a fresh mount.
 ///
 /// A [fineChunk] smaller than [chunk] is used instead while at least
 /// [fineFrom] characters are coloured, for at most [finePumps] pumps: the
