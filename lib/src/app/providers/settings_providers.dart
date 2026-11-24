@@ -2,6 +2,7 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../../macos/menu_bar_extra/menu_bar_extra_settings.dart';
+import '../../navigation/desktop_menu_bar_settings.dart';
 import '../../notifications/notification_settings.dart';
 import '../../settings/theme_controller.dart';
 import '../../spotlight/spotlight_settings.dart';
@@ -20,4 +21,5 @@ List<SingleChildWidget> settingsProviders() => [
         SpotlightSettings(breadcrumbs: context.read<Breadcrumbs>())..load(),
   ),
   ChangeNotifierProvider(create: (_) => MenuBarExtraSettings()..load()),
+  ChangeNotifierProvider(create: (_) => DesktopMenuBarSettings()..load()),
 ];

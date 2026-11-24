@@ -786,6 +786,7 @@
 
   "@@x-area-navigation": "",
   "navigationChordTooltip": "{label} ({chord})",
+  "navigationFocusMenuBar": "Menüleiste",
   "navigationKeyAlt": "Alt",
   "navigationKeyBackspace": "Rücktaste",
   "navigationKeyCtrl": "Strg",
@@ -1424,6 +1425,7 @@
   "settingsMenuSettings": "Einstellungen…",
   "settingsNotifications": "Benachrichtigungen",
   "settingsReportBug": "Fehler melden",
+  "settingsShowMenuBar": "Menüleiste anzeigen",
   "settingsSignOut": "Abmelden",
   "settingsSignOutMessage": "Du musst dich erneut anmelden, um deine Chats zu sehen.",
   "settingsSignOutTitle": "Vom Dashboard abmelden?",
