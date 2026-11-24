@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart'
     show ExportJsonOffer;
@@ -16,6 +17,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/test_localizations.dart';
 import 'inline_dialog_extraction_expected.dart';
 
 /// Pins the rendered tree of three pieces that screens used to build inline
@@ -153,6 +155,9 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: _locale,
         builder: (_, child) => AppThemeScopes(child: child!),
         theme: ThemeData(platform: TargetPlatform.android),
         home: SkillsScreen(
@@ -189,6 +194,9 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          localizationsDelegates: kTestLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: _locale,
           builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: Scaffold(
@@ -250,6 +258,9 @@ Future<String> _inspect(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      localizationsDelegates: kTestLocalizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: _locale,
       builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: KanbanWorkersScreen(
@@ -276,3 +287,9 @@ void _check(String key, String actual) {
   }
   expect(actual, expectedTrees[key]);
 }
+
+/// English, or the language in `EXTRACTION_LOCALE` (such as `de`) to record
+/// and compare the dumps in another one; only English is committed.
+final Locale _locale = Locale(
+  Platform.environment['EXTRACTION_LOCALE'] ?? 'en',
+);
