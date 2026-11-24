@@ -50,6 +50,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'grouped_dialog_use_cases.dart';
 import 'grouped_form_use_cases.dart';
+import 'grouped_row_value_width_use_cases.dart';
 import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
 import 'adaptive_chrome_use_cases.dart';
@@ -152,6 +153,7 @@ final List<WidgetbookNode> directories = [
   adaptiveChromeNode(),
   settingsChromeNode(),
   groupedFormNode(),
+  groupedRowValueWidthNode(),
   groupedDialogNode(),
   macToolbarNode(),
   menuBarExtraNode(),
