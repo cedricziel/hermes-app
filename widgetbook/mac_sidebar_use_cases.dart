@@ -6,6 +6,7 @@ import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/mac_chat_more_menu.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
@@ -83,6 +84,57 @@ class _OpenMenuState extends State<_OpenMenu> {
       controller: _menu,
       icon: const AppIcon(AppIcons.more),
       itemBuilder: (_) => widget.items(context.l10n),
+    ),
+  );
+}
+
+/// The compact toolbar's "…" button with its menu open, as a user sees it
+/// after a click: [exportRunning] greys "Export Chat as JSON…".
+class _OpenMoreMenu extends StatefulWidget {
+  const _OpenMoreMenu({
+    this.exportRunning = false,
+    this.canCopy = true,
+    this.complete = true,
+  });
+
+  final bool exportRunning;
+
+  /// Whether a chat is open to copy; Copy Transcript is greyed without one.
+  final bool canCopy;
+
+  /// Whether Show Files and the export are offered (an older server has
+  /// neither).
+  final bool complete;
+
+  @override
+  State<_OpenMoreMenu> createState() => _OpenMoreMenuState();
+}
+
+class _OpenMoreMenuState extends State<_OpenMoreMenu> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _menu.open();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topRight,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: MacChatMoreMenu(
+        controller: _menu,
+        onShowFiles: widget.complete ? () {} : null,
+        onCopyTranscript: widget.canCopy ? () {} : null,
+        exportJson: widget.complete
+            ? ExportJsonOffer(onSelected: () {}, enabled: !widget.exportRunning)
+            : null,
+        onShowConnection: () {},
+      ),
     ),
   );
 }
@@ -398,6 +450,24 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
               ),
             ),
           ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacChatMoreMenu',
+      useCases: [
+        _case('Idle', () => frame(const _OpenMoreMenu())),
+        _case(
+          'Export running',
+          () => frame(const _OpenMoreMenu(exportRunning: true)),
+        ),
+        _case(
+          'Copy Transcript disabled',
+          () => frame(const _OpenMoreMenu(canCopy: false)),
+        ),
+        _case(
+          'Without Show Files and export',
+          () => frame(const _OpenMoreMenu(complete: false)),
+        ),
       ],
     ),
     WidgetbookComponent(
