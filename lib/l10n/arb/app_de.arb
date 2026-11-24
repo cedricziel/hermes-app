@@ -791,7 +791,11 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsInstallFailed": "Das Plugin konnte nicht installiert werden",
   "pluginsInstallMissingEnvTitle": "Auf dem Server festlegen",
+  "pluginsInstallStillRunning": "Der Server installiert noch. Zieh die Liste gleich nach unten, um es zu prüfen.",
+  "pluginsInstalled": "Installiert",
+  "pluginsInstalledNamed": "{pluginName} installiert",
   "pluginsRefreshAction": "Aktualisieren",
 
   "@@x-area-profiles": "",

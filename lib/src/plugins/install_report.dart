@@ -5,9 +5,6 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'plugin_install_result.dart';
 
-const installStillRunningText =
-    'The server is still installing. Pull the list down in a moment to check.';
-
 /// Tells the user how an install ended: what was installed and any warnings
 /// the server gave, or why it was refused. A dialog then lists the
 /// environment variables the user still has to set on the server.
@@ -19,13 +16,16 @@ Future<void> reportInstall(
   PluginInstallResult result,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
+  final l10n = context.l10n;
   final lines = [
     if (result.ok)
-      result.pluginName.isEmpty ? 'Installed' : 'Installed ${result.pluginName}'
+      result.pluginName.isEmpty
+          ? l10n.pluginsInstalled
+          : l10n.pluginsInstalledNamed(result.pluginName)
     else if (result.timedOut)
-      installStillRunningText
+      l10n.pluginsInstallStillRunning
     else
-      result.message ?? 'Could not install this plugin',
+      result.message ?? l10n.pluginsInstallFailed,
     if (result.ok) ...result.warnings,
   ];
   messenger

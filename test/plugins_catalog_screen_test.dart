@@ -639,6 +639,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Auf dem Server festlegen'), findsOneWidget);
+      expect(find.text('chrome installiert'), findsOneWidget);
+      expect(find.text('Installed chrome'), findsNothing);
       expect(find.text('Set these on the server'), findsNothing);
       expect(find.text('NETBOX_URL'), findsOneWidget);
     });
