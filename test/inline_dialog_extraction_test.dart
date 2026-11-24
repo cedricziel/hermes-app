@@ -189,6 +189,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: Align(
@@ -249,6 +250,7 @@ Future<String> _inspect(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: KanbanWorkersScreen(
         repository: KanbanRepository(server.client()),
