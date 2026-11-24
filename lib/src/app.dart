@@ -10,6 +10,7 @@ import 'app_lock/app_lock_controller.dart';
 import 'api/hermes_repositories.dart';
 import 'navigation/connection_pages.dart';
 import 'navigation/desktop_history_owner.dart';
+import 'navigation/desktop_menu_bar_host.dart';
 import 'navigation/desktop_navigation_history.dart';
 import 'navigation/desktop_navigation_commands.dart';
 import 'navigation/workers_navigation_resolver.dart';
@@ -197,7 +198,9 @@ class _HermesAppState extends State<HermesApp> {
                       child: AppLockGate(
                         child: DockMenuGate(
                           child: HandoffGate(
-                            child: HandsFreeStripLayer(child: child!),
+                            child: DesktopMenuBarHost(
+                              child: HandsFreeStripLayer(child: child!),
+                            ),
                           ),
                         ),
                       ),
