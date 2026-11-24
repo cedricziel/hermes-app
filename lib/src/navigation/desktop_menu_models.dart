@@ -45,6 +45,10 @@ class DesktopMenuModel {
   );
 }
 
+/// Commands with a chord that the bar has no item for: F10 moves into the
+/// bar, so an item for it in the bar would be a loop.
+const _notInTheBar = {MacCommand.focusMenuBar};
+
 /// The menus of the desktop menu bar: File, View, Chat and Help, from the
 /// Windows and Linux side of [menuLayout], each item enabled while
 /// [registry] has a handler for its command.
@@ -79,7 +83,9 @@ List<DesktopMenuModel> desktopMenus(
     for (final group in section(id).groupsOn(MenuPlatform.desktop))
       if ([
             for (final entry in group)
-              if (!without.contains(entry.command)) item(entry),
+              if (!without.contains(entry.command) &&
+                  !_notInTheBar.contains(entry.command))
+                item(entry),
           ]
           case final shown when shown.isNotEmpty)
         shown,

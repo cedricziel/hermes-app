@@ -768,6 +768,7 @@
 
   "@@x-area-navigation": "",
   "navigationChordTooltip": "{label} ({chord})",
+  "navigationFocusMenuBar": "Menüleiste",
   "navigationKeyAlt": "Alt",
   "navigationKeyBackspace": "Rücktaste",
   "navigationKeyCtrl": "Strg",

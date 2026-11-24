@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
@@ -72,6 +73,13 @@ class _BarOverEntry extends StatefulWidget {
 }
 
 class _BarOverEntryState extends State<_BarOverEntry> {
+  final _bar = DesktopMenuBarController();
+  late final MacCommandRegistration _registration;
+
+  /// What had the focus when F10 moved it into the bar, which Escape gives
+  /// it back to.
+  FocusNode? _before;
+
   late final _entry = OverlayEntry(
     builder: (context) => Column(
       children: [
@@ -80,6 +88,7 @@ class _BarOverEntryState extends State<_BarOverEntry> {
           builder: (context, _) {
             final menus = desktopMenus(widget.registry, context.l10n);
             return DesktopMenuBar(
+              controller: _bar,
               menus: widget.modalRoutes?.modalOpen ?? false
                   ? [for (final menu in menus) menu.inert()]
                   : menus,
@@ -91,6 +100,48 @@ class _BarOverEntryState extends State<_BarOverEntry> {
     ),
   );
 
+  // F10 is the chord of MacCommand.focusMenuBar in menuLayout, which
+  // DesktopCommandShortcuts binds while a handler is registered: so it is
+  // taken only while the bar shows and no dialog is open, and is left to the
+  // focused widget otherwise.
+  Map<MacCommand, MacCommandHandler> get _handlers => {
+    MacCommand.focusMenuBar: MacCommandHandler(
+      widget.modalRoutes?.modalOpen ?? false ? null : _enter,
+    ),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _registration = widget.registry.register(_handlers);
+    widget.modalRoutes?.addListener(_modalChanged);
+    FocusManager.instance.addEarlyKeyEventHandler(_escape);
+  }
+
+  void _modalChanged() => _registration.update(_handlers);
+
+  void _enter() {
+    if (!_bar.hasFocus) _before = FocusManager.instance.primaryFocus;
+    _bar.focusFirstMenu();
+  }
+
+  KeyEventResult _escape(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        _before != null &&
+        _bar.hasFocus) {
+      // The menu closes on this key; the focus goes back after it has.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final before = _before;
+        _before = null;
+        if (mounted && before != null && before.context != null) {
+          before.requestFocus();
+        }
+      });
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   void didUpdateWidget(_BarOverEntry oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -99,6 +150,9 @@ class _BarOverEntryState extends State<_BarOverEntry> {
 
   @override
   void dispose() {
+    FocusManager.instance.removeEarlyKeyEventHandler(_escape);
+    widget.modalRoutes?.removeListener(_modalChanged);
+    _registration.dispose();
     _entry
       ..remove()
       ..dispose();

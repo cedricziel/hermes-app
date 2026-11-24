@@ -3623,6 +3623,10 @@
       "chord": {"type": "String", "example": "Ctrl+N"}
     }
   },
+  "navigationFocusMenuBar": "Menu bar",
+  "@navigationFocusMenuBar": {
+    "description": "Name of the command on the Keyboard shortcuts page whose key, F10, moves the keyboard into the menu bar of Windows and Linux."
+  },
   "navigationKeyAlt": "Alt",
   "@navigationKeyAlt": {
     "description": "The Alt key, as written on a keyboard shortcut."
