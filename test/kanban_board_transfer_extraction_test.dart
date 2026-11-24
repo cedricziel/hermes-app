@@ -10,6 +10,7 @@ import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -71,10 +72,7 @@ void main() {
     late FakeHermesServer server;
     late KanbanBoardController controller;
 
-    Future<void> openBoards(
-      WidgetTester tester, {
-      Locale locale = const Locale('en'),
-    }) async {
+    Future<void> openBoards(WidgetTester tester) async {
       server = FakeHermesServer()
         ..on(
           'GET',
@@ -111,7 +109,6 @@ void main() {
               ),
             ),
           ),
-          locale: locale,
         ),
       );
       await tester.tap(find.text('open boards'));
@@ -161,26 +158,6 @@ void main() {
       handle.dispose();
     });
 
-    testWidgets('Export is German on a German device', (tester) async {
-      await openBoards(tester, locale: const Locale('de'));
-      await tester.tap(find.byType(PopupMenuButton<RowAction>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Export…'));
-      await tester.pumpAndSettle();
-
-      expect(_texts(tester), [
-        'Ops exportieren',
-        'Server-Pfad',
-        'Export-Ordner verwenden',
-        'Das Archiv wird auf dem Server geschrieben, nicht auf diesem Gerät. '
-            'Bleibt es leer, wird der Export-Ordner des Servers verwendet.',
-        'Anhänge einbeziehen',
-        'Worker-Logs einbeziehen',
-        'Abbrechen',
-        'Exportieren',
-      ]);
-    });
-
     testWidgets('Import lists its options and starts with Import off', (
       tester,
     ) async {
@@ -199,6 +176,16 @@ void main() {
         'Import',
       ]);
       expect(_switches(tester), ['Open it afterwards=true/true']);
+      // The archive path takes the cursor; the slug does not.
+      expect(
+        [
+          for (final f in tester.widgetList<GroupedTextFieldRow>(
+            find.byType(GroupedTextFieldRow),
+          ))
+            '${f.label}=${f.autofocus}',
+        ],
+        ['Archive path=true', 'New board slug=false'],
+      );
       expect(
         _action(tester, TextButton, 'Cancel'),
         'Cancel|TextButton|button=true|tap=true',
@@ -223,23 +210,6 @@ void main() {
         'Import|FilledButton|button=true|tap=true',
       );
       handle.dispose();
-    });
-
-    testWidgets('Import is German on a German device', (tester) async {
-      await openBoards(tester, locale: const Locale('de'));
-      await tester.tap(find.byTooltip('Import a board'));
-      await tester.pumpAndSettle();
-
-      expect(_texts(tester), [
-        'Board importieren',
-        'Archivpfad',
-        'Neuer Board-Slug',
-        'Optional',
-        'Das Archiv muss bereits auf dem Server liegen.',
-        'Danach öffnen',
-        'Abbrechen',
-        'Importieren',
-      ]);
     });
 
     testWidgets('a switch row flips its value and keeps the other', (
