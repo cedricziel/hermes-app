@@ -26,7 +26,11 @@ args = sys.argv[1:]
 report = [a for a in args if a.startswith("json:")][0][5:]
 tests = [a for a in args if a.endswith("_test.dart")]
 src = open("lib/a.dart").read()
-open("calls.log", "a").write(repr(src) + "\n")
+if any(a.startswith("--coverage-path=") for a in args):
+    open("cov.log", "a").write(",".join(tests) + "\n")
+else:
+    open("calls.log", "a").write(repr(src) + "\n")
+    open("runs.log", "a").write(",".join(tests) + "\n")
 import os, subprocess, time
 events = []
 failing = []
@@ -70,6 +74,20 @@ else:
 with open(report, "w") as fh:
     for e in events:
         fh.write(json.dumps(e) + "\n")
+for a in args:
+    if a.startswith("--coverage-path="):
+        default = {
+            "test/a_test.dart": {"lib/a.dart": {"1": 1, "2": 0}},
+            "test/b_test.dart": {"lib/a.dart": {"1": 0, "2": 1}},
+        }
+        cov = json.load(open("cov.json")) if os.path.exists("cov.json") else default
+        with open(a.split("=", 1)[1], "w") as fh:
+            for t in tests:
+                for f, lines in cov.get(t, {}).items():
+                    fh.write("SF:%s\n" % f)
+                    for n, h in lines.items():
+                        fh.write("DA:%s,%s\n" % (n, h))
+                    fh.write("end_of_record\n")
 sys.exit(code if code is not None else (1 if failing or "MUT_BREAK" in src else 0))
 """
 
@@ -96,7 +114,8 @@ class Repo:
             "lib/a.dart": ORIGINAL,
             "test/a_test.dart": "// a\n",
             "test/b_test.dart": "// b\n",
-            ".gitignore": "calls.log\nbackup.log\nchild.pid\nbin/\nout/\n.dart_tool/\n",
+            ".gitignore": "calls.log\nbackup.log\nchild.pid\nbin/\nout/\n.dart_tool/\n"
+            "cov.log\nruns.log\ncov.json\n",
         }.items():
             self.write(p, text)
         spec = {
@@ -152,6 +171,16 @@ class Repo:
     def calls(self):
         p = os.path.join(self.dir, "calls.log")
         return self.read("calls.log").splitlines() if os.path.exists(p) else []
+
+    def log_lines(self, name):
+        p = os.path.join(self.dir, name)
+        return self.read(name).splitlines() if os.path.exists(p) else []
+
+    def commit(self, rel, text):
+        self.write(rel, text)
+        ident = ["-c", "user.name=t", "-c", "user.email=t@t"]
+        sh(self.dir, "git", *ident, "add", rel)
+        sh(self.dir, "git", *ident, "commit", "-qm", "next")
 
     def run(self, *args):
         out, err = io.StringIO(), io.StringIO()
@@ -826,6 +855,360 @@ class Resume(RepoCase):
         repo.run()
         self.assertEqual(len(repo.calls()) - before, 1)
         self.assertTrue(os.path.exists(path))
+
+
+LCOV = """TN:
+SF:lib/a.dart
+DA:1,3
+DA:2,0
+DA:2,0
+DA:5,1,abc
+LF:3
+end_of_record
+SF:lib/other.dart
+DA:1,9
+end_of_record
+SF:/repo/lib/b.dart
+end_of_record
+"""
+
+
+class CoverageParsing(unittest.TestCase):
+    def test_lcov_gives_hits_per_line_of_the_wanted_files_only(self):
+        got = ms.parse_lcov(LCOV, "/repo", {"lib/a.dart", "lib/b.dart"})
+        self.assertEqual(got["lib/a.dart"], {1: 3, 2: 0, 5: 1})
+        self.assertNotIn("lib/other.dart", got)
+        # An absolute path is made relative; a file with no lines is present.
+        self.assertEqual(got["lib/b.dart"], {})
+
+    def test_a_malformed_line_is_skipped(self):
+        text = "SF:lib/a.dart\nDA:x,1\nDA:4\nDA:3,2\n"
+        got = ms.parse_lcov(text, "/r", {"lib/a.dart"})
+        self.assertEqual(got["lib/a.dart"], {3: 2})
+
+    def test_anchor_lines(self):
+        src = "a\nb c\nd\ne\n"
+        self.assertEqual(ms.anchor_lines(src, "a"), (1, 1))
+        self.assertEqual(ms.anchor_lines(src, "c"), (2, 2))
+        self.assertEqual(ms.anchor_lines(src, "c\nd"), (2, 3))
+        self.assertEqual(ms.anchor_lines(src, "e"), (4, 4))
+
+
+def cov_of(lines, order=("t1", "t2", "t3"), loaded=("lib/a.dart",)):
+    return {
+        "order": list(order),
+        "loaded": list(loaded),
+        "lines": {"lib/a.dart": {str(n): hit for n, hit in lines.items()}},
+    }
+
+
+class SubsetSelection(unittest.TestCase):
+    tests = ["t3", "t1", "t2"]
+
+    def pick(self, cov, start, end):
+        return ms.select_subset(cov, "lib/a.dart", start, end, self.tests)
+
+    def test_the_covering_files_come_back_in_list_order(self):
+        self.assertEqual(
+            self.pick(cov_of({4: [0, 2], 5: []}), 4, 4), (None, ["t3", "t1"])
+        )
+
+    def test_a_multi_line_anchor_takes_every_file_of_any_of_its_lines(self):
+        cov = cov_of({4: [0], 5: [], 6: [1]})
+        self.assertEqual(self.pick(cov, 4, 6), (None, ["t1", "t2"]))
+
+    def test_a_line_no_test_hits_is_uncovered(self):
+        self.assertEqual(self.pick(cov_of({4: [], 5: []}), 4, 5), (ms.UNCOVERED, []))
+
+    def test_a_file_no_test_loaded_is_uncovered(self):
+        self.assertEqual(
+            self.pick(cov_of({4: [0]}, loaded=()), 4, 4), (ms.UNCOVERED, [])
+        )
+
+    def test_lines_without_coverage_data_are_not_uncovered(self):
+        self.assertEqual(self.pick(cov_of({4: [0]}), 7, 8), (ms.NO_LINE_DATA, []))
+
+    def test_a_hit_beside_an_uninstrumented_line_still_counts(self):
+        self.assertEqual(self.pick(cov_of({5: [1]}), 4, 5), (None, ["t2"]))
+
+
+class Subset(RepoCase):
+    def subset_results(self, repo):
+        data = json.loads(repo.read("out/sub.subset.json"))
+        return data, {m["id"]: m for m in data["mutants"]}
+
+    def test_each_mutant_runs_only_the_files_that_cover_its_line(self):
+        repo = self.make()
+        self.assertEqual(repo.run("--subset")[0], 0)
+        self.assertEqual(
+            repo.log_lines("cov.log"), ["test/a_test.dart", "test/b_test.dart"]
+        )
+        self.assertEqual(
+            repo.log_lines("runs.log"), ["test/a_test.dart", "test/b_test.dart"]
+        )
+        data, by = self.subset_results(repo)
+        self.assertEqual(by["m1"]["status"], ms.KILLED)
+        self.assertEqual(by["m1"]["subset_tests"], ["test/a_test.dart"])
+        self.assertEqual((by["m1"]["subset_size"], by["m1"]["full_size"]), (1, 2))
+        self.assertEqual(data["mode"], "subset")
+        self.assertEqual(data["baseline"]["source"], "coverage map")
+
+    def test_a_subset_survivor_is_labelled_subset_survived_never_survived(self):
+        repo = self.make()
+        code, out, _ = repo.run("--subset")
+        _, by = self.subset_results(repo)
+        self.assertEqual(by["m2"]["status"], ms.SUBSET_SURVIVED)
+        self.assertIn("SUBSET-SURVIVED m2", out)
+        self.assertNotIn(" SURVIVED m2", out)
+        self.assertFalse(os.path.exists(os.path.join(repo.dir, "out/sub.json")))
+
+    def test_a_subset_run_never_touches_the_lists_or_the_tree(self):
+        repo = self.make()
+        before = repo.read("tool/mutants/sub.json")
+        repo.run("--subset")
+        self.assertEqual(repo.read("tool/mutants/sub.json"), before)
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo.dir,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(status.stdout.strip(), "")
+
+    def test_a_line_no_test_covers_is_uncovered_and_not_run(self):
+        repo = self.make()
+        both = {"lib/a.dart": {"1": 1, "2": 0}}
+        repo.write(
+            "cov.json",
+            json.dumps({"test/a_test.dart": both, "test/b_test.dart": both}),
+        )
+        code, out, _ = repo.run("--subset")
+        self.assertEqual(code, 0)
+        _, by = self.subset_results(repo)
+        self.assertEqual(by["m2"]["status"], ms.UNCOVERED)
+        self.assertEqual(by["m2"]["subset_size"], 0)
+        self.assertEqual(
+            repo.log_lines("runs.log"), ["test/a_test.dart,test/b_test.dart"]
+        )  # m1 only
+        self.assertIn("UNCOVERED m2", out)
+
+    def test_the_map_is_reused_on_the_same_commit_and_tree(self):
+        repo = self.make()
+        repo.run("--subset")
+        runs = len(repo.log_lines("runs.log"))
+        code, out, _ = repo.run("--subset", "--only", "m2")
+        self.assertEqual(len(repo.log_lines("cov.log")), 2)  # not built again
+        self.assertEqual(len(repo.log_lines("runs.log")), runs + 1)
+        self.assertIn("coverage map reused", out)
+
+    def test_a_new_commit_invalidates_the_map(self):
+        repo = self.make()
+        repo.run("--coverage-map")
+        repo.commit("lib/b.dart", "x\n")
+        repo.run("--coverage-map")
+        self.assertEqual(len(repo.log_lines("cov.log")), 4)
+
+    def test_an_uncommitted_change_under_lib_invalidates_the_map(self):
+        repo = self.make()
+        repo.run("--coverage-map")
+        repo.write("lib/untracked.dart", "x\n")
+        repo.run("--coverage-map")
+        self.assertEqual(len(repo.log_lines("cov.log")), 4)
+
+    def test_editing_a_test_or_a_mutated_file_invalidates_the_map(self):
+        repo = self.make()
+        repo.run("--coverage-map")
+        repo.write("test/b_test.dart", "// b changed\n")
+        repo.run("--coverage-map")
+        self.assertEqual(len(repo.log_lines("cov.log")), 4)
+        repo.write("lib/a.dart", repo.read("lib/a.dart") + "// x\n")
+        repo.run("--coverage-map")
+        self.assertEqual(len(repo.log_lines("cov.log")), 6)
+
+    def test_an_uncommitted_change_of_the_test_list_invalidates_the_map(self):
+        repo = self.make()
+        repo.run("--coverage-map")
+        spec = json.loads(repo.read("tool/mutants/sub.json"))
+        spec["tests"].reverse()
+        repo.write("tool/mutants/sub.json", json.dumps(spec))
+        repo.run("--coverage-map")
+        self.assertEqual(len(repo.log_lines("cov.log")), 4)
+
+    def test_a_second_edit_of_an_already_dirty_file_invalidates_the_map(self):
+        repo = self.make()
+        for rel in ("test/b_test.dart", "lib/a.dart"):
+            before = len(repo.log_lines("cov.log"))
+            repo.write(rel, repo.read(rel) + "// v1\n")
+            repo.run("--coverage-map")
+            repo.write(rel, repo.read(rel) + "// v2\n")
+            repo.run("--coverage-map")
+            self.assertEqual(len(repo.log_lines("cov.log")) - before, 4, rel)
+
+    def test_a_subset_result_is_not_reused_after_another_lib_file_changed(self):
+        repo = self.make()
+        repo.run("--subset")
+        runs = len(repo.log_lines("runs.log"))
+        repo.write("lib/untracked.dart", "x\n")
+        repo.run("--subset")
+        self.assertEqual(len(repo.log_lines("runs.log")), runs + 2)
+
+    def test_run_subject_refuses_subset_with_quick(self):
+        repo = self.make()
+        spec = json.loads(repo.read("tool/mutants/sub.json"))
+        with self.assertRaises(ms.MutationError):
+            ms.run_subject(
+                repo.dir,
+                spec,
+                os.path.join(repo.dir, "out/x.json"),
+                quick=True,
+                subset=True,
+            )
+        self.assertEqual(repo.log_lines("cov.log"), [])
+
+    def test_fresh_rebuilds_the_map(self):
+        repo = self.make()
+        repo.run("--coverage-map")
+        repo.run("--coverage-map", "--fresh")
+        self.assertEqual(len(repo.log_lines("cov.log")), 4)
+
+    def test_a_partial_map_of_the_same_key_is_resumed(self):
+        repo = self.make()
+        repo.run("--coverage-map")
+        path = os.path.join(repo.dir, "out/coverage/sub.json")
+        cov = json.loads(ms.read_text(path))
+        cov["complete"] = False
+        del cov["tests"]["test/b_test.dart"]
+        ms.save(cov, path)
+        repo.run("--coverage-map")
+        self.assertEqual(repo.log_lines("cov.log")[2:], ["test/b_test.dart"])
+
+    def test_a_subset_result_of_another_map_is_not_reused(self):
+        repo = self.make()
+        repo.run("--subset")
+        runs = len(repo.log_lines("runs.log"))
+        repo.write("test/b_test.dart", "// b changed\n")
+        repo.run("--subset")
+        self.assertEqual(len(repo.log_lines("runs.log")), runs + 2)
+
+    def test_a_subset_result_of_the_same_map_is_reused(self):
+        repo = self.make()
+        repo.run("--subset")
+        runs = len(repo.log_lines("runs.log"))
+        repo.run("--subset")
+        self.assertEqual(len(repo.log_lines("runs.log")), runs)
+
+    def test_a_file_that_is_red_alone_is_left_out_of_every_subset(self):
+        repo = self.make()
+        spec = json.loads(repo.read("tool/mutants/sub.json"))
+
+        def runner(repo_dir, test, timeout, concurrency):
+            red = test == "test/b_test.dart"
+            failure = {"file": test, "test": "t", "kind": "other", "error": ""}
+            return {
+                "secs": 1.0,
+                "timed_out": False,
+                "compile_error": False,
+                "exit_code": 1 if red else 0,
+                "failures": [failure] if red else [],
+                "passed": 0 if red else 1,
+                "lcov": "SF:lib/a.dart\nDA:1,1\nDA:2,1\nend_of_record\n",
+            }
+
+        cov = ms.ensure_coverage_map(
+            repo.dir,
+            spec,
+            os.path.join(repo.dir, "out/c.json"),
+            runner=runner,
+            log=lambda *_: None,
+        )
+        self.assertFalse(cov["tests"]["test/b_test.dart"]["ok"])
+        self.assertEqual(
+            ms.select_subset(cov, "lib/a.dart", 2, 2, spec["tests"]),
+            (None, ["test/a_test.dart"]),
+        )
+
+    def test_subset_and_quick_cannot_be_combined(self):
+        repo = self.make()
+        code, _, err = repo.run("--subset", "--quick")
+        self.assertEqual(code, 2)
+        self.assertIn("cannot be combined", err)
+        self.assertEqual(repo.log_lines("runs.log"), [])
+
+    def test_summary_shows_the_subset_results(self):
+        repo = self.make()
+        repo.run("--subset")
+        code, out, _ = repo.run("--summary")
+        self.assertIn("[subset]", out)
+        self.assertIn("SUBSET-SURVIVED m2", out)
+
+    def test_the_summary_does_not_count_a_subset_survivor_as_decided(self):
+        result = {
+            "subject": "s",
+            "mode": "subset",
+            "mutants": [
+                {"id": "a", "status": ms.SUBSET_SURVIVED, "note": "n"},
+                {"id": "b", "status": ms.UNCOVERED, "note": "n"},
+            ],
+        }
+        self.assertIn("kill rate 0% (0/0 decided)", ms.summarize(result)[0])
+
+
+class RecordSurvivors(RepoCase):
+    def test_a_subset_run_is_refused_before_anything_runs(self):
+        repo = self.make()
+        before = repo.read("tool/mutants/sub.json")
+        code, _, err = repo.run("--subset", "--record-survivors")
+        self.assertEqual(code, 2)
+        self.assertIn("only a full-list run confirms a survivor", err)
+        self.assertEqual(repo.log_lines("runs.log"), [])
+        self.assertEqual(repo.read("tool/mutants/sub.json"), before)
+
+    def test_a_quick_run_is_refused_too(self):
+        repo = self.make()
+        code, _, err = repo.run("--quick", "--record-survivors")
+        self.assertEqual(code, 2)
+        self.assertEqual(repo.log_lines("runs.log"), [])
+
+    def test_the_function_refuses_a_result_of_a_subset_or_quick_run(self):
+        repo = self.make()
+        before = repo.read("tool/mutants/sub.json")
+        for mode in ("subset", "quick", None):
+            result = {
+                "commit": "0123456789abcdef",
+                "mutants": [{"id": "m2", "status": ms.SURVIVED}],
+            }
+            if mode:
+                result["mode"] = mode
+            with self.assertRaises(ms.MutationError) as raised:
+                ms.record_survivors(repo.dir, "sub", result)
+            self.assertIn("only a full-list run", str(raised.exception))
+        self.assertEqual(repo.read("tool/mutants/sub.json"), before)
+
+    def test_a_saved_subset_result_is_refused(self):
+        repo = self.make()
+        repo.run("--subset")
+        result = json.loads(repo.read("out/sub.subset.json"))
+        with self.assertRaises(ms.MutationError):
+            ms.record_survivors(repo.dir, "sub", result)
+
+    def test_a_full_run_notes_only_its_survivors(self):
+        repo = self.make()
+        code, out, _ = repo.run("--record-survivors")
+        self.assertEqual(code, 0)
+        spec = json.loads(repo.read("tool/mutants/sub.json"))
+        by = {m["id"]: m for m in spec["mutants"]}
+        self.assertEqual(by["m1"]["note"], "caught")
+        self.assertTrue(
+            by["m2"]["note"].startswith("missed; known survivor (full list, main ")
+        )
+        self.assertIn("['m2']", out)
+
+    def test_noting_twice_does_not_repeat_the_note(self):
+        repo = self.make()
+        repo.run("--record-survivors")
+        once = repo.read("tool/mutants/sub.json")
+        repo.run("--record-survivors", "--fresh")
+        self.assertEqual(repo.read("tool/mutants/sub.json"), once)
 
 
 if __name__ == "__main__":

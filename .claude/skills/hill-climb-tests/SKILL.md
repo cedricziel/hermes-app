@@ -68,6 +68,50 @@ and a machine shared with other agents should not run two at once. Use
 `--quick` while iterating and the full list to certify a result: a quick
 survivor may still be killed by a test outside the subset.
 
+## Subset mode (a lead, never a finding)
+
+A full-list run of a big subject costs about 25 to 30 minutes per mutant and
+as much for the baseline. Subset mode cuts that to the test files that cover
+the mutant's line:
+
+```bash
+python3 -I scripts/mutation_sample.py gateway_reconnect --coverage-map   # once per commit, about one baseline
+python3 -I scripts/mutation_sample.py gateway_reconnect --subset --only rc01,rc02
+python3 -I scripts/mutation_sample.py token_store --record-survivors     # full list only
+```
+
+- `--coverage-map` runs every file of the list alone with `flutter test
+  --coverage` and saves which file covers which line of the mutated files to
+  `<out>/coverage/<subject>.json` (default `.dart_tool/mutation-sample/`, never
+  in the tree). It is keyed by the commit and a hash of the mutated files, the
+  test list and files, and the dirty state of `lib/` and `test/`, so any edit
+  rebuilds it and a rerun at the same key reuses it (a map interrupted midway
+  resumes). `--fresh` rebuilds it.
+- `--subset` builds the map when it is missing or stale, then runs each mutant
+  against only the files that cover the lines its `old` occupies. The per-file
+  runs of the map are its baseline, so no full-list baseline is run; a file
+  that is not green alone is left out (`left_out` in the result). Results go to
+  `<subject>.subset.json`, never to `<subject>.json`, and `--summary` shows both.
+- A subset run that finds a failing test is a real kill (`KILLED`, with
+  `subset_size` and `full_size`). One that finds none says `SUBSET-SURVIVED`,
+  never `SURVIVED`: a test outside the subset may kill it. A mutant whose lines
+  no test hits is `UNCOVERED`, and one whose lines carry no coverage data (a
+  declaration, a constant) is `NO-LINE-DATA`; neither is run, and neither is a
+  finding either.
+
+**Rule: a subset result never confirms a survivor.** Only a full-list run
+(`SURVIVED`, no `--subset`, no `--quick`) does. So a `SUBSET-SURVIVED`,
+`UNCOVERED` or `NO-LINE-DATA` mutant is rerun with `--only <id>` on the full
+list before anything is written about it: not a survivor note in
+`tool/mutants/*.json`, not a "known survivor", not a "Known equivalent
+mutants" entry, not a PR claim. The runner enforces it: `--record-survivors`
+(the only path that writes a survivor note) refuses a subset, quick or
+baseline-only run with exit 2, and `record_survivors` refuses any result whose
+mode is not `full`. Use subset mode to find which mutants to confirm and to
+check a new test's kill quickly (a kill in a subset is as good as one on the
+full list); a subject where a subset ever missed a full-list kill stays on the
+full list (see the PR that added the mode for the corpus check).
+
 ## Read the results
 
 Per mutant: `KILLED`, `SURVIVED` (exit 0, nothing failed, and at least 90% of
@@ -120,7 +164,8 @@ killed / (killed + survived).
   that imports the library counts, at any depth. `test/workflows/*` is always
   included. Run it after a pull that adds test files, and add what it finds.
 - A survivor is a test gap only after it ran against the full `tests` list,
-  not only `quick_tests`: a quick survivor is a lead, not a finding.
+  not only `quick_tests` and not only a `--subset` run: a quick or subset
+  survivor is a lead, not a finding.
 - Re-run a subject's mutants after any merge that touches it (its product
   files or its tests), and state the main commit next to every result. A
   kill rate without a commit is not comparable.

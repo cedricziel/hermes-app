@@ -13,6 +13,27 @@ Other flags: `--fresh` ignores saved results, `--baseline-only` runs only the
 unmutated tests, `--concurrency N` is passed to `flutter test` (default 2),
 `--out DIR` puts the results elsewhere, `--repo DIR` names another checkout.
 
+Subset mode runs a mutant against the test files that cover its line instead of
+the whole list (a lead, never a finding):
+
+    scripts/mutation_sample.py gateway_reconnect --coverage-map   build the map
+    scripts/mutation_sample.py gateway_reconnect --subset --only rc01
+    scripts/mutation_sample.py token_store --record-survivors     full list only
+
+`--coverage-map` runs each test file of the list alone with `flutter test
+--coverage` and saves which file covers which line of the mutated files under
+`<out>/coverage/<subject>.json`, keyed by the commit and a hash of the mutated
+files, the test list and the dirty state of lib/ and test/. `--subset` builds
+the map when it is missing or stale, then runs each mutant against only the test
+files that cover the lines of its `old`. The per-file runs of the map are its
+baseline (no full-list baseline is run). A mutant whose lines no test covers is
+UNCOVERED, one whose lines carry no coverage data is NO-LINE-DATA; neither is
+run. A subset run that finds no failing test says SUBSET-SURVIVED, never
+SURVIVED, saves to `<subject>.subset.json` and never records a survivor: only a
+full-list run confirms one, and `--record-survivors` (which appends "known
+survivor" to the notes of SURVIVED mutants in the list) refuses after anything
+but a full-list run.
+
 A list is `tool/mutants/<subject>.json`:
 
     {"subject": str, "tests": [files], "quick_tests": [files] (optional),
@@ -72,6 +93,10 @@ KILLED, SURVIVED, TIMEOUT, INVALID, INCONCLUSIVE = (
     "INVALID",
     "INCONCLUSIVE",
 )
+# Statuses only a subset run produces. None of them is a confirmed survivor.
+SUBSET_SURVIVED = "SUBSET-SURVIVED"
+UNCOVERED = "UNCOVERED"
+NO_LINE_DATA = "NO-LINE-DATA"
 # A run that ran fewer tests than this share of the baseline proves nothing.
 MIN_RAN_SHARE = 0.9
 
@@ -217,8 +242,10 @@ def require_clean(repo, files):
         )
 
 
-def run_tests(repo, tests, timeout, concurrency=2):
-    """Runs `flutter test` on [tests]; returns what the JSON report says."""
+def run_tests(repo, tests, timeout, concurrency=2, coverage_path=None):
+    """Runs `flutter test` on [tests]; returns what the JSON report says.
+
+    With [coverage_path] it also writes the lcov report there."""
     fd, report = tempfile.mkstemp(suffix=".json")
     os.close(fd)
     proc = None
@@ -229,6 +256,11 @@ def run_tests(repo, tests, timeout, concurrency=2):
             f"--concurrency={concurrency}",
             "--file-reporter",
             f"json:{report}",
+            *(
+                ["--coverage", f"--coverage-path={coverage_path}"]
+                if coverage_path
+                else []
+            ),
             *tests,
         ]
         t0 = time.time()
@@ -388,6 +420,177 @@ def entry_hash(m):
     return digest(m["id"], m["file"], m["old"], m["new"])
 
 
+def run_coverage(repo, test, timeout, concurrency=2):
+    """Runs [test] alone with coverage; the run's record plus its lcov text."""
+    fd, lcov = tempfile.mkstemp(suffix=".info")
+    os.close(fd)
+    try:
+        r = run_tests(repo, [test], timeout, concurrency, coverage_path=lcov)
+        r["lcov"] = read_text(lcov)
+        return r
+    finally:
+        try:
+            os.unlink(lcov)
+        except OSError:
+            pass
+
+
+def parse_lcov(text, repo, wanted):
+    """{file: {line: hits}} of the [wanted] files in an lcov report.
+
+    A file the report names but gives no lines is present with no lines."""
+    out, cur = {}, None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("SF:"):
+            path = rel(line[3:], repo).replace(os.sep, "/")
+            cur = out.setdefault(path, {}) if path in wanted else None
+        elif line.startswith("DA:") and cur is not None:
+            parts = line[3:].split(",")
+            try:
+                n, hits = int(parts[0]), int(parts[1])
+            except (ValueError, IndexError):
+                continue
+            cur[n] = cur.get(n, 0) + hits
+        elif line == "end_of_record":
+            cur = None
+    return out
+
+
+def coverage_key(repo, spec):
+    """What the map of [spec] is valid for: the commit, the mutated files, the
+    test list and its files, and any uncommitted change under lib/ and test/."""
+    files = sorted({m["file"] for m in spec["mutants"]})
+    dirty = git(
+        repo,
+        "status",
+        "--porcelain",
+        "--",
+        "lib",
+        "test",
+        "packages",
+        "pubspec.yaml",
+        "pubspec.lock",
+    ).stdout
+    return {
+        "commit": head_sha(repo),
+        "digest": digest(
+            *[f + "\n" + read_text(os.path.join(repo, f)) for f in files],
+            "tests",
+            *spec["tests"],
+            tests_hash(repo, spec["tests"]),
+            "dirty",
+            dirty,
+        ),
+    }
+
+
+def ensure_coverage_map(
+    repo, spec, path, fresh=False, concurrency=2, log=print, runner=run_coverage
+):
+    """The coverage map of [spec] at [path]: reused when its key matches,
+    otherwise built by running every test file alone, resuming a partial map
+    of the same key.
+
+    {"key", "order": [test files], "tests": {file: {secs, passed, ok}},
+     "loaded": [mutated files some test loaded],
+     "lines": {mutated file: {line: [indexes into order that hit it]}}}"""
+    key = coverage_key(repo, spec)
+    files = sorted({m["file"] for m in spec["mutants"]})
+    cov = None
+    if not fresh and os.path.exists(path):
+        old = json.loads(read_text(path))
+        if old.get("subject") == spec["subject"] and old.get("key") == key:
+            cov = old
+    if cov is None:
+        cov = {
+            "subject": spec["subject"],
+            "key": key,
+            "order": list(spec["tests"]),
+            "tests": {},
+            "loaded": [],
+            "lines": {f: {} for f in files},
+            "complete": False,
+        }
+    if cov["complete"]:
+        log(f"{spec['subject']}: coverage map reused ({len(cov['tests'])} files)")
+        return cov
+    for i, test in enumerate(spec["tests"]):
+        if test in cov["tests"]:
+            continue
+        r = runner(repo, test, 3600, concurrency)
+        why = baseline_problem(r)
+        entry = {"secs": r["secs"], "passed": r["passed"], "ok": why is None}
+        if why:
+            entry["reason"] = why
+        else:
+            for f, lines in parse_lcov(r.get("lcov", ""), repo, set(files)).items():
+                if f not in cov["loaded"]:
+                    cov["loaded"].append(f)
+                for n, hits in lines.items():
+                    hit = cov["lines"][f].setdefault(str(n), [])
+                    if hits > 0:
+                        hit.append(i)
+        cov["tests"][test] = entry
+        save(cov, path)
+        log(f"{spec['subject']}: map {len(cov['tests'])}/{len(spec['tests'])} {test}")
+    cov["complete"] = True
+    save(cov, path)
+    return cov
+
+
+def anchor_lines(src, old):
+    """First and last line (1-based) that the single occurrence of [old] in
+    [src] occupies."""
+    start = src[: src.index(old)].count("\n") + 1
+    return start, start + old.count("\n")
+
+
+def select_subset(cov, file, start, end, tests):
+    """(None, test files covering lines [start, end] of [file], in list order),
+    or (UNCOVERED, []) when no test covers them, or (NO_LINE_DATA, []) when
+    none of those lines carries coverage data (a declaration, a constant)."""
+    if file not in cov["loaded"]:
+        return UNCOVERED, []
+    lines = cov["lines"].get(file, {})
+    known = [lines[str(n)] for n in range(start, end + 1) if str(n) in lines]
+    if not known:
+        return NO_LINE_DATA, []
+    hit = {cov["order"][i] for idx in known for i in idx}
+    if not hit:
+        return UNCOVERED, []
+    return None, [t for t in tests if t in hit]
+
+
+def record_survivors(repo, name, result):
+    """Appends "known survivor" to the note of every SURVIVED mutant of
+    [result] in tool/mutants/<name>.json. Only a full-list run may do this: a
+    subset or quick run is a lead, and it never writes a survivor note."""
+    if result.get("mode") != "full":
+        raise MutationError(
+            f"refusing to record survivors of {name}: the run was "
+            f"'{result.get('mode', '?')}', and only a full-list run confirms a "
+            "survivor. Rerun without --subset and --quick."
+        )
+    survivors = {
+        m["id"]
+        for m in result["mutants"]
+        if m["status"] == SURVIVED and not m.get("stale")
+    }
+    path = os.path.join(repo, LISTS, name + ".json")
+    spec = json.loads(read_text(path))
+    changed = []
+    for m in spec["mutants"]:
+        if m["id"] in survivors and "known survivor" not in m.get("note", ""):
+            tag = f"known survivor (full list, main {result['commit'][:8]})"
+            m["note"] = (m["note"] + "; " if m.get("note") else "") + tag
+            changed.append(m["id"])
+    if changed:
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            fh.write(json.dumps(spec, indent=2, ensure_ascii=False) + "\n")
+    return changed
+
+
 def run_subject(
     repo,
     spec,
@@ -399,6 +602,8 @@ def run_subject(
     concurrency=2,
     log=print,
     runner=run_tests,
+    subset=False,
+    cov_runner=run_coverage,
 ):
     problems = validate(repo, spec)
     if problems:
@@ -409,19 +614,40 @@ def run_subject(
         spec.get("quick_tests") if quick and spec.get("quick_tests") else spec["tests"]
     )
     mode = "quick" if tests is not spec["tests"] else "full"
+    if subset:
+        if mode == "quick":
+            raise MutationError("--subset and --quick cannot be combined")
+        mode = "subset"
     if only:
         unknown = only - {m["id"] for m in spec["mutants"]}
         if unknown:
             raise MutationError(f"unknown mutant ids: {', '.join(sorted(unknown))}")
     mutants = [m for m in spec["mutants"] if not only or m["id"] in only]
     require_clean(repo, {m["file"] for m in mutants})
+    cov = None
+    if subset:
+        cov = ensure_coverage_map(
+            repo,
+            spec,
+            os.path.join(
+                os.path.dirname(out_path), "coverage", spec["subject"] + ".json"
+            ),
+            fresh=fresh,
+            concurrency=concurrency,
+            log=log,
+            runner=cov_runner,
+        )
     key = {
         "commit": head_sha(repo),
         "mode": mode,
         "tests": tests,
         "tests_hash": tests_hash(repo, tests),
     }
+    if cov is not None:
+        key["map"] = cov["key"]["digest"]
     result = {"subject": spec["subject"], **key, "mutants": []}
+    if subset:
+        result["subset"] = True
     if not fresh and os.path.exists(out_path):
         old = json.loads(read_text(out_path))
         if old.get("subject") == spec["subject"]:
@@ -436,6 +662,19 @@ def run_subject(
                     for m in old.get("mutants", [])
                     if m["id"] not in only
                 ]
+    if cov is not None and "baseline" not in result:
+        # The per-file runs of the map are the baseline: a file that is not
+        # green alone is left out of every subset.
+        ran = [v for v in cov["tests"].values() if v["ok"]]
+        result["baseline"] = {
+            "secs": round(sum(v["secs"] for v in ran), 1),
+            "passed": sum(v["passed"] for v in ran),
+            "source": "coverage map",
+        }
+        left_out = sorted(t for t, v in cov["tests"].items() if not v["ok"])
+        if left_out:
+            result["left_out"] = left_out
+        save(result, out_path)
     if "baseline" not in result:
         b = runner(repo, tests, 3600, concurrency)
         why = baseline_problem(b)
@@ -464,6 +703,31 @@ def run_subject(
             continue
         path = os.path.join(repo, m["file"])
         src = read_text(path)
+        run_list, run_limit = tests, limit
+        run_baseline = result["baseline"]["passed"]
+        if cov is not None:
+            first, last = anchor_lines(src, m["old"])
+            why, chosen = select_subset(cov, m["file"], first, last, tests)
+            if why:
+                rec = {
+                    "id": m["id"],
+                    "file": m["file"],
+                    "note": m.get("note", ""),
+                    "status": why,
+                    "secs": 0,
+                    "entry": digest_of,
+                    "line": first,
+                    "subset_size": 0,
+                    "full_size": len(tests),
+                }
+                result["mutants"] = [x for x in result["mutants"] if x["id"] != m["id"]]
+                result["mutants"].append(rec)
+                save(result, out_path)
+                log(f"{m['id']} {why} (not run)")
+                continue
+            run_list = chosen
+            run_baseline = sum(cov["tests"][t]["passed"] for t in chosen)
+            run_limit = max(120, 3 * sum(cov["tests"][t]["secs"] for t in chosen))
         backup = os.path.join(repo, BACKUPS, m["file"])
         os.makedirs(os.path.dirname(backup), exist_ok=True)
         with open(backup, "w", encoding="utf-8", newline="") as fh:
@@ -472,10 +736,20 @@ def run_subject(
         try:
             with open(path, "w", encoding="utf-8", newline="") as fh:
                 fh.write(src.replace(m["old"], m["new"], 1))
-            r = runner(repo, tests, limit, concurrency)
+            r = runner(repo, run_list, run_limit, concurrency)
         finally:
             restore_all()
-        rec = classify_run(m, r, repo, result["baseline"]["passed"])
+        rec = classify_run(m, r, repo, run_baseline)
+        if cov is not None:
+            rec["subset_size"] = len(run_list)
+            rec["full_size"] = len(tests)
+            rec["subset_tests"] = run_list
+            if rec["status"] == SURVIVED:
+                rec["status"] = SUBSET_SURVIVED
+                rec["reason"] = (
+                    f"ran {len(run_list)} of {len(tests)} test files; "
+                    "confirm on the full list before calling it a survivor"
+                )
         rec["entry"] = digest_of
         rec["line"] = src[: src.index(m["old"])].count("\n") + 1
         result["mutants"] = [x for x in result["mutants"] if x["id"] != m["id"]]
@@ -518,7 +792,14 @@ def summarize(result):
             "   sole killer: " + ", ".join(f"{k} {v}" for k, v in sorted(sole.items()))
         )
     for m in ms:
-        if m["status"] in (SURVIVED, INVALID, INCONCLUSIVE):
+        if m["status"] in (
+            SURVIVED,
+            INVALID,
+            INCONCLUSIVE,
+            SUBSET_SURVIVED,
+            UNCOVERED,
+            NO_LINE_DATA,
+        ):
             extra = f" ({m['reason']})" if m.get("reason") else ""
             lines.append(
                 f"   {m['status']} {m['id']} line {m.get('line', '?')}: {m['note']}{extra}"
@@ -546,12 +827,39 @@ def main(argv=None):
         "--summary", action="store_true", help="print saved results and stop"
     )
     ap.add_argument("--baseline-only", action="store_true")
+    ap.add_argument(
+        "--coverage-map",
+        action="store_true",
+        help="build (or reuse) the line-to-test-file map of each subject and stop",
+    )
+    ap.add_argument(
+        "--subset",
+        action="store_true",
+        help="run each mutant against the test files that cover its lines "
+        "(a lead: only a full-list run confirms a survivor)",
+    )
+    ap.add_argument(
+        "--record-survivors",
+        action="store_true",
+        help="after a full-list run, note the survivors in tool/mutants",
+    )
     ap.add_argument("--concurrency", type=int, default=2)
     args = ap.parse_args(argv)
     repo = os.path.abspath(args.repo)
     out_dir = args.out or os.path.join(repo, RESULTS)
     names = args.subjects or subject_names(repo)
     only = set(args.only.split(",")) if args.only else None
+    if args.record_survivors and (args.subset or args.quick or args.baseline_only):
+        print(
+            "error: refusing --record-survivors with --subset, --quick or "
+            "--baseline-only: only a full-list run confirms a survivor, and "
+            "nothing else writes a survivor note",
+            file=sys.stderr,
+        )
+        return 2
+    if args.subset and args.quick:
+        print("error: --subset and --quick cannot be combined", file=sys.stderr)
+        return 2
 
     for name in ("SIGTERM", "SIGHUP"):
         if hasattr(signal, name):
@@ -560,10 +868,13 @@ def main(argv=None):
         specs = [load_spec(os.path.join(repo, LISTS, n + ".json")) for n in names]
         if args.summary:
             for s in specs:
-                p = os.path.join(out_dir, s["subject"] + ".json")
-                if os.path.exists(p):
-                    print("\n".join(summarize(json.loads(read_text(p)))))
-                else:
+                found = False
+                for suffix in (".json", ".subset.json"):
+                    p = os.path.join(out_dir, s["subject"] + suffix)
+                    if os.path.exists(p):
+                        found = True
+                        print("\n".join(summarize(json.loads(read_text(p)))))
+                if not found:
                     print(f"== {s['subject']}: no results")
             return 0
         if args.check:
@@ -578,18 +889,45 @@ def main(argv=None):
                     f"{'ok' if not problems else 'NOT OK'}"
                 )
             return 1 if bad else 0
+        if args.coverage_map:
+            for s in specs:
+                problems = validate(repo, s)
+                if problems:
+                    raise MutationError(
+                        f"{s['subject']}: list is not fit:\n  " + "\n  ".join(problems)
+                    )
+                cov = ensure_coverage_map(
+                    repo,
+                    s,
+                    os.path.join(out_dir, "coverage", s["subject"] + ".json"),
+                    fresh=args.fresh,
+                    concurrency=args.concurrency,
+                )
+                bad = sorted(t for t, v in cov["tests"].items() if not v["ok"])
+                print(
+                    f"{s['subject']}: coverage map of {len(cov['tests'])} test files "
+                    f"at {cov['key']['commit'][:8]}, {len(bad)} not green alone"
+                    + "".join(f"\n   {t}" for t in bad)
+                )
+            return 0
         for s in specs:
             result = run_subject(
                 repo,
                 s,
-                os.path.join(out_dir, s["subject"] + ".json"),
+                os.path.join(
+                    out_dir, s["subject"] + (".subset.json" if args.subset else ".json")
+                ),
                 only=only,
                 quick=args.quick,
                 fresh=args.fresh,
                 baseline_only=args.baseline_only,
                 concurrency=args.concurrency,
+                subset=args.subset,
             )
             print("\n".join(summarize(result)))
+            if args.record_survivors and not args.baseline_only:
+                changed = record_survivors(repo, s["subject"], result)
+                print(f"{s['subject']}: survivor notes written for {changed or 'none'}")
         return 0
     except MutationError as e:
         print(f"error: {e}", file=sys.stderr)
