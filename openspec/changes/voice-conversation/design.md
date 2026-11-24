@@ -138,3 +138,30 @@ The safety rules (consent, stopping, failed transcription, interruptions, teardo
 ## Design pass
 
 Canvas and decisions: `docs/design-briefs/voice-conversation.md`. At the largest text size the start screen scrolls with the consent switch and "Start call" pinned at the bottom; the strip drops its second half instead of wrapping.
+
+## Call screen: last turn lines and Speak replies switch (as built)
+
+Recorded after the fact on 2026-11-24; describes what #1223 built. This change is still at `openspec/changes/voice-conversation/` (it has not moved to `openspec/changes/archive/`). Read from `lib/src/voice/widgets/voice_turn_list.dart` and `lib/src/voice/widgets/voice_call_view.dart` on main. The words below are the English ones in `lib/l10n/arb/app_en.arb`; the German ones are in `app_de.arb`.
+
+Last turn lines (`VoiceTurnList`):
+
+- Two plain lines, not bubbles, in the call's state block under the hint, with 12 pt above them and 8 pt between them and the elapsed time. Line one is "You" and what the user said, as it was sent. Line two is "Hermes" and the reply as it streams in. Each name is muted (`onSurfaceVariant`), semibold (w600), followed by two spaces and the words in `bodyMedium` in the normal text colour. The lines are 4 pt apart.
+- The "You" line stops at 2 lines and the "Hermes" line at 3, each with an end ellipsis; the chat has the whole turn. Nothing is drawn until there is a line: the "Hermes" line is left out until the first words of the reply arrive, and the whole list is empty before the first turn.
+- They are not shown while a caption or an error is showing: the caption of a turn being sent replaces them. A stopped call (ended, failed) shows none. Under App Lock the lock cover hides them with the rest of the screen. The words live in call memory only and are dropped by the teardown.
+- Tokens: `onSurfaceVariant` for the names and the note, the theme's `bodyMedium`. Dark follows the theme.
+- Large text: the line caps hold, so long words end in an ellipsis rather than growing the block; the state word above uses a shrink-to-fit scale in a narrow column. The tests check long lines in bounds at 1x and 2x (`test/voice/widgets/voice_turn_list_test.dart`); there is no dedicated 3x case, the catalog's text scale addon (1x to 3x) is the way to look.
+
+Speak replies switch:
+
+- A row under the Mute, Speaker and End controls, 16 pt below them, in a card: `surfaceContainerLow` fill, a 16 pt radius and a 1 px `outlineVariant` border. The row is a `GroupedSwitchRow` titled "Speak replies" (the title wraps; there is no subtitle). It shows only while the call is live and only when the caller passes `onSpeakRepliesChanged`; a stopped call has no switch. It is on by default, applies to the open call and is never stored, so the next call starts on again.
+- On: the call as before (the listening hint is "Speak, then pause. Hermes sends what you said.").
+- Off: the listening hint reads "Replies are not spoken. The answer will be in the chat." The other hints are unchanged (Thinking still says "Hermes is working on your request."). When the reply has finished, the "Hermes" turn line reads "Reply is in the chat" in muted italics in place of the reply's words, because the words are not repeated. Switching off during a reply stops the voice at once and moves Speaking to Thinking, so the orb stops offering to interrupt.
+- Behaviour behind it: off skips the speech socket and the tts-lease; the lease (`app:conversation:<random uuid>`) is held while the call is open and the switch is on, and released once in the teardown or when the switch goes off. See "Speaking and barge-in" above.
+
+Use cases, in `widgetbook/voice_call_use_cases.dart`:
+
+- component "VoiceTurnList": `Empty (draws nothing)`, `You only (reply not started)`, `Both lines`, `Long words (ellipsis)`, `Reply is in the chat`, `Phone width (320 pt)`
+- component "VoiceCallView", the turn list: `Listening, last turn`, `Listening, last turn, long words`, `Speaking, reply on its way (last turn)`, `Sending: the caption replaces the last turn`
+- component "VoiceCallView", Speak replies off: `Speak replies off`, `Speak replies off, reply is in the chat`, `Speak replies off, thinking`. The switch in each of these is live in the catalog, so it can be turned back on.
+
+Tests: `test/voice/widgets/voice_turn_list_test.dart`, `test/voice/calls/voice_call_turn_list_screen_test.dart`, `test/voice/calls/voice_call_speak_replies_test.dart`.

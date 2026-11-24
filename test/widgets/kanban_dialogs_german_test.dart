@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
+import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_orchestration_dialog.dart';
@@ -78,6 +79,17 @@ void main() {
       'Abbrechen',
       'Importieren',
     ]);
+  });
+
+  testWidgets('a Kanban text prompt has a German Cancel', (tester) async {
+    await open(
+      tester,
+      () =>
+          () =>
+              askKanbanText(context, title: 'Neues Board', confirm: 'Anlegen'),
+    );
+    expectGerman(['Neues Board', 'Abbrechen', 'Anlegen']);
+    expect(find.text('Cancel'), findsNothing);
   });
 
   testWidgets('edit task is German', (tester) async {

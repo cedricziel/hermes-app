@@ -250,6 +250,38 @@ Accepted differences from the Flutter build:
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device. Contrast and large text sizes were not measured.
 
+## AppBanner action stacking at large text
+
+Recorded after the fact on 2026-11-24; describes what #1107 built. The look below is read from `lib/src/widgets/app_banner.dart` on main. No design canvas was made for it; the use cases named at the end are the record.
+
+Box (every case): 12 pt padding, a 10 pt radius, a fill of the tone colour at 10% and a 1 px border of the tone colour at 35%. The icon is 18 pt with a 10 pt gap before the text. The title is semibold (w600), the detail follows in the body style. Tone colours are `HermesChatColors.success` (#166534 light, #4ADE80 dark), `HermesChatColors.warning` (#92400E, #FBBF24), the scheme's error colour and, for neutral, `subtleText`. The widget has no dark-specific branch; dark comes from those tokens.
+
+Placement of the action:
+
+- Beside the text (default): the action is the last child of the icon and text row. The text column takes the rest of the width.
+- Stacked: the action moves under the text row and starts at the text's leading edge (the box's inner start plus 18 pt icon plus 10 pt gap, so 28 pt), not the box's edge. This applies when the text scaler turns 14 pt into more than 21 pt (above 150% text size) or when the locale's language is German, at any text size. A caller that caps its button's width while the action sits beside the text lifts the cap when `AppBanner.stacksAction(context)` is true (`_noteAction` in `lib/src/files/widgets/files_notes.dart` does: 150 pt cap beside, none stacked).
+- A stacked button gets no inner side padding and 8 pt vertical padding, and is start-aligned, so its label lines up with the title above it while its target still reaches past the label. A button that sets its own side padding (through `style:`) is moved back toward the leading edge by that padding, clamped to 0 to 28 pt. The move is done in layout, so the whole target stays tappable. A button inside a Semantics, ExcludeSemantics or MergeSemantics wrapper is seen; one inside any other wrapper is not moved.
+- A button action's minimum target, beside or stacked, is 44 pt on iOS (`kAppleMinTapTarget`), 48 dp on Material and 28 pt on a Mac, as a constraint around the button, so the Mac theme's compact density and a caller's own `minimumSize` cannot cut it. The tap target size is shrink-wrapped.
+- An action that is not a button, such as a small spinner, is passed with `actionIsButton: false`; it keeps its own size and is not moved.
+
+Large text: nothing is cut. The title and detail wrap in full at 2x and 3x; the stacked action sits under them. In German the banner is already stacked at 1.0x text, because long words would squeeze the text into a narrow column beside the action.
+
+The banner is a polite live region; its container label is "title. detail" and the icon and text are excluded from the tree so it is read once. The action keeps its own node.
+
+Use cases, in `widgetbook/app_banner_use_cases.dart` (the catalog shows each in light and dark, and the text scale addon covers 1x to 3x):
+
+- `Largest text, with action` (2x, neutral, "You are offline" with "Try again")
+- `Largest text (3x), long title, stacked action` (warning, "Couldn't confirm the save" with "Check")
+- `German, stacked action` (warning, "Die Speicherung konnte nicht bestätigt werden" with "Erneut prüfen")
+- `Action target (iPhone)`, `Action target (Mac)` and `Action target (Material)` (a pink outline marks the action's box: 44, 28 and 48)
+- each tone with and without an action, title only, and `Custom icon`
+
+Tests: `test/app_banner_test.dart` (stacking threshold, German, the three targets, the flush move and its tap target).
+
+## Bot Screen viewer theme in Mac catalog previews
+
+Recorded after the fact on 2026-11-24; describes what #1295 built. The Bot Screen viewer (`BotScreenViewerView`) builds its black theme with `buildHermesDarkTheme(platform: …)` for the platform of the surrounding theme, so a Mac catalog session no longer gives the iPhone and Material viewer use cases desktop tap-target size and density (and a flutter-test desktop case no longer gets phone sizing); the use cases that pick a platform (`onEachPlatform`, `_on` in `widgetbook/bot_screen_use_cases.dart`) go through `platformTheme` in `widgetbook/platform_theme.dart`, which keeps the surrounding brightness. Guarded by `arch.theme-platform-copy` and `test/bot_screen/viewer/bot_screen_viewer_view_test.dart` ("the viewer theme is built for ...").
+
 ## Grouped row value width
 
 How the shared grouped rows split width between the title and the trailing value when space is short. The pick is built; see "Design (done)" below.

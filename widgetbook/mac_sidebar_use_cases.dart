@@ -27,6 +27,7 @@ import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'keyboard_focused.dart';
 import 'platform_theme.dart';
 
 /// [child] with the Mac look, whatever the catalog's viewport.
@@ -134,6 +135,23 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
                 onToggle: () {},
               ),
               maxWidth: 260,
+            ),
+          ),
+        for (final (name, collapsed) in [('Open', false), ('Folded', true)])
+          _case(
+            'Keyboard focus, $name',
+            () => KeyboardFocused(
+              target: const Key('sidebar-section-header'),
+              child: frame(
+                MacSidebarSectionHeader(
+                  key: const Key('sidebar-section-header'),
+                  label: 'Today',
+                  count: 4,
+                  collapsed: collapsed,
+                  onToggle: () {},
+                ),
+                maxWidth: 260,
+              ),
             ),
           ),
       ],
@@ -330,6 +348,20 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
               ),
             ),
           ),
+        _case(
+          'End search button with keyboard focus',
+          () => KeyboardFocused(
+            target: const Key('toolbar-search-clear'),
+            child: frame(
+              MacToolbarSearchField(
+                query: 'backup',
+                active: true,
+                onChanged: (_) {},
+                onEnd: () {},
+              ),
+            ),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(

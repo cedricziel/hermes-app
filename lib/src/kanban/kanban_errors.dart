@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../l10n/l10n.dart';
 import '../telemetry/report_bug.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/route_dismissal.dart';
@@ -120,7 +121,7 @@ class _TextDialogState extends State<_TextDialog> {
       actions: [
         AppDialogAction(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.widgetsCancel),
         ),
         AppDialogAction(
           isDefault: true,
@@ -141,4 +142,9 @@ Future<bool> confirmKanban(
   BuildContext context, {
   required String title,
   required String confirm,
-}) => showConfirmDialog(context, title: title, confirmLabel: confirm);
+}) => showConfirmDialog(
+  context,
+  title: title,
+  confirmLabel: confirm,
+  cancelLabel: context.l10n.widgetsCancel,
+);
