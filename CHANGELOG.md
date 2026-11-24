@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.83](https://github.com/cedricziel/hermes-app/compare/v0.1.82...v0.1.83) (2026-11-24)
+
+
+### Features
+
+* **files:** zoom, reset and pan the image viewers from the keyboard ([#1323](https://github.com/cedricziel/hermes-app/issues/1323)) ([163e098](https://github.com/cedricziel/hermes-app/commit/163e098a43a5450a0e6351db56793250a37de9dc))
+* **harness:** check that new widgets reach the catalog ([#1310](https://github.com/cedricziel/hermes-app/issues/1310)) ([11341be](https://github.com/cedricziel/hermes-app/commit/11341be765ecc4a6ec45f1f2a1c89bc5358af080))
+* **widgetbook:** add use cases for four UI changes ([#1326](https://github.com/cedricziel/hermes-app/issues/1326)) ([c50269c](https://github.com/cedricziel/hermes-app/commit/c50269ceaea2da6fd896525fd318a0b687e1ecc9))
+* **widgets:** draw the keyboard focus ring inside sidebar rows ([#1311](https://github.com/cedricziel/hermes-app/issues/1311)) ([e181b67](https://github.com/cedricziel/hermes-app/commit/e181b67230e7eca70c05cc83a9366b9f41f50d12))
+* **widgets:** keyboard focus and ring for the iOS popup menu trigger ([#1320](https://github.com/cedricziel/hermes-app/issues/1320)) ([f9d5707](https://github.com/cedricziel/hermes-app/commit/f9d5707e6d0c5ad630e509f41f8a7c2caac4e034))
+* **widgets:** make the search clear, section header and thumbnail controls keyboard-focusable ([#1315](https://github.com/cedricziel/hermes-app/issues/1315)) ([dfcdd15](https://github.com/cedricziel/hermes-app/commit/dfcdd15d4a98716675ffd15d920d2fc8e7d3a6e7))
+
+
+### Bug Fixes
+
+* **chat:** keep the code block header inside its width at large text ([#1302](https://github.com/cedricziel/hermes-app/issues/1302)) ([e8b9019](https://github.com/cedricziel/hermes-app/commit/e8b90194c244a8d1308328142742bf1ae27a8cd6))
+* **l10n:** localize the Kanban bulk bar and the Kanban Cancel buttons ([#1312](https://github.com/cedricziel/hermes-app/issues/1312)) ([9a53dfc](https://github.com/cedricziel/hermes-app/commit/9a53dfc6366a8917127d7d0d4dd9a715d36e485f))
+
+
+### Documentation
+
+* **design:** record eight UI changes after the fact ([#1325](https://github.com/cedricziel/hermes-app/issues/1325)) ([ead0db8](https://github.com/cedricziel/hermes-app/commit/ead0db8218626d803afc6dba86f480698dca4c4e))
+* **design:** record the focus ring of the iOS popup trigger ([#1313](https://github.com/cedricziel/hermes-app/issues/1313)) ([0b00777](https://github.com/cedricziel/hermes-app/commit/0b00777f05167be2699e1b8460c95ae27738f4db))
+* **release:** merge a clean release PR directly with its head pinned ([#1317](https://github.com/cedricziel/hermes-app/issues/1317)) ([b1124b4](https://github.com/cedricziel/hermes-app/commit/b1124b4d20222f018fd22aa1f88354c94bc59fe3))
+* **review:** ask UI PRs for a Design line the reviewer confirms ([#1324](https://github.com/cedricziel/hermes-app/issues/1324)) ([57048cd](https://github.com/cedricziel/hermes-app/commit/57048cd58e0477b89b16f6ca74adae1e43bc0e09))
+* **roadmap:** record pre-release 0.1.82, seven merges, the standstill and the new findings ([#1316](https://github.com/cedricziel/hermes-app/issues/1316)) ([a5fb1f0](https://github.com/cedricziel/hermes-app/commit/a5fb1f0ac6480c7bd6d9a96fc7c96480c45eb33f))
+* **roadmap:** record seven merges, the grouped row pick and the closed policy-script fix ([#1322](https://github.com/cedricziel/hermes-app/issues/1322)) ([825d6a1](https://github.com/cedricziel/hermes-app/commit/825d6a18fcdc133d51e010880a5f3f06ef6acb81))
+* **roadmap:** record the design audit, its remedies and the blocked thread-row design pass ([#1327](https://github.com/cedricziel/hermes-app/issues/1327)) ([4833c20](https://github.com/cedricziel/hermes-app/commit/4833c20c7018d6aec58a2f1513983e4d0a756eef))
+
 ## [0.1.82](https://github.com/cedricziel/hermes-app/compare/v0.1.81...v0.1.82) (2026-11-22)
 
 
