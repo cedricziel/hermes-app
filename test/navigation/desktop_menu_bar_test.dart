@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -321,6 +323,88 @@ void main() {
 
       await chooseNewChat();
       expect(newChats, 2);
+    });
+  });
+
+  group('behind a modal route on a nested navigator', () {
+    testWidgets('an item does not run under a nested sheet, and does after', (
+      tester,
+    ) async {
+      var newChats = 0;
+      final registration = registry.register({
+        MacCommand.newChat: MacCommandHandler(() => newChats++),
+      });
+      addTearDown(registration.dispose);
+      final modalRoutes = ModalRouteObserver();
+      addTearDown(modalRoutes.dispose);
+      await settings.setEnabled(true);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: settings,
+          child: MaterialApp(
+            localizationsDelegates: kTestLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: ThemeData(platform: TargetPlatform.linux),
+            navigatorObservers: [modalRoutes],
+            builder: (context, child) => MacCommandScope.root(
+              registry: registry,
+              child: DesktopMenuBarHost(
+                modalRoutes: modalRoutes,
+                child: child!,
+              ),
+            ),
+            home: Navigator(
+              onGenerateRoute: (_) => MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      autofocus: true,
+                      onPressed: () => unawaited(
+                        showModalBottomSheet<void>(
+                          context: context,
+                          builder: (_) => TextButton(
+                            autofocus: true,
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Close sheet'),
+                          ),
+                        ),
+                      ),
+                      child: const Text('Open sheet'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open sheet'));
+      await tester.pumpAndSettle();
+      expect(find.text('Close sheet'), findsOneWidget);
+      expect(modalRoutes.modalOpen, isFalse);
+
+      await tester.tap(find.text('File'));
+      await tester.pump();
+      expect(
+        tester.widget<MenuItemButton>(_item('New Chat')).onPressed,
+        isNull,
+      );
+      await tester.tapAt(const Offset(700, 500));
+      await tester.pump();
+      expect(newChats, 0);
+
+      await tester.tap(find.text('Close sheet'));
+      await tester.pumpAndSettle();
+      expect(find.text('Close sheet'), findsNothing);
+
+      await tester.tap(find.text('File'));
+      await tester.pump();
+      expect(
+        tester.widget<MenuItemButton>(_item('New Chat')).onPressed,
+        isNotNull,
+      );
     });
   });
 

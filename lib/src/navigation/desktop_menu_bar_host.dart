@@ -22,7 +22,8 @@ class DesktopMenuBarHost extends StatelessWidget {
 
   /// Which modal routes are open on the app's navigator; the items are
   /// disabled while one is, since the bar is above the navigator and a
-  /// dialog's barrier does not cover it.
+  /// dialog's barrier does not cover it. A modal route on a nested navigator
+  /// is found from the focus (`isModalBlocking`) when it moves.
   final ModalRouteObserver? modalRoutes;
 
   final Widget child;
@@ -74,12 +75,34 @@ class _BarOverEntry extends StatefulWidget {
 class _BarOverEntryState extends State<_BarOverEntry> {
   final _bar = DesktopMenuBarController();
 
+  /// Whether a modal route was in front of the screen the last time the focus
+  /// was outside the bar. The observer only sees the root navigator; a sheet
+  /// or menu on a nested one holds the focus inside itself, and the bar's own
+  /// focus is no evidence of it, so it is read when the focus leaves the
+  /// screen and kept while the focus is in the bar.
+  var _behindModal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_focusChanged);
+  }
+
+  void _focusChanged() {
+    if (_bar.hasFocus) return;
+    final blocked = isModalBlocking(widget.modalRoutes);
+    if (blocked == _behindModal) return;
+    _behindModal = blocked;
+    _entry.markNeedsBuild();
+  }
+
   late final _entry = OverlayEntry(
     builder: (context) => ListenableBuilder(
       listenable: Listenable.merge([widget.registry, widget.modalRoutes]),
       builder: (context, _) {
         final menus = desktopMenus(widget.registry, context.l10n);
-        final modalOpen = widget.modalRoutes?.modalOpen ?? false;
+        final modalOpen =
+            (widget.modalRoutes?.modalOpen ?? false) || _behindModal;
         // F10 is the chord of MacCommand.focusMenuBar in menuLayout, which
         // DesktopCommandShortcuts binds while a handler is registered. A
         // scope registers it like any screen's commands: only while the bar
@@ -116,6 +139,7 @@ class _BarOverEntryState extends State<_BarOverEntry> {
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_focusChanged);
     _entry
       ..remove()
       ..dispose();

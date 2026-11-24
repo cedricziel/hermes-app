@@ -60,8 +60,12 @@ bool _sameChord(SingleActivator a, SingleActivator b) =>
 ///
 /// A chord with no enabled handler is not taken, so the key goes on to
 /// whatever has focus. Neither is a chord that text editing binds (Alt+Left,
-/// Alt+Right, Alt+Up) while a text field has focus: the caret keeps it. Nothing here is bound on other platforms: a Mac's menu
-/// bar and an iPad's menus bind their own chords.
+/// Alt+Right, Alt+Up) while a text field has focus: the caret keeps it. Nor is any chord while [isModalBlocking] holds (a dialog,
+/// sheet or popup menu is open, on the root navigator or a nested one): these
+/// shortcuts sit above the `Navigator`, and would run Back or New chat on the
+/// screen behind it. The dialog's own keys (Escape, Enter, Tab) are no chord of
+/// the menus and stay as they were. Nothing here is bound on other platforms:
+/// a Mac's menu bar and an iPad's menus bind their own chords.
 class DesktopCommandShortcuts extends StatelessWidget {
   const DesktopCommandShortcuts({
     super.key,
@@ -69,7 +73,8 @@ class DesktopCommandShortcuts extends StatelessWidget {
     required this.child,
   });
 
-  /// The app's single [ModalRouteObserver]; with none, no dialog is known.
+  /// The app's single [ModalRouteObserver], for modal routes on the root
+  /// navigator; nested ones are read from the focus ([isModalBlocking]).
   final ModalRouteObserver? modalRoutes;
 
   final Widget child;
@@ -98,7 +103,7 @@ class _CommandAction extends Action<_CommandIntent> {
 
   @override
   bool isEnabled(_CommandIntent intent) =>
-      !(modalRoutes?.modalOpen ?? false) &&
+      !isModalBlocking(modalRoutes) &&
       (registry.handlerFor(intent.command)?.enabled ?? false) &&
       !textEditingChords().any((chord) => _sameChord(chord, intent.chord));
 

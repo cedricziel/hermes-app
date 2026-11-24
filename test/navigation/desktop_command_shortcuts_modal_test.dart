@@ -258,4 +258,96 @@ void main() {
     await _press(tester, chord);
     expect(fired, [MacCommand.newChat]);
   });
+
+  group('behind a modal route on a nested navigator', () {
+    // The root observer never hears of these: both open on the nested
+    // Navigator (`useRootNavigator: false`), like the narrow chat layout and
+    // the activity panel do.
+    Future<void> pumpNested(WidgetTester tester) => tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: ThemeData(platform: TargetPlatform.linux),
+        navigatorObservers: [modalRoutes],
+        builder: (context, child) => MacCommandScope.root(
+          registry: registry,
+          child: DesktopCommandShortcuts(
+            modalRoutes: modalRoutes,
+            child: child!,
+          ),
+        ),
+        home: Navigator(
+          onGenerateRoute: (_) => MaterialPageRoute<void>(
+            builder: (_) => Scaffold(
+              body: Builder(
+                builder: (context) => Focus(
+                  autofocus: true,
+                  child: Column(
+                    children: [
+                      TextButton(
+                        onPressed: () => unawaited(
+                          showModalBottomSheet<void>(
+                            context: context,
+                            builder: (_) => TextButton(
+                              autofocus: true,
+                              onPressed: () {},
+                              child: const Text('in the sheet'),
+                            ),
+                          ),
+                        ),
+                        child: const Text('sheet'),
+                      ),
+                      TextButton(
+                        onPressed: () => unawaited(
+                          showMenu<void>(
+                            context: context,
+                            position: const RelativeRect.fromLTRB(0, 0, 0, 0),
+                            items: const [
+                              PopupMenuItem<void>(child: Text('in the menu')),
+                            ],
+                          ),
+                        ),
+                        child: const Text('menu'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (final (opener, inside) in [
+      ('sheet', 'in the sheet'),
+      ('menu', 'in the menu'),
+    ]) {
+      testWidgets('a $opener takes no chord, and the chord runs after it', (
+        tester,
+      ) async {
+        await pumpNested(tester);
+        await tester.tap(find.text(opener));
+        await tester.pumpAndSettle();
+        expect(find.text(inside), findsOneWidget);
+        expect(
+          modalRoutes.modalOpen,
+          isFalse,
+          reason: 'root observer is blind',
+        );
+
+        for (final command in [MacCommand.newChat, MacCommand.back]) {
+          await _press(tester, _chordOf(command));
+        }
+        expect(fired, isEmpty);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text(inside), findsNothing);
+
+        await _press(tester, _chordOf(MacCommand.newChat));
+        expect(fired, [MacCommand.newChat]);
+      });
+    }
+  });
 }
