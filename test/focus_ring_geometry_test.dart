@@ -1088,6 +1088,86 @@ void main() {
       ), reason: 'Mac pop-up value of a GroupedMenuRow');
       await expectKeyboardOnly(tester);
     });
+
+    group('two Mac GroupedMenuRows in one section: only the focused one', () {
+      // Reachable by requestFocus, not by Tab, so Tab starts at the first row.
+      FocusNode outerNode() =>
+          FocusNode(debugLabel: 'outer', skipTraversal: true);
+
+      Future<void> pumpTwo(WidgetTester tester, FocusNode outer) => _pump(
+        tester,
+        TargetPlatform.macOS,
+        Focus(
+          focusNode: outer,
+          child: SizedBox(
+            width: 360,
+            child: GroupedSection(
+              children: [
+                for (final title in ['First', 'Second'])
+                  GroupedMenuRow<String>(
+                    title: title,
+                    options: const ['a', 'b'],
+                    labelOf: (option) => option,
+                    selected: 'a',
+                    onSelected: (_) {},
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      /// The pop-up face of the row at [index], round its value text.
+      Finder faceOf(int index) => find
+          .ancestor(
+            of: find.text('a').at(index),
+            matching: find.byType(Material),
+          )
+          .first;
+
+      testWidgets('the route scope focused and a key pressed: no ring', (
+        tester,
+      ) async {
+        await pumpTwo(tester, outerNode());
+        FocusScope.of(tester.element(find.text('First'))).requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(_ringFinder, findsNothing);
+      });
+
+      testWidgets('a plain Focus above the rows focused: no ring', (
+        tester,
+      ) async {
+        final outer = outerNode();
+        addTearDown(outer.dispose);
+        await pumpTwo(tester, outer);
+        outer.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(FocusManager.instance.primaryFocus, outer);
+        expect(_ringFinder, findsNothing);
+      });
+
+      testWidgets('Tab moves the one ring from the first row to the second', (
+        tester,
+      ) async {
+        final outer = outerNode();
+        addTearDown(outer.dispose);
+        await pumpTwo(tester, outer);
+        for (final (index, title) in ['First', 'Second'].indexed) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+          expect(_ringFinder, findsOneWidget, reason: '$title is focused');
+          expect(
+            tester.getRect(_ringFinder),
+            tester.getRect(faceOf(index)),
+            reason: 'the ring is on $title',
+          );
+        }
+      });
+    });
   });
 
   group('rings merged earlier follow the painted shape too', () {
