@@ -22,6 +22,7 @@ Future<void> _pump(
   required double rowWidth,
   double window = 800,
   double scale = 1,
+  bool realFont = false,
 }) async {
   await tester.runAsync(loadTestFonts);
   tester.view
@@ -30,7 +31,9 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     MaterialApp(
-      theme: buildHermesLightTheme(platform: platform),
+      theme: realFont
+          ? withScreenshotFont(buildHermesLightTheme(platform: platform))
+          : buildHermesLightTheme(platform: platform),
       localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
@@ -351,4 +354,31 @@ void main() {
     expect(_paragraph(tester, 'Hermes Standard').didExceedMaxLines, isTrue);
     expect(_width(tester, 'Hermes Standard'), greaterThan(30));
   });
+
+  for (final title in ['Orchestrator-Profil', 'Standardmäßig zuständig']) {
+    testWidgets('a Mac title "$title" in a 246 px row breaks no word at 1.5x '
+        'in the theme font', (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        _menuRow(title, 'Aktives Profil (default)'),
+        rowWidth: 246,
+        scale: 1.5,
+        realFont: true,
+      );
+      expect(tester.takeException(), isNull);
+      final paragraph = _paragraph(tester, title);
+      for (var i = 1; i < title.length; i++) {
+        double top(int at) => paragraph
+            .getBoxesForSelection(
+              TextSelection(baseOffset: at, extentOffset: at + 1),
+            )
+            .first
+            .top;
+        if (top(i) > top(i - 1)) {
+          expect(' -'.contains(title[i - 1]), isTrue, reason: 'break at $i');
+        }
+      }
+    });
+  }
 }

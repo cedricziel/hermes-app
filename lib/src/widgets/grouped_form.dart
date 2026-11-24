@@ -127,8 +127,10 @@ class GroupedValueRow extends StatelessWidget {
     String title,
   ) {
     final inner = rowWidth - 2 * GroupedMetrics.of(context).rowPadding;
-    final style = (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
-        .copyWith(fontSize: GroupedMetrics.of(context).titleSize);
+    // The row draws its text over its Material's body style, so both the
+    // title word and the pop-up text are measured in that.
+    final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+    final style = base.copyWith(fontSize: GroupedMetrics.of(context).titleSize);
     var word = 0.0;
     for (final part in title.split(RegExp(r'(?<=-)|\s+'))) {
       if (part.isEmpty) continue;
@@ -137,7 +139,11 @@ class GroupedValueRow extends StatelessWidget {
     // The pop-up's padding, gap and chevron, and "Abc…" at its 12 pt size.
     final readable =
         31 +
-        measureRowText(context, 'Abc…', _popUpTextStyle(Colors.transparent));
+        measureRowText(
+          context,
+          'Abc…',
+          base.merge(_popUpTextStyle(Colors.transparent)),
+        );
     final wordMin = word + 1;
     final titleMin = inner - 8 - wordMin >= readable
         ? math.max(inner / 3, wordMin)
