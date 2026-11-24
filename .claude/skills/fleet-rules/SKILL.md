@@ -128,6 +128,12 @@ the rest of the block. Only a line inside that pasted block counts, which
 relies on the block being pasted unchanged, like the `Reviewer:` line; details in
 `flutter-ci`.
 
+Design line (advisory): a PR that changes a file under `lib/src/**/widgets/`,
+a `lib/**/*_screen.dart` or `lib/src/theme/` names its design record in the PR
+body with `Design: <canvas link or design record path>` or `Design: not needed,
+<reason>`. The isolated reviewer confirms it and emits `Design: confirmed ...`
+or a finding. It is a reviewer finding, not a `PR policy` failure, for now.
+
 ## READY and merging
 
 A session reports READY to the orchestrator when all of these hold:
