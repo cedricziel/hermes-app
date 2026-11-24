@@ -2,7 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
-import '../hermes_skills_hub_repository.dart';
+import '../hub_scan.dart';
 
 class SkillSecurityScan extends StatelessWidget {
   const SkillSecurityScan({

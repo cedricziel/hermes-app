@@ -25,18 +25,6 @@ arch.gesture-detector-without-focus:
   lib/src/voice/widgets/voice_recording_controls.dart: 1
   lib/src/widgets/row_actions.dart: 2
 
-arch.english-default-label:
-  lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 1
-  lib/src/chat/moa_progress_state.dart: 1
-  lib/src/chat/widgets/tool_arguments_view.dart: 1
-  lib/src/kanban/kanban_errors.dart: 1
-  lib/src/macos/mac_toolbar_search_field.dart: 1
-  lib/src/mcp/mcp_json_editor_screen.dart: 1
-  lib/src/plugins/widgets/catalog_row.dart: 1
-  lib/src/widgets/adaptive_dialog.dart: 1
-  lib/src/widgets/settings_scaffold.dart: 1
-  lib/src/widgets/settings_search_field.dart: 1
-
 arch.error-interpolation-in-telemetry:
   lib/src/macos/mac_window.dart: 1
 
@@ -76,5 +64,4 @@ arch.widget-layer-imports:
   lib/src/profiles/widgets/recipient_picker.dart: 2
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_badges.dart: 1
-  lib/src/skills/widgets/skill_security_scan.dart: 1
   lib/src/voice/widgets/dictation_notice.dart: 1

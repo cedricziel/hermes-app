@@ -240,7 +240,7 @@ class FilesPreviewPage extends StatelessWidget {
         child: SettingsScaffold(
           title: name,
           subtitle: subtitle,
-          previousTitle: previousTitle,
+          previousTitle: previousTitle ?? context.l10n.widgetsBack,
           actions: [
             if (ios) ?shareAction,
             saveAction,

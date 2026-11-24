@@ -10,9 +10,7 @@ WidgetbookNode moaProgressNode() => WidgetbookComponent(
   useCases: [
     ...onEachPlatform(
       'Reported counts',
-      (_) => _card(
-        const MoaProgress(turn: 'sample', phase: 'Advisors', done: 1, total: 3),
-      ),
+      (_) => _card(const MoaProgress(turn: 'sample', done: 1, total: 3)),
     ),
     ...onEachPlatform(
       'Aggregation',

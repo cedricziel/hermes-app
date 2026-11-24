@@ -63,7 +63,7 @@ Future<String?> askKanbanText(
   required String title,
   String? hint,
   String? initial,
-  String confirm = 'OK',
+  String? confirm,
   bool multiline = false,
 }) => showAppDialog<String>(
   context: context,
@@ -83,8 +83,8 @@ Future<String?> askKanbanText(
 class _TextDialog extends StatefulWidget {
   const _TextDialog({
     required this.title,
-    required this.confirm,
     required this.multiline,
+    this.confirm,
     this.hint,
     this.initial,
   });
@@ -92,7 +92,7 @@ class _TextDialog extends StatefulWidget {
   final String title;
   final String? hint;
   final String? initial;
-  final String confirm;
+  final String? confirm;
   final bool multiline;
 
   @override
@@ -126,7 +126,7 @@ class _TextDialogState extends State<_TextDialog> {
         AppDialogAction(
           isDefault: true,
           onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: Text(widget.confirm),
+          child: Text(widget.confirm ?? context.l10n.widgetsOk),
         ),
       ],
     );

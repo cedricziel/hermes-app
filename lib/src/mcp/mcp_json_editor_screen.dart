@@ -110,7 +110,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     required String title,
     required String body,
     required String confirm,
-    String cancel = 'Cancel',
+    String? cancel,
   }) async {
     setState(() => _asking = true);
     try {

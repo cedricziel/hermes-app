@@ -17,7 +17,7 @@ Widget _app(
   VoidCallback? onClose,
   BotScreenControl control = BotScreenControl.watching,
   bool canForce = false,
-  String lostText = 'Someone else took control.',
+  bool lostToAgent = false,
   String profile = 'research',
   VoidCallback? onTakeOver,
   VoidCallback? onHandBack,
@@ -43,7 +43,7 @@ Widget _app(
       onClose: onClose,
       control: control,
       canForce: canForce,
-      lostText: lostText,
+      lostToAgent: lostToAgent,
       onTakeOver: onTakeOver,
       onHandBack: onHandBack,
       onForceHandBack: onForceHandBack,
@@ -328,7 +328,7 @@ void main() {
           BotScreenViewerPhase.blanked,
           picture: false,
           control: BotScreenControl.lost,
-          lostText: 'Hermes took control back.',
+          lostToAgent: true,
         ),
       );
 

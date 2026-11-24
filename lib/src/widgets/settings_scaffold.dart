@@ -207,7 +207,7 @@ class SettingsScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.subtitleMenu,
-    this.previousTitle = 'Chat',
+    this.previousTitle,
     this.actions = const [],
     this.tabs,
     this.tabController,
@@ -227,7 +227,9 @@ class SettingsScaffold extends StatelessWidget {
   /// Makes the [subtitle] a button that opens this menu.
   final SettingsSubtitleMenu<Object?>? subtitleMenu;
 
-  /// The title of the page underneath, which the iOS back button shows.
+  /// The title of the page underneath, which the iOS back button shows. Null
+  /// reads the localized "Chat" (`widgetsChatBackTitle`); a page that is not
+  /// opened from the chat passes its own title or `widgetsBack`.
   final String? previousTitle;
   final List<SettingsBarAction> actions;
   final List<String>? tabs;
@@ -396,7 +398,9 @@ class SettingsScaffold extends StatelessWidget {
     final leading = pane
         ? null
         : back
-        ? AdaptiveBackButton(previousTitle: previousTitle)
+        ? AdaptiveBackButton(
+            previousTitle: previousTitle ?? context.l10n.widgetsChatBackTitle,
+          )
         : ShellMenu.button(context);
     return Scaffold(
       appBar: AppBar(

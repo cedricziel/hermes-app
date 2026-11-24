@@ -2,6 +2,7 @@ import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/disclosure_tile.dart';
 import '../moa_progress_state.dart';
 
@@ -17,6 +18,10 @@ class MoaProgressCard extends StatelessWidget {
   final VoidCallback? onDetails;
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final phase = progress.aggregating
+        ? l10n.chatWidgetsMoaPhaseAggregating
+        : progress.phase ?? l10n.chatWidgetsMoaPhaseAdvisors;
     final done = progress.done, total = progress.total;
     final counts = done != null && total != null && done >= 0 && total >= done;
     final fraction =
@@ -33,7 +38,9 @@ class MoaProgressCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Advisor progress · ${progress.live ? progress.phase : 'Finished'}',
+            l10n.chatWidgetsMoaProgressTitle(
+              progress.live ? phase : l10n.chatWidgetsMoaFinished,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

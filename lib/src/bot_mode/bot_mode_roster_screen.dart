@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
+
 import '../widgets/grouped_dialog.dart';
 
 import '../models/hermes_models_repository.dart';
@@ -434,7 +436,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
       subtitle: mac && ready
           ? (roster.bots.length == 1 ? '1 bot' : '${roster.bots.length} bots')
           : null,
-      previousTitle: null,
+      previousTitle: context.l10n.widgetsBack,
       search: ready && roster.bots.isNotEmpty
           ? SettingsSearch(
               query: _query,

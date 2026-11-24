@@ -14,7 +14,7 @@ void main() {
             body: MoaProgressCard(
               progress: MoaProgress(
                 turn: 'turn',
-                phase: 'Aggregating',
+                aggregating: true,
                 aggregator: 'Reported model',
                 done: 2,
                 total: 3,
