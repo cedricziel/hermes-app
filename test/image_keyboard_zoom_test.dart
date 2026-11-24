@@ -1,12 +1,17 @@
 import 'dart:io';
+import 'dart:ui' show Tristate;
 
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/image_viewer.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
+import 'package:hermes_app/src/chat/widgets/quick_look_target.dart';
 import 'package:hermes_app/src/macos/menu_layout.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
+import 'package:hermes_app/src/widgets/zoom_keyboard_shortcuts.dart';
 
 import 'support/attachment_fixtures.dart';
 
@@ -30,6 +35,7 @@ Future<void> _app(WidgetTester tester, TargetPlatform platform, Widget home) {
   return tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(platform: platform),
+      builder: (_, app) => AppThemeScopes(child: app!),
       home: Focus(
         canRequestFocus: false,
         onKeyEvent: (_, event) {
@@ -142,6 +148,8 @@ void main() {
 
         final s = _scale(tester);
         final shift = _shift(tester);
+        expect(s, greaterThan(1));
+        expect(shift.dx, lessThan(0));
         expect(shift.dx, closeTo(box.width / 2 * (1 - s), 1e-6));
         expect(shift.dy, closeTo(box.height / 2 * (1 - s), 1e-6));
       });
@@ -234,11 +242,14 @@ void main() {
       testWidgets('arrows are consumed while zoomed', (tester) async {
         await viewer.pump(tester, TargetPlatform.linux);
         await _chord(tester, LogicalKeyboardKey.equal);
+        expect(_scale(tester), greaterThan(1));
+        final before = _shift(tester);
         _bubbled.clear();
 
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
         await tester.pump();
 
+        expect(_shift(tester).dx, greaterThan(before.dx));
         expect(_bubbled, isEmpty);
       });
 
@@ -247,13 +258,9 @@ void main() {
       ) async {
         await viewer.pump(tester, TargetPlatform.linux);
 
-        final focused = FocusManager.instance.primaryFocus!.context!;
         expect(
-          find.descendant(
-            of: find.byElementPredicate((e) => e == focused),
-            matching: find.byType(InteractiveViewer),
-          ),
-          findsOneWidget,
+          FocusManager.instance.primaryFocus?.debugLabel,
+          'ZoomKeyboardShortcuts',
         );
       });
 
@@ -334,6 +341,7 @@ void main() {
           LogicalKeyboardKey.equal,
           modifier: LogicalKeyboardKey.metaLeft,
         );
+        expect(_scale(tester), greaterThan(1));
 
         await _chord(
           tester,
@@ -342,9 +350,143 @@ void main() {
         );
 
         expect(_scale(tester), 1);
+        expect(_shift(tester), Offset.zero);
+      });
+
+      for (final platform in TargetPlatform.values) {
+        testWidgets('on $platform neither a bare key nor both Cmd and Ctrl '
+            'zoom', (tester) async {
+          await viewer.pump(tester, platform);
+
+          await _chord(tester, LogicalKeyboardKey.equal, modifier: null);
+          expect(_scale(tester), 1);
+          await _chord(
+            tester,
+            LogicalKeyboardKey.equal,
+            also: [LogicalKeyboardKey.metaLeft],
+          );
+          expect(_scale(tester), 1);
+        });
+      }
+
+      testWidgets('zoom out below fit does not zoom in', (tester) async {
+        await viewer.pump(tester, TargetPlatform.linux);
+        final controller = _viewer(tester).transformationController!;
+        controller.value = Matrix4.diagonal3Values(0.8, 0.8, 0.8);
+
+        await _chord(tester, LogicalKeyboardKey.minus);
+
+        expect(controller.value.storage[0], closeTo(0.8, 1e-9));
+      });
+
+      testWidgets('zoom out from a pinch matrix never goes below fit', (
+        tester,
+      ) async {
+        await viewer.pump(tester, TargetPlatform.linux);
+        final controller = _viewer(tester).transformationController!;
+        controller.value = Matrix4.diagonal3Values(3, 3, 3);
+
+        for (var i = 0; i < 8; i++) {
+          await _chord(tester, LogicalKeyboardKey.minus);
+          expect(controller.value.storage[0], greaterThanOrEqualTo(1 - 1e-9));
+        }
+        expect(controller.value.storage[0], closeTo(1, 1e-9));
+        expect(controller.value.storage[10], closeTo(1, 1e-9));
+      });
+
+      testWidgets('Tab skips the picture: Close, then Save', (tester) async {
+        await viewer.pump(tester, TargetPlatform.linux);
+        final block = FocusManager.instance.primaryFocus;
+        expect(block?.debugLabel, 'ZoomKeyboardShortcuts');
+        expect(block!.skipTraversal, isTrue);
+
+        for (var i = 0; i < 3; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+          expect(FocusManager.instance.primaryFocus, isNot(same(block)));
+        }
+      });
+
+      testWidgets('adds no focusable semantics node', (tester) async {
+        final handle = tester.ensureSemantics();
+        await viewer.pump(tester, TargetPlatform.linux);
+        await tester.pump();
+        var focusable = 0;
+        void visit(SemanticsNode node) {
+          final flags = node.getSemanticsData().flagsCollection;
+          if (flags.isFocused != Tristate.none) {
+            focusable++;
+          }
+          node.visitChildren((c) {
+            visit(c);
+            return true;
+          });
+        }
+
+        visit(tester.getSemantics(find.byType(Scaffold).first));
+
+        // The page's Close button is the only one; the picture has none.
+        expect(focusable, viewer.name == 'ImageViewerPage' ? 1 : 0);
+        handle.dispose();
       });
     });
   }
+
+  group('ImagePreview on macOS inside QuickLookTarget', () {
+    Future<void> pumpPage(WidgetTester tester, {required Widget wrap}) async {
+      final image = MemoryImage(kTinyPng);
+      await _app(tester, TargetPlatform.macOS, Scaffold(body: wrap));
+      await tester.runAsync(
+        () => precacheImage(image, tester.element(find.byType(Scaffold))),
+      );
+    }
+
+    Widget preview(void Function() onToggle, {required bool relay}) {
+      final target = QuickLookTarget(
+        onToggle: onToggle,
+        child: ImagePreview(image: MemoryImage(kTinyPng), label: 'cat.png'),
+      );
+      return relay ? ZoomKeyRelay(child: target) : target;
+    }
+
+    testWidgets('after a click the keys still zoom and Space still previews', (
+      tester,
+    ) async {
+      var toggles = 0;
+      await pumpPage(tester, wrap: preview(() => toggles++, relay: true));
+      await tester.runAsync(
+        () => precacheImage(
+          MemoryImage(kTinyPng),
+          tester.element(find.byType(ImagePreview)),
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump(kDoubleTapTimeout);
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'QuickLookTarget');
+
+      await _chord(
+        tester,
+        LogicalKeyboardKey.equal,
+        modifier: LogicalKeyboardKey.metaLeft,
+      );
+      expect(_scale(tester), greaterThan(1));
+      final before = _shift(tester);
+      await _chord(tester, LogicalKeyboardKey.arrowRight, modifier: null);
+      expect(_shift(tester).dx, lessThan(before.dx));
+      await _chord(
+        tester,
+        LogicalKeyboardKey.digit0,
+        modifier: LogicalKeyboardKey.metaLeft,
+        also: [LogicalKeyboardKey.altLeft],
+      );
+      expect(_scale(tester), 1);
+
+      await _chord(tester, LogicalKeyboardKey.space, modifier: null);
+      expect(toggles, 1);
+    });
+  });
 
   group('menu chords', () {
     String describe(SingleActivator a) =>

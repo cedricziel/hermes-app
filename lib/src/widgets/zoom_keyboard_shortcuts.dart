@@ -12,7 +12,9 @@ import 'package:flutter/services.dart';
 ///
 /// The viewer's child must be as large as its viewport (the case for a child
 /// given tight constraints), so the content's edge is the viewport's edge at
-/// scale 1. Arrows at fit are not consumed.
+/// scale 1. Arrows at fit are not consumed. It is not a tab stop and has no
+/// semantics node of its own. Under an ancestor that takes focus on a click,
+/// put a [ZoomKeyRelay] above that ancestor.
 class ZoomKeyboardShortcuts extends StatefulWidget {
   const ZoomKeyboardShortcuts({
     super.key,
@@ -48,10 +50,32 @@ class ZoomKeyboardShortcuts extends StatefulWidget {
 enum _Action { zoomIn, zoomOut, reset }
 
 class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
-  final _focus = FocusNode(debugLabel: 'ZoomKeyboardShortcuts');
+  // Not a tab stop and not in the semantics tree: it draws no focus ring, so
+  // Tab must not stop on it. It takes focus on open and on a click only.
+  final _focus = FocusNode(
+    debugLabel: 'ZoomKeyboardShortcuts',
+    skipTraversal: true,
+  );
+  _ZoomKeyRelayState? _relay;
+  Size _viewport = Size.zero;
+
+  KeyEventResult _fromRelay(KeyEvent event) => _onKey(_viewport, event);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final next = context
+        .dependOnInheritedWidgetOfExactType<_RelayScope>()
+        ?.relay;
+    if (next == _relay) return;
+    if (_relay?._handler == _fromRelay) _relay!._handler = null;
+    _relay = next;
+    next?._handler = _fromRelay;
+  }
 
   @override
   void dispose() {
+    if (_relay?._handler == _fromRelay) _relay!._handler = null;
     _focus.dispose();
     super.dispose();
   }
@@ -111,7 +135,11 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
       return KeyEventResult.handled;
     }
     if (action != null) {
-      final current = controller.value.getMaxScaleOnAxis();
+      final current = controller.value.getColumn(0).length;
+      // At or below fit there is nothing to zoom out of.
+      if (action == _Action.zoomOut && current <= 1) {
+        return KeyEventResult.handled;
+      }
       final target =
           (action == _Action.zoomIn
                   ? current * ZoomKeyboardShortcuts.zoomStep
@@ -121,7 +149,7 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
       final centre = viewport.center(Offset.zero);
       final next = Matrix4.identity()
         ..translateByDouble(centre.dx, centre.dy, 0, 1)
-        ..scaleByDouble(factor, factor, 1, 1)
+        ..scaleByDouble(factor, factor, factor, 1)
         ..translateByDouble(-centre.dx, -centre.dy, 0, 1)
         ..multiply(controller.value);
       controller.value = _within(next, viewport);
@@ -129,7 +157,7 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
     }
     final pan = _arrow(event.logicalKey);
     if (pan == null ||
-        controller.value.getMaxScaleOnAxis() <=
+        controller.value.getColumn(0).length <=
             ZoomKeyboardShortcuts.zoomedAbove) {
       return KeyEventResult.ignored;
     }
@@ -141,7 +169,7 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
 
   /// [m] moved so the content still covers the viewport, as a drag leaves it.
   Matrix4 _within(Matrix4 m, Size viewport) {
-    final scale = m.getMaxScaleOnAxis();
+    final scale = m.getColumn(0).length;
     final t = m.getTranslation();
     final x = t.x.clamp(viewport.width * (1 - scale), 0.0);
     final y = t.y.clamp(viewport.height * (1 - scale), 0.0);
@@ -152,9 +180,10 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
-        final viewport = box.biggest;
+        final viewport = _viewport = box.biggest;
         return Focus(
           focusNode: _focus,
+          includeSemantics: false,
           autofocus: widget.autofocus,
           onKeyEvent: (_, event) => _onKey(viewport, event),
           child: Listener(
@@ -166,4 +195,43 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
       },
     );
   }
+}
+
+/// Lets a page keep [ZoomKeyboardShortcuts] working while an ancestor of the
+/// viewer holds keyboard focus. Key events bubble up from the focused node, so
+/// a node below the viewer's never hears them once something above takes
+/// focus (macOS `QuickLookTarget` does on a click). Put a relay above that
+/// ancestor and the viewer registers its handler with it.
+class ZoomKeyRelay extends StatefulWidget {
+  const ZoomKeyRelay({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<ZoomKeyRelay> createState() => _ZoomKeyRelayState();
+}
+
+class _ZoomKeyRelayState extends State<ZoomKeyRelay> {
+  KeyEventResult Function(KeyEvent)? _handler;
+
+  @override
+  Widget build(BuildContext context) => _RelayScope(
+    relay: this,
+    child: Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      includeSemantics: false,
+      onKeyEvent: (_, event) => _handler?.call(event) ?? KeyEventResult.ignored,
+      child: widget.child,
+    ),
+  );
+}
+
+class _RelayScope extends InheritedWidget {
+  const _RelayScope({required this.relay, required super.child});
+
+  final _ZoomKeyRelayState relay;
+
+  @override
+  bool updateShouldNotify(_RelayScope oldWidget) => relay != oldWidget.relay;
 }

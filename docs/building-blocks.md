@@ -24,7 +24,7 @@ Rules are stated in full in the area's file under `docs/architecture/`.
 | Server details on spans | `hermes.*` attributes | `lib/src/telemetry/hermes_server_attributes.dart` | Span attributes, never resource attributes. |
 | A new system widget | `kSurfaceWidgetKinds` | `lib/src/surfaces/widget_kinds.dart` | Add the kind so snapshot writes reload it; extensions read only the snapshot. |
 | A menu bar chord | `MacCommandScope`, `menuLayout` | `lib/src/macos/mac_commands.dart`, `lib/src/macos/menu_layout.dart` | The menu owns the chord; add no key handler for it. |
-| Keyboard zoom and pan of an image | `ZoomKeyboardShortcuts` | `lib/src/widgets/zoom_keyboard_shortcuts.dart` | Wrap the `InteractiveViewer` and share its controller; Cmd (Apple) or Ctrl with `=`, `-`, `0`, arrows pan while zoomed. macOS resets with Cmd+Option+0, as the menu owns Cmd+0 (`docs/architecture/chat.md`). |
+| Keyboard zoom and pan of an image | `ZoomKeyboardShortcuts` | `lib/src/widgets/zoom_keyboard_shortcuts.dart` | Wrap the `InteractiveViewer` and share its controller; Cmd (Apple) or Ctrl with `=`, `-`, `0`, arrows pan while zoomed. macOS resets with Cmd+Option+0, as the menu owns Cmd+0. Under an ancestor that takes focus on click (`QuickLookTarget`) add `ZoomKeyRelay` above it (`docs/architecture/chat.md`). |
 | Cleartext `http://` | `isLocalHost`, `allowCleartext` | `lib/src/auth/server_address.dart` (`isLocalHost`), `lib/src/auth/auth_controller.dart` | Only local hosts unless the user confirmed it. |
 | Platform hint text changed | `earlierAppPlatformHints` | `lib/src/platform_hint/platform_hint_repository.dart` | Add the old text when `appPlatformHint` changes. |
 
