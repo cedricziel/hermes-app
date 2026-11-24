@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../macos/mac_commands.dart';
 import '../macos/menu_layout.dart';
 import 'keyboard_shortcuts.dart';
+import 'modal_route_observer.dart';
 
 class _CommandIntent extends Intent {
   const _CommandIntent(this.command, this.chord);
@@ -62,7 +63,14 @@ bool _sameChord(SingleActivator a, SingleActivator b) =>
 /// Alt+Right, Alt+Up) while a text field has focus: the caret keeps it. Nothing here is bound on other platforms: a Mac's menu
 /// bar and an iPad's menus bind their own chords.
 class DesktopCommandShortcuts extends StatelessWidget {
-  const DesktopCommandShortcuts({super.key, required this.child});
+  const DesktopCommandShortcuts({
+    super.key,
+    this.modalRoutes,
+    required this.child,
+  });
+
+  /// The app's single [ModalRouteObserver]; with none, no dialog is known.
+  final ModalRouteObserver? modalRoutes;
 
   final Widget child;
 
@@ -75,7 +83,7 @@ class DesktopCommandShortcuts extends StatelessWidget {
     return Shortcuts(
       shortcuts: _bindings,
       child: Actions(
-        actions: {_CommandIntent: _CommandAction(registry)},
+        actions: {_CommandIntent: _CommandAction(registry, modalRoutes)},
         child: child,
       ),
     );
@@ -83,12 +91,14 @@ class DesktopCommandShortcuts extends StatelessWidget {
 }
 
 class _CommandAction extends Action<_CommandIntent> {
-  _CommandAction(this.registry);
+  _CommandAction(this.registry, this.modalRoutes);
 
   final MacCommandRegistry registry;
+  final ModalRouteObserver? modalRoutes;
 
   @override
   bool isEnabled(_CommandIntent intent) =>
+      !(modalRoutes?.modalOpen ?? false) &&
       (registry.handlerFor(intent.command)?.enabled ?? false) &&
       !textEditingChords().any((chord) => _sameChord(chord, intent.chord));
 
