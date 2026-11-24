@@ -96,6 +96,52 @@ void main() {
     expect(find.text('Migrate webhooks'), findsOneWidget);
   });
 
+  testWidgets('the page and its states are in German', (tester) async {
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'workers': [worker()],
+    });
+    await pump(tester, locale: const Locale('de'));
+
+    expect(find.text('Aktive Worker'), findsOneWidget);
+    expect(find.text('1 laufen'), findsOneWidget);
+
+    server.on('GET', '/api/plugins/kanban/workers/active', {'workers': []});
+    await tester.drag(find.byType(ListView).first, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Es laufen keine Worker'), findsOneWidget);
+  });
+
+  testWidgets('a failed load and its Retry are in German', (tester) async {
+    server.on(
+      'GET',
+      '/api/plugins/kanban/workers/active',
+      <String, Object?>{},
+      status: 500,
+    );
+    await pump(tester, locale: const Locale('de'));
+
+    expect(
+      find.text('Die Worker konnten nicht geladen werden'),
+      findsOneWidget,
+    );
+    expect(find.text('Erneut versuchen'), findsOneWidget);
+  });
+
+  testWidgets('the Terminate question is in German', (tester) async {
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'workers': [worker()],
+    });
+    await pump(tester, locale: const Locale('de'));
+
+    await tester.tap(find.byType(PopupMenuButton<RowAction>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Terminate'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lauf #7 beenden?'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Beenden'), findsOneWidget);
+  });
+
   testWidgets('shows a worker process\'s figures', (tester) async {
     server
       ..on('GET', '/api/plugins/kanban/workers/active', {

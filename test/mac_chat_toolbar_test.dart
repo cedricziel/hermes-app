@@ -88,6 +88,13 @@ void main() {
     expect(events, ['connection']);
   });
 
+  testWidgets('New Chat and Search are in German', (tester) async {
+    await pump(tester, width: 900, locale: const Locale('de'));
+
+    expect(find.byTooltip('Neuer Chat ⌘N'), findsOneWidget);
+    expect(find.byTooltip('Suchen ⌘F'), findsOneWidget);
+  });
+
   testWidgets('the … menu is in German', (tester) async {
     await pump(tester, width: 680, locale: const Locale('de'));
     expect(find.byTooltip('Mehr'), findsOneWidget);

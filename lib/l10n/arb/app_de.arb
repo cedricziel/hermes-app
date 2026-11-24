@@ -449,6 +449,8 @@
   "chatWidgetsHistoryFailedTitle": "Die Nachrichten konnten nicht geladen werden",
   "chatWidgetsHistoryLoading": "Chat wird geladen",
   "chatWidgetsMacToolbarMore": "Mehr",
+  "chatWidgetsMacToolbarNewChat": "Neuer Chat",
+  "chatWidgetsMacToolbarSearch": "Suchen",
   "chatWidgetsNewChat": "Neuer Chat",
   "chatWidgetsNewMessage": "Neue Nachricht",
   "chatWidgetsProgramConfirmCancel": "Abbrechen",
@@ -665,6 +667,14 @@
   "kanbanOrchestrationTitle": "Orchestrierung",
   "kanbanRefreshAction": "Aktualisieren",
   "kanbanSaveAction": "Speichern",
+  "kanbanWorkersEmpty": "Es laufen keine Worker",
+  "kanbanWorkersLoadFailed": "Die Worker konnten nicht geladen werden",
+  "kanbanWorkersPreviousTitle": "Kanban",
+  "kanbanWorkersRefreshFailed": "Aktualisieren fehlgeschlagen: {reason}",
+  "kanbanWorkersRunning": "{count} laufen",
+  "kanbanWorkersTerminate": "Beenden",
+  "kanbanWorkersTerminateTitle": "Lauf #{run} beenden?",
+  "kanbanWorkersTitle": "Aktive Worker",
 
   "@@x-area-live_activities": "",
 
