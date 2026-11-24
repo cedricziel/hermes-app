@@ -14,15 +14,21 @@ import 'support/test_localizations.dart';
 
 /// Menu items of an `AdaptivePopupMenuButton`, opened and walked by keyboard
 /// (Tab to the trigger, Enter, the arrow keys), under the real theme of each
-/// platform. Roadmap rows 2 (the Mac compact menu rows) and 3 (the Material
-/// menu items on Mac and Windows; Android and Linux are in
-/// `focus_ring_geometry_test.dart` with `requestFocus`).
+/// platform. From the focus-ring test sweep (rows 2 and 3 of the line
+/// manager's sweep, F.441 follow-up).
+///
+/// `focus_ring_controls_test.dart` (the Mac menu row and the Mac checked item,
+/// about lines 518 and 558) already walks a Mac menu by keyboard. This file
+/// adds: Tab and Enter to open the menu from the real callers (the log level
+/// pill, a `GroupedMenuRow`), Windows, and the radius of the plain Material
+/// item, which only this file catches.
 ///
 /// The design record (`docs/design-briefs/windows-linux-platform-fixes.md`,
 /// F7 and its addenda) decides it for every platform here: a focused menu item
 /// shows a 2 px ring in the item, inset 2 and radius 4 (the Mac compact row
 /// in `onPrimary` inside its own fill). So each case asserts exactly one such
-/// ring, on the focused item's row. Each case prints a `MENU-FOCUS` row.
+/// ring, on the focused item's row, and that each ArrowDown moves the focus to
+/// the next item.
 const _platforms = [
   TargetPlatform.macOS,
   TargetPlatform.windows,
@@ -163,7 +169,7 @@ void main() {
         'with one ring', (tester) async {
       await _pump(tester, platform, build());
       final opened = await _openByKeyboard(tester, trigger);
-      final trail = <String>[];
+      final rows = <Element>[];
       final failures = <String>[];
       expect(opened, isTrue, reason: 'Tab, then Enter, opens the menu');
       for (var step = 0; step < items; step++) {
@@ -194,10 +200,23 @@ void main() {
             failures.add('$detail (want the row, radius 4, inset 2)');
           }
         }
-        trail.add(detail);
+        if (row != null) {
+          if (rows.any((e) => identical(e, row.$2))) {
+            failures.add('$detail (ArrowDown did not move to a new item)');
+          }
+          rows.add(row.$2);
+        }
       }
-      // ignore: avoid_print
-      print('MENU-FOCUS | $name | ${platform.name} | ${trail.join(' ;; ')}');
+      expect(
+        rows,
+        hasLength(items),
+        reason: 'each ArrowDown reaches the next of $items items',
+      );
+      final tops = [
+        for (final row in rows)
+          tester.getRect(find.byElementPredicate((e) => identical(e, row))).top,
+      ];
+      expect(tops, orderedEquals([...tops]..sort()), reason: 'in order');
       expect(failures, isEmpty);
     });
   }
