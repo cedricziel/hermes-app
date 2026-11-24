@@ -302,6 +302,27 @@ void main() {
     expect(find.textContaining('Could not refresh'), findsOneWidget);
   });
 
+  testWidgets('a failed refresh says so in German and keeps the reason', (
+    tester,
+  ) async {
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'workers': [worker()],
+    });
+    await pump(tester, locale: const Locale('de'));
+
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'detail': 'gateway timeout',
+    }, status: 504);
+    await tester.tap(find.byTooltip('Aktualisieren'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Migrate webhooks'), findsOneWidget);
+    expect(
+      find.text('Aktualisieren fehlgeschlagen: gateway timeout'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('an older load that finishes late does not replace a newer one', (
     tester,
   ) async {
