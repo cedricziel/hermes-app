@@ -233,6 +233,38 @@ class FreshnessTest(unittest.TestCase):
         s = self._settings("Bash", "echo guard_bash.py")
         self.assertWarns(run(self.repo(settings=s)), "PreToolUse")
 
+    def test_non_running_commands_warn(self):
+        for cmd in (
+            'echo "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
+            "cat .claude/hooks/guard_bash.py",
+            "true || python3 x/.claude/hooks/guard_bash.py",
+            "true; python3 x/.claude/hooks/guard_bash.py",
+            "python3 x/.claude/hooks/guard_bash.py && true",
+            "echo $(python3 x/.claude/hooks/guard_bash.py)",
+            "python3 -c x/.claude/hooks/guard_bash.py",
+            'python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py" --post',
+        ):
+            with self.subTest(cmd=cmd):
+                with tempfile.TemporaryDirectory() as d:
+                    r = make_repo(
+                        Path(d) / "r", settings=self._settings("Bash", cmd)
+                    )
+                    self.assertWarns(run(r), "PreToolUse")
+
+    def test_plain_invocations_are_accepted(self):
+        for cmd in (
+            'python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
+            'FOO=1 python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
+            'env FOO=1 /usr/bin/python3.12 -u -B x/.claude/hooks/guard_bash.py',
+            '"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"',
+        ):
+            with self.subTest(cmd=cmd):
+                with tempfile.TemporaryDirectory() as d:
+                    r = make_repo(
+                        Path(d) / "r", settings=self._settings("Bash", cmd)
+                    )
+                    self.assertSilent(run(r))
+
     def test_committed_wiring_form_is_accepted(self):
         self.assertSilent(run(self.repo(settings=GOOD_SETTINGS)))
 
