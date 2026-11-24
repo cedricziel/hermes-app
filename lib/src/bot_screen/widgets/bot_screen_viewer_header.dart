@@ -59,9 +59,10 @@ class BotScreenViewerHeader extends StatelessWidget {
     );
     final bar = SizedBox(
       height: height,
-      // The bar's height is fixed, so its text stops growing at a cap, as the
-      // labels of `AdaptiveTabBar` do, and leaves larger text to the Large
-      // Content Viewer. The 44 pt iOS bar holds its two lines up to 1.1x.
+      // The bar's height is fixed, so its text stops growing at the cap (1.1x
+      // on the 44 pt iOS bar, which holds its two lines no further, 1.3x
+      // elsewhere), as the labels of `AdaptiveTabBar` do. The app offers no
+      // Large Content Viewer, so larger text is not shown larger here.
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: chrome == PlatformChrome.ios ? 1.1 : 1.3,
         child: Row(
