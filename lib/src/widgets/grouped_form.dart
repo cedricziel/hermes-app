@@ -91,6 +91,7 @@ class GroupedValueRow extends StatelessWidget {
                   onPressed: onTap,
                   maxWidth: _popUpMaxWidth(context, box.maxWidth, title),
                   tooltip: !_inMenu,
+                  inMenu: _inMenu,
                 ),
           ),
         ),
@@ -169,12 +170,16 @@ class _PopUpValue extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onPressed,
+    required this.inMenu,
     required this.maxWidth,
     required this.tooltip,
   });
 
   final String value;
   final bool enabled;
+
+  /// Whether a menu button round the row takes the focus and the tap.
+  final bool inMenu;
   final VoidCallback? onPressed;
   final double maxWidth;
 
@@ -234,9 +239,13 @@ class _PopUpValue extends StatelessWidget {
               ),
       ),
     );
-    return tooltip
-        ? Tooltip(message: value, excludeFromSemantics: true, child: pill)
+    // In a menu the button round the row takes the focus, not the face.
+    final ringed = inMenu
+        ? AncestorFocusRing.outside(radius: 6, child: pill)
         : pill;
+    return tooltip
+        ? Tooltip(message: value, excludeFromSemantics: true, child: ringed)
+        : ringed;
   }
 }
 

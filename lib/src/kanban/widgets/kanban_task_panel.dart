@@ -254,10 +254,10 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     final picked = await showAppDialog<String>(
       context: context,
       builder: (context) => KanbanTaskChoiceDialog<String>(
-        title: 'Assign to',
+        title: context.l10n.kanbanBulkAssignTitle,
         options: ['', ...names],
         selected: task.assignee ?? '',
-        labelOf: (name) => name.isEmpty ? 'Nobody' : name,
+        labelOf: (name) => name.isEmpty ? context.l10n.kanbanBulkNobody : name,
         onPicked: (value) => Navigator.pop(context, value),
       ),
     );
@@ -269,10 +269,12 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     final picked = await showAppDialog<int>(
       context: context,
       builder: (context) => KanbanTaskChoiceDialog<int>(
-        title: 'Priority',
+        title: context.l10n.kanbanBulkPriorityTitle,
         options: const [0, 1, 2, 3],
         selected: task.priority,
-        labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+        labelOf: (priority) => priority == 0
+            ? context.l10n.kanbanBulkPriorityNormal
+            : context.l10n.kanbanTaskPriorityLevel(priority),
         onPicked: (value) => Navigator.pop(context, value),
       ),
     );
