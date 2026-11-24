@@ -121,11 +121,19 @@ final popupCallers = <PopupCaller>[
   ),
   PopupCaller(
     'kanban filter chip',
-    () => KanbanFilterMenu(
-      label: 'All assignees',
-      all: 'All assignees',
-      options: const ['ada', 'grace'],
-      onSelected: _ignore,
+    // In the toolbar's horizontal scroll view, as the app builds it.
+    () => SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          KanbanFilterMenu(
+            label: 'All assignees',
+            all: 'All assignees',
+            options: const ['ada', 'grace'],
+            onSelected: _ignore,
+          ),
+        ],
+      ),
     ),
     'All assignees',
     _within(KanbanFilterMenu),

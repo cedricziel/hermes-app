@@ -105,7 +105,7 @@ void main() {
           expect(menuItems, findsWidgets);
         });
 
-        testWidgets('the arrow keys bring focus back to the trigger', (
+        testWidgets('focus is on the trigger again when the menu closes', (
           tester,
         ) async {
           await pump(tester, caller.build());
@@ -113,28 +113,26 @@ void main() {
           await tester.pump();
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
-          expect(trigger.hasPrimaryFocus, isTrue, reason: 'opening keeps it');
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          expect(menuItems, findsWidgets);
+          expect(trigger.hasPrimaryFocus, isFalse, reason: 'the menu has it');
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
-          expect(trigger.hasPrimaryFocus, isFalse, reason: 'into the menu');
-          expect(
-            FocusManager.instance.primaryFocus?.context
-                ?.findAncestorWidgetOfExactType<CupertinoMenuItem>(),
-            isNotNull,
-          );
-          await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-          await tester.pumpAndSettle();
-          expect(trigger.hasPrimaryFocus, isTrue, reason: 'back on trigger');
+          expect(menuItems, findsNothing);
+          expect(trigger.hasPrimaryFocus, isTrue);
         });
 
-        testWidgets('a pointer tap opens the menu and draws no ring', (
+        testWidgets('a pointer tap opens it, closes it, and draws no ring', (
           tester,
         ) async {
           await pump(tester, caller.build());
+          final trigger = tabStops(tester, caller.popup).single;
           await tester.tap(caller.popup);
           await tester.pumpAndSettle();
           expect(menuItems, findsWidgets);
-          expect(tabStops(tester, caller.popup).single.hasFocus, isTrue);
+          await tester.tap(caller.popup);
+          await tester.pumpAndSettle();
+          expect(menuItems, findsNothing);
+          expect(trigger.hasPrimaryFocus, isTrue, reason: 'the tap focused it');
           expect(
             find.byWidgetPredicate(
               (w) =>
@@ -172,7 +170,10 @@ void main() {
                 .rootSemanticsNode!,
           );
           expect(buttons, hasLength(1));
-          expect(buttons.single.label, contains(caller.text));
+          expect(
+            buttons.single.getSemanticsData().label,
+            contains(caller.text),
+          );
           handle.dispose();
         });
       });
