@@ -3693,6 +3693,64 @@
   },
 
   "@@x-area-profiles": "",
+  "profilesRecipientChoose": "Choose a recipient",
+  "@profilesRecipientChoose": {
+    "description": "Label of the recipient chip in the composer when no profile is picked yet."
+  },
+  "profilesRecipientFallbackName": "Recipient",
+  "@profilesRecipientFallbackName": {
+    "description": "Name used in the unavailable label when the chosen profile has no name to show."
+  },
+  "profilesRecipientLoadFailed": "Could not load recipients",
+  "@profilesRecipientLoadFailed": {
+    "description": "Label of the recipient chip when the profiles could not be loaded."
+  },
+  "profilesRecipientLoadFailedMessage": "Could not load recipients.",
+  "@profilesRecipientLoadFailedMessage": {
+    "description": "Sentence in the recipient list when the profiles could not be loaded."
+  },
+  "profilesRecipientLoading": "Loading recipients",
+  "@profilesRecipientLoading": {
+    "description": "Shown in the recipient chip and list while the profiles load."
+  },
+  "profilesRecipientNone": "No profiles available",
+  "@profilesRecipientNone": {
+    "description": "Shown in the recipient chip and list when the server has no profile to message."
+  },
+  "profilesRecipientRetryRecipients": "Retry recipients",
+  "@profilesRecipientRetryRecipients": {
+    "description": "Accessibility label of the Retry action beside the recipient chip."
+  },
+  "profilesRecipientSelectedLabel": "{label}, selected recipient {recipient}",
+  "@profilesRecipientSelectedLabel": {
+    "description": "Accessibility label of the recipient chip while loading or failed, keeping the chosen profile named. {label} is the chip text, {recipient} the profile.",
+    "placeholders": {
+      "label": {"type": "String", "example": "Loading recipients"},
+      "recipient": {"type": "String", "example": "Research"}
+    }
+  },
+  "profilesRecipientSetUp": "Set up profiles",
+  "@profilesRecipientSetUp": {
+    "description": "Action that opens the profile setup when there is no profile to message."
+  },
+  "profilesRecipientTitle": "New message",
+  "@profilesRecipientTitle": {
+    "description": "Title of the sheet that lists the profiles to start a chat with."
+  },
+  "profilesRecipientTo": "To: {recipient}",
+  "@profilesRecipientTo": {
+    "description": "Label of the recipient chip with a profile chosen. {recipient} is the profile name.",
+    "placeholders": {
+      "recipient": {"type": "String", "example": "Research"}
+    }
+  },
+  "profilesRecipientUnavailable": "{recipient} unavailable",
+  "@profilesRecipientUnavailable": {
+    "description": "Label of the recipient chip when the chosen profile cannot be reached. {recipient} is the profile name.",
+    "placeholders": {
+      "recipient": {"type": "String", "example": "Research"}
+    }
+  },
   "profilesSoulBannerCheck": "Check",
   "@profilesSoulBannerCheck": {
     "description": "Banner action that reads the file to find out whether an unconfirmed save arrived."
@@ -7484,6 +7542,106 @@
         "example": "github-review"
       }
     }
+  },
+  "skillsScreenAllSources": "All sources",
+  "@skillsScreenAllSources": {
+    "description": "Filter chip on the Discover tab that shows skills from every hub source."
+  },
+  "skillsScreenEmpty": "This profile has no skills yet.",
+  "@skillsScreenEmpty": {
+    "description": "Message on the Skills page when the profile has no skills."
+  },
+  "skillsScreenFilterAgent": "Agent",
+  "@skillsScreenFilterAgent": {
+    "description": "Filter chip: skills the agent wrote itself."
+  },
+  "skillsScreenFilterAll": "All",
+  "@skillsScreenFilterAll": {
+    "description": "Filter chip: every skill."
+  },
+  "skillsScreenFilterBundled": "Bundled",
+  "@skillsScreenFilterBundled": {
+    "description": "Filter chip: skills that ship with Hermes."
+  },
+  "skillsScreenFilterEnabled": "Enabled",
+  "@skillsScreenFilterEnabled": {
+    "description": "Filter chip: skills that are switched on."
+  },
+  "skillsScreenFilterHub": "Hub",
+  "@skillsScreenFilterHub": {
+    "description": "Filter chip: skills installed from the skills hub."
+  },
+  "skillsScreenHubSearchHint": "Search the skills hub",
+  "@skillsScreenHubSearchHint": {
+    "description": "Placeholder of the search field on the Discover tab."
+  },
+  "skillsScreenJobDone": "Done: {title}",
+  "@skillsScreenJobDone": {
+    "description": "Snackbar when a background hub job finished well. {title} is the job name.",
+    "placeholders": {
+      "title": {"type": "String", "example": "Install pr-review"}
+    }
+  },
+  "skillsScreenJobFailed": "Failed: {title}",
+  "@skillsScreenJobFailed": {
+    "description": "Snackbar when a background hub job failed. {title} is the job name.",
+    "placeholders": {
+      "title": {"type": "String", "example": "Install pr-review"}
+    }
+  },
+  "skillsScreenJobUnconfirmed": "Could not confirm: {title}",
+  "@skillsScreenJobUnconfirmed": {
+    "description": "Snackbar when the answer to a background hub job never arrived. {title} is the job name.",
+    "placeholders": {
+      "title": {"type": "String", "example": "Install pr-review"}
+    }
+  },
+  "skillsScreenLoadFailed": "Could not load skills",
+  "@skillsScreenLoadFailed": {
+    "description": "Message on the Skills page when loading failed."
+  },
+  "skillsScreenNewSkill": "New skill",
+  "@skillsScreenNewSkill": {
+    "description": "Bar button that opens the editor for a new skill."
+  },
+  "skillsScreenProfileMenu": "Profile",
+  "@skillsScreenProfileMenu": {
+    "description": "Accessibility label of the profile picker under the Skills title."
+  },
+  "skillsScreenSearchHint": "Search skills",
+  "@skillsScreenSearchHint": {
+    "description": "Placeholder of the search field on the Installed tab."
+  },
+  "skillsScreenSubtitleMac": "{profile} · {count, plural, =1{1 skill} other{{count} skills}}",
+  "@skillsScreenSubtitleMac": {
+    "description": "Mac subtitle of the Skills page: the profile and how many skills it has.",
+    "placeholders": {
+      "profile": {"type": "String", "example": "default"},
+      "count": {"type": "int", "example": "12"}
+    }
+  },
+  "skillsScreenTabDiscover": "Discover",
+  "@skillsScreenTabDiscover": {
+    "description": "Tab that finds skills on the hub."
+  },
+  "skillsScreenTabInstalled": "Installed",
+  "@skillsScreenTabInstalled": {
+    "description": "Tab that lists the skills of the profile."
+  },
+  "skillsScreenTitle": "Skills",
+  "@skillsScreenTitle": {
+    "description": "Title of the Skills page."
+  },
+  "skillsScreenToggleFailed": "Could not change {name}",
+  "@skillsScreenToggleFailed": {
+    "description": "Snackbar when switching a skill on or off failed. {name} is the skill.",
+    "placeholders": {
+      "name": {"type": "String", "example": "pr-review"}
+    }
+  },
+  "skillsScreenUnsupported": "The connected Hermes does not support skills.",
+  "@skillsScreenUnsupported": {
+    "description": "Message on the Skills page when the server has no skills routes."
   },
 
   "@@x-area-spotlight": "",

@@ -118,7 +118,7 @@ void main() {
 
   Future<void> openDiscover(WidgetTester tester) async {
     await pumpSkills(tester);
-    await tester.tap(find.text('Discover'));
+    await tester.tap(find.text(locale == null ? 'Discover' : 'Entdecken'));
     await tester.pumpAndSettle();
   }
 

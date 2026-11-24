@@ -436,7 +436,6 @@ style.string:
   lib/src/profiles/widgets/new_profile_dialog.dart: 8
   lib/src/profiles/widgets/profile_avatar.dart: 1
   lib/src/profiles/widgets/profile_tile.dart: 3
-  lib/src/profiles/widgets/recipient_picker.dart: 7
   lib/src/quick_panel/quick_panel_screen.dart: 2
   lib/src/quick_panel/widgets/quick_panel_view.dart: 2
   lib/src/quick_panel/widgets/shortcut_recorder_row.dart: 1
@@ -465,7 +464,6 @@ style.string:
   lib/src/skills/skill_detail_screen.dart: 8
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1
-  lib/src/skills/skills_screen.dart: 10
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_detail_actions.dart: 4
   lib/src/skills/widgets/skill_security_scan.dart: 3

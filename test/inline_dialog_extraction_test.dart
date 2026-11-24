@@ -258,7 +258,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Discover'));
+      await tester.tap(
+        find.text(locale.languageCode == 'de' ? 'Entdecken' : 'Discover'),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'scrape');
       await tester.pump(const Duration(milliseconds: 500));

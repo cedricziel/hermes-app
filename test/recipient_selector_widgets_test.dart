@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/models/model_options_state.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/test_localizations.dart';
 
 const _profile = HermesProfile(
   name: 'research',
@@ -305,5 +308,89 @@ void main() {
     expect(find.bySemanticsLabel('Set up a model'), findsOneWidget);
     expect(tester.takeException(), isNull);
     handle.dispose();
+  });
+
+  group('German', () {
+    Future<void> pumpDe(WidgetTester tester, Widget child) => tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme(),
+        home: Scaffold(body: child),
+      ),
+    );
+
+    testWidgets('the chip names its states in German', (tester) async {
+      final handle = tester.ensureSemantics();
+      Future<void> chip(RecipientSelectorState state, {bool profile = true}) =>
+          pumpDe(
+            tester,
+            ProfileRecipientChip(
+              profile: profile ? _profile : null,
+              state: state,
+              onTap: () {},
+              onRetry: () {},
+              onSetup: () {},
+            ),
+          );
+
+      await chip(RecipientSelectorState.ready);
+      expect(find.textContaining('An: Research partner'), findsOneWidget);
+
+      await chip(RecipientSelectorState.ready, profile: false);
+      expect(find.text('Empfänger wählen'), findsOneWidget);
+
+      await chip(RecipientSelectorState.empty, profile: false);
+      expect(find.text('Keine Profile verfügbar'), findsOneWidget);
+      expect(find.text('Profile einrichten'), findsOneWidget);
+
+      await chip(RecipientSelectorState.failed);
+      expect(
+        find.text('Empfänger konnten nicht geladen werden'),
+        findsOneWidget,
+      );
+      expect(find.text('Erneut versuchen'), findsOneWidget);
+      expect(find.bySemanticsLabel('Empfänger erneut laden'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp('ausgewählter Empfänger Research')),
+        findsOneWidget,
+      );
+
+      await chip(RecipientSelectorState.unavailable);
+      expect(find.textContaining('nicht verfügbar'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('the list names its states in German', (tester) async {
+      await pumpDe(
+        tester,
+        RecipientPicker(profiles: const [], onSelected: (_) {}, onSetup: () {}),
+      );
+      expect(find.text('Neue Nachricht'), findsOneWidget);
+      expect(find.text('Keine Profile verfügbar'), findsOneWidget);
+      expect(find.text('Profile einrichten'), findsOneWidget);
+
+      await pumpDe(
+        tester,
+        RecipientPicker(
+          profiles: const [],
+          failed: true,
+          onSelected: (_) {},
+          onRetry: () {},
+        ),
+      );
+      expect(
+        find.text('Empfänger konnten nicht geladen werden.'),
+        findsOneWidget,
+      );
+      expect(find.text('Erneut versuchen'), findsOneWidget);
+
+      await pumpDe(
+        tester,
+        RecipientPicker(profiles: const [], loading: true, onSelected: (_) {}),
+      );
+      expect(find.text('Empfänger werden geladen'), findsOneWidget);
+    });
   });
 }
