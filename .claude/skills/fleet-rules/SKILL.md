@@ -180,9 +180,9 @@ both `scripts/premerge_check.sh <pr> --stack <armed pr>` and the unstacked
 Every hand merge but the release-please PR's (below) needs a READY report, a
 clean recorded review for the exact head, and every required check green on
 that head, except the per-shard checks in the docs-only case. It is a squash
-merge, and the orchestrator does it. A Dart PR is hand-merged only when
-auto-merge cannot merge it (the one-armed-Dart-PR limit), and then only after
-the trial check.
+merge, and the orchestrator does it. A Dart PR (the release-please PR aside) is
+hand-merged only when auto-merge cannot merge it (the one-armed-Dart-PR limit),
+and then only after the trial check.
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
