@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
@@ -1046,6 +1047,99 @@ void main() {
         ink: find.byType(InkWell).last,
         radius: 6,
         name: 'Mac pop-up value',
+      );
+    });
+
+    // The case above builds a GroupedValueRow with an onTap, which draws its
+    // own ring; the screens build a GroupedMenuRow, whose pop-up is a
+    // PopupMenuButton around the whole row. Reached by Tab, as a user does.
+    // [value] in a row [width] wide with [title]: one ring, on the pop-up
+    // face, whatever shape the row gives it.
+    Future<void> expectMenuRowRing(
+      WidgetTester tester, {
+      required double width,
+      required String title,
+      required String value,
+      bool truncated = false,
+      bool titleWraps = false,
+    }) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        SizedBox(
+          width: width,
+          child: GroupedSection(
+            children: [
+              GroupedMenuRow<String>(
+                title: title,
+                options: [value, 'sonnet'],
+                labelOf: (option) => option,
+                selected: value,
+                onSelected: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(value));
+      expect(paragraph.didExceedMaxLines, truncated, reason: 'value truncates');
+      final titleParagraph = tester.renderObject<RenderParagraph>(
+        find.text(title),
+      );
+      expect(
+        titleParagraph.size.height > 1.5 * 12 * 1.3,
+        titleWraps,
+        reason: 'title wraps',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      final face = find
+          .ancestor(of: find.text(value), matching: find.byType(Material))
+          .first;
+      expect(_ringFinder, findsOneWidget, reason: 'the pop-up shows a ring');
+      expect(tester.getRect(_ringFinder), tester.getRect(face));
+      final (band, painter) = _ring(tester);
+      expect(painter.width, kFocusRingWidth);
+      expect(painter.inset, -(kFocusRingOffset + kFocusRingWidth));
+      expectRingHugs(band, (
+        tester.getRect(face),
+        6,
+      ), reason: 'Mac pop-up value of a GroupedMenuRow');
+      await expectKeyboardOnly(tester);
+    }
+
+    testWidgets('Mac pop-up value of a GroupedMenuRow, reached by Tab: '
+        'radius 6', (tester) async {
+      await expectMenuRowRing(
+        tester,
+        width: 360,
+        title: 'Model',
+        value: 'opus',
+      );
+    });
+
+    testWidgets('Mac pop-up value of a GroupedMenuRow whose value truncates, '
+        'reached by Tab: the ring is round the shortened face', (tester) async {
+      await expectMenuRowRing(
+        tester,
+        width: 300,
+        title: 'Profile',
+        value: 'Aktives Profil (default) mit weiteren Einstellungen',
+        truncated: true,
+      );
+    });
+
+    testWidgets('Mac pop-up value of a GroupedMenuRow whose title wraps in a '
+        'narrow row, reached by Tab: the ring is round the face', (
+      tester,
+    ) async {
+      await expectMenuRowRing(
+        tester,
+        width: 280,
+        title: 'Bei Abschluss benachrichtigen',
+        value: 'Aktives Profil (default) mit weiteren Einstellungen',
+        truncated: true,
+        titleWraps: true,
       );
     });
   });

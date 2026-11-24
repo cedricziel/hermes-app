@@ -1381,6 +1381,22 @@ List<WidgetbookUseCase> _outsideTapTargetUseCases() => [
     ),
     platforms: const {'Mac': TargetPlatform.macOS},
   ),
+  // What the screens build: the button round the row takes the focus.
+  ..._outside(
+    'Mac pop-up value in a menu row',
+    () => GroupedSection(
+      children: [
+        GroupedMenuRow<String>(
+          title: 'Model',
+          options: const ['claude-opus-4', 'claude-sonnet-4'],
+          labelOf: (option) => option,
+          selected: 'claude-opus-4',
+          onSelected: (_) {},
+        ),
+      ],
+    ),
+    platforms: const {'Mac': TargetPlatform.macOS},
+  ),
 ];
 
 /// Owns the sign-in state a sidebar reads, for as long as the use case is on
