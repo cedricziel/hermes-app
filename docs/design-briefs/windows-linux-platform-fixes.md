@@ -32,6 +32,10 @@ Corrections: the chip was first decided against the 48 pt padded box, then again
 
 Copy added: none.
 
+F.441 thread row actions by keyboard (the iOS thread row on an iPhone or iPad with a hardware keyboard; roadmap F.462): canvas "Hermes: thread row actions by keyboard", 9 artboards (iPad 1180 x 820: today, the menu open, the Cmd-hold overlay, then today and the menu open in dark; iPhone 390 x 844: today and the action sheet open, light and dark). The canvas could not be created in the session that ran the pass (the Artifact call was refused), so there is no link yet; the artboards were rendered locally in headless Chrome. Decision: Ctrl+Return on the focused row opens the row's actions, the same popover or sheet a long press opens, with nothing new at rest. Full record: "F.441 thread row actions by keyboard (design pass)" below.
+
+Copy added: "Show Chat Actions" (a menu entry on iPad only; German "Chat-Aktionen anzeigen").
+
 ### F7 addendum (recorded with the PR)
 
 The pass above did not record these; they are checked against the real theme tokens (`hermes_theme.dart`) and recorded here, in the PR that builds the ring.
@@ -226,6 +230,61 @@ The default (outside, 8) is the account footer's, so it needs nothing. The other
 **Tests to carry.** A geometry case per caller on iOS with a keyboard (ring present, radius and side as above; for the chip, the ring's rect equals the painted chip's rect deflated by 2 at 1x and at 3x text, and the hit size is at least 44 at both; a margin tap while the menu is open closes it and does not reopen it, a chip tap opens it once, a margin tap while closed opens it once; Android keeps its padded chip), each of the four non-chip callers keeps its size at `minTapTarget` 0, each caller has exactly one tab stop and one button semantics node carrying its child's label, and focus returns from the open menu to the trigger with the arrow keys, Enter and Space open the menu, no ring after a pointer tap, the quick-look anchor takes no focus, and 3x text for the pill.
 
 **Could not check.** The canvas was rendered locally in headless Chrome as HTML, not Flutter, so type, anti-aliasing and the ring's stroke are approximate; it was not looked at in the claude.ai viewer. Not checked: the chip's painted height (about 39 pt, from Flutter's `chip.dart` and the app's 16 pt label, not measured in a running app) and the nested tap of the chip's hit box; real iPad or an external keyboard on an iPhone; Tab order and the Enter and Space handling against `CupertinoMenuAnchor`; the subtitle at large text sizes (the bar is 44 pt and the padded content 42.8 pt, so it grows past that at larger sizes, and at 1x the title's `g` still grazes the ring by about 1 pt, so look at it in the catalog first and fall back to a ring inside the padded box); right-to-left; the iPad sidebar width (320) and the footer copy are assumptions. Read and fine: `ServerAttentionBadge` is a `Stack` with a positioned dot and nothing focusable. Contrast is the F.427 table (link on the sidebar and page surfaces, 4.3 to 11.4); the chip's `outline` border and the pill's outline sit under the ring and were not measured separately.
+## F.441 thread row actions by keyboard (design pass)
+
+Decision only; no code in this change. Read at `origin/main` `825d6a18`. Canvas: none published yet (see "Could not check"). The ring is the F.427 one (2 px, link colour, inside the row, keyboard only); this pass does not touch it.
+
+**Problem, as read.** `_ThreadRowState.build` (`thread_sidebar.dart`) wraps a row with housekeeping in `SwipeableThreadRow` on iOS chrome and builds the inline More button (`ThreadActionsButton`) only when `!ios`; the row's own long press and secondary tap go to the menu only with that button. The swipeable row has its own ways in, which F.462 did not list: on a phone a long press opens a `CupertinoActionSheet` (`_showSheet`), on an iPad layout (`isWideLayout`) `TouchRowMenu` opens a `CupertinoMenuAnchor` popover at the row's trailing edge by a long press and at the pointer by a secondary click. All of those are touch or pointer. A keyboard has none: `SidebarRow` takes focus and shows the ring, Return and Space select the row, and nothing else happens. The Chat menu on iPad (`menuLayout`, `MenuPlatform.ipad`) offers Pin (⇧⌘P), Rename and Archive without a chord, and Delete with no iPad chord (`ipadShortcut: false`, ⌘⌫ moves a text caret), and all four act on the selected chat, so a chat that is not selected is out of reach. VoiceOver is not part of the gap: `SwipeableThreadRow` gives the row custom actions Rename (not for a canonical Bot Chat), Pin or Unpin, Archive or Retire, and Delete.
+
+**Decision: option (a), with Ctrl+Return.** On a thread row that has keyboard focus (iOS chrome, with housekeeping), Ctrl+Return (⌃↩) opens the row's actions, the same menu a long press opens: the iPad popover at the row's trailing edge, level with the row, with its first item focused; the iPhone action sheet with Cancel as the default. The actions and their confirmations are `runThreadAction` as today; Delete still asks, Cancel is the default, and Delete is a red label, never a filled button. Opening the menu does not select the row or navigate. Nothing changes at rest: no button, no hint, no new tab stop. It works for any row, selected or not, and for a canonical Bot Chat (no Rename, Archive reads Retire).
+
+**Discoverability (option (c) as part of (a), not alone).** A new Chat-menu entry, "Show Chat Actions" with ⌃↩, on iPad only (`platforms: {MenuPlatform.ipad}`, so the Mac menu bar and the Windows and Linux layout do not get it), makes the chord show in the iPad menu bar and in the list shown while ⌘ is held. It acts on the focused row, unlike its neighbours, which act on the selected chat, and it is enabled only while a thread row holds keyboard focus. `IpadMenuBridge` does not hand a disabled item's key to UIKit and drops a command while a text field is composing (`_composing()`), so with the composer focused ⌃↩ reaches the app as it would without the entry.
+
+**Menu-layout check.** No iPad chord of `menuLayout` collides: ⌘, ⌘N ⌘R ⌘[ ⌘] ⌃⌘S ⇧⌘F ⌘F ⇧⌘P are the iPad ones (⌘⌫, ⌘↑ and ⌥↑/⌥↓ are left to the text field or the Mac), and none is Ctrl+Return. The overlay lists only commands with a chord, so the entry needs one. The Mac and desktop layouts are unchanged; the Mac has hover buttons and a right click, and its keyboard is a separate question.
+
+**Chord, and why the others lose.**
+
+- Ctrl+Return: on every keyboard an iPad takes; the app binds nothing to it; the composer is not focused when a row is; VoiceOver's modifier is Ctrl+Option, so plain Ctrl does not meet it. The owner may overrule.
+- Cmd+Return: rejected. The composer sends on Enter with any modifier but Shift (`chat_composer.dart`, the key handler near line 164), and Cmd+Return is send in Messages and Mail, so a row would answer "send" with a menu.
+- Shift+F10 and the context-menu key: rejected as the chord. The Magic Keyboard for iPad (2020 to 2022) and the Smart Keyboard have no function row and no Application key; only a PC keyboard does, and whether the iOS embedder reports it is not checked. They may follow as aliases, with no menu entry; they are not part of this decision and carry no test.
+- Shift+Return and Option+Return: rejected. Shift+Return is the composer's newline, and the pair would read as the composer's keys.
+
+**Rejected options.**
+
+- (b) The inline More button on iPad while a keyboard is in use, or on focus only. Flutter has no signal for an attached keyboard, only the highlight mode, which flips on every touch. A button that appears on Tab moves the title's ellipsis on every step through the list, and a permanent one adds a second tab stop per row (2N stops) and puts back the control the iOS row gave up for swipe. It is a placement change for a keyboard-only gap.
+- (c) alone. The overlay shows menu commands with chords; it opens nothing for a row, and Pin, Rename, Archive and Delete in it act on the selected chat.
+- (d) Make Pin, Rename, Archive and Delete act on the focused row. It changes what they mean (selected or focused), reaches only Pin by chord, and puts Delete one chord from a non-selected row.
+- (e) Select with Return, then use the Chat menu. Selecting navigates (the phone drawer closes), and Rename and Archive have no chord on iPad.
+- (f) Arrow keys that reveal the swipe panes. It invents a key language for a swipe, and puts Delete one arrow from a row.
+
+**Focus return after the menu closes.**
+
+- Escape, a tap outside, a chosen item that opens nothing (Pin) and Cancel in the sheet: focus is on the row, ring shown (the keyboard has just been used). The row's `FocusNode` is given to `SidebarRow` (an optional parameter) and passed as the `CupertinoMenuAnchor`'s `childFocusNode`, as the F.441 popup trigger does.
+- Rename: the dialog is a route, so on Save or Cancel focus returns to the row, which keeps its key.
+- Pin or Unpin: the row moves into or out of the Pinned section. Focus follows the thread, not the index: after the frame the row is focused again and scrolled into view.
+- Archive, Retire and Delete: the row leaves the list. Focus goes to the next row of the same list, else the previous one, else the first control of the sidebar; never to the composer, never to nothing. A Delete that is cancelled in the confirmation returns to the row, and nothing was deleted. If the removed row was the selected chat, the existing selection fallback runs as today.
+- No ring after a pointer press, as everywhere (F7).
+
+**VoiceOver.** The row's custom actions stay as they are and remain the way in with VoiceOver. A keyboard opening announces the menu the way the long press does (`TouchRowMenu._announce`, "Actions for ..."); the sheet carries the title. The chord is not read out; the Cmd-hold overlay is its cue. No new semantics node is added.
+
+**Settled rules.** Rows are already 44 pt on touch (`minTapTargetOf`) and nothing is added; Delete is red text and the sheet's default is Cancel (the popover has Escape); a keyboard focus ring is not a status, and the menu items are words; fixtures use invented names (Release notes, Kanban triage, Nightly backup report, Invoice reminders); the watch is untouched; the existing confirmations are the only path to Delete and to retiring a Bot Chat.
+
+**Build shape (for the PR, not decided here).** `SwipeableThreadRow` (or `_ThreadRowState`) binds the chord on the row with `CallbackShortcuts` and calls an `open()` on `TouchRowMenu` (the anchor's `_openAtRowEnd`) or `_showSheet`; `open()` ignores a call while the menu is open (today `_openAt` closes and reopens, which would flicker if both paths fired). The menu entry runs the same `open()` on the focused row, which the sidebar tracks. Plain-model widget first, in the catalog: a row use case with the ring and the popover open, phone and iPad, both themes, text 1x and 3x.
+
+**Tests to carry.**
+
+- A non-selected row with housekeeping, focused by keyboard: Ctrl+Return opens the popover at iPad width and the action sheet at phone width; `onTap` is not called and the selection is unchanged.
+- Return still selects and opens nothing; the chord on a row without housekeeping does nothing; a canonical Bot Chat shows no Rename and "Retire".
+- Escape closes the popover and focus is back on the row with the ring; Cancel in the sheet does the same.
+- Delete from the keyboard shows the existing confirmation with Cancel as the default; `housekeeping.delete` is not called before confirming nor after Cancel; Cancel returns focus to the row.
+- After Archive or Delete focus is on the next row (the previous at the end, the sidebar's first control when the list is empty); after Pin it is on the same thread in its new section.
+- With the composer focused the chord does nothing; a layout test over `menuLayout`: the iPad entry has ⌃↩, the Mac and desktop layouts do not have it, and no two iPad chords are equal.
+- One opening when the row binding and the menu entry both fire; the menu entry is disabled while no row is focused.
+- The row keeps its custom semantics actions (four, three for a canonical Bot Chat); no extra tab stop and no extra node at rest.
+- Android, Mac and desktop keep the inline More button and long press, unchanged; no ring after a pointer press.
+- Catalog use cases build in both themes (`test/widgetbook_test.dart`); the new ARB key exists in `app_en.arb` and `app_de.arb`.
+
+**Could not check.** The canvas was not created: the Artifact call that starts a design canvas was refused in the session that ran this pass, so the nine artboards exist only as local files (generated HTML on the Hermes App design system tokens, rendered in headless Chrome, all looked at; not at the claude.ai viewer). They are plain markup, not Flutter, so type and the ring's stroke are approximate. Not checked: Flutter was not run; a real iPad or an external keyboard on an iPhone; whether UIKit or the iOS embedder passes Ctrl+Return as a key event, and whether iPadOS keeps it for itself; the Application key and Shift+F10 on iOS; `CupertinoMenuAnchor` focusing its first item and honouring `childFocusNode` on return; whether `CupertinoActionSheet` takes keyboard focus (the canvas draws a ring on Rename as an assumption); whether the custom actions merge into the row's button node under VoiceOver; whether a row keeps its focus when Pin moves it between sections; whether `IpadMenuBridge` also runs on an iPhone (it starts on iOS chrome, so a held ⌘ may list the entry there too); the 262 pt popover width and the sidebar width (320) are the existing values, not measured here; contrast is the F.427 table.
 
 ## F1 command set
 
