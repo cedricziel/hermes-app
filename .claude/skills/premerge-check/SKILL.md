@@ -1,6 +1,6 @@
 ---
 name: premerge-check
-description: Use before arming auto-merge on a hermes-app PR, before merging one by hand, or when two PRs that were each green may break main together (duplicate declaration, conflicting edits in one library directory, a PR changing a screen whose workflow test another PR rewrote). Runs scripts/premerge_check.sh, a trial merge of the PR (and any stacked PRs) into the current origin/main with analyze, the architecture tests and the affected tests.
+description: Optional tool, not a merge gate. Use for a risky pair of hermes-app PRs that were each green but may break main together (duplicate declaration, conflicting edits in one library directory, a PR changing a screen whose workflow test another PR rewrote, a stack). Runs scripts/premerge_check.sh, a trial merge of the PR (and any stacked PRs) into the current origin/main with analyze, the architecture tests and the affected tests.
 ---
 
 # Pre-merge trial check
@@ -11,9 +11,13 @@ merged minutes apart can each be green and still break main together: #1123 and
 `test/workflows/kanban_extras_workflow_test.dart` and #1213 changed
 `lib/src/kanban/kanban_screen.dart`; #1213's check ran on a base that already
 had #1196 but only analyzed, so main failed in that workflow test. That is why
-the check also runs the tests that touch what changed. Until a merge queue
-exists, every arm or hand merge first runs this check against the main that
-exists right now.
+the check also runs the tests that touch what changed.
+
+The check is optional and no longer a merge gate. Decision of the owner,
+2026-11-24 21:55 UTC, asked what to stop: "Drop trial merges". READY and merging
+do not depend on it (`fleet-rules`); after a merge the orchestrator reads main's
+push run and fixes a break forward at once, or reverts the merge. Run it for a
+risky pair of PRs, for example two PRs touching the same files, or a stack.
 
 ```bash
 scripts/premerge_check.sh <pr> [--stack <n> <n> ...] [--others <n> <n> ...] [--base main] [--keep]
