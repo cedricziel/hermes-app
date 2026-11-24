@@ -422,13 +422,22 @@ class _FocusRingState extends State<FocusRing> {
   @override
   void didUpdateWidget(FocusRing old) {
     super.didUpdateWidget(old);
-    if (old._followsPrimaryFocus == widget._followsPrimaryFocus) return;
-    if (widget._followsPrimaryFocus) {
-      FocusManager.instance.addListener(_onFocusMoved);
-    } else {
-      FocusManager.instance.removeListener(_onFocusMoved);
+    final was = old._followsPrimaryFocus;
+    final follows = widget._followsPrimaryFocus;
+    if (was != follows) {
+      if (follows) {
+        FocusManager.instance.addListener(_onFocusMoved);
+      } else {
+        FocusManager.instance.removeListener(_onFocusMoved);
+      }
     }
-    _onFocusMoved();
+    // A new node to follow, or a new mode, can change whether the ring shows
+    // without any focus having moved.
+    if (was != follows ||
+        old.ownFocus != widget.ownFocus ||
+        old.onlyFor != widget.onlyFor) {
+      _onFocusMoved();
+    }
   }
 
   @override
