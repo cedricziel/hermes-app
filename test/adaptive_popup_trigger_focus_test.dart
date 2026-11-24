@@ -17,7 +17,7 @@ import 'support/test_localizations.dart';
 
 /// The iOS pull-down trigger of [AdaptivePopupMenuButton] with a custom child
 /// (F.441): reachable by the keyboard, one tab stop, Enter and Space open the
-/// menu, the arrow keys bring focus back, and a tap in the margin of the chip
+/// menu, focus returns to the trigger when the menu closes, and a tap in the margin of the chip
 /// toggles like a tap on the chip.
 void main() {
   setUp(() {

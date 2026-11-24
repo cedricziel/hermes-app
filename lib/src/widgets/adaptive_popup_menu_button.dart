@@ -178,7 +178,7 @@ Future<T?> showRingMenu<T>({
 /// On iOS a custom [child] is a trigger the keyboard reaches: one tab stop,
 /// Enter and Space open the menu, and a 2 px ring in the link colour shows on
 /// keyboard focus ([focusRadius], [focusInside] and [minTapTarget] shape it).
-/// The arrow keys bring focus back from the open menu to the trigger. Mac and
+/// Focus returns to the trigger when the menu closes. Mac and
 /// Material build a [PopupMenuButton], which takes focus and draws its own.
 class AdaptivePopupMenuButton<T> extends StatefulWidget {
   const AdaptivePopupMenuButton({
