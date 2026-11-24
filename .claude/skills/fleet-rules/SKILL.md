@@ -157,8 +157,8 @@ A "Dart PR" is one that touches any `.dart` file, `pubspec.*`,
 
 The trial merge (`scripts/premerge_check.sh`) is not a merge gate. Decision of
 the owner, 2026-11-24 21:55 UTC, asked what to stop: "Drop trial merges". READY
-is the clean recorded isolated review on the head, the required checks green on
-the head, and main merged in wherever it changed the PR's files. After a merge,
+is the list above, with the required checks green on the head; the trial is not
+part of it. After a merge,
 the orchestrator reads main's push run, and a break is fixed forward at once (or
 the merge reverted). The script stays as an optional tool for a risky pair of
 PRs, such as two PRs touching the same files, or a stack (`premerge-check`

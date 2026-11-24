@@ -141,7 +141,7 @@ replaced by `/tmp`. A full run takes about two minutes.
 
 | Code | Meaning                                                       | Next step                                                                                                                                 |
 | ---- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | Merged tree analyzes and passes the architecture and affected tests | Arm at exactly the printed head SHA, while main is still the printed base (below). Rerun after any push.                           |
+| 0    | Merged tree analyzes and passes the architecture and affected tests | The pass speaks only for the printed head and base (below); a later push or move of main makes it stale. No rerun is required.                   |
 | 1    | Usage error, bad `PREMERGE_TEST_*` value, unknown PR number, fetch failure, already merged, affected tests could not be selected | Fix the arguments or the remote; check the PR is open.                                                                                    |
 | 2    | Merge conflict (files listed; names the stacked PR that conflicted) | Merge origin/main into the PR branch, resolve, push, rerun.                                                                         |
 | 3    | `pub get` or analyze failed (issues printed)                  | Rerun with `--keep`, run `flutter analyze` in the trial merge, fix the PR, or merge origin/main in if the clash comes from main.          |
@@ -150,16 +150,18 @@ replaced by `/tmp`. A full run takes about two minutes.
 | 6    | Affected tests cut short by the budget (files not run listed) | Not a pass. Rerun with a larger `PREMERGE_TEST_BUDGET`, or run the listed files, then rerun the check.                                    |
 | 7    | `PASS (CAPPED: ...)`: the cap skipped directory-wide (c2) tests | Not a full pass. Rerun with `PREMERGE_TEST_CAP` and `PREMERGE_TEST_BUDGET` raised, or set `PREMERGE_ALLOW_CAPPED=1` to accept the skipped tests (exit 0, still says CAPPED). 5 and 6 win over 7. |
 
-## Arming: tie it to the head and the base
+## A pass is tied to the head and the base
 
-A pass is about one PR head and one main. On exit 0 the script prints the head
-SHA and the base (main) SHA it was checked against, and the rule: merge or arm
-only while `origin/main` still equals that base SHA; rerun otherwise. It also
-prints the exact head SHA: arm with a head-SHA match (`gh pr merge --auto --squash
---match-head-commit <sha>` locally, or the auto-merge route with that sha), so a later push to the
-PR cannot ride on this result. Rerun after ANY push to the PR or to main. On an
-overlap `WARNING`, arm one of the overlapping PRs, wait for it to merge, then
-rerun the check for the other.
+When you choose to run the check, a pass is about one PR head and one main. On
+exit 0 the script prints the head SHA and the base (main) SHA it was checked
+against, and a line saying to merge or arm only while `origin/main` still equals
+that base SHA; that line is the script's own output, not a requirement of this
+repo. A later push to the PR or a move of main makes the result stale. Nothing
+requires a rerun before arming or merging. If you do arm on a pass, a head-SHA
+match (`gh pr merge --auto --squash --match-head-commit <sha>` locally, or the
+auto-merge route with that sha) keeps a later push from riding on the result. On
+an overlap `WARNING`, you may arm one of the overlapping PRs, wait for it to
+merge, then run the check for the other.
 
 The incident-catching path (exit 3 on a merged tree that does not compile) is
 covered by the stub test only (`test_analyze_failure_exits_3`). Main had been
