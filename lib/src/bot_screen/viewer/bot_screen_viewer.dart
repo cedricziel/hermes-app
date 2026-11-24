@@ -309,7 +309,7 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
                     ? 16 / 10
                     : (framebuffer.width / framebuffer.height).clamp(0.5, 3.0),
                 control: controller.control,
-                lostText: controller.lostText,
+                lostToAgent: controller.lostToAgent,
                 canForce: controller.someoneElseInControl,
                 onClose: widget.onClose,
                 onRetry: controller.retry,

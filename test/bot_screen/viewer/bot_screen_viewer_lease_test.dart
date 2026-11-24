@@ -549,14 +549,14 @@ void main() {
         server.giveToAgent();
         settle();
         expect(viewer.control, BotScreenControl.lost);
-        expect(viewer.lostText, 'Hermes took control back.');
+        expect(viewer.lostToAgent, isTrue);
 
         unawaited(viewer.takeOver());
         settle();
         server.takeBy('someone-else');
         settle();
         expect(viewer.control, BotScreenControl.lost);
-        expect(viewer.lostText, 'Someone else took control.');
+        expect(viewer.lostToAgent, isFalse);
       });
     });
 
