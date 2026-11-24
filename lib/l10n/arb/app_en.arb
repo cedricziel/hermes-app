@@ -2144,6 +2144,14 @@
   "@chatWidgetsMacToolbarMore": {
     "description": "Accessibility label and tooltip of the \"…\" button in the Mac chat toolbar that opens the overflow menu."
   },
+  "chatWidgetsMacToolbarNewChat": "New Chat",
+  "@chatWidgetsMacToolbarNewChat": {
+    "description": "Mac chat toolbar button that starts a new chat; macOS title case."
+  },
+  "chatWidgetsMacToolbarSearch": "Search",
+  "@chatWidgetsMacToolbarSearch": {
+    "description": "Mac chat toolbar button that opens the search of the open chat; the short form of Find."
+  },
   "chatWidgetsMoaFinished": "Finished",
   "@chatWidgetsMoaFinished": {
     "description": "Shown in the advisor progress card title once the advisors are done."
@@ -3231,6 +3239,47 @@
     "placeholders": {
       "priority": {"type": "int", "example": "2"}
     }
+  },
+  "kanbanWorkersEmpty": "No workers are running",
+  "@kanbanWorkersEmpty": {
+    "description": "Message on the workers page when no task has a worker running."
+  },
+  "kanbanWorkersLoadFailed": "Could not load the workers",
+  "@kanbanWorkersLoadFailed": {
+    "description": "Message on the workers page when loading failed and the server gave no reason."
+  },
+  "kanbanWorkersPreviousTitle": "Kanban",
+  "@kanbanWorkersPreviousTitle": {
+    "description": "Back label of the workers page on the Mac; names the page it returns to."
+  },
+  "kanbanWorkersRefreshFailed": "Could not refresh: {reason}",
+  "@kanbanWorkersRefreshFailed": {
+    "description": "Snackbar when reading the workers again failed while the old list stays on screen. {reason} is the server's message or a short sentence.",
+    "placeholders": {
+      "reason": {"type": "String", "example": "Could not load the workers"}
+    }
+  },
+  "kanbanWorkersRunning": "{count} running",
+  "@kanbanWorkersRunning": {
+    "description": "Subtitle of the workers page: how many workers are running.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanWorkersTerminate": "Terminate",
+  "@kanbanWorkersTerminate": {
+    "description": "Confirm button of the question that stops a worker run."
+  },
+  "kanbanWorkersTerminateTitle": "Terminate run #{run}?",
+  "@kanbanWorkersTerminateTitle": {
+    "description": "Title of the confirmation before a worker run is stopped. {run} is the run number.",
+    "placeholders": {
+      "run": {"type": "int", "example": "7"}
+    }
+  },
+  "kanbanWorkersTitle": "Active workers",
+  "@kanbanWorkersTitle": {
+    "description": "Title of the page that lists the workers running tasks now."
   },
 
   "@@x-area-live_activities": "",

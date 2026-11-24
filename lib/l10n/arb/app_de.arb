@@ -451,6 +451,8 @@
   "chatWidgetsHistoryFailedTitle": "Die Nachrichten konnten nicht geladen werden",
   "chatWidgetsHistoryLoading": "Chat wird geladen",
   "chatWidgetsMacToolbarMore": "Mehr",
+  "chatWidgetsMacToolbarNewChat": "Neuer Chat",
+  "chatWidgetsMacToolbarSearch": "Suchen",
   "chatWidgetsMoaFinished": "Abgeschlossen",
   "chatWidgetsMoaPhaseAdvisors": "Berater",
   "chatWidgetsMoaPhaseAggregating": "Zusammenführung",
@@ -673,6 +675,14 @@
   "kanbanRefreshAction": "Aktualisieren",
   "kanbanSaveAction": "Speichern",
   "kanbanTaskPriorityLevel": "P{priority}",
+  "kanbanWorkersEmpty": "Es laufen keine Worker",
+  "kanbanWorkersLoadFailed": "Die Worker konnten nicht geladen werden",
+  "kanbanWorkersPreviousTitle": "Kanban",
+  "kanbanWorkersRefreshFailed": "Aktualisieren fehlgeschlagen: {reason}",
+  "kanbanWorkersRunning": "{count} laufen",
+  "kanbanWorkersTerminate": "Beenden",
+  "kanbanWorkersTerminateTitle": "Lauf #{run} beenden?",
+  "kanbanWorkersTitle": "Aktive Worker",
 
   "@@x-area-live_activities": "",
 
