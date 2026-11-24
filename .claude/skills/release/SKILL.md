@@ -9,13 +9,12 @@ A release goes through three steps:
 
 1. **Cut**: the release-please PR merges through auto-merge, which the
    orchestrator arms at its discretion on the conditions below (when GitHub
-   refuses to arm it because nothing is pending, it merges directly, see
-   below). The tag `vX.Y.Z`
-   and a GitHub **pre-release** are created, and `release-please.yml` uploads
-   the build to TestFlight (iOS and macOS, external group "Public beta") and
-   attaches the downloads: a notarized macOS DMG, the Linux tar.gz and .deb
-   (x86_64, arm64), an Android APK and AAB, and a Windows x64 zip (unsigned, so
-   SmartScreen warns on first launch).
+   refuses to arm it because nothing is pending, it merges directly, see below).
+   The tag `vX.Y.Z` and a GitHub **pre-release** are created, and
+   `release-please.yml` uploads the build to TestFlight (iOS and macOS, external
+   group "Public beta") and attaches the downloads: a notarized macOS DMG, the
+   Linux tar.gz and .deb (x86_64, arm64), an Android APK and AAB, and a Windows
+   x64 zip (unsigned, so SmartScreen warns on first launch).
 2. **Test**: testers use the TestFlight build.
 3. **Ship** (the owner's step): promote the pre-release to a full release.
    `app-store.yml` then submits that version's TestFlight build to App Review on
@@ -60,9 +59,8 @@ conditions holds and GitHub refuses to arm auto-merge because the PR is already
 clean (all required checks green, nothing pending), the orchestrator merges the
 release PR directly: a squash with the head SHA pinned (`expectedHeadSha`, or
 the merge API's `sha`). In every other state the PR is armed, and disarmed when
-a new head arrives. The PR is opened with
-`RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
-missing or expired.
+a new head arrives. The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI
+runs on it. If CI did not run, the token is missing or expired.
 
 ## Follow the builds
 
