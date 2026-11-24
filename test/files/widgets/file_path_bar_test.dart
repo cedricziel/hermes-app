@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/server_path.dart';
@@ -6,6 +6,7 @@ import 'package:hermes_app/src/files/widgets/file_path_bar.dart';
 import 'package:hermes_app/src/widgets/middle_ellipsis.dart';
 
 import 'files_widget_harness.dart';
+import '../../support/tooltip_finder.dart';
 
 const _root = '/srv/demo/field-notes';
 
@@ -306,7 +307,7 @@ void main() {
           platform: TargetPlatform.macOS,
         );
 
-        expect(find.byTooltip('Up (⌘↑)'), findsOneWidget);
+        expect(find.tooltip('Up (⌘↑)'), findsOneWidget);
       });
     });
 

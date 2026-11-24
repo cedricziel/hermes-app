@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import '../support/accessibility_announcements.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/test_localizations.dart';
+import '../support/tooltip_finder.dart';
 
 /// A German device gets German words on a chat row everywhere: the phone's
 /// action sheet, the swipe actions, VoiceOver's custom actions and the
@@ -258,7 +259,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.tap(find.tooltip('Chat-Aktionen'));
       await tester.pumpAndSettle();
     }
 
@@ -358,13 +359,13 @@ void main() {
           pinned: true,
         ),
       );
-      expect(find.byTooltip('Chat-Aktionen'), findsOneWidget);
+      expect(find.tooltip('Chat-Aktionen'), findsOneWidget);
       expect(
         find.bySemanticsLabel('Chat-Aktionen für Release notes'),
         findsOneWidget,
       );
 
-      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.tap(find.tooltip('Chat-Aktionen'));
       await tester.pumpAndSettle();
 
       for (final label in [
@@ -395,7 +396,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.tap(find.tooltip('Chat-Aktionen'));
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(of: items, matching: find.text('Umbenennen')),
@@ -417,7 +418,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.tap(find.tooltip('Chat-Aktionen'));
       await tester.pumpAndSettle();
       await tester.tap(
         find.descendant(of: items, matching: find.text('Löschen')),
@@ -452,7 +453,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('Chat-Aktionen'));
+      await tester.tap(find.tooltip('Chat-Aktionen'));
       await tester.pumpAndSettle();
       expect(
         find.descendant(of: items, matching: find.text('Umbenennen')),

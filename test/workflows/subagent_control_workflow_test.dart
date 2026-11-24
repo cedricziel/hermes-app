@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride, defaultTargetPlatform;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
@@ -20,6 +20,7 @@ import '../support/find_app_icon.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 const _audit =
     'Audit the dependency tree for packages with known vulnerabilities';
@@ -230,7 +231,7 @@ void main() {
       final android = defaultTargetPlatform == TargetPlatform.android;
       await tester.tap(
         android
-            ? find.byTooltip('Back to Activity')
+            ? find.tooltip('Back to Activity')
             : find.descendant(
                 of: find.byType(AgentDetailView),
                 matching: find.text('Activity'),
@@ -261,7 +262,7 @@ void main() {
     await tester.tap(
       phone
           ? find.byKey(const Key('header-activity'))
-          : find.byTooltip('Show Inspector ⌥⌘I'),
+          : find.tooltip('Show Inspector ⌥⌘I'),
     );
     await runFrames(tester);
   }

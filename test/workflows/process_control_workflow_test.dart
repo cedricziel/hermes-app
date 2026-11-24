@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -22,6 +22,7 @@ import '../support/find_app_icon.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 // Invented program and output.
 const _command = 'npm run dev -- --host 127.0.0.1 --port 5173';
@@ -221,7 +222,7 @@ void main() {
         await tester.tap(
           phone
               ? find.byKey(const Key('header-activity'))
-              : find.byTooltip('Show Inspector ⌥⌘I'),
+              : find.tooltip('Show Inspector ⌥⌘I'),
         );
         await runFrames(tester);
         expect(find.byType(BoundActivityPanel), findsOneWidget);

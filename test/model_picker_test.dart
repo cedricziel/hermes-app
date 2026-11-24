@@ -1,5 +1,5 @@
 import 'package:flutter/rendering.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/widgets/safe_path_text.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
@@ -7,6 +7,7 @@ import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/screenshot_recorder.dart';
+import 'support/tooltip_finder.dart';
 
 const _options = ModelOptions(
   current: ModelChoice('anthropic', 'claude-opus-4'),
@@ -406,10 +407,10 @@ void main() {
       tester,
     ) async {
       await pump(tester, long, platform: TargetPlatform.macOS, width: 500);
-      expect(find.byTooltip(longId), findsOneWidget);
+      expect(find.tooltip(longId), findsOneWidget);
 
       await pump(tester, long, platform: TargetPlatform.iOS, width: 500);
-      expect(find.byTooltip(longId), findsNothing);
+      expect(find.tooltip(longId), findsNothing);
     });
 
     testWidgets('effort pills have a hit area of 44 on iOS, 48 on Material '

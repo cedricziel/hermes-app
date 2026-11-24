@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/share/shared_item.dart';
 
 import 'support/fake_attachment_source.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 const _report = SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf');
 const _notes = SharedFile(path: '/tmp/a/notes.txt', name: 'notes.txt');
@@ -18,7 +19,7 @@ const _shot = SharedFile(
   isImage: true,
 );
 
-final _attachButton = find.byTooltip('Add attachment');
+final _attachButton = find.tooltip('Add attachment');
 
 String _composerText(WidgetTester tester) =>
     tester.widget<EditableText>(composerField).controller.text;

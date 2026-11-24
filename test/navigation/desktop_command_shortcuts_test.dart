@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -17,6 +17,7 @@ import 'package:hermes_app/src/settings/settings_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 import '../support/test_localizations.dart';
+import '../support/tooltip_finder.dart';
 
 /// The Windows and Linux column of the F1 command set in
 /// `docs/design-briefs/windows-linux-platform-fixes.md`, typed out again here
@@ -708,7 +709,7 @@ void main() {
     for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
       testWidgets('show the chord on $platform', (tester) async {
         await pump(tester, platform);
-        expect(find.byTooltip('New chat (Ctrl+N)'), findsNWidgets(2));
+        expect(find.tooltip('New chat (Ctrl+N)'), findsNWidgets(2));
         // The first chord of a command with two.
         expect(find.text('Reload (Ctrl+R)'), findsOneWidget);
         // A command with no chord keeps its label.
@@ -723,7 +724,7 @@ void main() {
     ]) {
       testWidgets('keep the label alone on $platform', (tester) async {
         await pump(tester, platform);
-        expect(find.byTooltip('New chat'), findsNWidgets(2));
+        expect(find.tooltip('New chat'), findsNWidgets(2));
         expect(find.text('Reload'), findsOneWidget);
       });
     }

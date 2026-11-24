@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
@@ -8,6 +8,8 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/tooltip_finder.dart';
 
 Future<void> _pump(WidgetTester tester, Widget child) async {
   tester.view.physicalSize = const Size(1000, 600);
@@ -48,7 +50,7 @@ void main() {
       );
 
       expect(tester.getSize(find.byType(MacToolbarButton)), const Size(28, 28));
-      expect(find.byTooltip('New Task ⌘N'), findsOneWidget);
+      expect(find.tooltip('New Task ⌘N'), findsOneWidget);
       expect(
         tester.getSemantics(find.bySemanticsLabel('New Task')),
         isSemantics(label: 'New Task', isButton: true, isEnabled: true),
@@ -142,7 +144,7 @@ void main() {
         tester.getTopLeft(toggle).dx,
         greaterThanOrEqualTo(kMacTrafficLightsWidth),
       );
-      expect(find.byTooltip('Show sidebar ⌃⌘S'), findsOneWidget);
+      expect(find.tooltip('Show sidebar ⌃⌘S'), findsOneWidget);
       await tester.tap(toggle);
       await tester.pumpAndSettle();
       final scope = tester.element(find.byType(MacToolbar));
@@ -162,7 +164,7 @@ void main() {
       );
 
       final menu = find.byKey(const Key('shell-menu'));
-      expect(find.byTooltip('Open navigation menu'), findsOneWidget);
+      expect(find.tooltip('Open navigation menu'), findsOneWidget);
       expect(
         tester.getTopLeft(menu).dx,
         greaterThanOrEqualTo(kMacTrafficLightsWidth),

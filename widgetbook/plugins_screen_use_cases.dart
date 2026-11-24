@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:hermes_app/src/plugins/catalog_controller.dart';
 import 'package:hermes_app/src/plugins/catalog_tab.dart';

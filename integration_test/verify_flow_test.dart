@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -11,6 +11,8 @@ import 'package:hermes_app/src/server_care/widgets/server_attention_dot.dart';
 import 'package:hermes_app/src/server_care/widgets/server_status_card.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:integration_test/integration_test.dart';
+
+import '../test/support/tooltip_finder.dart';
 
 const _shotsDir = String.fromEnvironment('HERMES_VERIFY_SHOTS');
 const _reply = 'Scripted reply: the verify check reached the model.';
@@ -143,7 +145,7 @@ void main() {
     final call = find.byKey(const Key('header-voice-call'));
     expect(call, findsNothing, reason: 'calls are off until the user says so');
     final l10n = lookupAppLocalizations(const Locale('en'));
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await settle(tester);
     await tester.tap(find.text(l10n.settingsVoiceCalls));
     await settle(tester);
@@ -175,7 +177,7 @@ void main() {
     // dashboard. Which headline shows depends on the backend's gateway and
     // disk, so only the card, the gateway row and the absence of a failure are
     // asserted.
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await settle(tester);
     final serverItem = find.byType(ServerMenuItemLabel);
     await waitFor(

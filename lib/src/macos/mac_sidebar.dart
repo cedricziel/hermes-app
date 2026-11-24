@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:macos_window_utils/widgets/transparent_macos_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

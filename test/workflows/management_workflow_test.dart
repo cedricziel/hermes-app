@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -14,6 +14,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart' show openSidebarMore;
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// Everything reached from the chat sidebar besides chatting: skills,
 /// profiles, messaging and the account menu's dialogs.
@@ -303,7 +304,7 @@ void main() {
       await pumpChat(tester, shots, size: size);
       await openManagementMenu(tester);
       Future<void> pick(String item) async {
-        await tester.tap(find.byTooltip('Account'));
+        await tester.tap(find.tooltip('Account'));
         await tester.pumpAndSettle();
         await tester.tap(find.text(item));
         await tester.pumpAndSettle();
