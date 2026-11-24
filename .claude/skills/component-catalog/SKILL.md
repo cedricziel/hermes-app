@@ -130,6 +130,9 @@ the case run on at least one shrink-wrap platform. In #1284 the scroll-to-latest
 mini button's focus ring sat inside the button on the desktop because the tests
 only used the padded layout; see `test/focus_ring_geometry_test.dart` (added in
 #1284), which runs every ring per platform.
+A ring geometry case must build the widget the screens actually use and
+reach it by keyboard (Tab), not by `requestFocus`: the #1307 case built
+`GroupedValueRow(onTap:)` and missed that `GroupedMenuRow` showed no ring on a Mac.
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
