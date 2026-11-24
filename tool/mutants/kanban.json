@@ -5,6 +5,7 @@
     "test/kanban_board_activity_test.dart",
     "test/kanban_board_controller_test.dart",
     "test/kanban_board_filters_test.dart",
+    "test/kanban_board_transfer_extraction_test.dart",
     "test/kanban_boards_screen_test.dart",
     "test/kanban_column_scroll_test.dart",
     "test/kanban_events_connection_test.dart",
