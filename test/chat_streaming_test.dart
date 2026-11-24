@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show TextMessage;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +28,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 Finder get waitingForReasoning => find.byWidgetPredicate(
   (widget) => widget is ReasoningBlock && widget.active && widget.text.isEmpty,
@@ -602,7 +603,7 @@ void main() {
           tester.widget<EditableText>(composerField).controller.text,
           'Review the startup report',
         );
-        expect(find.byTooltip('Remove startup-report.pdf'), findsOneWidget);
+        expect(find.tooltip('Remove startup-report.pdf'), findsOneWidget);
         expect(find.byType(BackButton), findsOneWidget);
         expect(
           tester
@@ -642,7 +643,7 @@ void main() {
       expect(attachment.kind, AttachmentKind.file);
       expect(attachment.mimeType, 'application/pdf');
       expect((await tester.runAsync(attachment.read))!, hasLength(120 * 1024));
-      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+      expect(find.tooltip('Remove report.pdf'), findsNothing);
     });
 
     chatTest('the sent message shows the file as a card with its size', (
@@ -735,7 +736,7 @@ void main() {
         findsOneWidget,
       );
       expect(transport.sends, isEmpty);
-      expect(find.byTooltip('Remove big.bin'), findsOneWidget);
+      expect(find.tooltip('Remove big.bin'), findsOneWidget);
       expect(find.text('take a look'), findsOneWidget);
       // Only the two stored messages of the open thread.
       expect(transcriptMessages(tester), hasLength(2));
@@ -759,7 +760,7 @@ void main() {
         findsOneWidget,
       );
       expect(transport.sends, isEmpty);
-      expect(find.byTooltip('Remove gone.txt'), findsOneWidget);
+      expect(find.tooltip('Remove gone.txt'), findsOneWidget);
     });
 
     chatTest('a shared file stays with the conversation it was received in', (
@@ -774,10 +775,10 @@ void main() {
       );
 
       await openThread(tester, 'Release notes');
-      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+      expect(find.tooltip('Remove report.pdf'), findsNothing);
       await openThread(tester, 'Run failure');
 
-      expect(find.byTooltip('Remove report.pdf'), findsOneWidget);
+      expect(find.tooltip('Remove report.pdf'), findsOneWidget);
       expect(transport.sends, isEmpty);
     });
 

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -28,6 +28,7 @@ import 'support/fake_conversation_window_host.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 class _Link
     implements ConversationWindowLink, QueueWindowLink, ExportBusyWindowLink {
@@ -159,7 +160,7 @@ void main() {
   }
 
   Future<void> openMore(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.tooltip('More'));
     await frames(tester);
   }
 

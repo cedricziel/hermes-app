@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -7,6 +7,8 @@ import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/tooltip_finder.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -41,7 +43,7 @@ void main() {
       ),
       ToolCall(name: 'read_file', summary: ''),
     ]);
-    expect(find.byTooltip('Tool output warning'), findsOneWidget);
+    expect(find.tooltip('Tool output warning'), findsOneWidget);
   });
   testWidgets('a single call renders as a bare ToolCallCard', (tester) async {
     await _pump(tester, const [ToolCall(name: 'terminal', summary: 'ls')]);

@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
@@ -31,7 +32,7 @@ class MacToolbarSearchField extends StatefulWidget {
     this.onBegin,
     this.onSubmitted,
     this.focusNode,
-    this.hint = 'Search',
+    this.hint,
     this.fullWidth = false,
   });
 
@@ -46,7 +47,9 @@ class MacToolbarSearchField extends StatefulWidget {
   final VoidCallback? onBegin;
   final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
-  final String hint;
+
+  /// The placeholder; null reads the localized "Search".
+  final String? hint;
 
   /// Fills the width it is given instead of the toolbar's 180 or 240 points.
   final bool fullWidth;
@@ -152,7 +155,7 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
-                        hintText: widget.hint,
+                        hintText: widget.hint ?? context.l10n.widgetsSearch,
                         hintStyle: TextStyle(
                           fontSize: _fontSize,
                           height: lineHeight,

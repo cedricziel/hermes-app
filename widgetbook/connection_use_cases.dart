@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/models/hermes_status.dart';
 import 'package:hermes_app/src/screens/widgets/connection_setup_field.dart';
 import 'package:hermes_app/src/screens/widgets/connection_summary.dart';

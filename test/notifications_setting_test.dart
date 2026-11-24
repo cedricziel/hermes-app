@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -16,6 +16,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/fake_live_activity_service.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late NotificationSettings settings;
@@ -57,7 +58,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Notifications'));
     await tester.pumpAndSettle();

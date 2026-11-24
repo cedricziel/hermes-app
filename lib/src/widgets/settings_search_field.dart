@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_toolbar_search_field.dart';
 import '../theme/app_icons.dart';
@@ -30,13 +31,15 @@ class SettingsSearch {
   const SettingsSearch({
     required this.query,
     required this.onChanged,
-    this.hint = 'Search',
+    this.hint,
     this.filters = const [],
   });
 
   final String query;
   final ValueChanged<String> onChanged;
-  final String hint;
+
+  /// The placeholder and field name; null reads the localized "Search".
+  final String? hint;
 
   /// The filter menu's choices, the first being the one that shows
   /// everything ("All").
@@ -104,13 +107,14 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
   @override
   Widget build(BuildContext context) {
     final search = widget.search;
+    final hint = search.hint ?? context.l10n.widgetsSearch;
     final chrome = platformChromeOf(context);
     if (chrome == PlatformChrome.macos) {
       final field = MacToolbarSearchField(
         fullWidth: widget.fullWidth,
         query: search.query,
         active: search.query.isNotEmpty,
-        hint: search.hint,
+        hint: hint,
         onChanged: search.onChanged,
         onEnd: () => search.onChanged(''),
       );
@@ -159,7 +163,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
             // The placeholder is gone once there is text, so the field is
             // named explicitly.
             child: Semantics(
-              label: search.hint,
+              label: hint,
               child: TextField(
                 key: const Key('settings-search-field'),
                 controller: _text,
@@ -175,7 +179,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: search.hint,
+                  hintText: hint,
                   hintStyle: TextStyle(fontSize: fontSize, color: muted),
                 ),
               ),

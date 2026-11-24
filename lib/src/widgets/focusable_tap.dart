@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Makes a tap box that a bare `GestureDetector` builds a keyboard control:
 /// it takes a tab stop, Enter and Space run [onActivate] (the same callback

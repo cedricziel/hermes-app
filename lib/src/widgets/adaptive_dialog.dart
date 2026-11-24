@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 
+import '../../l10n/l10n.dart';
 import 'dialog_presentation.dart';
 
 /// An alert that is a [CupertinoAlertDialog] on iOS and macOS and a Material
@@ -229,39 +230,41 @@ Future<bool> showConfirmDialog(
   required String title,
   String? message,
   required String confirmLabel,
-  String cancelLabel = 'Cancel',
+  String? cancelLabel,
   bool destructive = false,
   bool filled = true,
   bool cancelIsDefault = false,
   ValueListenable<bool>? dismissWhen,
-}) async =>
-    await showAppDialog<bool>(
-      context: context,
-      builder: (dialog) => _DismissWhen(
-        when: dismissWhen,
-        child: AppAlertDialog(
-          // At a large text size the title and text scroll together and the
-          // actions stay in view.
-          scrollable: true,
-          title: Text(title),
-          content: message == null ? null : Text(message),
-          actions: [
-            AppDialogAction(
-              isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
-              onPressed: () => Navigator.pop(dialog, false),
-              child: Text(cancelLabel),
-            ),
-            AppDialogAction(
-              isDefault: filled && !cancelIsDefault,
-              isDestructive: destructive,
-              onPressed: () => Navigator.pop(dialog, true),
-              child: Text(confirmLabel),
-            ),
-          ],
+}) async {
+  final cancelText = cancelLabel ?? context.l10n.widgetsCancel;
+  return await showAppDialog<bool>(
+        context: context,
+        builder: (dialog) => _DismissWhen(
+          when: dismissWhen,
+          child: AppAlertDialog(
+            // At a large text size the title and text scroll together and the
+            // actions stay in view.
+            scrollable: true,
+            title: Text(title),
+            content: message == null ? null : Text(message),
+            actions: [
+              AppDialogAction(
+                isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
+                onPressed: () => Navigator.pop(dialog, false),
+                child: Text(cancelText),
+              ),
+              AppDialogAction(
+                isDefault: filled && !cancelIsDefault,
+                isDestructive: destructive,
+                onPressed: () => Navigator.pop(dialog, true),
+                child: Text(confirmLabel),
+              ),
+            ],
+          ),
         ),
-      ),
-    ) ??
-    false;
+      ) ??
+      false;
+}
 
 /// Asks whether to go through with a destructive action: Cancel is the
 /// default (bold on Apple platforms, Return on the Mac) and [confirmLabel] is

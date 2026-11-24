@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
@@ -467,12 +467,14 @@ Widget _settingsFormAction() => SizedBox(
   height: 320,
   child: _KeyboardFocus(
     button: 0,
-    child: SettingsScaffold(
-      title: 'New task',
-      subtitle: 'work',
-      previousTitle: null,
-      formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
-      body: ListView(children: const [ListTile(title: Text('Name'))]),
+    child: Builder(
+      builder: (context) => SettingsScaffold(
+        title: 'New task',
+        subtitle: 'work',
+        previousTitle: context.l10n.widgetsBack,
+        formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
+        body: ListView(children: const [ListTile(title: Text('Name'))]),
+      ),
     ),
   ),
 );

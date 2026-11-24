@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -54,6 +54,7 @@ import 'support/fake_session_auth.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/mac_commands_builder.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 /// The Kanban tab exists only while the server has the plugin on.
 void main() {
@@ -151,17 +152,11 @@ void main() {
   /// Opens the drawer of a narrow layout: Chat's own, or the shell's on
   /// another page.
   Future<void> openMenu(WidgetTester tester) async {
-    if (find
-        .byTooltip('Open navigation menu')
-        .hitTestable()
-        .evaluate()
-        .isEmpty) {
+    if (find.tooltip('Open navigation menu').hitTestable().evaluate().isEmpty) {
       await tester.tap(find.byType(BackButton).hitTestable().first);
       await tester.pumpAndSettle();
     }
-    await tester.tap(
-      find.byTooltip('Open navigation menu').hitTestable().first,
-    );
+    await tester.tap(find.tooltip('Open navigation menu').hitTestable().first);
     await tester.pumpAndSettle();
   }
 
@@ -585,7 +580,7 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(find.byTooltip('Open navigation menu'), findsNothing);
+        expect(find.tooltip('Open navigation menu'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
@@ -599,7 +594,7 @@ void main() {
         platform: TargetPlatform.iOS,
       );
 
-      expect(find.byTooltip('Open navigation menu'), findsWidgets);
+      expect(find.tooltip('Open navigation menu'), findsWidgets);
     });
 
     testWidgets('keeps the drawer on Android at 834', (tester) async {
@@ -611,7 +606,7 @@ void main() {
         platform: TargetPlatform.android,
       );
 
-      expect(find.byTooltip('Open navigation menu'), findsWidgets);
+      expect(find.tooltip('Open navigation menu'), findsWidgets);
     });
   });
 

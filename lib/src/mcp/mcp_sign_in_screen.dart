@@ -4,7 +4,7 @@ import '../widgets/grouped_list.dart';
 import 'widgets/mcp_sign_in_status.dart';
 import '../widgets/settings_scaffold.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'hermes_mcp_repository.dart';

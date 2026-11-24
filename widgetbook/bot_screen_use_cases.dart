@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_preview_model.dart';
@@ -353,7 +353,7 @@ Widget _viewer(
   BotScreenControl control = BotScreenControl.watching,
   bool canForce = false,
   bool actions = false,
-  String lostText = 'Someone else took control.',
+  bool lostToAgent = false,
   Widget? keyBar,
   Widget? tools,
   String? notice,
@@ -366,7 +366,7 @@ Widget _viewer(
     aspectRatio: aspectRatio,
     presentation: presentation,
     control: control,
-    lostText: lostText,
+    lostToAgent: lostToAgent,
     canForce: canForce,
     onClose: () {},
     onRetry: () {},
@@ -545,7 +545,7 @@ WidgetbookNode botScreenViewerNode() {
           control: BotScreenControl.lost,
           picture: true,
           actions: true,
-          lostText: 'Hermes took control back.',
+          lostToAgent: true,
         ),
       ),
       ...onEachPlatform(

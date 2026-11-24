@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:hermes_app/l10n/l10n.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -8,12 +7,15 @@ import 'kanban_board_controller.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
+import 'kanban_transfer_options.dart';
+import 'widgets/kanban_board_export_dialog.dart';
+import 'widgets/kanban_board_import_dialog.dart';
 import 'widgets/kanban_list_rows.dart';
 import '../widgets/grouped_list.dart';
-import '../widgets/grouped_dialog.dart';
-import '../widgets/grouped_form.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/route_dismissal.dart';
+
+export 'kanban_transfer_options.dart';
 
 /// Lists the plugin's boards; opens, creates, renames, archives or deletes them.
 class KanbanBoardsScreen extends StatelessWidget {
@@ -233,160 +235,13 @@ Future<KanbanExportOptions?> showKanbanExportDialog(
 }) => showKanbanDialog<KanbanExportOptions>(
   context,
   textEntry: true,
-  builder: (_) => _ExportDialog(name: name),
+  builder: (_) => KanbanBoardExportDialog(name: name),
 );
-
-typedef KanbanExportOptions = ({String output, bool attachments, bool logs});
-
-class _ExportDialog extends StatefulWidget {
-  const _ExportDialog({required this.name});
-
-  final String name;
-
-  @override
-  State<_ExportDialog> createState() => _ExportDialogState();
-}
-
-class _ExportDialogState extends State<_ExportDialog> {
-  final _output = TextEditingController();
-  bool _attachments = true;
-  bool _logs = false;
-
-  @override
-  void dispose() {
-    _output.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return GroupedDialog(
-      title: l10n.kanbanExportTitle(widget.name),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.widgetsCancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop<KanbanExportOptions>(context, (
-            output: _output.text.trim(),
-            attachments: _attachments,
-            logs: _logs,
-          )),
-          child: Text(l10n.kanbanExportAction),
-        ),
-      ],
-      children: [
-        GroupedSection(
-          footer: l10n.kanbanExportFooter,
-          children: [
-            GroupedTextFieldRow(
-              label: l10n.kanbanExportPathLabel,
-              hint: l10n.kanbanExportPathHint,
-              controller: _output,
-            ),
-          ],
-        ),
-        GroupedSection(
-          children: [
-            GroupedSwitchRow(
-              title: l10n.kanbanExportAttachments,
-              value: _attachments,
-              onTap: () => setState(() => _attachments = !_attachments),
-              onChanged: (value) => setState(() => _attachments = value),
-            ),
-            GroupedSwitchRow(
-              title: l10n.kanbanExportLogs,
-              value: _logs,
-              onTap: () => setState(() => _logs = !_logs),
-              onChanged: (value) => setState(() => _logs = value),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
 
 /// Asks which server-side archive to import and how to name the board.
 Future<KanbanImportOptions?> showKanbanImportDialog(BuildContext context) =>
     showKanbanDialog<KanbanImportOptions>(
       context,
       textEntry: true,
-      builder: (_) => const _ImportDialog(),
+      builder: (_) => const KanbanBoardImportDialog(),
     );
-
-typedef KanbanImportOptions = ({String archive, String slug, bool open});
-
-class _ImportDialog extends StatefulWidget {
-  const _ImportDialog();
-
-  @override
-  State<_ImportDialog> createState() => _ImportDialogState();
-}
-
-class _ImportDialogState extends State<_ImportDialog> {
-  final _archive = TextEditingController();
-  final _slug = TextEditingController();
-  bool _open = true;
-
-  @override
-  void dispose() {
-    _archive.dispose();
-    _slug.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return GroupedDialog(
-      title: l10n.kanbanImportTitle,
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.widgetsCancel),
-        ),
-        FilledButton(
-          onPressed: _archive.text.trim().isEmpty
-              ? null
-              : () => Navigator.pop<KanbanImportOptions>(context, (
-                  archive: _archive.text.trim(),
-                  slug: _slug.text.trim(),
-                  open: _open,
-                )),
-          child: Text(l10n.kanbanImportAction),
-        ),
-      ],
-      children: [
-        GroupedSection(
-          footer: l10n.kanbanImportFooter,
-          children: [
-            GroupedTextFieldRow(
-              label: l10n.kanbanImportArchiveLabel,
-              controller: _archive,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-            ),
-            GroupedTextFieldRow(
-              label: l10n.kanbanImportSlugLabel,
-              hint: l10n.kanbanImportSlugHint,
-              controller: _slug,
-            ),
-          ],
-        ),
-        GroupedSection(
-          children: [
-            GroupedSwitchRow(
-              title: l10n.kanbanImportOpenAfter,
-              value: _open,
-              onTap: () => setState(() => _open = !_open),
-              onChanged: (value) => setState(() => _open = value),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}

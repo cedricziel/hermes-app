@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
@@ -8,7 +8,9 @@ import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
 import '../macos/menu_bar_extra/menu_bar_extra_settings.dart';
 import '../macos/menu_bar_extra/widgets/menu_bar_item_section.dart';
+import '../navigation/desktop_menu_bar_settings.dart';
 import '../navigation/keyboard_shortcuts.dart';
+import '../navigation/widgets/desktop_menu_bar_section.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
 import '../quick_panel/global_shortcut.dart';
@@ -89,6 +91,10 @@ Future<void> showSettingsDialog(BuildContext context) async {
   final menuBar = MenuBarExtraSettings.offered
       ? _maybeRead<MenuBarExtraSettings>(context)
       : null;
+  final desktopMenuBar =
+      DesktopMenuBarSettings.offeredOn(Theme.of(context).platform)
+      ? _maybeRead<DesktopMenuBarSettings>(context)
+      : null;
   final callSettings = _maybeRead<PortableCallSettings>(context);
   final hasShortcutsPage = switch (Theme.of(context).platform) {
     TargetPlatform.macOS ||
@@ -128,6 +134,14 @@ Future<void> showSettingsDialog(BuildContext context) async {
               builder: (context, _) => MenuBarItemSection(
                 value: menuBar.enabled,
                 onChanged: menuBar.setEnabled,
+              ),
+            ),
+          if (desktopMenuBar != null)
+            ListenableBuilder(
+              listenable: desktopMenuBar,
+              builder: (context, _) => DesktopMenuBarSection(
+                value: desktopMenuBar.enabled,
+                onChanged: desktopMenuBar.setEnabled,
               ),
             ),
           GroupedSection(

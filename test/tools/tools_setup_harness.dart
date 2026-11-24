@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -18,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/test_localizations.dart';
 import 'tools_setup_world.dart';
+import '../support/tooltip_finder.dart';
 
 /// A phone's width and a tall window, so a long page builds all of its rows.
 const phone = Size(390, 3200);
@@ -176,7 +177,7 @@ class SetupHarness {
 
   /// Presses "Show key".
   Future<void> showKey() async {
-    await tester.tap(find.byTooltip('Show key'));
+    await tester.tap(find.tooltip('Show key'));
     await tester.pump();
   }
 

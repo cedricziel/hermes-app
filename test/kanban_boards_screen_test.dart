@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
@@ -11,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -101,7 +102,7 @@ void main() {
     server.on('POST', '/api/plugins/kanban/boards', {'board': {}});
     await pump(tester);
 
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Q3 Launch');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -117,7 +118,7 @@ void main() {
   testWidgets('will not send a name that leaves no slug', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '日本語');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -136,7 +137,7 @@ void main() {
     }, status: 400);
     await pump(tester);
 
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Ops');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -233,7 +234,7 @@ void main() {
     });
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Import a board'));
+    await tester.tap(find.tooltip('Import a board'));
     await tester.pumpAndSettle();
     expect(find.byType(GroupedDialog), findsOneWidget);
     expect(
@@ -269,7 +270,7 @@ void main() {
     });
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Import a board'));
+    await tester.tap(find.tooltip('Import a board'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Archive path'),
@@ -289,7 +290,7 @@ void main() {
     }, status: 404);
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Import a board'));
+    await tester.tap(find.tooltip('Import a board'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Archive path'),

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -399,7 +399,7 @@ class _FilesScreenState extends State<FilesScreen> {
         final mac = _mac;
         final scaffold = SettingsScaffold(
           title: folderTitleOf(_controller, l10n.filesEntryLabel),
-          previousTitle: widget.previousTitle,
+          previousTitle: widget.previousTitle ?? l10n.widgetsBack,
           actions: [
             if (mac)
               SettingsBarAction(

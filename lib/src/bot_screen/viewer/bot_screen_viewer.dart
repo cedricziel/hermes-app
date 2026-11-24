@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../telemetry/breadcrumbs.dart';
@@ -309,7 +309,7 @@ class _BotScreenViewerState extends State<BotScreenViewer> {
                     ? 16 / 10
                     : (framebuffer.width / framebuffer.height).clamp(0.5, 3.0),
                 control: controller.control,
-                lostText: controller.lostText,
+                lostToAgent: controller.lostToAgent,
                 canForce: controller.someoneElseInControl,
                 onClose: widget.onClose,
                 onRetry: controller.retry,

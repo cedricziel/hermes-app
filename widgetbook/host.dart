@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Owns a value a screen needs (a controller, a repository) for as long as the
 /// use case is on screen: builds it, shows a spinner until it is ready, and
