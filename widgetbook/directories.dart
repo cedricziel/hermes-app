@@ -87,6 +87,7 @@ import 'skills_messaging_use_cases.dart';
 import 'skills_curator_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
+import 'bot_screen_header_use_cases.dart';
 import 'bot_screen_use_cases.dart';
 import 'soul_use_cases.dart';
 import 'busy_bar_use_cases.dart';
@@ -122,6 +123,7 @@ final List<WidgetbookNode> directories = [
   botScreenNode(),
   sudoPasswordPromptNode(),
   botScreenViewerNode(),
+  botScreenViewerHeaderNode(),
   activityButtonNode(),
   activityLineNode(),
   macToolbarSubtitleNode(),
