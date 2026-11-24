@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
+
+import 'support/tooltip_finder.dart';
 
 const _report = SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf');
 const _photo = SharedFile(
@@ -162,7 +164,7 @@ void main() {
   ) async {
     await h.pump(tester, attachments: [_report, _photo]);
 
-    await tester.tap(find.byTooltip('Remove photo.png'));
+    await tester.tap(find.tooltip('Remove photo.png'));
     await tester.pump();
 
     expect(h.removed, [_photo]);

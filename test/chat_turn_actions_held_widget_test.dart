@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -19,6 +19,7 @@ import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 /// What the person sees under a reply that ended on a lost connection while the
 /// server may still run its turn: Retry and Edit dimmed with a line that says
@@ -103,7 +104,7 @@ void main() {
 
   IconButton buttonOf(String tooltip) => tester_.widget<IconButton>(
     find.descendant(
-      of: find.byTooltip(tooltip),
+      of: find.tooltip(tooltip),
       matching: find.byType(IconButton),
     ),
   );
@@ -115,8 +116,8 @@ void main() {
     transport.active['s1'] = 'working';
     await failTurn(tester, const GatewayTurnEnded());
 
-    expect(find.byTooltip('Try again'), findsOneWidget);
-    expect(find.byTooltip('Edit prompt'), findsOneWidget);
+    expect(find.tooltip('Try again'), findsOneWidget);
+    expect(find.tooltip('Edit prompt'), findsOneWidget);
     expect(buttonOf('Try again').onPressed, isNull);
     expect(buttonOf('Edit prompt').onPressed, isNull);
     // The reason is a sentence, not only a dimmed glyph.
@@ -129,10 +130,10 @@ void main() {
     );
     expect(inTranscript('Try sending it again'), findsNothing);
     // Branch is not offered while the turn may run.
-    expect(find.byTooltip('Branch in new chat'), findsNothing);
+    expect(find.tooltip('Branch in new chat'), findsNothing);
 
-    await tester.tap(find.byTooltip('Try again'), warnIfMissed: false);
-    await tester.tap(find.byTooltip('Edit prompt'), warnIfMissed: false);
+    await tester.tap(find.tooltip('Try again'), warnIfMissed: false);
+    await tester.tap(find.tooltip('Edit prompt'), warnIfMissed: false);
     await tester.pump();
     expect(transport.undos, isEmpty);
     expect(transport.sends, hasLength(1));

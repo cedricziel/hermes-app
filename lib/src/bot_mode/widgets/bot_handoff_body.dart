@@ -2,7 +2,7 @@ import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../chat/chat_models.dart';
 

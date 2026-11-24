@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
@@ -13,6 +13,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart' show composerField;
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 const _bot = BotModeBot(
   serverId: 'fixture',
@@ -73,7 +74,7 @@ void main() {
       await shots.capture(tester, 'mentions');
       await tester.tap(find.text('@writer'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Send'));
+      await tester.tap(find.tooltip('Send'));
       await tester.pump();
       final send = transport.sends.single;
       send.emit(

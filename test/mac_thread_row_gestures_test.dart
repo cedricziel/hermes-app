@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -15,6 +15,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_conversation_window_host.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 const _channel = MethodChannel('test/drag_out_rows');
 
@@ -101,7 +102,7 @@ void main() {
 
   Finder archive(String title) => find.descendant(
     of: find.ancestor(of: row(title), matching: find.byType(Row)).first,
-    matching: find.byTooltip('Archive'),
+    matching: find.tooltip('Archive'),
   );
 
   Future<TestGesture> hover(WidgetTester tester, Finder target) async {

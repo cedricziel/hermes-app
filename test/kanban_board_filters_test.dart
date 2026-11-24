@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
@@ -12,6 +12,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/tooltip_finder.dart';
 
 const _board = '/api/plugins/kanban/board';
 
@@ -165,7 +166,7 @@ void main() {
   ) async {
     await pumpBoard(tester);
 
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await tester.pumpAndSettle();
     final current = tester.widget<CheckedPopupMenuItem<String>>(
       find.widgetWithText(CheckedPopupMenuItem<String>, 'Default (2)'),
@@ -181,7 +182,7 @@ void main() {
   testWidgets('Manage boards opens the boards screen', (tester) async {
     await pumpBoard(tester);
 
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Manage boards…'));
     await tester.pumpAndSettle();
@@ -193,12 +194,12 @@ void main() {
     tester,
   ) async {
     await pumpBoard(tester);
-    expect(find.byTooltip('Live'), findsOneWidget);
+    expect(find.tooltip('Live'), findsOneWidget);
 
     await sockets.single.local.sink.close();
     await tester.pump();
 
-    expect(find.byTooltip('Reconnecting…'), findsOneWidget);
+    expect(find.tooltip('Reconnecting…'), findsOneWidget);
   });
 
   testWidgets('the board reconnects a second after the stream drops', (
@@ -213,6 +214,6 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 100));
     expect(sockets, hasLength(2));
-    expect(find.byTooltip('Live'), findsOneWidget);
+    expect(find.tooltip('Live'), findsOneWidget);
   });
 }

@@ -44,7 +44,7 @@ void main() {
   Future<void> heldTurn() async {
     chat.newThread();
     thread = chat.selectedThread!;
-    chat.submit('Run the build', const []);
+    await chat.submit('Run the build', const []);
     final send = transport.sends.single;
     send
       ..emit(const ThreadBound('s1'))

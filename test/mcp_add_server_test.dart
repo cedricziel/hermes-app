@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
@@ -12,6 +12,7 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// The "Add server" form and the review of a command server, against a fake
 /// dashboard through the real generated client.
@@ -423,7 +424,7 @@ void main() {
       await addVariable(tester, '1BAD', '1');
       expect(addEnabled(tester), isFalse);
 
-      await tester.tap(find.byTooltip('Remove variable'));
+      await tester.tap(find.tooltip('Remove variable'));
       await tester.pump();
 
       expect(field('Variable name'), findsNothing);
@@ -771,7 +772,7 @@ void main() {
       await addVariable(tester, 'K', 'removed-value');
       final value = tester.widget<TextField>(field('Value')).controller!;
 
-      await tester.tap(find.byTooltip('Remove variable'));
+      await tester.tap(find.tooltip('Remove variable'));
       await tester.pumpAndSettle();
 
       expect(value.text, isEmpty);

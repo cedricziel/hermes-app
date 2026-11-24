@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -34,6 +34,7 @@ import '../../support/actions_chat_transport.dart';
 import '../../support/fake_attachment_source.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/fake_notification_service.dart';
+import '../../support/tooltip_finder.dart';
 
 /// Invented content only.
 const _prompt = 'Split the token refresh out';
@@ -555,7 +556,7 @@ void main() {
       );
       expect(commands.handlerFor(MacCommand.reload), isNull);
       await openCheckpoints(tester);
-      expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+      expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
       expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
 
       final before = source.fake.count('list');
