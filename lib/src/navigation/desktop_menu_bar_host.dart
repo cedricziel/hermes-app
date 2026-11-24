@@ -5,6 +5,7 @@ import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
 import 'desktop_menu_bar_settings.dart';
 import 'desktop_menu_models.dart';
+import 'modal_route_observer.dart';
 import 'widgets/desktop_menu_bar.dart';
 
 /// Puts the [DesktopMenuBar] above [child] on Windows and Linux while the
@@ -17,7 +18,12 @@ import 'widgets/desktop_menu_bar.dart';
 /// enabled handler. The bar binds no key: `DesktopCommandShortcuts` owns the
 /// chords and the items only show them.
 class DesktopMenuBarHost extends StatelessWidget {
-  const DesktopMenuBarHost({super.key, required this.child});
+  const DesktopMenuBarHost({super.key, this.modalRoutes, required this.child});
+
+  /// Which modal routes are open on the app's navigator; the items are
+  /// disabled while one is, since the bar is above the navigator and a
+  /// dialog's barrier does not cover it.
+  final ModalRouteObserver? modalRoutes;
 
   final Widget child;
 
@@ -31,7 +37,11 @@ class DesktopMenuBarHost extends StatelessWidget {
         !DesktopMenuBarSettings.offeredOn(Theme.of(context).platform)) {
       return child;
     }
-    return _BarOverEntry(registry: registry, child: child);
+    return _BarOverEntry(
+      registry: registry,
+      modalRoutes: modalRoutes,
+      child: child,
+    );
   }
 
   static DesktopMenuBarSettings? _settings(BuildContext context) {
@@ -47,9 +57,14 @@ class DesktopMenuBarHost extends StatelessWidget {
 /// whole window, and the app's [Navigator], which holds the only overlay the
 /// app has, is below the bar.
 class _BarOverEntry extends StatefulWidget {
-  const _BarOverEntry({required this.registry, required this.child});
+  const _BarOverEntry({
+    required this.registry,
+    required this.modalRoutes,
+    required this.child,
+  });
 
   final MacCommandRegistry registry;
+  final ModalRouteObserver? modalRoutes;
   final Widget child;
 
   @override
@@ -61,10 +76,15 @@ class _BarOverEntryState extends State<_BarOverEntry> {
     builder: (context) => Column(
       children: [
         ListenableBuilder(
-          listenable: widget.registry,
-          builder: (context, _) => DesktopMenuBar(
-            menus: desktopMenus(widget.registry, context.l10n),
-          ),
+          listenable: Listenable.merge([widget.registry, widget.modalRoutes]),
+          builder: (context, _) {
+            final menus = desktopMenus(widget.registry, context.l10n);
+            return DesktopMenuBar(
+              menus: widget.modalRoutes?.modalOpen ?? false
+                  ? [for (final menu in menus) menu.inert()]
+                  : menus,
+            );
+          },
         ),
         Expanded(child: widget.child),
       ],

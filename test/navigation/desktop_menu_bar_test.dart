@@ -4,6 +4,8 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/navigation/desktop_menu_bar_host.dart';
 import 'package:hermes_app/src/navigation/desktop_menu_bar_settings.dart';
+import 'package:hermes_app/src/navigation/desktop_menu_models.dart';
+import 'package:hermes_app/src/navigation/modal_route_observer.dart';
 import 'package:hermes_app/src/navigation/widgets/desktop_menu_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,16 +19,18 @@ Widget _app(
   MacCommandRegistry registry,
   DesktopMenuBarSettings settings, {
   Locale locale = const Locale('en'),
+  ModalRouteObserver? modalRoutes,
 }) => ChangeNotifierProvider.value(
   value: settings,
   child: MaterialApp(
     locale: locale,
+    navigatorObservers: [?modalRoutes],
     localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: ThemeData(platform: platform),
     builder: (context, child) => MacCommandScope.root(
       registry: registry,
-      child: DesktopMenuBarHost(child: child!),
+      child: DesktopMenuBarHost(modalRoutes: modalRoutes, child: child!),
     ),
     home: const Scaffold(body: Center(child: Text('Chat'))),
   ),
@@ -222,6 +226,97 @@ void main() {
             .where((item) => item.shortcut != null),
         isEmpty,
       );
+    });
+  });
+
+  group('the order of the menus', () {
+    final en = lookupAppLocalizations(const Locale('en'));
+
+    test('File ends with a divider and Sign Out, Help ends with About', () {
+      final menus = desktopMenus(registry, en);
+      final labels = [for (final menu in menus) menu.label];
+      expect(labels, ['File', 'View', 'Chat', 'Help']);
+
+      final file = menus.first;
+      expect([for (final item in file.groups.last) item.label], ['Sign Out…']);
+      expect(file.groups.length, greaterThan(1));
+      expect([
+        for (final group in file.groups) ...group.map((i) => i.label),
+      ], containsAllInOrder(['New Chat', 'Settings…', 'Connection Details']));
+
+      final help = menus.last;
+      expect(
+        [for (final item in help.groups.last) item.label],
+        ['About Hermes'],
+      );
+      expect(help.groups.length, greaterThan(1));
+    });
+  });
+
+  group('behind a modal route', () {
+    testWidgets('an item does not run under a dialog and runs again after', (
+      tester,
+    ) async {
+      var newChats = 0;
+      final registration = registry.register({
+        MacCommand.newChat: MacCommandHandler(() => newChats++),
+      });
+      addTearDown(registration.dispose);
+      final modalRoutes = ModalRouteObserver();
+      addTearDown(modalRoutes.dispose);
+      await settings.setEnabled(true);
+      await tester.pumpWidget(
+        _app(
+          TargetPlatform.linux,
+          registry,
+          settings,
+          modalRoutes: modalRoutes,
+        ),
+      );
+      await tester.pump();
+
+      Future<void> chooseNewChat() async {
+        await tester.tap(find.text('File'));
+        await tester.pump();
+        final button = tester.widget<MenuItemButton>(_item('New Chat'));
+        button.onPressed?.call();
+        await tester.pump();
+        // Close a menu a disabled item left open.
+        if (find.text('New Chat').evaluate().isNotEmpty) {
+          await tester.tapAt(const Offset(700, 500));
+          await tester.pump();
+        }
+      }
+
+      await chooseNewChat();
+      expect(newChats, 1);
+
+      final context = tester.element(find.byType(Scaffold));
+      final dialog = showDialog<void>(
+        context: context,
+        builder: (_) => const AlertDialog(title: Text('Sure?')),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump();
+      expect(find.text('Sure?'), findsOneWidget);
+
+      await tester.tap(find.text('File'));
+      await tester.pump();
+      expect(
+        tester.widget<MenuItemButton>(_item('New Chat')).onPressed,
+        isNull,
+      );
+      await tester.tapAt(const Offset(700, 500));
+      await tester.pump();
+      expect(newChats, 1);
+
+      Navigator.of(context).pop();
+      await dialog;
+      await tester.pumpAndSettle();
+      await tester.pump();
+
+      await chooseNewChat();
+      expect(newChats, 2);
     });
   });
 

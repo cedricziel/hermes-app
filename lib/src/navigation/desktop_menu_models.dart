@@ -31,6 +31,18 @@ class DesktopMenuModel {
 
   final String label;
   final List<List<DesktopMenuItemModel>> groups;
+
+  /// The same menu with every item disabled.
+  DesktopMenuModel inert() => DesktopMenuModel(
+    label: label,
+    groups: [
+      for (final group in groups)
+        [
+          for (final item in group)
+            DesktopMenuItemModel(label: item.label, chord: item.chord),
+        ],
+    ],
+  );
 }
 
 /// The menus of the desktop menu bar: File, View, Chat and Help, from the
@@ -38,7 +50,9 @@ class DesktopMenuModel {
 /// [registry] has a handler for its command.
 ///
 /// The Hermes menu is the Mac's application menu and has no place on a bar
-/// that starts with File, so its items follow File's own.
+/// that starts with File. As Windows and Linux apps place them, its Settings
+/// and Connection Details follow File's own items, Sign Out ends File after a
+/// divider, and About ends Help.
 List<DesktopMenuModel> desktopMenus(
   MacCommandRegistry registry,
   AppLocalizations l10n,
@@ -55,22 +69,48 @@ List<DesktopMenuModel> desktopMenus(
     );
   }
 
-  List<List<DesktopMenuItemModel>> groupsOf(MenuSection section) => [
-    for (final group in section.groupsOn(MenuPlatform.desktop))
-      [for (final entry in group) item(entry)],
-  ];
-
   MenuSection section(String id) => menuLayout.firstWhere((s) => s.id == id);
 
+  // The entries of a section as groups, minus the commands moved elsewhere.
+  List<List<DesktopMenuItemModel>> groupsOf(
+    String id, {
+    Set<MacCommand> without = const {},
+  }) => [
+    for (final group in section(id).groupsOn(MenuPlatform.desktop))
+      if ([
+            for (final entry in group)
+              if (!without.contains(entry.command)) item(entry),
+          ]
+          case final shown when shown.isNotEmpty)
+        shown,
+  ];
+
+  DesktopMenuItemModel one(MacCommand command) => item(menuEntryOf(command)!);
+
+  const moved = {MacCommand.about, MacCommand.signOut};
   return [
     DesktopMenuModel(
       label: section('file').label(l10n),
-      groups: [...groupsOf(section('file')), ...groupsOf(section('hermes'))],
+      groups: [
+        ...groupsOf('file'),
+        ...groupsOf('hermes', without: moved),
+        [one(MacCommand.signOut)],
+      ],
     ),
-    for (final id in const ['view', 'chat', 'help'])
-      DesktopMenuModel(
-        label: section(id).label(l10n),
-        groups: groupsOf(section(id)),
-      ),
+    DesktopMenuModel(
+      label: section('view').label(l10n),
+      groups: groupsOf('view'),
+    ),
+    DesktopMenuModel(
+      label: section('chat').label(l10n),
+      groups: groupsOf('chat'),
+    ),
+    DesktopMenuModel(
+      label: section('help').label(l10n),
+      groups: [
+        ...groupsOf('help'),
+        [one(MacCommand.about)],
+      ],
+    ),
   ];
 }
