@@ -59,49 +59,55 @@ class BotScreenViewerHeader extends StatelessWidget {
     );
     final bar = SizedBox(
       height: height,
-      child: Row(
-        children: [
-          // The viewer covers the window, traffic lights included.
-          if (chrome == PlatformChrome.macos)
-            const SizedBox(width: kMacTrafficLightsWidth)
-          else
-            const SizedBox(width: 4),
-          if (chrome != PlatformChrome.macos) close,
-          const SizedBox(width: 8),
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    profile,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+      // The bar's height is fixed, so its text stops growing at a cap, as the
+      // labels of `AdaptiveTabBar` do, and leaves larger text to the Large
+      // Content Viewer. The 44 pt iOS bar holds its two lines up to 1.1x.
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: chrome == PlatformChrome.ios ? 1.1 : 1.3,
+        child: Row(
+          children: [
+            // The viewer covers the window, traffic lights included.
+            if (chrome == PlatformChrome.macos)
+              const SizedBox(width: kMacTrafficLightsWidth)
+            else
+              const SizedBox(width: 4),
+            if (chrome != PlatformChrome.macos) close,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Semantics(
+                header: true,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  Text(
-                    control ?? 'Bot screen',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: inControl ? context.hermesColors.warning : muted,
+                    Text(
+                      control ?? 'Bot screen',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: inControl ? context.hermesColors.warning : muted,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          if (action case final action?) ...[
+            if (action case final action?) ...[
+              const SizedBox(width: 8),
+              _HeaderAction(action: action),
+            ],
+            if (chrome == PlatformChrome.macos) close,
             const SizedBox(width: 8),
-            _HeaderAction(action: action),
           ],
-          if (chrome == PlatformChrome.macos) close,
-          const SizedBox(width: 8),
-        ],
+        ),
       ),
     );
     // A Mac window moves by its toolbar.
