@@ -5,8 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
-import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
-import 'package:hermes_app/src/kanban/widgets/kanban_list_rows.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_log_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_sheet.dart';
@@ -18,7 +16,6 @@ import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/plugins/install_report.dart';
 import 'package:hermes_app/src/plugins/plugin_install_result.dart';
-import 'package:hermes_app/src/skills/hub_skill_screen.dart';
 import 'package:hermes_app/src/skills/skill_job.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/skill_job_sheet.dart';
@@ -26,14 +23,11 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'package:hermes_app/src/profiles/widgets/new_profile_dialog.dart';
 
-import '../test/support/fake_hermes_server.dart';
 import 'frame.dart';
 import 'fixtures.dart';
 import 'host.dart';
 import 'kanban_screen_use_cases.dart';
 import 'platform_theme.dart';
-import 'press_when_ready.dart';
-import 'skills_messaging_use_cases.dart';
 
 WidgetbookUseCase _open(
   String name,
@@ -90,45 +84,6 @@ WidgetbookUseCase _mac(String name, Widget Function(BuildContext) build) =>
         child: Builder(builder: build),
       ),
     );
-
-/// The callback of the first widget of type [T] under the screen, once it
-/// has loaded, for [PressWhenReady].
-VoidCallback? Function(Element) _callbackOf<T extends Widget>(
-  VoidCallback? Function(T widget) callback,
-) => (root) {
-  final element = findElement(root, (e) => e.widget is T);
-  return element == null ? null : callback(element.widget as T);
-};
-
-const _hubSkill = HubSkill(
-  name: 'web-scraper',
-  identifier: 'github/web-scraper',
-  description: 'Scrape pages into markdown.',
-  source: 'github',
-  tags: ['web'],
-);
-
-FakeHermesServer _askingHub() => skillsServer()
-  ..on(
-    'GET',
-    '/api/skills/hub/scan',
-    hubScanBody(
-      policy: 'ask',
-      verdict: 'caution',
-      summary: '2 findings',
-      reason: 'Community skills with findings need your confirmation.',
-      findings: [
-        hubFindingRow(),
-        hubFindingRow(
-          severity: 'medium',
-          description: 'Reads environment variables',
-          file: 'scripts/env.py',
-          line: 4,
-        ),
-      ],
-      counts: const {'critical': 0, 'high': 1, 'medium': 1, 'low': 0},
-    ),
-  );
 
 WidgetbookNode dialogsNode() => WidgetbookFolder(
   name: 'Dialogs and sheets',
@@ -274,10 +229,9 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
         ),
       ],
     ),
-    // Nine dialogs open through showAppDialog, which on macOS is a fading
-    // window with a barrier a click closes. Each case opens the dialog the
-    // way its screen does: the task log directly, the other two by pressing
-    // the screen's own button once it has loaded.
+    // Dialogs opened through showAppDialog are, on macOS, a fading window
+    // with a barrier a click closes. Only the task log is a widget of its
+    // own; the others are built inline in their screens.
     WidgetbookComponent(
       name: 'showAppDialog (Mac)',
       useCases: [
@@ -318,50 +272,6 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
               ),
             ),
           ),
-        ),
-        for (final (name, inspection) in <(String, Map<String, Object?>)>[
-          (
-            'Kanban workers, process of a run',
-            {
-              'alive': true,
-              'pid': 4242,
-              'status': 'running',
-              'memory_rss_bytes': 188743680,
-              'num_threads': 12,
-            },
-          ),
-          (
-            'Kanban workers, process gone',
-            {'alive': false, 'reason': 'No such process'},
-          ),
-        ])
-          _mac(
-            name,
-            (_) => Hosted<KanbanRepository>(
-              create: () => KanbanRepository(
-                (kanbanServer()..on(
-                      'GET',
-                      '/api/plugins/kanban/runs/7/inspect',
-                      inspection,
-                    ))
-                    .client(),
-              ),
-              builder: (_, repository) => PressWhenReady(
-                pick: _callbackOf<KanbanWorkerRow>((row) => row.onInspect),
-                child: pushed(KanbanWorkersScreen(repository: repository)),
-              ),
-            ),
-          ),
-        _mac(
-          'Install a skill the scan flagged',
-          (context) => skillsUseCase(
-            'Install a skill the scan flagged',
-            (skills, hub) => PressWhenReady(
-              pick: _callbackOf<OutlinedButton>((button) => button.onPressed),
-              child: HubSkillScreen(hub: hub, skill: _hubSkill),
-            ),
-            serve: _askingHub,
-          ).builder(context),
         ),
       ],
     ),

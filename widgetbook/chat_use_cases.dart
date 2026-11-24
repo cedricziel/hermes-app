@@ -48,8 +48,11 @@ import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/touch_row_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
-import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
-import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/thread_housekeeping.dart';
+
+import '../test/support/fake_hermes_server.dart';
+
 import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart'
     show ActivityButton;
 import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
@@ -69,7 +72,6 @@ import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'platform_theme.dart';
-import 'press_when_ready.dart';
 
 Future<void> _answers(Object? _) =>
     Future<void>.delayed(const Duration(milliseconds: 600));
@@ -291,15 +293,14 @@ class _RemountedToolRunsState extends State<_RemountedToolRuns> {
   );
 }
 
-/// A thread menu as it opens, the way a chat row's or the header's button
-/// opens it, for the catalog to look at. [macItems] draws the whole Mac menu
-/// from its builder, which the button only reaches for a chat the dashboard
-/// holds.
+/// A thread menu as it opens from the header's button, for the catalog to
+/// look at. The button gets a real [ThreadHousekeeping], as in the app, so
+/// the menu has Rename, Pin, Archive and Delete around the export row.
 class _OpenThreadMenu extends StatefulWidget {
-  const _OpenThreadMenu({required this.exportJson, this.macItems = false});
+  const _OpenThreadMenu({required this.exportJson, this.mac = false});
 
   final ExportJsonOffer exportJson;
-  final bool macItems;
+  final bool mac;
 
   @override
   State<_OpenThreadMenu> createState() => _OpenThreadMenuState();
@@ -307,18 +308,12 @@ class _OpenThreadMenu extends StatefulWidget {
 
 class _OpenThreadMenuState extends State<_OpenThreadMenu> {
   final _button = GlobalKey<ThreadActionsButtonState>();
-  final _menu = AdaptiveMenuController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (widget.macItems) {
-        _menu.open();
-      } else {
-        _button.currentState?.open();
-      }
+      if (mounted) _button.currentState?.open();
     });
   }
 
@@ -327,24 +322,22 @@ class _OpenThreadMenuState extends State<_OpenThreadMenu> {
     alignment: Alignment.topRight,
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: widget.macItems
-          ? AdaptivePopupMenuButton<ThreadAction>(
-              controller: _menu,
-              icon: const AppIcon(AppIcons.more),
-              itemBuilder: (_) => macThreadMenuItems(
-                context.l10n,
-                pinned: false,
-                manageable: true,
-                canOpenInNewWindow: true,
-                exportJson: widget.exportJson,
-              ),
-            )
-          : ThreadActionsButton(
-              key: _button,
-              thread: threads[0],
-              includeCopyTranscript: true,
-              exportJson: widget.exportJson,
-            ),
+      child: ThreadActionsButton(
+        key: _button,
+        thread: threads[0],
+        includeCopyTranscript: true,
+        exportJson: widget.exportJson,
+        onOpenInNewWindow: widget.mac ? (_) {} : null,
+        housekeeping: ThreadHousekeeping(
+          repository: HermesChatRepository(FakeHermesServer().client().raw),
+          threads: () => threads,
+          profile: () => 'default',
+          changed: () {},
+          report: (_) {},
+          removed: (_) {},
+          history: (thread, {cancelled}) async => const [],
+        ),
+      ),
     ),
   );
 }
@@ -361,7 +354,7 @@ WidgetbookUseCase _threadMenu(
       data: platformTheme(context, platform),
       child: _OpenThreadMenu(
         exportJson: ExportJsonOffer(onSelected: () {}, enabled: enabled),
-        macItems: platform == TargetPlatform.macOS,
+        mac: platform == TargetPlatform.macOS,
       ),
     );
     if (german) {
@@ -374,60 +367,6 @@ WidgetbookUseCase _threadMenu(
     return menu;
   },
 );
-
-/// The Mac chat toolbar in a window narrow enough to fold its actions into the
-/// "…" menu, with that menu open.
-WidgetbookUseCase _toolbarExport(String name, {required bool enabled}) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (context) => Theme(
-        data: platformTheme(context, TargetPlatform.macOS),
-        child: Builder(
-          builder: (context) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(size: const Size(680, 760)),
-            child: PressWhenReady(
-              pick: (root) {
-                final more = findElement(
-                  root,
-                  (e) => e.widget.key == const Key('toolbar-more'),
-                );
-                if (more == null) return null;
-                final popup = findElement(
-                  more,
-                  (e) =>
-                      e is StatefulElement && e.state is PopupMenuButtonState,
-                );
-                if (popup is! StatefulElement) return null;
-                return () =>
-                    (popup.state as PopupMenuButtonState).showButtonMenu();
-              },
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: SizedBox(
-                  width: 400,
-                  child: MacChatToolbar(
-                    title: 'Plan the release',
-                    subtitle: 'default · claude-sonnet-4',
-                    onNewChat: () {},
-                    onShowConnection: () {},
-                    onCopyTranscript: () {},
-                    exportJson: ExportJsonOffer(
-                      onSelected: () {},
-                      enabled: enabled,
-                    ),
-                    searchQuery: '',
-                    searchActive: false,
-                    onSearchBegin: () {},
-                    onSearchChanged: (_) {},
-                    onSearchEnd: () {},
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
 
 WidgetbookNode chatNode() => WidgetbookFolder(
   name: 'Chat',
@@ -725,13 +664,6 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           TargetPlatform.android,
           enabled: false,
         ),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'MacChatToolbar',
-      useCases: [
-        _toolbarExport('Export, More menu open', enabled: true),
-        _toolbarExport('Export running, More menu open', enabled: false),
       ],
     ),
     WidgetbookComponent(

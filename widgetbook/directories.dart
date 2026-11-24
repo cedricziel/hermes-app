@@ -122,7 +122,6 @@ final List<WidgetbookNode> directories = [
   botScreenNode(),
   sudoPasswordPromptNode(),
   botScreenViewerNode(),
-  botScreenViewerHeaderNode(),
   activityButtonNode(),
   activityLineNode(),
   macToolbarSubtitleNode(),
