@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -16,6 +16,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_conversation_window_host.dart';
+import 'support/tooltip_finder.dart';
 
 const _macLabel = 'Export Chat as JSON…';
 const _materialLabel = 'Export chat as JSON…';
@@ -142,7 +143,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.byTooltip('Chat actions'));
+      await tester.tap(find.tooltip('Chat actions'));
       await tester.pumpAndSettle();
     }
 
@@ -332,7 +333,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.byTooltip('More'));
+      await tester.tap(find.tooltip('More'));
       await tester.pumpAndSettle();
       return calls;
     }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/thread_list_preferences.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -66,7 +67,7 @@ void main() {
     expect(inSidebar(find.text('Nightly backup')), findsOneWidget);
     expect(inSidebar(find.text('Recent chat')), findsNothing);
 
-    await tester.tap(find.byTooltip('Clear search'));
+    await tester.tap(find.tooltip('Clear search'));
     await tester.pumpAndSettle();
 
     expect(inSidebar(find.text('Recent chat')), findsOneWidget);
@@ -77,7 +78,7 @@ void main() {
     'search replaces folder sections and clearing restores grouping',
     (tester) async {
       await pumpChatScreen(tester, server: server);
-      await tester.tap(find.byTooltip('Group chats'));
+      await tester.tap(find.tooltip('Group chats'));
       await tester.pumpAndSettle();
       await tester.tap(
         find
@@ -92,7 +93,7 @@ void main() {
       await type(tester, 'backup');
       expect(find.byType(ThreadSearchResults), findsOneWidget);
       expect(inSidebar(find.text('No folder')), findsNothing);
-      await tester.tap(find.byTooltip('Clear search'));
+      await tester.tap(find.tooltip('Clear search'));
       await tester.pumpAndSettle();
       expect(inSidebar(find.text('No folder')), findsOneWidget);
       expect(inSidebar(find.text('Recent chat')), findsOneWidget);

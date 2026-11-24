@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
@@ -7,6 +7,8 @@ import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_suggestions.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/tooltip_finder.dart';
 
 const _report = SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf');
 const _pill = Text('claude-opus-4', key: Key('pill'));
@@ -67,7 +69,7 @@ void main() {
     await pump(tester);
 
     final field = tester.getRect(find.byType(TextField));
-    final attach = tester.getCenter(find.byTooltip('Add attachment'));
+    final attach = tester.getCenter(find.tooltip('Add attachment'));
     final pill = tester.getCenter(find.byKey(const Key('pill')));
     final send = tester.getCenter(find.byIcon(Icons.arrow_upward));
     expect(find.text('Message Hermes…'), findsOneWidget);
@@ -85,7 +87,7 @@ void main() {
     await pump(tester, modelPill: null);
 
     expect(find.byKey(const Key('pill')), findsNothing);
-    expect(find.byTooltip('Add attachment'), findsOneWidget);
+    expect(find.tooltip('Add attachment'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_upward), findsOneWidget);
   });
 
@@ -163,11 +165,11 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    await tester.tap(find.byTooltip('Add attachment'));
+    await tester.tap(find.tooltip('Add attachment'));
     expect(attachTaps, 1);
 
     await pump(tester, canAttach: false);
-    expect(find.byTooltip('Add attachment'), findsNothing);
+    expect(find.tooltip('Add attachment'), findsNothing);
   });
 
   testWidgets(

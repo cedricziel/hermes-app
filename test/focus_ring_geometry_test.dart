@@ -2,9 +2,10 @@ import 'dart:convert' show base64Decode;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoSlidingSegmentedControl;
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'

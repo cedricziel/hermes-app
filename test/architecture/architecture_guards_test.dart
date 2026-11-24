@@ -1070,6 +1070,9 @@ const _barrelRoots = [
   'integration_test',
   'test_driver',
   'packages',
+  'benchmark',
+  'tool',
+  'scripts',
 ];
 
 List<Hit> _flutterBarrelImports() => [

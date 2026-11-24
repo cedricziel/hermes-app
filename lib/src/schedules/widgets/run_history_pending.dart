@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The run history while its runs load, or with a retry when they failed to.
 class RunHistoryPending extends StatelessWidget {

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +20,7 @@ import 'support/attachment_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
 import 'support/wait_until.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -166,7 +167,7 @@ void main() {
       expect(find.byType(InteractiveViewer), findsOneWidget);
       expect(find.text('a.png'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Close'));
+      await tester.tap(find.tooltip('Close'));
       await tester.pumpAndSettle();
 
       expect(find.byType(InteractiveViewer), findsNothing);
@@ -180,7 +181,7 @@ void main() {
       await tester.tap(anyImage);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Save'));
+      await tester.tap(find.tooltip('Save'));
       await waitUntil(
         tester,
         () => actions.saved.isNotEmpty,
@@ -312,7 +313,7 @@ void main() {
       server.onDownload('/srv/report.pdf', pdf);
       await pumpTranscript(tester, reply('MEDIA:/srv/report.pdf'));
 
-      await tap(tester, find.byTooltip('Save'));
+      await tap(tester, find.tooltip('Save'));
 
       expect(actions.saved.single.name, 'report.pdf');
       expect(actions.saved.single.bytes, pdf);
@@ -378,7 +379,7 @@ void main() {
       );
 
       expect(find.text('report.pdf'), findsOneWidget);
-      expect(find.byTooltip('Save'), findsNothing);
+      expect(find.tooltip('Save'), findsNothing);
       await tap(tester, find.text('report.pdf'));
       expect(server.requests, isEmpty);
       expect(actions.opened, isEmpty);

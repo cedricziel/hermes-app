@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_toolbar_search_field.dart';

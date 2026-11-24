@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -22,6 +22,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/mac_commands_builder.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -115,7 +116,7 @@ void main() {
       server.requestsTo('GET', '/api/plugins/kanban/board').length,
       before + 1,
     );
-    expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+    expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
   });
 
   for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
@@ -153,8 +154,8 @@ void main() {
 
     expect(find.text('Kanban'), findsOneWidget);
     expect(find.text('Default · all profiles · 2 tasks'), findsOneWidget);
-    expect(find.byTooltip('New Task ⌘N'), findsOneWidget);
-    expect(find.byTooltip('Hide Inspector ⌥⌘I'), findsOneWidget);
+    expect(find.tooltip('New Task ⌘N'), findsOneWidget);
+    expect(find.tooltip('Hide Inspector ⌥⌘I'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
     expect(find.byType(AppBar), findsNothing);
     expect(

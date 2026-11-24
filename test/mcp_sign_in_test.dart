@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// Signing in to an OAuth server from its detail, against a fake dashboard
 /// through the real generated client. Hermes runs the flow; the app opens the
@@ -326,7 +327,7 @@ void main() {
     testWidgets('going back deletes the flow the same way', (tester) async {
       await startSignIn(tester);
 
-      await tester.tap(find.byTooltip('Back').last);
+      await tester.tap(find.tooltip('Back').last);
       await tester.pumpAndSettle();
 
       expect(deletes(), hasLength(1));
@@ -339,7 +340,7 @@ void main() {
       server.on('GET', flowPath, mcpFlowBody(status: 'error', error: 'no'));
       await poll(tester);
 
-      await tester.tap(find.byTooltip('Back').last);
+      await tester.tap(find.tooltip('Back').last);
       await tester.pumpAndSettle();
 
       expect(deletes(), isEmpty);
@@ -391,7 +392,7 @@ void main() {
             .onTap,
         isNull,
       );
-      await tester.tap(find.byTooltip('Back').last);
+      await tester.tap(find.tooltip('Back').last);
       await settle(tester);
       expect(find.text('Could not sign in'), findsOneWidget);
 

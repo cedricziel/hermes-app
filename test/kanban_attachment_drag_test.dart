@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
@@ -17,6 +17,7 @@ import 'support/fake_drag_out_source.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_kanban_files.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -140,8 +141,8 @@ void main() {
     server.on('GET', '/api/plugins/kanban/attachments/3', bytes);
     await pumpPanel(tester);
 
-    await tester.ensureVisible(find.byTooltip('Save attachment'));
-    await tester.tap(find.byTooltip('Save attachment'));
+    await tester.ensureVisible(find.tooltip('Save attachment'));
+    await tester.tap(find.tooltip('Save attachment'));
     await tester.pumpAndSettle();
 
     expect(files.saved.single.name, 'spec.pdf');

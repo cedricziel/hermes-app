@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/bot_mode/widgets/bot_creation_fields.dart';
@@ -10,6 +10,7 @@ import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   for (final platform in [
@@ -241,7 +242,7 @@ class _CreationFixture {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Create bot'));
+    await tester.tap(find.tooltip('Create bot'));
     await tester.pumpAndSettle();
   }
 }

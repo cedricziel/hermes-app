@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/widgets/command_row.dart';
 import 'package:hermes_app/src/widgets/loading_skeleton.dart';

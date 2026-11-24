@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Measures tap targets for the report in `test/tap_targets/`. It walks the
 /// semantics tree the way flutter_test's tap-target guidelines do, but keeps

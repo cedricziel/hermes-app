@@ -36,6 +36,7 @@ const _defaultRoots = [
   'tool',
   'scripts',
   'packages',
+  'benchmark',
 ];
 
 const _skippedPrefixes = {

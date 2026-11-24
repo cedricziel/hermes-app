@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -18,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/attachment_fixtures.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 Widget _wrap(Widget child, {ShareController? share}) {
   return MultiProvider(
@@ -408,14 +409,14 @@ void main() {
       expect(find.text('report.pdf'), findsOneWidget);
       expect(find.text('photo.png'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Remove photo.png'));
+      await tester.tap(find.tooltip('Remove photo.png'));
       await tester.pump();
       expect(find.text('photo.png'), findsNothing);
 
       // Attachments alone are enough to send.
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pump();
-      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+      expect(find.tooltip('Remove report.pdf'), findsNothing);
       expect(
         find.descendant(
           of: find.byType(Chat),
