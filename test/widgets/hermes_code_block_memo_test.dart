@@ -226,14 +226,54 @@ void main() {
       testWidgets(e.key, (tester) async {
         final env = _Env();
         await _mount(tester, env);
+        final copiedLabel = e.key == 'copiedLabel';
+        if (copiedLabel) {
+          // The label shows only once the code was copied.
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            (call) async => null,
+          );
+          addTearDown(
+            () => tester.binding.defaultBinaryMessenger
+                .setMockMethodCallHandler(SystemChannels.platform, null),
+          );
+          await tester.tap(_copy);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 200));
+        }
+        await _settle(tester);
         final before = _shown(tester);
         final rebuilt = await _change(tester, () => env.config = e.value);
         expect(rebuilt, greaterThan(0), reason: 'subtree rebuilt');
-        if (!{'highlightWhileStreaming', 'copiedLabel'}.contains(e.key)) {
+        if (copiedLabel) {
+          expect(find.bySemanticsLabel('Kopiert'), findsOneWidget);
+          await tester.pump(const Duration(seconds: 3));
+        } else if (e.key != 'highlightWhileStreaming') {
           expect(_shown(tester), isNot(before), reason: 'change is shown');
         }
       });
     }
+  });
+
+  testWidgets('a hot reload builds the block again', (tester) async {
+    // Reassembling marks every descendant dirty on its own, so counting
+    // rebuilds cannot tell whether the State dropped its cache; the widget it
+    // returns can: the same instance would be a stale tree after a code change.
+    final env = _Env();
+    await _mount(tester, env);
+    await _settle(tester);
+    Widget builtBy(Element block) {
+      late Widget child;
+      block.visitChildren((c) => child = c.widget);
+      return child;
+    }
+
+    final block = tester.element(find.byType(HermesCodeBlock));
+    final before = builtBy(block);
+    final done = tester.binding.reassembleApplication();
+    await tester.pump();
+    await done;
+    expect(identical(builtBy(block), before), isFalse);
   });
 
   testWidgets('a theme change rebuilds and shows it', (tester) async {

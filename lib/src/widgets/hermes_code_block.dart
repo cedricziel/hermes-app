@@ -60,7 +60,7 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   /// Flutter skip the whole subtree, which matters because the markdown
   /// package creates every block again on every streamed delta. It is dropped
   /// whenever something the subtree shows may have changed: a widget field
-  /// ([didUpdateWidget]), an inherited widget this State's own context reads
+  /// ([didUpdateWidget], comparing the style with its own `==`), an inherited widget this State's own context reads
   /// ([didChangeDependencies], which tracks them without a list to keep in
   /// step), and any [setState]. Descendants that read an inherited widget
   /// through their own context (builders, tooltips, icons, text) are marked
@@ -91,31 +91,14 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
     if (!_sameConfig(oldWidget, widget)) _built = null;
   }
 
-  /// `CodeBlockStyle` has no `==`, so every field is compared.
-  static bool _sameConfig(HermesCodeBlock a, HermesCodeBlock b) {
-    final x = a.style;
-    final y = b.style;
-    return a.name == b.name &&
-        a.codes == b.codes &&
-        a.highlightCode == b.highlightCode &&
-        a.scalesItsOwnText == b.scalesItsOwnText &&
-        x.backgroundColor == y.backgroundColor &&
-        x.borderColor == y.borderColor &&
-        x.borderWidth == y.borderWidth &&
-        x.borderRadius == y.borderRadius &&
-        x.padding == y.padding &&
-        x.headerPadding == y.headerPadding &&
-        x.fontFamily == y.fontFamily &&
-        x.fontFamilyPackage == y.fontFamilyPackage &&
-        x.fontSize == y.fontSize &&
-        x.textColor == y.textColor &&
-        x.showLanguageLabel == y.showLanguageLabel &&
-        x.languageStyle == y.languageStyle &&
-        x.showCopyButton == y.showCopyButton &&
-        x.copyLabel == y.copyLabel &&
-        x.copiedLabel == y.copiedLabel &&
-        x.highlightWhileStreaming == y.highlightWhileStreaming;
-  }
+  /// `CodeBlockStyle` defines `==` over all its fields, so one a package
+  /// upgrade adds is compared too.
+  static bool _sameConfig(HermesCodeBlock a, HermesCodeBlock b) =>
+      a.name == b.name &&
+      a.codes == b.codes &&
+      a.highlightCode == b.highlightCode &&
+      a.scalesItsOwnText == b.scalesItsOwnText &&
+      a.style == b.style;
 
   List<CodeRun> _runs() {
     final language = widget.highlightCode
