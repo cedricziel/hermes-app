@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:provider/provider.dart';
 
