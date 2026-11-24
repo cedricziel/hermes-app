@@ -8,6 +8,7 @@ import '../drag_out/sanitize_drag_file_name.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/settings_scaffold.dart';
+import '../widgets/zoom_keyboard_shortcuts.dart';
 import 'files_controller.dart';
 import 'files_models.dart';
 import 'files_state.dart';
@@ -142,11 +143,13 @@ class FilesPreviewPane extends StatelessWidget {
             ),
             Expanded(
               child: mac
-                  ? QuickLookTarget(
-                      onToggle: actions.quickLook,
-                      onShow: actions.quickLook,
-                      onSave: actions.save,
-                      child: body,
+                  ? ZoomKeyRelay(
+                      child: QuickLookTarget(
+                        onToggle: actions.quickLook,
+                        onShow: actions.quickLook,
+                        onSave: actions.save,
+                        child: body,
+                      ),
                     )
                   : body,
             ),

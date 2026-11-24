@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
 import '../../widgets/named_icon_button.dart';
+import '../../widgets/zoom_keyboard_shortcuts.dart';
 
 /// The fallback viewer outside iOS. iOS chat photos use native Quick Look.
-/// An image full screen, which can be zoomed and moved, closed and, when
-/// [onSave] is given, saved. [onSave] answers whether the user saved it.
-class ImageViewerPage extends StatelessWidget {
+/// An image full screen, which can be zoomed and moved (also from the
+/// keyboard, see `ZoomKeyboardShortcuts`), closed and, when [onSave] is
+/// given, saved. [onSave] answers whether the user saved it.
+class ImageViewerPage extends StatefulWidget {
   const ImageViewerPage({
     super.key,
     required this.image,
@@ -17,6 +19,21 @@ class ImageViewerPage extends StatelessWidget {
   final ImageProvider image;
   final String name;
   final Future<bool> Function()? onSave;
+
+  @override
+  State<ImageViewerPage> createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<ImageViewerPage> {
+  static const _maxScale = 8.0;
+
+  final _transform = TransformationController();
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,31 +48,36 @@ class ImageViewerPage extends StatelessWidget {
           icon: AppIcons.close,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Text(name, overflow: TextOverflow.ellipsis),
+        title: Text(widget.name, overflow: TextOverflow.ellipsis),
         actions: [
-          if (onSave != null)
+          if (widget.onSave != null)
             NamedIconButton(
               label: 'Save',
               icon: AppIcons.download,
               onPressed: () async {
-                if (await onSave!()) {
+                if (await widget.onSave!()) {
                   messenger.showSnackBar(
-                    SnackBar(content: Text('Saved $name')),
+                    SnackBar(content: Text('Saved ${widget.name}')),
                   );
                 }
               },
             ),
         ],
       ),
-      body: InteractiveViewer(
-        maxScale: 8,
-        child: Center(
-          child: Image(
-            image: image,
-            semanticLabel: name,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) =>
-                const AppIcon(AppIcons.brokenImage, color: Colors.white54),
+      body: ZoomKeyboardShortcuts(
+        controller: _transform,
+        maxScale: _maxScale,
+        child: InteractiveViewer(
+          transformationController: _transform,
+          maxScale: _maxScale,
+          child: Center(
+            child: Image(
+              image: widget.image,
+              semanticLabel: widget.name,
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) =>
+                  const AppIcon(AppIcons.brokenImage, color: Colors.white54),
+            ),
           ),
         ),
       ),
