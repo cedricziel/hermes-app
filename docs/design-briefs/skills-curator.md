@@ -272,3 +272,61 @@ Not checked: the claude.ai canvas viewer, real devices, VoiceOver and TalkBack l
 5. **Run now after an unsure state.** This brief keeps Run now disabled after a lost answer, a stopped pass, lost progress and the 15-minute stop until Check status shows nothing running (see "When Run now is enabled"). A person whose dashboard is idle but whose check cannot be answered cannot start a pass until a read answers. Confirm, or allow a second confirmation that names the risk of two passes.
 6. **Output box height.** 320 pt or 40 percent of the window height, with an inner scroll, is a design guess; the owner may prefer the 30-line cap lowered instead.
 7. **Offline icon.** A new `AppIcons.wifiOff` entry is proposed; the Cupertino glyph is unchecked. The owner may prefer an existing icon.
+
+## Grouped action row, neutral phase, and the output tile's cap
+
+Recorded after the fact on 2026-11-24; describes what #1186 built. Read from `lib/src/widgets/grouped_action_row.dart` and `lib/src/widgets/output_lines_tile.dart` on main. The curator section is the one caller that uses every extension; Server care's callers keep their look because each extension is opt-in.
+
+`GroupedActionRow` neutral phase (`GroupedActionPhase.neutral`):
+
+- A status line under the row: an info icon (`AppIcons.info`) and the text, both in the muted `subtleText` colour, at the subtitle size. The line is a live region. The icon's size is the larger of the subtitle size and the scaled subtitle size, so it grows with the text. Under the other phases the same line uses the error colour (failed) or the warning colour (warning).
+- Buttons under the line (`GroupedActionStatus.buttons`): outlined, laid out in a wrapping row with 8 pt gaps, starting at the text's start edge. A null `onPressed` disables one, such as Check status while a read is on its way. The line has 10 pt below it, or 6 pt with buttons; the buttons have 12 pt below.
+- The row above stays as the caller sets it. In the curator a disabled Run now row (`onPressed` null) carries a subtitle that says why ("A pass is running on this server"), and the neutral line and Check status button sit under it. A disabled row must have a subtitle or a status (an assert), because on a Mac, where the row has no icon, colour and a fainter icon would be the only cue.
+- Button targets: with `touchTargetButtons` the buttons are at least 44 pt (iOS), 48 dp (Material) or 28 pt (Mac) tall at standard density. Without it they keep Server care's compact 44 pt. With `linkColoredButtons` the label is the link colour (a disabled button keeps the theme's faded colour) and, on a Mac, the title is in the link colour too. The curator passes both.
+- Large text: the leading icon and spinner scale with the text. Beyond twice the text size the icon or spinner stacks above the title and subtitle, so the text keeps the full width, and the status line and buttons then start at the row's padding edge; otherwise they start where the text starts, after the icon. Subtitles and status lines wrap in full.
+- Other phases of the same row: working replaces the title with the status text and draws a 3 pt `BusyBar` under the row; `spinnerWhileWorking` puts a spinner in place of the icon, on a Mac too. Done replaces the icon with a success-coloured check and the title with the status text. A disabled row's title is `subtleText` and its icon is faded to 60%.
+- Tokens: `link` (title, icon, button labels), `subtleText` (subtitle, neutral line, disabled title), `success`, `warning`, the scheme's error colour. Dark follows the tokens.
+
+Use cases, in `widgetbook/shared_widgets_use_cases.dart`, component "GroupedActionRow with subtitle": `Neutral with Check status` (iPhone, Mac and Material), `Disabled with subtitle` (the same three), `Working with a spinner` (the same three), `Largest text, German, 320 pt, stacked`, `Largest text, German, 320 pt, disabled`, `Largest text, working with a spinner`, `Largest text, long subtitle`, and the older idle, long subtitle, working, done, failed with buttons and warning cases. Test: `test/widgets/grouped_action_row_test.dart` (and `test/widgets/output_lines_tile_test.dart` for the tile below).
+
+`OutputLinesTile` cap:
+
+- The box is the tile's open content: the scheme's `surfaceContainerHighest` fill, an 8 pt radius, 10 pt padding. Lines are monospace (the generic `monospace` family) at the footer size in the on-surface colour, laid out left to right in every locale. The tile's row title uses the title size and the row's minimum height.
+- `capHeight`: the lines' scroll area is at most 320 pt or 40% of the window height, whichever is less, and scrolls inside itself beyond that; the box's padding and the earlier-lines note sit outside it. On macOS, Windows and Linux the scrollbar's thumb stays visible. Without `capHeight` the box grows with its lines (the Update page's use).
+- `maxLines` (the curator passes 30): only the last lines show. A muted line, not monospace, "N earlier lines not shown" (the caller's `earlierLabel`, counting dropped lines plus `earlierLines`) sits above the lines inside the box and outside the scroll area, so it stays in view.
+- `footnote`: a muted line at the footer size, 6 pt under the box (the curator's note that the log is shared by every profile).
+- `blank`: the box holds no lines, only the muted `blankNote`. Used while the app is locked or away.
+- `selectable: false` (the curator): the text is inside `SelectionContainer.disabled`, so an ancestor's selection area cannot copy it.
+- Large text: the box's text follows the scaler and the cap bounds the height; the `Largest text` case shows it.
+
+Use cases, in `widgetbook/shared_widgets_use_cases.dart`, component "OutputLinesTile": `Collapsed` and `Open` (each on the three platforms), `Long lines`, `Empty`, `Largest text`, `Not selectable, 40 lines capped at 30, footnote`, `Tall box scrolls inside` and `Blank` (the three platforms).
+
+## The curator on the Skills screen
+
+Recorded after the fact on 2026-11-24; describes what #1225 built, which put the section designed above on the Skills screen. Read from `lib/src/skills/skills_screen.dart`, `lib/src/skills/curator/curator_section_host.dart`, `curator_run_sheet.dart` and `lib/src/skills/widgets/curator_section.dart` on main.
+
+Placement (`_body` in `skills_screen.dart`):
+
+- Ready list: the section is the `header` of `InstalledSkillsList`, above the first category group, one `GroupedSection` headed "Skill curator". It scrolls with the list.
+- Loading, no skills and "Could not load skills": the section sits above the spinner or the message in a `GroupedListView` (a run works on a profile with no skills, and a failed list says nothing about the curator).
+- Unsupported skills: no section, the `StateMessage` stands alone. A server with no curator route (`unsupported`) hides the section and leaves the list as before.
+- A search text or a filter other than All hides the section (the controller's `visible` is false while `searching`). A server with no skills hub has no tabs and the section sits on the only list; Discover never shows it.
+- The section follows its controller alone (`CuratorSectionHost` in a `ListenableBuilder`), so a poll rebuilds the section and not the list.
+
+The rows inside, their states, wording, the Run now and Pause behaviour and the output tile are the ones in "Screen: Skill curator section" and the sections after it; the wired section adds no state of its own. A status read with no answer in 10 seconds is the "Lost answer to the status read" state above: the banner "Couldn't confirm the curator's state" with Try again.
+
+The status icon is `AppIcons.checkCircleFilled` in the success colour (Active), `AppIcons.pause` (Paused), `AppIcons.radioOff` (Off) and `AppIcons.info` (unknown). At twice the text size or more the Status row puts its value under the title itself. A value longer than 16 characters (a long interval) moves to the subtitle.
+
+Run confirmation (`askToRunCurator`): an adaptive sheet from the root navigator, so a phone shows it over the whole screen; a dialog on the Mac or a wide layout. Cancel, back, Escape and a drag send nothing. Run now closes the sheet first and the run is sent once. The sheet takes its wording once, when it opens. A profile switch, App Lock covering the app or leaving the screen closes it as a cancel.
+
+Privacy behaviour that changes what is on screen: App Lock drops the output lines and closes an open question; while the app is inactive on a phone the output box shows only the muted "Hidden while the app is locked or away" (`AppInactiveWatcher`). Switching profile re-points the controller and drops the old profile's result.
+
+Use cases that show it:
+
+- From #1190, `widgetbook/skills_curator_use_cases.dart`, folder "Skill curator":
+  - component "CuratorSection": `Interactive`, `Ran` (iPhone, Mac, Material, and largest text), `Ran, 3.1x text`, `Paused, 3.1x text`, `Never run`, `Paused`, `Off in config`, `Unknown fields` (also largest text), `Interval in days`, `Interval in hours`, `Loading`, `Refreshing`, `Offline` (also largest text), `Curator could not load`, `Other failure`, `Profile gone`, `Status read lost`
+  - component "Pause switch": `Idle, on`, `Saving` (also largest text), `Failed with Hermes' text`, `Failed`, `Offline`, `Lost answer`, `Profile gone`, `Pause setting unknown`
+  - component "Run now row": idle (three platforms), opening, running, finished with output, finished with output hidden, finished with no output, finished with 40 lines, failed, stopped with no exit code, stopped or checked with earlier lines, output dropped by App Lock, unconfirmed, the three "Not started" forms and offline, lost answer, progress lost, still running, a pass running on the server, could not check, check status without an answer, checking, and checked with nothing running; several of them on three platforms and at the largest text
+- From #1201, component "CuratorRunConfirmation": `Archive only` on iPhone, iPad dialog, Mac, Android, Windows and Linux; `German (Mac)`; `Built-ins included (iPhone)`; `Consolidate on (iPhone)`; `Config unknown` on iPhone and Mac; `Days unknown (iPhone)`; `All unknown (Android)`; `Largest text` on iPhone and Android (3.1x) and on Mac (2x); and three German cases with the config unknown: `German, config unknown (iPhone)`, `German, config unknown (Android)` and `German, config unknown, largest text (iPhone)`.
+- Where the section sits, component "Skills screen states": `Installed list`, `Loading skills`, `No skills`, `Skills failed to load` and `Unsupported, section hidden` on each platform, and `No hub, no tabs`. These use the screen's real chrome and list widgets.
+- Whole flows: `test/workflows/skills_curator_workflow_test.dart` walks the Skills tab with the section, pausing, the confirmation, a confirmed run to its end and its output, on a phone and a desktop window in light and dark, plus a phone at 2x text and one at 3.1x, with a screenshot per step.
