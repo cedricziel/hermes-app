@@ -93,6 +93,23 @@ does not block). For `find` actions, `-execdir` judges git scope by the shell's 
 `flock`, `stdbuf`, `ionice` and `setsid` are not unwrapped for the git bans.
 Non-git checks (`hermes dashboard`, `chmod` on `.git/hooks`) are not applied to find actions.
 
+## Startup freshness warning
+
+Hooks load from `$CLAUDE_PROJECT_DIR`, so a checkout from before the guard
+existed runs unguarded and silent. `.claude/hooks/session-start.sh` (local and
+cloud) runs `check_guard_freshness.py` first and prints `WARNING: the Bash guard
+is not active in this session:` when `guard_bash.py` is missing, `settings.json`
+has no `PreToolUse` hook for Bash running it (checks (a) and (b) need no git;
+the command is matched exactly against `GUARD_COMMANDS` in the helper, so a
+change to the PreToolUse command in `settings.json` must update that constant,
+which `test_real_repo_settings_are_recognised` enforces),
+and, with a lag-only header, when HEAD is more than `MAX_COMMITS_BEHIND`
+(20) commits behind the local `origin/main` (no fetch; skipped without that
+ref). It is read-only, always exits 0, and names the fix
+(`git -C "$CLAUDE_PROJECT_DIR" fetch origin main && ... merge --ff-only origin/main`,
+then a new session). If you see it, run the fix and start a new session. Tests:
+`scripts/test_session_start_guard_check.py`.
+
 ## Add or change a rule
 
 1. Add a message constant and a branch in `_check_git`, `_check_program` or
