@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
+import 'package:hermes_app/src/widgets/focusable_tap.dart';
 
 /// Opens an [AdaptivePopupMenuButton]'s menu from outside, for a right-click
 /// or a long press on the row the button sits in.
@@ -174,6 +175,12 @@ Future<T?> showRingMenu<T>({
 /// platform. Items are [PopupMenuItem], [AdaptiveMenuItem],
 /// [CheckedPopupMenuItem] and [PopupMenuDivider]; anything else does not show
 /// on iOS.
+///
+/// On iOS a custom [child] is a trigger the keyboard reaches: one tab stop,
+/// Enter and Space open the menu, and a 2 px ring in the link colour shows on
+/// keyboard focus ([focusRadius], [focusInside] and [minTapTarget] shape it).
+/// Focus returns to the trigger when the menu closes. Mac and
+/// Material build a [PopupMenuButton], which takes focus and draws its own.
 class AdaptivePopupMenuButton<T> extends StatefulWidget {
   const AdaptivePopupMenuButton({
     super.key,
@@ -188,6 +195,9 @@ class AdaptivePopupMenuButton<T> extends StatefulWidget {
     this.offset = Offset.zero,
     this.position,
     this.controller,
+    this.focusRadius = 8,
+    this.focusInside = false,
+    this.minTapTarget = 0,
   }) : assert(icon == null || child == null);
 
   final PopupMenuItemBuilder<T> itemBuilder;
@@ -204,6 +214,19 @@ class AdaptivePopupMenuButton<T> extends StatefulWidget {
   final PopupMenuPosition? position;
   final AdaptiveMenuController? controller;
 
+  /// The corner radius of the [child]'s own shape, for the iOS focus ring. A
+  /// stadium passes a large value; Flutter scales an oversized radius down.
+  final double focusRadius;
+
+  /// Draws the iOS focus ring 2 px inside the [child] rather than outside it,
+  /// for a child that a container clips or that fills its row.
+  final bool focusInside;
+
+  /// The least width and height of the iOS trigger's hit box, centred round
+  /// the focus ring and inside the menu's tap region, so a tap in its margin
+  /// toggles the menu like a tap on the [child]. Zero adds no box.
+  final double minTapTarget;
+
   static const double macRowHeight = 22;
 
   @override
@@ -215,6 +238,7 @@ class _AdaptivePopupMenuButtonState<T>
     extends State<AdaptivePopupMenuButton<T>> {
   final _popup = GlobalKey<PopupMenuButtonState<T>>();
   final _menu = MenuController();
+  final _trigger = FocusNode(debugLabel: 'AdaptivePopupMenuButton trigger');
 
   @override
   void initState() {
@@ -234,6 +258,7 @@ class _AdaptivePopupMenuButtonState<T>
   @override
   void dispose() {
     widget.controller?._open = null;
+    _trigger.dispose();
     super.dispose();
   }
 
@@ -359,12 +384,40 @@ class _AdaptivePopupMenuButtonState<T>
     _ => entry,
   };
 
+  /// [child] as a control the keyboard reaches: Enter and Space toggle the
+  /// menu, and the ring shows on keyboard focus. An `ExcludeFocus` above wins.
+  Widget _ringed(Widget child, VoidCallback toggle) {
+    final focusable = FocusableTap(
+      focusNode: _trigger,
+      onActivate: toggle,
+      child: child,
+    );
+    return widget.focusInside
+        ? FocusRing(
+            radius: widget.focusRadius - kFocusRingOffset,
+            child: focusable,
+          )
+        : FocusRing.outside(radius: widget.focusRadius, child: focusable);
+  }
+
+  /// The hit box of [minTapTarget], round the ring and inside the anchor, so
+  /// that a tap in its margin is a tap on the trigger; none when it is 0.
+  Widget _hitBox(Widget ringed) {
+    final least = widget.minTapTarget;
+    if (least <= 0) return ringed;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: least, minHeight: least),
+      child: Center(child: ringed),
+    );
+  }
+
   Widget _pullDown(BuildContext context) {
     final label = widget.tooltip;
     final trigger = widget.child;
     final icon = widget.icon;
     return CupertinoMenuAnchor(
       controller: _menu,
+      childFocusNode: _trigger,
       menuChildren: [
         for (final entry in widget.itemBuilder(context))
           switch (entry) {
@@ -389,13 +442,15 @@ class _AdaptivePopupMenuButtonState<T>
         void toggle() =>
             controller.isOpen ? controller.close() : controller.open();
         final Widget button = trigger != null
-            ? Semantics(
-                button: true,
-                onTap: toggle,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+            ? MergeSemantics(
+                child: Semantics(
+                  button: true,
                   onTap: toggle,
-                  child: trigger,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: toggle,
+                    child: _hitBox(_ringed(trigger, toggle)),
+                  ),
                 ),
               )
             : IconButton(

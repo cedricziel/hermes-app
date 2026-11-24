@@ -53,6 +53,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../widgetbook/bot_screen_fixture.dart';
 import '../widgetbook/fixtures.dart' show modelOptions, searchHits;
 import 'support/fake_hermes_server.dart';
+import 'support/popup_trigger_callers.dart';
 import 'support/test_localizations.dart';
 import 'support/wait_until.dart';
 
@@ -1187,6 +1188,7 @@ void main() {
 
   group('rows and cards of F.427 (tables B and C)', _insideRowTests);
   group('sidebar rows of F.427 (table A)', _sidebarRowTests);
+  group('iOS popup triggers of F.441', _popupTriggerTests);
 
   group('gesture-detector controls of F.441', () {
     // A 240 by 160 picture, so the thumbnail shows at its full size.
@@ -2355,3 +2357,114 @@ void _sidebarRowTests() {
 void _ignore(AttachOrigin _) {}
 
 void _ignoreTap() {}
+
+/// The iOS pull-down trigger of [AdaptivePopupMenuButton] with a custom child
+/// (F.441), as each of its five callers builds it: the ring follows the shape
+/// the caller paints, outside it for the pill, the subtitle and the account
+/// footer, inside it for the value row and the filter chip.
+void _popupTriggerTests() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  PopupCaller caller(String name) =>
+      popupCallers.singleWhere((c) => c.name == name);
+
+  Future<void> pumpCaller(
+    WidgetTester tester,
+    PopupCaller caller, {
+    double textScale = 1,
+  }) => _pump(
+    tester,
+    TargetPlatform.iOS,
+    textScale == 1
+        ? caller.build()
+        : Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(textScale)),
+              child: caller.build(),
+            ),
+          ),
+  );
+
+  for (final scale in [1.0, 3.0]) {
+    testWidgets('log level pill: outside, a stadium at text ${scale}x', (
+      tester,
+    ) async {
+      final pill = caller('log level pill');
+      await pumpCaller(tester, pill, textScale: scale);
+      await _focus(tester, pill.popup);
+      final shape = find
+          .descendant(
+            of: pill.popup,
+            matching: find.byWidgetPredicate(
+              (w) => w is DecoratedBox && w.decoration is ShapeDecoration,
+            ),
+          )
+          .first;
+      expectRingHugs(
+        _ringBand(tester),
+        _painted(tester, shape),
+        reason: 'the ring is a stadium round the painted pill',
+      );
+    });
+  }
+
+  testWidgets('settings subtitle: outside, radius 4, in 4 pt of room', (
+    tester,
+  ) async {
+    final subtitle = caller('settings subtitle menu');
+    await pumpCaller(tester, subtitle);
+    await _focus(tester, subtitle.popup);
+    final row = tester.getRect(subtitle.child);
+    expectRingHugs(_ringBand(tester), (row, 4), reason: 'the subtitle row');
+    final room = tester.getRect(
+      find.ancestor(of: subtitle.popup, matching: find.byType(Padding)).first,
+    );
+    final bounds = _ringBand(tester).getBounds();
+    expect(room.inflate(0.01).contains(bounds.topLeft), isTrue);
+    expect(room.inflate(0.01).contains(bounds.bottomRight), isTrue);
+  });
+
+  testWidgets('grouped value row: inside, 2 px within the row', (tester) async {
+    final value = caller('grouped value row');
+    await pumpCaller(tester, value);
+    await _focus(tester, value.popup);
+    final row = tester.getRect(value.child);
+    expect(tester.getRect(_ringFinder), row, reason: 'wraps the whole row');
+    expectInsideClip(tester, row, why: 'value row');
+    // The iOS section radius (12) less the inset.
+    expect(_ring(tester).$2.radius, 10, reason: 'value row ring radius');
+  });
+
+  for (final scale in [1.0, 3.0]) {
+    testWidgets('kanban filter chip: inside the painted chip at ${scale}x', (
+      tester,
+    ) async {
+      final chip = caller('kanban filter chip');
+      await pumpCaller(tester, chip, textScale: scale);
+      await _focus(tester, chip.popup);
+      final painted = tester.getRect(
+        find
+            .descendant(of: find.byType(Chip), matching: find.byType(Material))
+            .first,
+      );
+      expect(tester.getRect(_ringFinder), painted, reason: 'the chip itself');
+      expectInsideClip(tester, painted, why: 'chip');
+      // The chip's own radius (8) less the inset.
+      expect(_ring(tester).$2.radius, 6, reason: 'chip ring radius');
+    });
+  }
+
+  testWidgets('account footer: outside, radius 8', (tester) async {
+    final footer = caller('account footer');
+    await pumpCaller(tester, footer);
+    await _focus(tester, footer.popup);
+    expectRingHugs(_ringBand(tester), (
+      tester.getRect(footer.child),
+      8,
+    ), reason: 'the footer');
+  });
+}

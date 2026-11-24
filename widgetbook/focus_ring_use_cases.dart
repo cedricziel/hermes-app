@@ -20,6 +20,8 @@ import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_advanced_row.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_board_toolbar.dart';
+import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_action_row.dart';
@@ -1643,6 +1645,137 @@ List<WidgetbookUseCase> _sidebarRowUseCases() => [
   ),
 ];
 
+bool _inPopupTrigger(FocusNode node) =>
+    _inside<AdaptivePopupMenuButton<Object?>>(node);
+
+/// The iPhone pull-down trigger of [AdaptivePopupMenuButton] with a custom
+/// child, with the keyboard on it (F.441): the ring sits outside the control
+/// (pill, subtitle, account footer) or inside it (value row, filter chip).
+Widget _popupTrigger(
+  Widget Function() build, {
+  double textScale = 1,
+  bool sidebar = false,
+}) {
+  final scaled = textScale == 1
+      ? build()
+      : Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: build(),
+          ),
+        );
+  final focused = _KeyboardFocus(
+    focusIndex: 0,
+    where: _inPopupTrigger,
+    child: scaled,
+  );
+  return _on(
+    TargetPlatform.iOS,
+    sidebar ? _SidebarHost(child: focused) : frame(focused),
+  );
+}
+
+Widget _logLevelPill() => const Padding(
+  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  child: Align(
+    alignment: Alignment.centerLeft,
+    child: LogLevelMenuButton(
+      value: LogLevelFilter.warnings,
+      onChanged: _ignoreLevel,
+    ),
+  ),
+);
+
+void _ignoreLevel(LogLevelFilter _) {}
+
+Widget _subtitleMenu() => SizedBox(
+  height: 260,
+  child: SettingsScaffold(
+    title: 'Server logs',
+    subtitle: 'work profile',
+    subtitleMenu: SettingsSubtitleMenu<String>(
+      label: 'Profile',
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'work', child: Text('work')),
+        PopupMenuItem(value: 'home', child: Text('home')),
+      ],
+      onSelected: (_) {},
+    ),
+    body: const SizedBox.shrink(),
+  ),
+);
+
+Widget _valueRow() => GroupedSection(
+  header: 'Model',
+  children: [
+    GroupedMenuRow<String>(
+      title: 'Provider',
+      options: const ['anthropic', 'openrouter'],
+      labelOf: (o) => o,
+      selected: 'anthropic',
+      onSelected: (_) {},
+    ),
+    GroupedMenuRow<String>(
+      title: 'Effort',
+      options: const ['low', 'high'],
+      labelOf: (o) => o,
+      selected: 'high',
+      onSelected: (_) {},
+    ),
+  ],
+);
+
+Widget _filterChips() => SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: Row(
+    children: [
+      KanbanFilterMenu(
+        label: 'All assignees',
+        all: 'All assignees',
+        options: const ['ada', 'grace'],
+        onSelected: (_) {},
+      ),
+      const SizedBox(width: 8),
+      FilterChip(label: const Text('Archived'), onSelected: (_) {}),
+    ],
+  ),
+);
+
+/// F.441: the pull-down trigger of the five callers that pass a custom child,
+/// on iPhone, with the keyboard on the trigger. The account footer is in the
+/// real thread sidebar.
+List<WidgetbookUseCase> _popupTriggerUseCases() => [
+  WidgetbookUseCase(
+    name: 'Popup trigger: Log level pill (iPhone)',
+    builder: (_) => _popupTrigger(_logLevelPill),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Log level pill, text 3x (iPhone)',
+    builder: (_) => _popupTrigger(_logLevelPill, textScale: 3),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Settings subtitle (iPhone)',
+    builder: (_) => _popupTrigger(_subtitleMenu),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Grouped value row (iPhone)',
+    builder: (_) => _popupTrigger(_valueRow),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Kanban filter chip (iPhone)',
+    builder: (_) => _popupTrigger(_filterChips),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Kanban filter chip, text 3x (iPhone)',
+    builder: (_) => _popupTrigger(_filterChips, textScale: 3),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Account footer (iPhone)',
+    builder: (_) => _popupTrigger(_threadSidebar, sidebar: true),
+  ),
+];
+
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
 /// (its radius plus 2), 2 px inside a list row, menu item or segment that a
 /// container clips. It shows only after the keyboard moved focus, never after
@@ -1682,6 +1815,7 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
     ..._outsideTapTargetUseCases(),
     ..._insideRowUseCases(),
     ..._sidebarRowUseCases(),
+    ..._popupTriggerUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(

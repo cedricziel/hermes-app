@@ -221,6 +221,8 @@ class GroupedMenuRow<T> extends StatelessWidget {
         button: true,
         child: AdaptivePopupMenuButton<T>(
           tooltip: '',
+          focusRadius: GroupedMetrics.of(context).radius,
+          focusInside: true,
           padding: EdgeInsets.zero,
           position: PopupMenuPosition.under,
           onSelected: onSelected,
