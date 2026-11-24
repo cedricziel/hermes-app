@@ -73,50 +73,40 @@ class _BarOverEntry extends StatefulWidget {
 
 class _BarOverEntryState extends State<_BarOverEntry> {
   final _bar = DesktopMenuBarController();
-  late final MacCommandRegistration _registration;
 
   late final _entry = OverlayEntry(
-    builder: (context) => Column(
-      children: [
-        ListenableBuilder(
-          listenable: Listenable.merge([widget.registry, widget.modalRoutes]),
-          builder: (context, _) {
-            final menus = desktopMenus(widget.registry, context.l10n);
-            return DesktopMenuBar(
-              controller: _bar,
-              menus: widget.modalRoutes?.modalOpen ?? false
-                  ? [for (final menu in menus) menu.inert()]
-                  : menus,
-            );
+    builder: (context) => ListenableBuilder(
+      listenable: Listenable.merge([widget.registry, widget.modalRoutes]),
+      builder: (context, _) {
+        final menus = desktopMenus(widget.registry, context.l10n);
+        final modalOpen = widget.modalRoutes?.modalOpen ?? false;
+        // F10 is the chord of MacCommand.focusMenuBar in menuLayout, which
+        // DesktopCommandShortcuts binds while a handler is registered. A
+        // scope registers it like any screen's commands: only while the bar
+        // shows on screen (not under the App Lock cover, where tickers are
+        // off) and no dialog is open, and the key is left to the focused
+        // widget otherwise.
+        return MacCommandScope(
+          commands: {
+            MacCommand.focusMenuBar: MacCommandHandler(
+              modalOpen ? null : _bar.focusFirstMenu,
+            ),
           },
-        ),
-        Expanded(child: widget.child),
-      ],
+          child: Column(
+            children: [
+              DesktopMenuBar(
+                controller: _bar,
+                menus: modalOpen
+                    ? [for (final menu in menus) menu.inert()]
+                    : menus,
+              ),
+              Expanded(child: widget.child),
+            ],
+          ),
+        );
+      },
     ),
   );
-
-  // F10 is the chord of MacCommand.focusMenuBar in menuLayout, which
-  // DesktopCommandShortcuts binds while a handler is registered: so it is
-  // taken only while the bar shows and no dialog is open, and is left to the
-  // focused widget otherwise.
-  Map<MacCommand, MacCommandHandler> get _handlers => {
-    MacCommand.focusMenuBar: MacCommandHandler(
-      widget.modalRoutes?.modalOpen ?? false ? null : _enter,
-    ),
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    _registration = widget.registry.register(_handlers);
-    widget.modalRoutes?.addListener(_modalChanged);
-  }
-
-  void _modalChanged() => _registration.update(_handlers);
-
-  // Escape closes the menu, and Flutter's menu gives the focus back to what
-  // had it before F10.
-  void _enter() => _bar.focusFirstMenu();
 
   @override
   void didUpdateWidget(_BarOverEntry oldWidget) {
@@ -126,8 +116,6 @@ class _BarOverEntryState extends State<_BarOverEntry> {
 
   @override
   void dispose() {
-    widget.modalRoutes?.removeListener(_modalChanged);
-    _registration.dispose();
     _entry
       ..remove()
       ..dispose();

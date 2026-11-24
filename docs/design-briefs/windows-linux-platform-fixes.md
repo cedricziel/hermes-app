@@ -28,7 +28,7 @@ Addendum, F1 menu bar placement (decided by the orchestrator, 2026-11-24, the ow
 
 Addendum, F1 menu bar keyboard entry (decided by the orchestrator, 2026-11-24, the owner may overrule): Flutter's `MenuBar` has no Tab stop, so F10 moves the keyboard into the bar (it opens File and focuses its button, ArrowRight and ArrowLeft move between the menus) while the bar is shown and no dialog is open; Escape gives the focus back to what had it before. Shift+F10 stays the context menu.
 
-Copy added: "Show menu bar" (Settings switch); "Keyboard shortcuts" (page title and the Settings row that opens it); tooltips with the chord in brackets ("New chat (Ctrl+N)", "Sidebar (Ctrl+B)").
+Copy added: "Show menu bar" (Settings switch); "Menu bar" (the F10 row on the Keyboard shortcuts page, listed only while the bar is on); "Keyboard shortcuts" (page title and the Settings row that opens it); tooltips with the chord in brackets ("New chat (Ctrl+N)", "Sidebar (Ctrl+B)").
 
 F.441 popup trigger (iOS `AdaptivePopupMenuButton` custom child, keyboard focus ring): canvas "Hermes: popup trigger focus ring", https://claude.ai/artifact/Y7J5DHdX6iPc9gpsADJj4S (private; ask its owner for access), 7 artboards (five iPhone callers, the iPad footer in light and dark). Separate from the F7 canvas above and the F.427 canvas in its addendum. Per caller: pill, subtitle and footer outside; value row and chip inside (the chip on a shrink-wrapped box, so the ring is the painted chip); three optional parameters on the widget. Full record: "F.441 popup trigger (design pass)" below.
 

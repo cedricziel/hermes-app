@@ -46,7 +46,12 @@ void main() {
     registry.dispose();
   });
 
-  Future<void> pumpApp(WidgetTester tester, {required bool barOn}) async {
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    required bool barOn,
+    bool tickers = true,
+    bool shortcutsPage = false,
+  }) async {
     if (barOn) await settings.setEnabled(true);
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
@@ -59,13 +64,28 @@ void main() {
           builder: (context, child) => MacCommandScope.root(
             registry: registry,
             child: DesktopCommandShortcuts(
-              child: DesktopMenuBarHost(
-                modalRoutes: modalRoutes,
-                child: child!,
+              child: TickerMode(
+                enabled: tickers,
+                child: DesktopMenuBarHost(
+                  modalRoutes: modalRoutes,
+                  child: child!,
+                ),
               ),
             ),
           ),
-          home: const Scaffold(body: Center(child: TextField(autofocus: true))),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => MacCommandScope(
+                commands: {
+                  if (shortcutsPage)
+                    MacCommand.keyboardShortcuts: MacCommandHandler(
+                      () => unawaited(showKeyboardShortcuts(context)),
+                    ),
+                },
+                child: const Center(child: TextField(autofocus: true)),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -107,9 +127,14 @@ void main() {
     );
   });
 
-  testWidgets('Escape gives the focus back to the field it came from', (
-    tester,
-  ) async {
+  Future<void> escapeRoundTrip(
+    WidgetTester tester, {
+    required bool enabledItem,
+  }) async {
+    final registration = enabledItem
+        ? registry.register({MacCommand.newChat: MacCommandHandler(() {})})
+        : null;
+    addTearDown(() => registration?.dispose());
     await pumpApp(tester, barOn: true);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.f10);
@@ -122,12 +147,99 @@ void main() {
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
+    if (enabledItem) {
+      final focused = FocusManager.instance.primaryFocus!.context!;
+      final item = focused.findAncestorWidgetOfExactType<MenuItemButton>();
+      expect(item, isNotNull, reason: 'ArrowDown focuses an enabled item');
+      expect(
+        find.descendant(
+          of: find.byWidget(item!),
+          matching: find.text('New Chat'),
+        ),
+        findsOneWidget,
+      );
+    }
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
     expect(fieldFocused(tester), isTrue);
     expect(_ringFinder, findsNothing);
+  }
+
+  testWidgets('Escape gives the focus back to the field it came from', (
+    tester,
+  ) async {
+    await escapeRoundTrip(tester, enabledItem: false);
+  });
+
+  testWidgets('Escape from an enabled item gives the focus back too', (
+    tester,
+  ) async {
+    await escapeRoundTrip(tester, enabledItem: true);
+  });
+
+  testWidgets('F10 is not taken under the App Lock cover', (tester) async {
+    await pumpApp(tester, barOn: true, tickers: false);
+    expect(fieldFocused(tester), isTrue);
+    expect(registry.handlerFor(MacCommand.focusMenuBar), isNull);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f10);
+    await tester.pumpAndSettle();
+
+    expect(fieldFocused(tester), isTrue);
+    expect(_ringFinder, findsNothing);
+  });
+
+  testWidgets('switching the bar off leaves nothing behind for a dialog', (
+    tester,
+  ) async {
+    await pumpApp(tester, barOn: true);
+    await settings.setEnabled(false);
+    await tester.pumpAndSettle();
+    expect(find.byType(MenuBar), findsNothing);
+    // ignore: invalid_use_of_protected_member
+    expect(modalRoutes.hasListeners, isFalse);
+
+    final context = tester.element(find.byType(Scaffold));
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (_) => const AlertDialog(content: Text('Sure?')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Keyboard shortcuts page F1 opens lists Menu bar F10', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(900, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpApp(tester, barOn: true, shortcutsPage: true);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f1);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Menu bar'), findsOneWidget);
+    expect(find.text('F10'), findsOneWidget);
+  });
+
+  testWidgets('with the bar off that page has no Menu bar row', (tester) async {
+    tester.view
+      ..physicalSize = const Size(900, 2400)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpApp(tester, barOn: false, shortcutsPage: true);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f1);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keyboard shortcuts'), findsWidgets);
+    expect(find.text('Menu bar'), findsNothing);
   });
 
   testWidgets('F10 does nothing behind an open dialog', (tester) async {
