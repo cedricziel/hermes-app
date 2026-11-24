@@ -76,5 +76,4 @@ arch.widget-layer-imports:
   lib/src/profiles/widgets/recipient_picker.dart: 2
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_badges.dart: 1
-  lib/src/skills/widgets/skill_security_scan.dart: 1
   lib/src/voice/widgets/dictation_notice.dart: 1
