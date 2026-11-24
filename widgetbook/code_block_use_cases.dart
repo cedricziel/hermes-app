@@ -75,5 +75,22 @@ WidgetbookComponent codeBlockComponent() => WidgetbookComponent(
       name: 'Largest text',
       builder: (_) => _block('python', _python, textScale: 3, maxWidth: 360),
     ),
+    WidgetbookUseCase(
+      name: 'Long language at largest text, phone width',
+      builder: (_) => _block(
+        'a-very-long-language-label-for-a-fenced-block',
+        _python,
+        textScale: 3,
+        maxWidth: 400,
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'Narrow header (60 px), chip left out',
+      builder: (_) => _block('python', _python, textScale: 3, maxWidth: 78),
+    ),
+    WidgetbookUseCase(
+      name: 'Narrow header (90 px), chip shortened',
+      builder: (_) => _block('python', _python, textScale: 3, maxWidth: 108),
+    ),
   ],
 );
