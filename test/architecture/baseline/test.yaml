@@ -15,3 +15,10 @@
 test.localization-delegates:
   test/macos/mac_menu_bar_test.dart: 1
   test/support/pump_chat.dart: 1
+
+# Focus ring geometry cases that reach focus with the _focus helper or
+# requestFocus instead of tabTo (test/support/tab_to.dart); switch each to
+# tabTo and lower the count. The follow-up for the popup callers and menu
+# items is tracked on the focus ring sweep.
+test.geometry-focus-by-key:
+  test/focus_ring_geometry_test.dart: 32
