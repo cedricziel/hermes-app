@@ -35,6 +35,7 @@ const _desktopTable = <MacCommand, List<String>>{
   MacCommand.nextChange: ['Shift+F8'],
   MacCommand.pinThread: ['Ctrl+Shift+P'],
   MacCommand.keyboardShortcuts: ['F1'],
+  MacCommand.focusMenuBar: ['F10'],
 };
 
 /// The Mac column of the same table.
@@ -72,6 +73,7 @@ const _macTable = <MacCommand, String>{
     'Right' => LogicalKeyboardKey.arrowRight,
     'Up' => LogicalKeyboardKey.arrowUp,
     'F1' => LogicalKeyboardKey.f1,
+    'F10' => LogicalKeyboardKey.f10,
     'F5' => LogicalKeyboardKey.f5,
     'F8' => LogicalKeyboardKey.f8,
     _ => throw ArgumentError(chord),
@@ -595,7 +597,8 @@ void main() {
       )) {
         titles.add(row.title);
       }
-      expect(titles, hasLength(_desktopTable.length));
+      // F10 is listed only while the menu bar is shown, which it is not here.
+      expect(titles, hasLength(_desktopTable.length - 1));
       expect(titles.toSet(), hasLength(titles.length));
       expect(titles.toSet(), {
         'New Chat',
