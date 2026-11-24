@@ -17,8 +17,6 @@ import 'package:hermes_app/src/files/files_preview_page.dart';
 import 'package:hermes_app/src/files/files_screen.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/files/widgets/file_preview_cover.dart';
-import 'package:hermes_app/src/files/widgets/file_previews.dart'
-    show ImagePreview;
 import 'package:hermes_app/src/files/widgets/file_preview_header.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/navigation/desktop_command_shortcuts.dart';
@@ -458,7 +456,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await settle(tester);
 
-      expect(find.byType(ImagePreview), findsOneWidget);
+      await decoded(tester);
+      await tester.pump();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
       expect(row.hasPrimaryFocus, isTrue);
     });
   });
