@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../macos/mac_toolbar.dart';
@@ -37,7 +38,7 @@ class MacChatMoreMenu extends StatelessWidget {
     return NamedPopupMenuButton<_More>(
       key: const Key('toolbar-more'),
       controller: controller,
-      label: 'More',
+      label: context.l10n.chatWidgetsMacToolbarMore,
       icon: AppIcons.more,
       iconSize: 18,
       color: context.hermesColors.subtleText,
@@ -54,22 +55,22 @@ class MacChatMoreMenu extends StatelessWidget {
           AdaptiveMenuItem(
             value: _More.showFiles,
             shortcut: '⇧⌘F',
-            child: const Text('Show Files'),
+            child: Text(context.l10n.macosMenuShowFiles),
           ),
         AdaptiveMenuItem(
           value: _More.copyTranscript,
           enabled: onCopyTranscript != null,
-          child: const Text('Copy Transcript'),
+          child: Text(context.l10n.macosMenuCopyTranscript),
         ),
         if (exportJson case final offer?)
           AdaptiveMenuItem(
             value: _More.exportJson,
             enabled: offer.enabled,
-            child: const Text('Export Chat as JSON…'),
+            child: Text(context.l10n.macosMenuExportChat),
           ),
-        const AdaptiveMenuItem(
+        AdaptiveMenuItem(
           value: _More.connection,
-          child: Text('Connection Details'),
+          child: Text(context.l10n.macosMenuConnectionDetails),
         ),
       ],
     );

@@ -22,6 +22,7 @@ import 'files_questions.dart';
 import 'markdown_inert.dart';
 import 'safe_path_text.dart';
 import '../../macos/menu_selection_area.dart';
+import '../../widgets/zoom_keyboard_shortcuts.dart';
 
 /// A text file the server cut short: how much came and how much there is.
 class FileTruncation {
@@ -562,7 +563,8 @@ class MarkdownModeControl extends StatelessWidget {
 }
 
 /// A picture fitted to the room with a 16 pt margin, never enlarged past its
-/// own size, with pinch, pan and double tap to zoom. A checkerboard shows
+/// own size, with pinch, pan and double tap to zoom, and keyboard zoom and pan
+/// (`ZoomKeyboardShortcuts`). A checkerboard shows
 /// through transparency, drawn only inside the picture's bounds, on a page
 /// background that follows the theme.
 class ImagePreview extends StatefulWidget {
@@ -582,6 +584,7 @@ class ImagePreview extends StatefulWidget {
 
 class _ImagePreviewState extends State<ImagePreview> {
   static const _margin = 16.0;
+  static const _maxScale = 8.0;
 
   final _transform = TransformationController();
   ImageStream? _stream;
@@ -676,26 +679,30 @@ class _ImagePreviewState extends State<ImagePreview> {
           return GestureDetector(
             onDoubleTapDown: (d) => _tapAt = d.localPosition,
             onDoubleTap: _toggleZoom,
-            child: InteractiveViewer(
-              transformationController: _transform,
-              maxScale: 8,
-              child: SizedBox(
-                width: box.maxWidth,
-                height: box.maxHeight,
-                child: Center(
-                  child: SizedBox.fromSize(
-                    size: fitted,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CustomPaint(painter: _Checkerboard(dark: dark)),
-                        Image(
-                          image: widget.image,
-                          fit: BoxFit.fill,
-                          semanticLabel: widget.label,
-                          filterQuality: FilterQuality.medium,
-                        ),
-                      ],
+            child: ZoomKeyboardShortcuts(
+              controller: _transform,
+              maxScale: _maxScale,
+              child: InteractiveViewer(
+                transformationController: _transform,
+                maxScale: _maxScale,
+                child: SizedBox(
+                  width: box.maxWidth,
+                  height: box.maxHeight,
+                  child: Center(
+                    child: SizedBox.fromSize(
+                      size: fitted,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CustomPaint(painter: _Checkerboard(dark: dark)),
+                          Image(
+                            image: widget.image,
+                            fit: BoxFit.fill,
+                            semanticLabel: widget.label,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

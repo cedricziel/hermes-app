@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/adaptive_dialog.dart';
 import '../hub_scan.dart';
 import 'skill_security_scan.dart';
@@ -19,8 +20,9 @@ class SkillInstallConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AppAlertDialog(
-      title: Text('Install $skillName?'),
+      title: Text(l10n.skillsHubInstallTitle(skillName)),
       // Findings are data: start-aligned on every platform, not centred as
       // an Apple alert would centre its message.
       content: DefaultTextStyle.merge(
@@ -33,7 +35,7 @@ class SkillInstallConfirmDialog extends StatelessWidget {
               Text(
                 scan.policyReason.isNotEmpty
                     ? scan.policyReason
-                    : 'The security scan asks for your confirmation.',
+                    : l10n.skillsHubInstallScanAsks,
               ),
               const SizedBox(height: 12),
               for (final f in scan.findings) SkillScanFinding(f),
@@ -44,12 +46,12 @@ class SkillInstallConfirmDialog extends StatelessWidget {
       actions: [
         AppDialogAction(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          child: Text(l10n.skillsHubInstallCancel),
         ),
         AppDialogAction(
           isDefault: true,
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Install anyway'),
+          child: Text(l10n.skillsHubInstallAnyway),
         ),
       ],
     );
