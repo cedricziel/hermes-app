@@ -8,7 +8,6 @@ import 'package:provider/provider.dart';
 import '../../chat/media/media_store.dart';
 import '../../chat/media/quick_look_telemetry.dart';
 import '../../theme/breakpoints.dart';
-import '../../widgets/grouped_dialog.dart';
 import '../../theme/platform_chrome.dart';
 
 import '../../models/model_provider_option.dart';
@@ -20,7 +19,7 @@ import '../kanban_repository.dart';
 import '../kanban_task_controller.dart';
 import 'kanban_task_log_dialog.dart';
 import 'kanban_task_choice_dialog.dart';
-import 'kanban_task_edit_fields.dart';
+import 'kanban_task_edit_dialog.dart';
 import 'task_panel/kanban_task_actions.dart';
 import 'task_panel/kanban_task_attachments.dart';
 import 'task_panel/kanban_task_channels.dart';
@@ -466,46 +465,5 @@ Future<(String, String)?> showKanbanTaskEditDialog(
 ) => showKanbanDialog<(String, String)>(
   context,
   textEntry: true,
-  builder: (_) => _EditTaskDialog(task: task),
+  builder: (_) => KanbanTaskEditDialog(task: task),
 );
-
-class _EditTaskDialog extends StatefulWidget {
-  const _EditTaskDialog({required this.task});
-
-  final KanbanTask task;
-
-  @override
-  State<_EditTaskDialog> createState() => _EditTaskDialogState();
-}
-
-class _EditTaskDialogState extends State<_EditTaskDialog> {
-  late final _title = TextEditingController(text: widget.task.title);
-  late final _body = TextEditingController(text: widget.task.body ?? '');
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _body.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return GroupedDialog(
-      title: l10n.kanbanEditTaskTitle,
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text(l10n.widgetsCancel),
-        ),
-        FilledButton(
-          onPressed: () =>
-              Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
-          child: Text(l10n.kanbanSaveAction),
-        ),
-      ],
-      children: [KanbanTaskEditFields(title: _title, body: _body)],
-    );
-  }
-}
