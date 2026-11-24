@@ -149,7 +149,7 @@
       "file": "lib/src/kanban/kanban_board_controller.dart",
       "old": "if (!_current(generation) || _boardSlug != null) return;",
       "new": "if (!_current(generation)) return;",
-      "note": "saved board overrides user's pick"
+      "note": "saved board overrides user's pick; known survivor: it shows only when two loadBoards calls overlap and the older one resumes after slow prefs, and selectBoard bumps the generation so the normal path already returns"
     },
     {
       "id": "k12",
