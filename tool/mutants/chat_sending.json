@@ -13,6 +13,7 @@
     "test/chat/activity/checkpoints_context_panel_test.dart",
     "test/chat/activity/working_summary_controller_test.dart",
     "test/chat/billing_verification_integration_test.dart",
+    "test/chat/chat_send_guards_test.dart",
     "test/chat/checkpoints/chat_controller_checkpoints_test.dart",
     "test/chat/checkpoints/checkpoints_chrome_test.dart",
     "test/chat/connector_operation_integration_test.dart",
@@ -127,7 +128,8 @@
     "test/chat_queue_test.dart",
     "test/chat_controller_activity_test.dart",
     "test/chat/durable_queue_dispatch_test.dart",
-    "test/chat/durable_queue_recovery_test.dart"
+    "test/chat/durable_queue_recovery_test.dart",
+    "test/chat/chat_send_guards_test.dart"
   ],
   "mutants": [
     {
@@ -371,8 +373,8 @@
     {
       "id": "cs35",
       "file": "lib/src/chat/chat_controller_sending.dart",
-      "old": "PromptAccepted.allowedStatuses.contains(event.status)",
-      "new": "!PromptAccepted.allowedStatuses.contains(event.status)",
+      "old": "protectedSend != null &&\n            PromptAccepted.allowedStatuses.contains(event.status)",
+      "new": "protectedSend != null &&\n            !PromptAccepted.allowedStatuses.contains(event.status)",
       "note": "disallowed accepted statuses mark the queue accepted"
     },
     {
@@ -399,8 +401,8 @@
     {
       "id": "cs39",
       "file": "lib/src/chat/chat_controller_sending.dart",
-      "old": "if (error != null || (!folded && reply.isPending)) {\n        _discardWarnings(thread);",
-      "new": "if (error != null && (!folded && reply.isPending)) {\n        _discardWarnings(thread);",
+      "old": "if (!holding && (error != null || (!folded && reply.isPending))) {\n        _discardWarnings(thread);",
+      "new": "if (!holding && (error != null && (!folded && reply.isPending))) {\n        _discardWarnings(thread);",
       "note": "warnings kept after a failed reply"
     },
     {
