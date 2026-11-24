@@ -1,0 +1,197 @@
+{
+  "subject": "kanban",
+  "tests": [
+    "test/app_shell_test.dart",
+    "test/kanban_board_activity_test.dart",
+    "test/kanban_board_controller_test.dart",
+    "test/kanban_board_filters_test.dart",
+    "test/kanban_boards_screen_test.dart",
+    "test/kanban_column_scroll_test.dart",
+    "test/kanban_events_connection_test.dart",
+    "test/kanban_fab_clearance_test.dart",
+    "test/kanban_mac_inspector_test.dart",
+    "test/kanban_reconnect_backoff_test.dart",
+    "test/kanban_screen_test.dart",
+    "test/privacy/telemetry_sentinel_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_reply_lost_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/code_blocks_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/model_popover_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/session_export_workflow_test.dart",
+    "test/workflows/skills_curator_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "quick_tests": [
+    "test/kanban_board_activity_test.dart",
+    "test/kanban_board_controller_test.dart",
+    "test/kanban_boards_screen_test.dart",
+    "test/kanban_reconnect_backoff_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "k01",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "bool get _canWork => !_disposed && (activity?.value ?? true);",
+      "new": "bool get _canWork => !_disposed;",
+      "note": "activity suspension ignored"
+    },
+    {
+      "id": "k02",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "bool _current(int generation) => _canWork && generation == _generation;",
+      "new": "bool _current(int generation) => _canWork;",
+      "note": "stale generations not retired"
+    },
+    {
+      "id": "k03",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    // Nested delivery can hide the false value; every notification retires work.\n    final generation = ++_generation;",
+      "new": "    final generation = _generation;",
+      "note": "activity change does not retire in-flight work"
+    },
+    {
+      "id": "k04",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    if (task.status == status) return;\n",
+      "new": "",
+      "note": "move to same column sent to server"
+    },
+    {
+      "id": "k05",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    previewMove(task.id, status);\n",
+      "new": "",
+      "note": "no optimistic move"
+    },
+    {
+      "id": "k06",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "final failed = failures.map((f) => f.id).where((id) => id.isNotEmpty);",
+      "new": "final failed = failures.map((f) => f.id);",
+      "note": "id-less failure clears the selection"
+    },
+    {
+      "id": "k07",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "if (failed.isNotEmpty) keepSelected(failed);",
+      "new": "if (failed.isNotEmpty) stopSelecting();",
+      "note": "failed tasks not kept selected"
+    },
+    {
+      "id": "k08",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    if (ids.isEmpty) return const [];\n",
+      "new": "",
+      "note": "empty bulk update sent"
+    },
+    {
+      "id": "k09",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    _requireCurrent(generation);\n    unawaited(refresh());\n    return failures;",
+      "new": "    _requireCurrent(generation);\n    return failures;",
+      "note": "no refresh after bulk update"
+    },
+    {
+      "id": "k10",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "      final result = await run();\n      _requireCurrent(generation);",
+      "new": "      final result = await run();",
+      "note": "result of suspended mutation returned"
+    },
+    {
+      "id": "k11",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "if (!_current(generation) || _boardSlug != null) return;",
+      "new": "if (!_current(generation)) return;",
+      "note": "saved board overrides user's pick"
+    },
+    {
+      "id": "k12",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "if (!_current(generation) || fetch < _appliedFetch) return;",
+      "new": "if (!_current(generation)) return;",
+      "note": "older fetch overwrites newer board"
+    },
+    {
+      "id": "k13",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "_cursor = math.max(_cursor, board.latestEventId);",
+      "new": "_cursor = board.latestEventId;",
+      "note": "cursor may move backwards"
+    },
+    {
+      "id": "k14",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    } on Object catch (e) {\n      if (!newest()) return;",
+      "new": "    } on Object catch (e) {",
+      "note": "stale failure overwrites state"
+    },
+    {
+      "id": "k15",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "      if (unavailable) {\n",
+      "new": "      if (false) {\n",
+      "note": "404 does not drop the board"
+    },
+    {
+      "id": "k16",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "    _cursor = 0;\n    _selected.clear();",
+      "new": "    _cursor = 0;",
+      "note": "selection survives board restart"
+    },
+    {
+      "id": "k17",
+      "file": "lib/src/kanban/kanban_board_controller.dart",
+      "old": "      _boardSlug = slug;\n      _tenant = null;\n      _assignee = null;",
+      "new": "      _boardSlug = slug;\n      _assignee = null;",
+      "note": "tenant filter survives board switch"
+    }
+  ]
+}
