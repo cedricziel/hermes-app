@@ -62,6 +62,10 @@ void main() {
       group(platform.name, () {
         const clear = Key('settings-search-clear');
         late List<String> changes;
+        late FocusNode elsewhere;
+
+        setUp(() => elsewhere = FocusNode());
+        tearDown(() => elsewhere.dispose());
 
         Future<void> pump(WidgetTester tester, {bool keepQuery = false}) async {
           changes = [];
@@ -70,16 +74,25 @@ void main() {
             MaterialApp(
               theme: buildHermesLightTheme(platform: platform),
               home: Scaffold(
-                body: StatefulBuilder(
-                  builder: (context, setState) => SettingsSearchField(
-                    search: SettingsSearch(
-                      query: query,
-                      onChanged: (q) {
-                        changes.add(q);
-                        if (!keepQuery) setState(() => query = q);
-                      },
+                body: Column(
+                  children: [
+                    StatefulBuilder(
+                      builder: (context, setState) => SettingsSearchField(
+                        search: SettingsSearch(
+                          query: query,
+                          onChanged: (q) {
+                            changes.add(q);
+                            if (!keepQuery) setState(() => query = q);
+                          },
+                        ),
+                      ),
                     ),
-                  ),
+                    TextButton(
+                      focusNode: elsewhere,
+                      onPressed: () {},
+                      child: const Text('Elsewhere'),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -119,6 +132,37 @@ void main() {
             },
           );
         }
+
+        testWidgets('a click puts the focus in the field when it was last '
+            'elsewhere', (tester) async {
+          await pump(tester);
+          elsewhere.requestFocus();
+          await tester.pump();
+          await tester.tap(find.byKey(clear));
+          await tester.pump();
+          expect(changes, ['']);
+          final field = tester.widget<TextField>(
+            find.byKey(const Key('settings-search-field')),
+          );
+          expect(field.focusNode!.hasPrimaryFocus, isTrue);
+        });
+
+        testWidgets('Enter on the button puts the focus in the field when '
+            'the field never had it', (tester) async {
+          await pump(tester);
+          elsewhere.requestFocus();
+          await tester.pump();
+          Focus.of(tester.element(find.byKey(clear))).requestFocus();
+          await tester.pump();
+          expect(focusIn(clear), isTrue);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pump();
+          expect(changes, ['']);
+          final field = tester.widget<TextField>(
+            find.byKey(const Key('settings-search-field')),
+          );
+          expect(field.focusNode!.hasPrimaryFocus, isTrue);
+        });
 
         testWidgets('a pointer press shows no ring, the keyboard does', (
           tester,
