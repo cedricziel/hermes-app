@@ -254,7 +254,7 @@ Rendered locally with headless Chrome; not checked in the claude.ai viewer or on
 
 How the shared grouped rows split width between the title and the trailing value when space is short. Design pass only, no app code.
 
-Decision: open (owner). This is not "Design (done)" until a look is picked.
+Decision: picked by the orchestrator on 2026-11-24, per platform (see "Design (done)" below).
 
 ### Canvas
 
@@ -295,6 +295,16 @@ Measured with a throwaway Flutter widget test kept outside the repo (scratchpad)
 
 All four let a switch row title wrap to 2 lines (defect 3). The rows on the boards are drawn in markup, not with the design system's `GroupedRow`.
 
-Open for the owner: which option, per platform or one for all; and whether `GroupedValueRow` should route through `GroupedRow`'s own `value` instead of a trailing widget.
+### Design (done)
+
+Picked by the orchestrator, 2026-11-24, from the options above:
+
+- iOS: B. The value drops under the title only when the pair does not fit on one line, through `GroupedRow`'s existing stacking (`_stacksValue`), so `GroupedValueRow` routes its value through `GroupedRow`'s own `value` instead of a trailing widget. Like the iOS Settings value1 rows, which move the detail below the title at the accessibility sizes.
+- macOS: A. The value takes what is left and truncates at the tail, capped at the row's remaining width, not a fixed 260 px. The title keeps at least a third of the row and may wrap to two lines. Like `NSPopUpButton`, which truncates its title at the tail.
+- Android, and Windows and Linux, which follow the Material branch: no layout change. The picker value already sits under the title. Switch titles wrap to two lines.
+- Every platform: a `GroupedSwitchRow` title wraps to two lines instead of being cut on one.
+- A truncated value stays reachable in full. A pop-up's own menu shows the whole value. On the Mac, a value that is not a pop-up gets a tooltip with the full text. Every platform keeps the full value in semantics.
+- Catalog: each caller type (`GroupedValueRow`, `GroupedMenuRow`, `GroupedSwitchRow`) at 1x and at large text, light and dark, at the measured widths: a 246 px Mac dialog row, iOS dialogs in an 800 and a 1200 px window, and an iPhone 390 list.
+- Tests fail first for the three measured overflows: the 246 px Mac dialog row, the iOS dialog in a wide window, and the iPhone 390 switch and picker titles.
 
 Rendered locally with headless Chrome for the Main, Mac and Android light boards; not checked in the claude.ai viewer or on a device. The 1.5x board scales font sizes only.
