@@ -100,14 +100,17 @@ _MASK = "\x00"
 _COMMENT_START_RE = re.compile(r" {0,3}")
 
 
-def _scan_line(line, close_later, at_start):
+def _scan_line(line, close_later, at_start, raw=False, literal_code=False):
     """Removes the HTML comments GitHub would hide from one line outside a
     fence. Returns (kept text, whether a comment stays open past the line). A
-    `<!--` inside an inline code span is literal. An unclosed `<!--` opens a
+    `<!--` inside an inline code span is literal, except in a raw HTML block
+    (`raw`), where nothing is code and an unclosed one hides the rest. An unclosed `<!--` opens a
     comment only at the start of a line (up to 3 spaces of indent: an HTML
     block, which runs to the next `-->` or the end of the text) or when a
     `-->` follows later in the same paragraph; mid-line with no `-->` it is plain text."""
-    masked = _INLINE_CODE_RE.sub(lambda m: m.group(0).replace("<!--", _MASK), line)
+    masked = line
+    if not (raw or literal_code):
+        masked = _INLINE_CODE_RE.sub(lambda m: m.group(0).replace("<!--", _MASK), line)
     out, pos = [], 0
     while True:
         i = masked.find("<!--", pos)
@@ -119,21 +122,41 @@ def _scan_line(line, close_later, at_start):
         if j >= 0:
             pos, at_start = j + 3, False
             continue
-        if close_later or (at_start and _COMMENT_START_RE.fullmatch(masked[:i])):
+        if close_later or raw or (at_start and _COMMENT_START_RE.fullmatch(masked[:i])):
             return "".join(out).replace(_MASK, "<!--"), True
         out.append("<!--")
         pos = i + 4
 
 
-_BLOCK_START_RE = re.compile(r" {0,3}(#{1,6}(\s|$)|<!--)")
+_GFM_FENCE_RE = re.compile(r" {0,3}(`{3,}[^`]*$|~{3,})")
+_BLOCK_START_RE = re.compile(r" {0,3}(#{1,6}([ \t\r]|$)|<!--)")
+# GFM HTML blocks of types 1 and 6, also inside a quote or list item (the
+# prefix is wider than GFM allows, which only hides more). A `<!--` inside one
+# is raw HTML the browser closes at the next `-->`, whatever the blank lines.
+_RAW_TEXT = {"script", "pre", "style", "textarea"}
+_HTML_BLOCK_RE = re.compile(
+    r"[ \t>\-*+0-9.)]*</?(script|pre|style|textarea|address|article|aside|base|basefont"
+    r"|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl"
+    r"|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head"
+    r"|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol"
+    r"|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th"
+    r"|thead|title|tr|track|ul)(?:[ \t\r>]|/>|$)",
+    re.I,
+)
 
 
 def _closes_in_paragraph(lines):
     """Whether a `-->` arrives in `lines` before the paragraph ends: a blank
-    line, or a line that starts a block (ATX heading, fence, `<!--` HTML
-    block). An inline comment spans soft line breaks of one paragraph only."""
+    line (spaces and tabs only), or a line that starts a block (ATX heading,
+    fence, `<!--` HTML block). An inline comment spans soft line breaks of one
+    paragraph only. Block starts this does not know (setext underline, list,
+    quote, thematic break, table) keep the paragraph going, which hides more."""
     for line in lines:
-        if not line.strip() or _FENCE_RE.match(line) or _BLOCK_START_RE.match(line):
+        if (
+            not line.strip(" \t\r")
+            or _GFM_FENCE_RE.match(line)
+            or _BLOCK_START_RE.match(line)
+        ):
             return False
         if "-->" in line:
             return True
@@ -144,23 +167,39 @@ def _strip_comments(text):
     """Text as GitHub renders it, minus HTML comments. A fence line inside a
     comment is hidden with it, so it does not toggle the fence state."""
     lines = text.split("\n")
-    out, fenced, in_comment = [], False, False
+    out, fenced, in_comment, html_block = [], False, False, False
+    ticks = False  # an unpaired backtick earlier in the paragraph may pair with this line's
     for n, line in enumerate(lines):
-        close_later = _closes_in_paragraph(lines[n + 1 :])
+        if not fenced and not in_comment:
+            m = _HTML_BLOCK_RE.match(line)
+            if m:
+                html_block = m.group(1).lower() if m.group(1).lower() in _RAW_TEXT else True
+            elif html_block is True and not line.strip(" \t\r"):
+                html_block = False
+            if not line.strip(" \t\r"):
+                ticks = False
+        if html_block:
+            close_later = "-->" in "\n".join(lines[n + 1 :])
+        else:
+            close_later = _closes_in_paragraph(lines[n + 1 :])
         if in_comment:
             end = line.find("-->")
             if end < 0:
                 continue
-            kept, in_comment = _scan_line(line[end + 3 :], close_later, False)
+            kept, in_comment = _scan_line(line[end + 3 :], close_later, False, bool(html_block), ticks)
             out.append(kept)
-        elif _FENCE_RE.match(line):
+        elif not html_block and _GFM_FENCE_RE.match(line):
             fenced = not fenced
             out.append(line)
         elif fenced:
             out.append(line)
         else:
-            kept, in_comment = _scan_line(line, close_later, True)
+            kept, in_comment = _scan_line(line, close_later, True, bool(html_block), ticks)
             out.append(kept)
+        if not fenced and "`" in _INLINE_CODE_RE.sub("", line):
+            ticks = True
+        if html_block in _RAW_TEXT and f"</{html_block}" in line.lower():
+            html_block = False
     return "\n".join(out)
 
 

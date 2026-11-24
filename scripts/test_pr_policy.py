@@ -175,6 +175,55 @@ class CommentInCodeTest(unittest.TestCase):
         self.assertEqual(run(b=b), [])
         self.assertEqual(pr_policy._sections(b)[0], pr_policy._sections(body())[0])
 
+    def test_mid_line_opener_without_closer_is_literal_and_keeps_next_line(self):
+        out = pr_policy._strip_comments("Typing <!-- here.\nVisible.")
+        self.assertEqual(out, "Typing <!-- here.\nVisible.")
+
+    def hidden_hatch_body(self, *middle):
+        """A Proof line opens a mid-line comment, `middle` lines follow, then
+        the reviewer's hatch, and a `-->` closes in the Review section."""
+        hatch = "Catalog-first: not applicable, a pure helper with no states"
+        review = (
+            f"Reviewer: isolated-reviewer Head: {SHA} Verdict: clean\nFindings: 0\n"
+            f"{hatch}\nProof reproduced: yes\n"
+        )
+        proof = "\n".join(["A <!-- x", *middle, hatch + " -->"])
+        return body(proof=proof, review=review)
+
+    def test_hatch_hidden_by_a_comment_is_not_counted(self):
+        # In each, GitHub keeps the comment open across the middle lines, so
+        # the hatch line is hidden and the Review section's own hatch is too.
+        cases = {
+            "nbsp line": ["\u00a0"],
+            "indented fences": ["    ```", "    ```"],
+            "backtick info string": ["```a`b", "```a`b"],
+            "heading with nbsp": ["#\u00a0x"],
+            "tag line": ["#tag"],
+            "indented heading": ["    ## x"],
+            "indented comment": ["    <!-- y"],
+        }
+        for name, middle in cases.items():
+            text = pr_policy._strip_comments(self.hidden_hatch_body(*middle))
+            self.assertNotIn("Catalog-first", text.split("## Review")[0], name)
+            self.assertIn("## Review", text, name)
+
+    def test_comment_stays_hidden_over_a_blank_line_after_a_raw_html_block(self):
+        text = "<div> <!-- x\n\nCatalog-first: not applicable, a pure helper\n\n-->\nAfter"
+        out = pr_policy._strip_comments(text)
+        self.assertNotIn("Catalog-first", out)
+        self.assertTrue(out.endswith("After"))
+
+    def test_opener_inside_a_raw_html_block_hides_to_the_closer(self):
+        for head in ("<div>\nx <!-- y", "> </div>\nx <!-- y", "<pre>\n\nx <!-- y"):
+            text = head + "\n\nCatalog-first: not applicable, a pure helper\n\n-->\nAfter"
+            out = pr_policy._strip_comments(text)
+            self.assertNotIn("Catalog-first", out, head)
+            self.assertTrue(out.endswith("After"), head)
+
+    def test_indented_fence_inside_a_comment_keeps_later_sections(self):
+        b = "## Proof\nA <!-- x\n    ```\nhidden -->\n\n## Review\nVisible"
+        self.assertIn("Review", pr_policy._sections(b)[0])
+
     def test_fence_inside_a_closed_comment_does_not_toggle_the_fence(self):
         text = "a\n<!--\n```\n-->\nb <!-- gone --> c\n"
         self.assertEqual(pr_policy._strip_comments(text), "a\n\n\nb  c\n")
