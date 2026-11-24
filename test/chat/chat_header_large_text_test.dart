@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -12,6 +12,7 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
 import '../support/test_localizations.dart';
+import '../support/tooltip_finder.dart';
 
 /// The open chat's phone app bar at a large text size: the title stays
 /// readable and every action keeps its touch target.
@@ -95,7 +96,7 @@ void main() {
       for (final tooltip in ['New chat', 'Activity']) {
         final button = find.descendant(
           of: bar,
-          matching: find.byTooltip(RegExp('^$tooltip')),
+          matching: find.tooltip(RegExp('^$tooltip')),
         );
         expect(button, findsOneWidget, reason: tooltip);
         final size = tester.getSize(button);

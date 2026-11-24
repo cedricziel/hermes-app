@@ -5,7 +5,7 @@ import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
@@ -566,13 +566,13 @@ void main() {
     await sinks.capturingPrint(() async {
       await tester.runAsync(() async {
         chat.newThread();
-        chat.submit(_msg, const []);
+        await chat.submit(_msg, const []);
         transport.sends.single
           ..emit(const ThreadBound(_storedSession))
           ..emit(const PromptAcknowledged(1))
           ..emit(ReplyDelta('echo $_msg'));
         await pumpEventQueue();
-        chat.submit('queued $_msg', const []);
+        await chat.submit('queued $_msg', const []);
         chat.appLifecycleChanged(AppLifecycleState.paused);
         transport.sends.single.fail(const GatewayReplyLost());
         await pumpEventQueue();
@@ -586,7 +586,7 @@ void main() {
         await pumpEventQueue();
         // A reply the server could not confirm, settled as lost.
         chat.newThread();
-        chat.submit('again $_msg', const []);
+        await chat.submit('again $_msg', const []);
         transport.sends.last
           ..emit(const ThreadBound(_session))
           ..emit(const PromptAcknowledged(2))

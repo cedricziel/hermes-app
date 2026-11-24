@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 
 /// Shows [child] as it looks after a Tab press has put the keyboard focus on

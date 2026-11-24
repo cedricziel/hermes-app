@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The colours of syntax-highlighted code, one per token class, the canvas
 /// palette: keys and functions blue, strings teal, numbers (and `true`,

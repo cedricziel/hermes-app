@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter/material.dart' show MaterialApp, Material, TextField;
+import 'package:material_ui/material_ui.dart'
+    show MaterialApp, Material, TextField;
 import 'package:hermes_app/src/macos/edit_menu_state.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';

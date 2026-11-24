@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../widgets/app_markdown_theme.dart';
 import '../widgets/bounded_markdown.dart';

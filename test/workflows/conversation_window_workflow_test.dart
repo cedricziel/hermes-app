@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
@@ -12,6 +12,7 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 class _QuietLink implements ConversationWindowLink {
   @override
@@ -124,7 +125,7 @@ void main() {
       );
       await shots.capture(tester, 'chat');
 
-      await tester.tap(find.byTooltip('More'));
+      await tester.tap(find.tooltip('More'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'more-menu');
     });

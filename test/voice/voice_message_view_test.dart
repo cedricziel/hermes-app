@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/widgets/voice_message_view.dart';
+
+import '../support/tooltip_finder.dart';
 
 void main() {
   testWidgets('playback, seek and save controls are named and usable on iOS', (
@@ -59,10 +61,10 @@ void main() {
         lessThanOrEqualTo(56),
       );
       expect(find.text('Here is the spoken briefing.'), findsNothing);
-      await tester.tap(find.byTooltip('Show transcript'));
+      await tester.tap(find.tooltip('Show transcript'));
       await tester.pumpAndSettle();
       expect(find.text('Here is the spoken briefing.'), findsOneWidget);
-      await tester.tap(find.byTooltip('Hide transcript'));
+      await tester.tap(find.tooltip('Hide transcript'));
       await tester.pumpAndSettle();
       expect(find.text('Here is the spoken briefing.'), findsNothing);
     },

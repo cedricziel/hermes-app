@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_soloud/flutter_soloud.dart' show SoLoud;
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +19,7 @@ import '../voice/calls/fakes.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/memory_token_store.dart';
 import '../support/pump_chat.dart';
+import '../support/tooltip_finder.dart';
 
 class _Recorder extends RecordPlatform {
   /// Permission checks (`queries`) and permission prompts (`requests`).
@@ -186,7 +187,7 @@ void main() {
           );
           await _settle(tester);
           expect(find.byKey(entry), findsNothing);
-          expect(find.byTooltip('Start voice call'), findsNothing);
+          expect(find.tooltip('Start voice call'), findsNothing);
           expect(setup.bridges, isEmpty, reason: 'no bridge was created');
           expect(setup.recorder.queries, 0);
           expect(setup.recorder.requests, 0, reason: 'no microphone prompt');

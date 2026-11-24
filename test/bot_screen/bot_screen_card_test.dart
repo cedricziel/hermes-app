@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/cupertino.dart' show CupertinoActivityIndicator;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoActivityIndicator;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_card_model.dart';
@@ -10,6 +10,8 @@ import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_card.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../support/tooltip_finder.dart';
 
 // A 1x1 PNG, which Image.memory decodes like any picture.
 final _picture = Uint8List.fromList(
@@ -312,7 +314,7 @@ void main() {
         onEnlarge: () => enlarged++,
       );
 
-      await tester.tap(find.byTooltip('Enlarge screen'));
+      await tester.tap(find.tooltip('Enlarge screen'));
 
       expect(enlarged, 1);
     });
@@ -343,7 +345,7 @@ void main() {
     testWidgets('is not offered when a person is in control', (tester) async {
       await pumpCard(tester, const BotScreenControlled(), onEnlarge: () {});
 
-      expect(find.byTooltip('Enlarge screen'), findsNothing);
+      expect(find.tooltip('Enlarge screen'), findsNothing);
     });
   });
 
