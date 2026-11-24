@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
+import '../widgets/focusable_tap.dart';
 
 const double _restingWidth = 180;
 const double _maxTextScale = 1.3;
@@ -56,6 +58,7 @@ class MacToolbarSearchField extends StatefulWidget {
 class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
   late final _text = TextEditingController(text: widget.query);
   FocusNode? _ownFocus;
+  final _endFocus = FocusNode(debugLabel: 'MacToolbarSearchField end');
   FocusNode get _focus => widget.focusNode ?? (_ownFocus ??= FocusNode());
 
   @override
@@ -78,6 +81,7 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
   void dispose() {
     _focus.removeListener(_refocused);
     _ownFocus?.dispose();
+    _endFocus.dispose();
     _text.dispose();
     super.dispose();
   }
@@ -89,6 +93,10 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
 
   void _end() {
     _focus.unfocus();
+    // The End button leaves with the search. Focus it held would fall back to
+    // the field it was reached from, which would begin a search again, so it
+    // goes to the enclosing scope as Escape's does.
+    _endFocus.unfocus();
     widget.onEnd();
   }
 
@@ -157,15 +165,32 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
                     Semantics(
                       button: true,
                       label: 'End search',
-                      child: GestureDetector(
-                        key: const Key('toolbar-search-clear'),
-                        onTap: _end,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          child: AppIcon(
-                            AppIcons.clearFilled,
-                            size: 14,
-                            color: subtle,
+                      // The field's border clips, so the ring sits inside the
+                      // button's box, which is as tall as the room for a line.
+                      child: FocusRing(
+                        radius: 6,
+                        child: FocusableTap(
+                          focusNode: _endFocus,
+                          onActivate: _end,
+                          child: GestureDetector(
+                            key: const Key('toolbar-search-clear'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _end,
+                            child: SizedBox(
+                              height: _lineRoom,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
+                                child: Center(
+                                  child: AppIcon(
+                                    AppIcons.clearFilled,
+                                    size: 14,
+                                    color: subtle,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),

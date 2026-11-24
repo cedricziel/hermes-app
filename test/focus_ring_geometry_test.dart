@@ -1,3 +1,4 @@
+import 'dart:convert' show base64Decode;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -31,7 +32,11 @@ import 'package:hermes_app/src/models/model_provider_option.dart'
     show ModelChoice;
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/macos/mac_source_list.dart';
+import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/widgets/settings_search_field.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/voice/widgets/voice_orb.dart';
@@ -50,6 +55,7 @@ import '../widgetbook/fixtures.dart' show modelOptions, searchHits;
 import 'support/fake_hermes_server.dart';
 import 'support/popup_trigger_callers.dart';
 import 'support/test_localizations.dart';
+import 'support/wait_until.dart';
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -61,7 +67,6 @@ import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
-import 'package:hermes_app/src/macos/mac_source_list.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
@@ -106,6 +111,13 @@ import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
 final _ringFinder = find.byWidgetPredicate(
   (w) => w is CustomPaint && w.foregroundPainter is FocusRingPainter,
 );
+
+/// Whether [inner] lies inside [outer].
+bool _within(Rect outer, Rect inner) =>
+    inner.left >= outer.left &&
+    inner.top >= outer.top &&
+    inner.right <= outer.right &&
+    inner.bottom <= outer.bottom;
 
 /// A canvas that keeps the one rounded rectangle drawn on it, with the
 /// transform in force when it was drawn (save, restore, translate and
@@ -1177,6 +1189,165 @@ void main() {
   group('rows and cards of F.427 (tables B and C)', _insideRowTests);
   group('sidebar rows of F.427 (table A)', _sidebarRowTests);
   group('iOS popup triggers of F.441', _popupTriggerTests);
+
+  group('gesture-detector controls of F.441', () {
+    // A 240 by 160 picture, so the thumbnail shows at its full size.
+    final landscape = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAABU0lEQVR42u3SQREAEBQA0Z9JCCGchRBCEsHkcFXB92Zegp2NsTakERJgaDA0GBoMjaHB0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgyNocHQYGgwNBgaQ4OhwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2GxtBgaDA0GBpDg6HB0GBoMDSGBkODocHQYGgMDc8OXWeDNAyNocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgwNhsbQYGgwNBgaDI2hwdBgaDA0vw9deoU0DI2hwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2XAy3QjoI76FvSAAAAAElFTkSuQmCC',
+    );
+
+    for (final (platform, width) in [
+      (TargetPlatform.iOS, 32.0),
+      (TargetPlatform.android, 36.0),
+    ]) {
+      testWidgets('${platform.name}: the settings search clear button is a '
+          'round ring inside the field', (tester) async {
+        await _pump(
+          tester,
+          platform,
+          SizedBox(
+            width: 360,
+            child: SettingsSearchField(
+              search: SettingsSearch(query: 'kan', onChanged: (_) {}),
+            ),
+          ),
+        );
+        const clear = Key('settings-search-clear');
+        await _focus(tester, find.byKey(clear));
+        final box = tester.getRect(find.byKey(clear));
+        final field = tester.getRect(find.byType(SettingsSearchField));
+        expect(box.width, width, reason: 'the icon and its 8 px each side');
+        expect(box.height, field.height, reason: 'as tall as the field at 1x');
+        expect(tester.getRect(_ringFinder), box, reason: 'wraps the tap box');
+        final (_, painter) = _ring(tester);
+        expect(painter.radius, width / 2 - 2, reason: 'half the box, less 2');
+        expect(painter.inset, kFocusRingOffset, reason: 'inside');
+        expectInsideClip(tester, box, why: 'clear button');
+        expect(_within(field, box.deflate(2)), isTrue);
+      });
+    }
+
+    for (final scale in [1.0, 3.1]) {
+      testWidgets('android: the clear ring stays inside the stadium field at '
+          'text scale $scale', (tester) async {
+        await _pump(
+          tester,
+          TargetPlatform.android,
+          MediaQuery.withClampedTextScaling(
+            minScaleFactor: scale,
+            maxScaleFactor: scale,
+            child: SizedBox(
+              width: 360,
+              child: SettingsSearchField(
+                search: SettingsSearch(query: 'kan', onChanged: (_) {}),
+              ),
+            ),
+          ),
+        );
+        const clear = Key('settings-search-clear');
+        await _focus(tester, find.byKey(clear));
+        final field = tester.getRect(find.byType(SettingsSearchField));
+        final band = _ringBand(tester);
+        final stadium = Path()
+          ..addRRect(
+            RRect.fromRectAndRadius(field, Radius.circular(field.height / 2)),
+          );
+        final outside = Path.combine(PathOperation.difference, band, stadium);
+        final cut = outside.computeMetrics().fold<double>(
+          0,
+          (sum, m) => sum + m.length,
+        );
+        expect(cut, lessThan(0.5), reason: 'no part of the ring is clipped');
+        final box = tester.getRect(find.byKey(clear));
+        expect(box.center.dy, closeTo(field.center.dy, 0.5));
+      });
+    }
+
+    testWidgets('macOS: the End search button is a round-rect ring inside '
+        'the 26 pt field', (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        MacToolbarSearchField(
+          query: 'backup',
+          active: true,
+          onChanged: (_) {},
+          onEnd: () {},
+        ),
+      );
+      const end = Key('toolbar-search-clear');
+      await _focus(tester, find.byKey(end));
+      final box = tester.getRect(find.byKey(end));
+      final field = tester.getRect(find.byType(MacToolbarSearchField));
+      expect(field.height, 26);
+      expect(box.width, 26, reason: 'unchanged: 14 px icon, 6 px each side');
+      expect(tester.getRect(_ringFinder), box, reason: 'wraps the tap box');
+      final (band, painter) = _ring(tester);
+      expect(painter.radius, 6);
+      expect(painter.inset, kFocusRingOffset, reason: 'inside');
+      expectInsideClip(tester, box, why: 'End search');
+      // The ring's outer edge stays clear of the field's border.
+      final outer = box.deflate(2);
+      expect(_within(field.deflate(1), outer), isTrue);
+      expect(band.getBounds().top, greaterThan(field.top + 1));
+    });
+
+    testWidgets('macOS: the sidebar section header is a full-bleed ring of '
+        'radius 4 inside its edge', (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        SizedBox(
+          width: 260,
+          child: MacSidebarSectionHeader(
+            label: 'Today',
+            collapsed: false,
+            onToggle: () {},
+          ),
+        ),
+      );
+      await _focus(tester, find.byType(MacSidebarSectionHeader));
+      final header = tester.getRect(find.byType(MacSidebarSectionHeader));
+      expect(tester.getRect(_ringFinder), header, reason: 'wraps the header');
+      expect(_ring(tester).$2.radius, 4);
+      expectInsideClip(tester, header, why: 'section header');
+    });
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('${platform.name}: the image thumbnail has an outside ring '
+          'at its own corner radius', (tester) async {
+        await _pump(
+          tester,
+          platform,
+          Provider<MediaStore?>.value(
+            value: null,
+            child: AttachmentThumbnail(
+              attachment: ChatAttachment(
+                name: 'photo.png',
+                kind: AttachmentKind.image,
+                bytes: landscape,
+              ),
+            ),
+          ),
+        );
+        await waitUntil(
+          tester,
+          () => tester
+              .widgetList<RawImage>(find.byType(RawImage))
+              .any((image) => image.image != null),
+          reason: 'the thumbnail to decode',
+        );
+        await _focus(tester, find.byType(AttachmentThumbnail));
+        final picture = tester.getRect(find.byType(ImageThumbnailView));
+        expect(picture.size, const Size(240, 160));
+        expectRingHugs(_ringBand(tester), (
+          picture,
+          kHermesRadius,
+        ), reason: 'the thumbnail');
+        expect(tester.getRect(_ringFinder), picture, reason: 'wraps it');
+      });
+    }
+  });
 
   group('inside rings lie 2 px within their clip or item', () {
     testOnPlatforms('GroupedRow', (tester, platform) async {

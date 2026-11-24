@@ -186,50 +186,86 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                   padding:
                       widget.style.headerPadding ??
                       const EdgeInsets.fromLTRB(10, 8, 8, 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (showLabel)
-                        Flexible(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: scheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(7),
-                              ),
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      // 36 px is the chip's minimum (padding, icon and gap);
+                      // below it the chip is left out. Its name then goes on the
+                      // header, which has an area, so it stays in the tree.
+                      final chipFits =
+                          box.maxWidth - (showCopy ? _copyButtonSize + 8 : 0) >=
+                          36;
+                      final header = Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (showLabel && chipFits)
+                            Flexible(
+                              // The gap lives here, so it shrinks with the chip
+                              // and the copy button never loses its width.
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 5,
+                                padding: EdgeInsetsDirectional.only(
+                                  end: showCopy ? 8 : 0,
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      mui.Icons.terminal_rounded,
-                                      size: 13,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Flexible(
-                                      child: Text(
-                                        displayName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: widget.style.languageStyle,
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  // The chip names itself, so the name stays
+                                  // when its text has no room left.
+                                  child: Semantics(
+                                    label: displayName,
+                                    excludeSemantics: true,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(7),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 5,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              mui.Icons.terminal_rounded,
+                                              size: 13,
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Flexible(
+                                              child: Text(
+                                                displayName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style:
+                                                    widget.style.languageStyle,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      if (showLabel && showCopy) const SizedBox(width: 8),
-                      if (!showLabel) const Spacer(),
-                      if (showCopy) _copyButton(context),
-                    ],
+                          if (!showLabel || !chipFits) const Spacer(),
+                          if (showCopy) _copyButton(context),
+                        ],
+                      );
+                      return showLabel && !chipFits
+                          ? Semantics(
+                              label: displayName,
+                              container: true,
+                              explicitChildNodes: true,
+                              // A header with nothing in it is 0 px tall and
+                              // would be dropped from the tree.
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(minHeight: 1),
+                                child: header,
+                              ),
+                            )
+                          : header;
+                    },
                   ),
                 ),
               // Source code and its scroll origin keep their LTR order inside

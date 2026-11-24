@@ -831,6 +831,87 @@ List<Hit> _inkWellHits() => [
     if (!_inkWellRingOwnedElsewhere.containsKey(f.owner)) f.hit,
 ];
 
+/// A parameter default that is an English word or sentence, as the text of one
+/// string literal: it starts with a capital letter, holds a space, or ends in
+/// sentence punctuation. A lowercase id (`menu`, `png`, `/api/ws`) is none of
+/// these.
+bool looksLikeEnglishLabel(String value) {
+  if (!RegExp(r'[A-Za-z]').hasMatch(value)) return false;
+  return RegExp(r'^[A-Z]').hasMatch(value) ||
+      value.contains(' ') ||
+      RegExp(r'[.!?:\u2026]$').hasMatch(value);
+}
+
+/// Parameter defaults that read as English but are not visible UI text, as
+/// `path#parameter`, each with the reason. Exact: an entry that no longer
+/// matches fails, so the list shrinks with the code.
+const _englishDefaultNotVisibleText = <String, String>{
+  'lib/src/drag_out/sanitize_drag_file_name.dart#fallback':
+      'a file name handed to another app when nothing is left of the dragged '
+      'name, not a label drawn in the app; callers pass their own',
+};
+
+/// A `String` parameter default that is an English literal, and the
+/// `path#parameter` it is on.
+typedef EnglishDefault = ({Hit hit, String owner});
+
+/// The parameters of [file] (named, optional positional, `this.x` and
+/// `super.x`) whose default is a plain string literal that reads as English.
+/// Read from the analyzer's unresolved syntax tree. A default that is a
+/// constant, an interpolation or an empty string is not one.
+List<EnglishDefault> englishDefaultsIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  final found = <EnglishDefault>[];
+  unit.accept(
+    _DefaultClauses((clause) {
+      final value = clause.value;
+      final text = value is StringLiteral ? value.stringValue : null;
+      if (text == null || !looksLikeEnglishLabel(text)) return;
+      final parameter = clause.parent;
+      if (parameter is! FormalParameter) return;
+      final name = parameter.name;
+      if (name == null) return;
+      final line = file.lineOf(clause.offset);
+      found.add((
+        hit: Hit(file.path, line, file.lineText(line)),
+        owner: '${file.path}#${name.lexeme}',
+      ));
+    }),
+  );
+  return found;
+}
+
+class _DefaultClauses extends RecursiveAstVisitor<void> {
+  _DefaultClauses(this.onClause);
+  final void Function(FormalParameterDefaultClause) onClause;
+
+  @override
+  void visitFormalParameterDefaultClause(FormalParameterDefaultClause node) {
+    onClause(node);
+    super.visitFormalParameterDefaultClause(node);
+  }
+}
+
+List<EnglishDefault>? _englishDefaults;
+
+List<EnglishDefault> _allEnglishDefaults() => _englishDefaults ??= [
+  for (final file in dartFiles('lib'))
+    if (!file.path.startsWith('lib/l10n/') &&
+        !file.path.endsWith('.g.dart') &&
+        !file.path.endsWith('.freezed.dart'))
+      ...englishDefaultsIn(file),
+];
+
+List<Hit> _englishDefaultHits() => [
+  for (final f in _allEnglishDefaults())
+    if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
+];
+
 /// Every guard of this file.
 final guardRules = <Rule>[
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
@@ -1078,6 +1159,20 @@ final guardRules = <Rule>[
         'grouped section; a class (path#Class) whose ring another widget owns goes on '
         '_inkWellRingOwnedElsewhere with its reason.',
     hits: _inkWellHits,
+  ),
+
+  // CLAUDE.md "Architecture" > Localization; docs/architecture/localization.md.
+  _custom(
+    name: 'english-default-label',
+    message:
+        'a String parameter whose default is an English literal shows English '
+        'in a German UI and the style score cannot see it: take the label as '
+        'a required parameter, or nullable with no default, and resolve the '
+        'fallback with context.l10n.<key> at the widget layer (a key in '
+        'lib/l10n/arb/app_en.arb and app_de.arb). A default that is not '
+        'visible text goes on _englishDefaultNotVisibleText (path#parameter) '
+        'with its reason.',
+    hits: _englishDefaultHits,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take
@@ -1774,6 +1869,87 @@ void main() {
         isTrue,
         reason: 'a named constructor reads as its type with a name',
       );
+    });
+  });
+
+  group('english default label scan', () {
+    List<String> names(String source) => [
+      for (final f in englishDefaultsIn(SourceFile('lib/y.dart', source)))
+        f.owner,
+    ];
+
+    test(
+      'a named parameter, an optional positional and a field formal hit',
+      () {
+        expect(names("void f({String cancel = 'Cancel'}) {}"), [
+          'lib/y.dart#cancel',
+        ]);
+        expect(names("void f([String x = 'Ok']) {}"), ['lib/y.dart#x']);
+        expect(
+          names("class A { A({this.label = 'Install'}); final String label; }"),
+          ['lib/y.dart#label'],
+        );
+        expect(names("class B extends A { B({super.hint = 'Search'}); }"), [
+          'lib/y.dart#hint',
+        ]);
+        expect(names("void f({String? text = 'Someone took over.'}) {}"), [
+          'lib/y.dart#text',
+        ]);
+        expect(names("void f({String t = 'Try again'}) {}"), ['lib/y.dart#t']);
+      },
+    );
+
+    test('ids, an empty string, interpolation, constants and comments pass', () {
+      expect(
+        names(
+          "void f({String a = 'menu', String b = 'png', String c = '/api/ws', "
+          "String d = 'session-lock', String e = 'default', String g = '', "
+          "String h = '\$x', String i = 'a-\$x', String j = kFoo, "
+          "int k = 3, String? l}) {}",
+        ),
+        isEmpty,
+      );
+      expect(
+        names("// void f({String a = 'Cancel'}) {}\nvoid g({String b}) {}"),
+        isEmpty,
+      );
+      expect(
+        names("final x = 'Cancel'; void f() { var y = 'Hello there'; }"),
+        isEmpty,
+      );
+    });
+
+    test('adjacent literals read as one; interpolated ones do not hit', () {
+      expect(names("void f({String a = 'Someone else ' 'took control.'}) {}"), [
+        'lib/y.dart#a',
+      ]);
+      expect(names("void f({String a = 'Someone ' '\$x'}) {}"), isEmpty);
+    });
+
+    test('the letter guard: no letter, no label', () {
+      expect(looksLikeEnglishLabel(' \u00b7 '), isFalse);
+      expect(looksLikeEnglishLabel('...'), isFalse);
+    });
+
+    test('the word heuristic', () {
+      expect(looksLikeEnglishLabel('Cancel'), isTrue);
+      expect(looksLikeEnglishLabel('try again'), isTrue);
+      expect(looksLikeEnglishLabel('done.'), isTrue);
+      expect(looksLikeEnglishLabel('menu'), isFalse);
+      expect(looksLikeEnglishLabel('1234'), isFalse);
+      expect(looksLikeEnglishLabel('A'), isTrue);
+      expect(looksLikeEnglishLabel(''), isFalse);
+    });
+
+    test('an allowlist entry still matches a default, so the list shrinks', () {
+      final owners = {for (final f in _allEnglishDefaults()) f.owner};
+      for (final entry in _englishDefaultNotVisibleText.keys) {
+        expect(
+          owners,
+          contains(entry),
+          reason: '$entry no longer has an English default: remove it',
+        );
+      }
     });
   });
 
