@@ -91,7 +91,7 @@ void main() {
     chat.select('s1');
     await pumpEventQueue();
     final thread = chat.selectedThread!;
-    chat.submit('Run the build', const []);
+    await chat.submit('Run the build', const []);
     transport.active['s1'] = 'working';
     transport.activeInProfile[profile] = {'s1': 'working'};
     transport.sends.single.fail(const GatewayTurnEnded());
@@ -216,7 +216,7 @@ void main() {
     await pumpEventQueue();
 
     // B is sent meanwhile and ends where the server may still run it.
-    chat.submit('And again', const []);
+    await chat.submit('And again', const []);
     final second = transport.sends.last;
     transport.active['s1'] = 'working';
     transport.activeInProfile['default'] = {'s1': 'working'};
@@ -256,7 +256,7 @@ void main() {
     expect(messageCalls, hasLength(1));
 
     // B is sent while the read waits, and ends where the server may run it.
-    chat.submit('And again', const []);
+    await chat.submit('And again', const []);
     transport.active['s1'] = 'working';
     transport.activeInProfile['default'] = {'s1': 'working'};
     transport.sends.last.fail(const GatewayReplyUnconfirmed());

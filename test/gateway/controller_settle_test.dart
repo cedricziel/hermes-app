@@ -79,7 +79,7 @@ void main() {
         'ReplyCompleted', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
 
       rig.complete(first);
       await pumpEventQueue();
@@ -92,7 +92,7 @@ void main() {
         'running false, flagged queued', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       rig.complete(first);
       await pumpEventQueue();
 
@@ -109,7 +109,7 @@ void main() {
         'send the queued message', () async {
       final (_, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       rig.complete(first);
       await pumpEventQueue();
 
@@ -131,7 +131,7 @@ void main() {
         rig.followUp().emit(const SessionInfo(running: false));
         await pumpEventQueue();
 
-        rig.chat.submit('Two', const []);
+        await rig.chat.submit('Two', const []);
 
         expect(rig.sentTexts, ['One', 'Two']);
         expect(rig.transport.sends.last.queued, isFalse);
@@ -309,7 +309,7 @@ void main() {
       await pumpEventQueue();
       rig.followUp().emit(const ReplyDelta('Next'));
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       return thread;
     }
 
@@ -328,7 +328,7 @@ void main() {
       // The user sends by hand while the answer is still held; the answer
       // then belongs to the turn before, not to this reply.
       rig.chat.sendQueued(thread);
-      rig.chat.submit('Three', const []);
+      await rig.chat.submit('Three', const []);
       final second = rig.transport.sends.last;
       gate.complete();
       await stopping;
@@ -351,7 +351,7 @@ void main() {
       await pumpEventQueue();
 
       rig.chat.sendQueued(thread);
-      rig.chat.submit('Three', const []);
+      await rig.chat.submit('Three', const []);
       final second = rig.transport.sends.last;
       gate.complete();
       await stopping;
@@ -519,7 +519,7 @@ void main() {
         'the queue paused when it ends', () async {
       final (thread, send) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final a = answers(1);
       final stopping = rig.chat.stopReply(thread);
       send
@@ -582,7 +582,7 @@ void main() {
         'answers false', () async {
       final (thread, send) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final a = answers(1);
       final stopping = rig.chat.stopReply(thread);
       send
@@ -601,7 +601,7 @@ void main() {
         'interrupt answers false', () async {
       final (thread, send) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final a = answers(1);
       final stopping = rig.chat.stopReply(thread);
       send
@@ -641,7 +641,7 @@ void main() {
         'a later one that failed', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final a = answers(1);
       final stopFirst = rig.chat.stopReply(thread);
       first
@@ -651,7 +651,7 @@ void main() {
 
       rig.chat.sendQueued(thread);
       final second = rig.transport.sends.last;
-      rig.chat.submit('Three', const []);
+      await rig.chat.submit('Three', const []);
       second.fail();
       await pumpEventQueue();
       a[0].complete(true);
@@ -670,7 +670,7 @@ void main() {
         'next one', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final a = answers(2);
       final stopFirst = rig.chat.stopReply(thread);
       first
@@ -680,7 +680,7 @@ void main() {
 
       rig.chat.sendQueued(thread);
       final second = rig.transport.sends.last;
-      rig.chat.submit('Three', const []);
+      await rig.chat.submit('Three', const []);
       final stopSecond = rig.chat.stopReply(thread);
       a[0].complete(true);
       await stopFirst;
@@ -698,7 +698,7 @@ void main() {
         'interrupt answering true, is a normal finish', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final gate = rig.transport.stopGate = Completer<void>();
       final stopping = rig.chat.stopReply(thread);
       await pumpEventQueue();
@@ -719,7 +719,7 @@ void main() {
         'interrupt answering true, is a normal finish', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final gate = rig.transport.stopGate = Completer<void>();
       final stopping = rig.chat.stopReply(thread);
       await pumpEventQueue();
@@ -758,7 +758,7 @@ void main() {
         'answer onto the next reply', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final gate = rig.transport.stopGate = Completer<void>();
       final stopping = rig.chat.stopReply(thread);
       await pumpEventQueue();
@@ -769,7 +769,7 @@ void main() {
       await pumpEventQueue();
       expect(rig.sentTexts, ['One', 'Two']);
       final second = rig.transport.sends.last;
-      rig.chat.submit('Three', const []);
+      await rig.chat.submit('Three', const []);
 
       gate.complete();
       await stopping;
@@ -785,7 +785,7 @@ void main() {
         'answer onto the chained turn that follows', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      await rig.chat.submit('Two', const []);
       final gate = rig.transport.stopGate = Completer<void>();
       final stopping = rig.chat.stopReply(thread);
       await pumpEventQueue();
@@ -807,7 +807,7 @@ void main() {
       () async {
         final (thread, send) = rig.start('One');
         await pumpEventQueue();
-        rig.chat.submit('Two', const []);
+        await rig.chat.submit('Two', const []);
         final gate = rig.transport.stopGate = Completer<void>();
         final stopping = rig.chat.stopReply(thread);
         await pumpEventQueue();
@@ -821,7 +821,7 @@ void main() {
 
         rig.chat.sendQueued(thread);
         final second = rig.transport.sends.last;
-        rig.chat.submit('Three', const []);
+        await rig.chat.submit('Three', const []);
         gate.complete();
         await stopping;
         rig.complete(second);
@@ -897,7 +897,7 @@ void main() {
 
         rig.complete(send, text: 'Hi there');
         await pumpEventQueue();
-        rig.chat.submit('Two', const []);
+        await rig.chat.submit('Two', const []);
 
         expect(rig.transport.sends.last.threadId, 'stored-2');
       },
@@ -919,7 +919,7 @@ void main() {
 
         expect(thread.id, 'stored-2');
         expect(thread.messages, hasLength(2));
-        rig.chat.submit('Two', const []);
+        await rig.chat.submit('Two', const []);
         expect(rig.transport.sends.last.threadId, 'stored-2');
       },
     );
@@ -980,7 +980,7 @@ void main() {
       'ThreadNeedsRefetch on the send stream reads the thread once the reply '
       'is no longer pending',
       () async {
-        rig.chat.submit('Plan', const []);
+        await rig.chat.submit('Plan', const []);
         final send = rig.transport.sends.last..emit(const ThreadNeedsRefetch());
         await pumpEventQueue();
         expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
@@ -1009,7 +1009,7 @@ void main() {
 
     /// A send that held the turn Hermes ran on its own, then gave up.
     Future<void> giveUpWithSetAsideTurn() async {
-      rig.chat.submit('Plan', const []);
+      await rig.chat.submit('Plan', const []);
       rig.transport.sends.last
         ..emit(const ThreadNeedsRefetch())
         ..fail();
@@ -1145,7 +1145,7 @@ void main() {
       ], lastActive: 1780000300);
       await giveUpWithSetAsideTurn();
 
-      rig.chat.submit('Again', const []);
+      await rig.chat.submit('Again', const []);
       rig.complete(rig.transport.sends.last, text: 'Fine.');
       await pumpEventQueue();
       historyIs([
@@ -1168,7 +1168,7 @@ void main() {
       'ThreadNeedsRefetch on follow-ups with no reply open reads the thread at '
       'once',
       () async {
-        rig.chat.submit('Plan', const []);
+        await rig.chat.submit('Plan', const []);
         rig.complete(rig.transport.sends.last);
         await pumpEventQueue();
 

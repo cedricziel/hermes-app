@@ -347,7 +347,7 @@ void main() {
       expect(chat.turnActionStatus(thread).problem, isNotNull);
 
       transport.undoError = null;
-      chat.submit('Again', const []);
+      await chat.submit('Again', const []);
       await pumpEventQueue();
 
       expect(chat.turnActionStatus(thread).problem, isNull);

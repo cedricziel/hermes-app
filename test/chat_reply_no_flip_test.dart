@@ -146,7 +146,7 @@ void main() {
     Future<ChatThread> settleRestarted() async {
       chat.newThread();
       final thread = chat.selectedThread!;
-      chat.submit('Run the build', const []);
+      await chat.submit('Run the build', const []);
       transport.sends.single
         ..emit(const ThreadBound('s1'))
         ..emit(const PromptAcknowledged(1))
