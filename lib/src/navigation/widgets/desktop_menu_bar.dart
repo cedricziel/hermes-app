@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/focus_ring.dart';
 import '../desktop_menu_models.dart';
 
 /// The optional menu bar of Windows and Linux: File, View, Chat and Help in a
@@ -26,6 +27,7 @@ class DesktopMenuBar extends StatefulWidget {
 
 class _DesktopMenuBarState extends State<DesktopMenuBar> {
   final _controllers = <MenuController>[];
+  final _nodes = <FocusNode>[];
 
   @override
   void initState() {
@@ -39,27 +41,64 @@ class _DesktopMenuBarState extends State<DesktopMenuBar> {
   }
 
   @override
+  void dispose() {
+    for (final node in _nodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     while (_controllers.length < widget.menus.length) {
       _controllers.add(MenuController());
+      _nodes.add(FocusNode(debugLabel: 'DesktopMenuBar menu'));
     }
+    final theme = Theme.of(context);
+    final popup = theme.popupMenuTheme;
+    final surface = popup.color ?? theme.colorScheme.surface;
+    final edge = popup.shape is OutlinedBorder
+        ? (popup.shape! as OutlinedBorder).side
+        : BorderSide(color: theme.colorScheme.outline);
+    // The panels of the menus take what a popup menu has on Windows and
+    // Linux: its surface, its elevation and its edge, so they stand out from
+    // the page in the dark theme too.
+    final panel = MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(surface),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      shape: WidgetStatePropertyAll(popup.shape as OutlinedBorder?),
+    );
     return SizedBox(
       height: DesktopMenuBar.height,
       width: double.infinity,
-      child: MenuBar(
-        children: [
-          for (final (index, menu) in widget.menus.indexed)
-            SubmenuButton(
-              controller: _controllers[index],
-              menuChildren: [
-                for (var i = 0; i < menu.groups.length; i++) ...[
-                  if (i > 0) const Divider(height: 1),
-                  for (final item in menu.groups[i]) _MenuItem(item: item),
-                ],
-              ],
-              child: Text(menu.label),
-            ),
-        ],
+      child: DecoratedBox(
+        decoration: BoxDecoration(border: Border(bottom: edge)),
+        child: MenuBar(
+          style: MenuStyle(
+            backgroundColor: WidgetStatePropertyAll(surface),
+            surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+          ),
+          children: [
+            for (final (index, menu) in widget.menus.indexed)
+              FocusRing(
+                radius: 4,
+                fill: theme.hoverColor,
+                onlyFor: _nodes[index],
+                child: SubmenuButton(
+                  controller: _controllers[index],
+                  focusNode: _nodes[index],
+                  menuStyle: panel,
+                  menuChildren: [
+                    for (var i = 0; i < menu.groups.length; i++) ...[
+                      if (i > 0) const Divider(height: 1),
+                      for (final item in menu.groups[i]) _MenuItem(item: item),
+                    ],
+                  ],
+                  child: Text(menu.label),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -73,18 +112,22 @@ class _MenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chord = item.chord;
-    return MenuItemButton(
-      onPressed: item.onSelected,
-      trailingIcon: chord == null
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(left: 24),
-              child: Text(
-                chord.text,
-                style: Theme.of(context).textTheme.bodySmall,
+    return FocusRing(
+      radius: 4,
+      fill: Theme.of(context).hoverColor,
+      child: MenuItemButton(
+        onPressed: item.onSelected,
+        trailingIcon: chord == null
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 24),
+                child: Text(
+                  chord.text,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
-            ),
-      child: Text(item.label),
+        child: Text(item.label),
+      ),
     );
   }
 }

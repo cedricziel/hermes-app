@@ -361,6 +361,7 @@ class FocusRing extends StatefulWidget {
     this.inset = kFocusRingOffset,
     this.fill,
     this.ownFocus = false,
+    this.onlyFor,
   });
 
   /// A ring [kFocusRingOffset] outside [child], the way a button's is, for a
@@ -374,7 +375,8 @@ class FocusRing extends StatefulWidget {
     this.ownFocus = false,
   }) : radius = radius + kFocusRingOffset + kFocusRingWidth,
        inset = -(kFocusRingOffset + kFocusRingWidth),
-       fill = null;
+       fill = null,
+       onlyFor = null;
 
   final Widget child;
   final double radius;
@@ -386,6 +388,13 @@ class FocusRing extends StatefulWidget {
   /// Show the ring only while the nearest focus node below this widget has
   /// primary focus, not while a control further down has it.
   final bool ownFocus;
+
+  /// Show the ring only while exactly this node has primary focus, for a
+  /// control whose own focus node does not sit directly under the ring's and
+  /// which holds focusable parts of its own (a menu button with its submenu).
+  final FocusNode? onlyFor;
+
+  bool get _followsPrimaryFocus => ownFocus || onlyFor != null;
 
   @override
   State<FocusRing> createState() => _FocusRingState();
@@ -405,14 +414,16 @@ class _FocusRingState extends State<FocusRing> {
     super.initState();
     _watchInput();
     _inputChanges.addListener(_onInput);
-    if (widget.ownFocus) FocusManager.instance.addListener(_onFocusMoved);
+    if (widget._followsPrimaryFocus) {
+      FocusManager.instance.addListener(_onFocusMoved);
+    }
   }
 
   @override
   void didUpdateWidget(FocusRing old) {
     super.didUpdateWidget(old);
-    if (old.ownFocus == widget.ownFocus) return;
-    if (widget.ownFocus) {
+    if (old._followsPrimaryFocus == widget._followsPrimaryFocus) return;
+    if (widget._followsPrimaryFocus) {
       FocusManager.instance.addListener(_onFocusMoved);
     } else {
       FocusManager.instance.removeListener(_onFocusMoved);
@@ -423,13 +434,17 @@ class _FocusRingState extends State<FocusRing> {
   @override
   void dispose() {
     _inputChanges.removeListener(_onInput);
-    if (widget.ownFocus) FocusManager.instance.removeListener(_onFocusMoved);
+    if (widget._followsPrimaryFocus) {
+      FocusManager.instance.removeListener(_onFocusMoved);
+    }
     _node.dispose();
     super.dispose();
   }
 
   /// Whether the ring's focus state is "focused" for the mode in force.
   bool _shows(bool hasFocus) {
+    final only = widget.onlyFor;
+    if (only != null) return FocusManager.instance.primaryFocus == only;
     if (!widget.ownFocus) return hasFocus;
     return hasFocus && FocusManager.instance.primaryFocus?.parent == _node;
   }
