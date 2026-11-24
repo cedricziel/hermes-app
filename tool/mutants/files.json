@@ -37,6 +37,7 @@
     "test/files/widgets/files_strings_test.dart",
     "test/files/widgets/lone_surrogate_preview_test.dart",
     "test/files/widgets/markdown_task_list_test.dart",
+    "test/focus_ring_geometry_test.dart",
     "test/launch_profile_contract_test.dart",
     "test/profiles/call_site_fallback_test.dart",
     "test/profiles/workspace_fallback_test.dart",

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../l10n/l10n.dart';
+
 import '../../theme/focus_ring.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
@@ -65,14 +67,14 @@ class InstallButton extends StatelessWidget {
     super.key,
     required this.installing,
     required this.onPressed,
-    this.label = 'Install',
+    this.label,
   });
 
   final bool installing;
   final VoidCallback onPressed;
 
-  /// What the button does, such as "Add".
-  final String label;
+  /// What the button does, such as "Add"; null reads the localized "Install".
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +85,7 @@ class InstallButton extends StatelessWidget {
             dimension: mac ? 12 : 16,
             child: const CircularProgressIndicator.adaptive(strokeWidth: 2),
           )
-        : Text(this.label);
+        : Text(this.label ?? context.l10n.pluginsInstall);
     final onPressed = installing ? null : this.onPressed;
     final text = Theme.of(context).textTheme.labelLarge;
     if (chrome == PlatformChrome.ios) {

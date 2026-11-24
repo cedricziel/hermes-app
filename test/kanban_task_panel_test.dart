@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_kanban_files.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/test_localizations.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -52,13 +54,24 @@ void main() {
     changes = 0;
   });
 
-  Future<void> pumpPanel(WidgetTester tester, {VoidCallback? onClose}) async {
+  Future<void> pumpPanel(
+    WidgetTester tester, {
+    VoidCallback? onClose,
+    Locale? locale,
+  }) async {
     tester.view.physicalSize = const Size(500, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         theme: buildHermesLightTheme(),
+        locale: locale,
+        localizationsDelegates: locale == null
+            ? null
+            : kTestLocalizationsDelegates,
+        supportedLocales: locale == null
+            ? const [Locale('en', 'US')]
+            : AppLocalizations.supportedLocales,
         home: Scaffold(
           body: KanbanTaskPanel(
             repository: KanbanRepository(server.client()),
@@ -238,6 +251,54 @@ void main() {
         server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1').single,
       ),
       containsPair('assignee', 'writer'),
+    );
+  });
+
+  testWidgets('the assign picker speaks German under a German locale', (
+    tester,
+  ) async {
+    await pumpPanel(tester, locale: const Locale('de'));
+
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(KanbanTaskChoiceDialog<String>);
+    expect(
+      find.descendant(of: dialog, matching: find.text('Zuweisen an')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('Niemand')),
+      findsOneWidget,
+    );
+    expect(find.text('Assign to'), findsNothing);
+    expect(find.text('Nobody'), findsNothing);
+  });
+
+  testWidgets('the priority picker speaks German under a German locale', (
+    tester,
+  ) async {
+    await pumpPanel(tester, locale: const Locale('de'));
+
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(KanbanTaskChoiceDialog<int>);
+    expect(
+      find.descendant(of: dialog, matching: find.text('Priorität')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('Normal')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('P2')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('Priority')),
+      findsNothing,
     );
   });
 

@@ -201,10 +201,9 @@ class BotScreenViewerController extends ChangeNotifier {
     return BotScreenControl.watching;
   }
 
-  /// What the notice of lost control says: who has the screen now.
-  String get lostText => screen.status?.lease.holder == BotScreenHolder.agent
-      ? 'Hermes took control back.'
-      : 'Someone else took control.';
+  /// Whether the notice of lost control says Hermes has the screen now (true)
+  /// or someone else does.
+  bool get lostToAgent => screen.status?.lease.holder == BotScreenHolder.agent;
 
   /// What the person in control sends input through, or null while this
   /// device is not in control, is handing control back or the stream is not
