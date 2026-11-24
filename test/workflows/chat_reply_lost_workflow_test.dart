@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -14,6 +14,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// A reply streaming with a tool call while the server restarts: the chat shows
 /// the interrupted note beside the composer, Stop is gone, the message typed
@@ -97,7 +98,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await runFrames(tester);
-      expect(find.byTooltip('Stop'), findsOneWidget);
+      expect(find.tooltip('Stop'), findsOneWidget);
       await shots.capture(tester, 'running');
 
       reply.fail(const GatewaySessionGone(4007, restarted: true));
@@ -111,7 +112,7 @@ void main() {
         find.text('Something went wrong. Try sending it again.'),
         findsNothing,
       );
-      expect(find.byTooltip('Stop'), findsNothing);
+      expect(find.tooltip('Stop'), findsNothing);
       expect(find.textContaining('Queue paused'), findsWidgets);
       expect(find.text('And then deploy'), findsWidgets);
       // Nothing was resent, and the queued message was not sent by itself.

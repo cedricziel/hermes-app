@@ -1,12 +1,15 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_toolbar_search_field.dart';
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
+import 'focusable_tap.dart';
 import 'named_popup_menu_button.dart';
 
 /// One choice of a search's filter menu, such as "Enabled".
@@ -28,13 +31,15 @@ class SettingsSearch {
   const SettingsSearch({
     required this.query,
     required this.onChanged,
-    this.hint = 'Search',
+    this.hint,
     this.filters = const [],
   });
 
   final String query;
   final ValueChanged<String> onChanged;
-  final String hint;
+
+  /// The placeholder and field name; null reads the localized "Search".
+  final String? hint;
 
   /// The filter menu's choices, the first being the one that shows
   /// everything ("All").
@@ -84,6 +89,7 @@ class SettingsSearchField extends StatefulWidget {
 
 class _SettingsSearchFieldState extends State<SettingsSearchField> {
   late final _text = TextEditingController(text: widget.search.query);
+  final _fieldFocus = FocusNode();
 
   @override
   void didUpdateWidget(SettingsSearchField oldWidget) {
@@ -94,19 +100,21 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
   @override
   void dispose() {
     _text.dispose();
+    _fieldFocus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final search = widget.search;
+    final hint = search.hint ?? context.l10n.widgetsSearch;
     final chrome = platformChromeOf(context);
     if (chrome == PlatformChrome.macos) {
       final field = MacToolbarSearchField(
         fullWidth: widget.fullWidth,
         query: search.query,
         active: search.query.isNotEmpty,
-        hint: search.hint,
+        hint: hint,
         onChanged: search.onChanged,
         onEnd: () => search.onChanged(''),
       );
@@ -155,10 +163,11 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
             // The placeholder is gone once there is text, so the field is
             // named explicitly.
             child: Semantics(
-              label: search.hint,
+              label: hint,
               child: TextField(
                 key: const Key('settings-search-field'),
                 controller: _text,
+                focusNode: _fieldFocus,
                 onChanged: search.onChanged,
                 textInputAction: TextInputAction.search,
                 textAlignVertical: TextAlignVertical.center,
@@ -170,7 +179,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: search.hint,
+                  hintText: hint,
                   hintStyle: TextStyle(fontSize: fontSize, color: muted),
                 ),
               ),
@@ -180,16 +189,31 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
             Semantics(
               button: true,
               label: 'Clear search',
-              child: GestureDetector(
-                key: const Key('settings-search-clear'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => search.onChanged(''),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: AppIcon(
-                    AppIcons.clearFilled,
-                    size: ios ? 16 : 20,
-                    color: muted,
+              // The field clips, so the ring sits inside the icon's box: round
+              // and 2 px in from it. The box keeps the platform's button size,
+              // centred, however tall the field gets, so at large text the
+              // ring stays inside the stadium's end cap.
+              child: FocusRing(
+                radius: (ios ? 32 : 36) / 2 - kFocusRingOffset,
+                child: FocusableTap(
+                  onActivate: _clear,
+                  child: GestureDetector(
+                    key: const Key('settings-search-clear'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _clear,
+                    child: SizedBox(
+                      height: buttonSize,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Center(
+                          child: AppIcon(
+                            AppIcons.clearFilled,
+                            size: ios ? 16 : 20,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -218,6 +242,13 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
         ],
       ),
     );
+  }
+
+  /// Empties the search and puts the focus in the field: the clear button
+  /// goes with the query, and the focus it held must not be lost with it.
+  void _clear() {
+    widget.search.onChanged('');
+    _fieldFocus.requestFocus();
   }
 
   List<PopupMenuEntry<VoidCallback>> _filterItems(BuildContext context) => [

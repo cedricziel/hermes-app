@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import 'hermes_theme.dart';
@@ -597,6 +597,91 @@ class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
               radius: widget.radius,
               maxHeight: widget.maxHeight,
             ),
+      child: widget.child,
+    );
+  }
+}
+
+/// A ring [kFocusRingOffset] outside [child], shown while the nearest focus
+/// node above it that takes focus (and is not a scope) has the primary focus,
+/// not a row's inert node in between and not a scope or an outer node that
+/// holds the focus while nothing nearer does: for a face drawn inside a control that
+/// Material builds around it and that takes the focus itself (the
+/// `PopupMenuButton` round a row), so [FocusRing.outside], which follows nodes
+/// below it, would never light. [radius] is the face's own.
+class AncestorFocusRing extends StatefulWidget {
+  const AncestorFocusRing.outside({
+    super.key,
+    required this.child,
+    required this.radius,
+  });
+
+  final Widget child;
+  final double radius;
+
+  @override
+  State<AncestorFocusRing> createState() => _AncestorFocusRingState();
+}
+
+class _AncestorFocusRingState extends State<AncestorFocusRing> {
+  bool _keyboard = keyboardFocusShows;
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _watchInput();
+    _inputChanges.addListener(_onInput);
+    FocusManager.instance.addListener(_onFocusMoved);
+  }
+
+  @override
+  void dispose() {
+    _inputChanges.removeListener(_onInput);
+    FocusManager.instance.removeListener(_onFocusMoved);
+    super.dispose();
+  }
+
+  /// Whether the primary focus is on the nearest node above this widget that
+  /// takes focus and is not a scope: not a row's inert node in between, and
+  /// not a scope or a node further up that holds the focus while nothing
+  /// nearer does.
+  bool _ancestorFocused() {
+    for (
+      FocusNode? node = Focus.maybeOf(context, scopeOk: true);
+      node != null;
+      node = node.parent
+    ) {
+      if (node is FocusScopeNode) return false;
+      if (node.canRequestFocus) return node.hasPrimaryFocus;
+    }
+    return false;
+  }
+
+  void _onFocusMoved() {
+    if (!mounted) return;
+    final next = _ancestorFocused();
+    if (next != _focused) setState(() => _focused = next);
+  }
+
+  void _onInput() {
+    final next = keyboardFocusShows;
+    if (next == _keyboard) return;
+    _keyboard = next;
+    if (_focused) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _focused = _ancestorFocused();
+    return CustomPaint(
+      foregroundPainter: _focused && _keyboard
+          ? FocusRingPainter(
+              color: context.hermesColors.link,
+              radius: widget.radius + kFocusRingOffset + kFocusRingWidth,
+              inset: -(kFocusRingOffset + kFocusRingWidth),
+            )
+          : null,
       child: widget.child,
     );
   }

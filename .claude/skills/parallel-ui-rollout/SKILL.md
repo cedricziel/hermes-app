@@ -147,7 +147,7 @@ reports to the orchestrator, who arms auto-merge.
   the run's head sha with the PR's head before acting.
 - **Release PR.** Each merge regenerates the release-please PR. The orchestrator
   may cut a pre-release between waves at its discretion (`release` skill); never
-  arm it while rollout PRs are armed or about to merge.
+  arm or merge it while rollout PRs are armed or about to merge.
 
 ## Afterwards
 

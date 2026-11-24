@@ -1,5 +1,5 @@
 import 'package:cupertino_ui/cupertino_ui.dart' as cui;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 
 /// Localizations that `material_ui` and `cupertino_ui` widgets look up. Those
@@ -38,21 +38,6 @@ class _EnglishFallbackDelegate<T> extends LocalizationsDelegate<T> {
   bool shouldReload(_EnglishFallbackDelegate<T> old) => false;
 }
 
-/// A `material_ui` theme seeded from the app's [scheme].
-mui.ThemeData buildMaterialUiTheme(ColorScheme scheme) {
-  return mui.ThemeData(
-    colorScheme:
-        mui.ColorScheme.fromSeed(
-          seedColor: scheme.primary,
-          brightness: scheme.brightness,
-        ).copyWith(
-          primary: scheme.primary,
-          surface: scheme.surface,
-          onSurface: scheme.onSurface,
-        ),
-  );
-}
-
 /// Provides the `material_ui` theme to everything below it. Put it above the
 /// `Navigator` (a `MaterialApp.builder`) so dialogs pushed as routes see it.
 class MaterialUiThemeScope extends StatelessWidget {
@@ -62,10 +47,7 @@ class MaterialUiThemeScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return mui.Theme(
-      data: buildMaterialUiTheme(Theme.of(context).colorScheme),
-      child: child,
-    );
+    return child;
   }
 }
 

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/discover_tab.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';

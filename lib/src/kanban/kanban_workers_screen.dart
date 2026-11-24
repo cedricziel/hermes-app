@@ -1,8 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
@@ -17,6 +16,7 @@ import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
+import 'widgets/kanban_run_inspect_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
@@ -105,27 +105,8 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     final i = inspection!;
     await showAppDialog<void>(
       context: context,
-      builder: (context) => AppAlertDialog(
-        title: Text('Run #${worker.runId}'),
-        content: Text(
-          i.alive
-              ? [
-                  if (i.pid != null) 'Process ${i.pid}',
-                  if (i.status != null) 'Status: ${i.status}',
-                  if (i.memoryBytes != null)
-                    'Memory: ${(i.memoryBytes! / (1024 * 1024)).toStringAsFixed(0)} MB',
-                  if (i.threads != null) 'Threads: ${i.threads}',
-                  if (i.note != null) i.note!,
-                ].join('\n')
-              : 'The process is not running${i.note == null ? '' : ': ${i.note}'}.',
-        ),
-        actions: [
-          AppDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (context) =>
+          KanbanRunInspectDialog(runId: worker.runId, inspection: i),
     );
   }
 

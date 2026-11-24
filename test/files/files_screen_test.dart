@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart' show CancelToken;
-import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -33,6 +34,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_quick_look.dart';
 import '../support/test_localizations.dart';
+import '../support/tooltip_finder.dart';
 
 bool _stale = false;
 ValueNotifier<int> _changed = ValueNotifier(0);
@@ -141,6 +143,13 @@ void main() {
 
       expect(find.byType(FilesPreviewPage), findsOneWidget);
       expect(find.text('hello from the notes'), findsOneWidget);
+    });
+
+    testWidgets('on iOS a Files page without a previous title says Back, not '
+        'Chat', (tester) async {
+      await pump(tester, platform: TargetPlatform.iOS);
+      expect(find.text('Back'), findsOneWidget);
+      expect(find.text('Chat'), findsNothing);
     });
 
     testWidgets('reduced motion pushes the preview without a transition', (
@@ -380,10 +389,85 @@ void main() {
       await settle(tester);
       expect(find.text('summary.txt'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Up'));
+      await tester.tap(find.tooltip('Up'));
       await settle(tester);
 
       expect(find.text('export.zip'), findsOneWidget);
+    });
+  });
+
+  group('image keyboard zoom beside the list', () {
+    void withImage() {
+      source.lists['/srv/p'] = () =>
+          listing([file('/srv/p/chart.png'), file('/srv/p/notes.txt')]);
+      source.downloads['/srv/p/chart.png'] = writes(kTinyPng, length: 70);
+    }
+
+    /// Until the picture has decoded and its viewer is built.
+    Future<void> decoded(WidgetTester tester) async {
+      for (var i = 0; i < 100; i++) {
+        if (find.byType(InteractiveViewer).evaluate().isNotEmpty) return;
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+    }
+
+    double scale(WidgetTester tester) => tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!
+        .value
+        .getMaxScaleOnAxis();
+
+    testWidgets('on macOS the keys work after a click and Space previews', (
+      tester,
+    ) async {
+      withImage();
+      await pump(
+        tester,
+        size: const Size(1200, 800),
+        platform: TargetPlatform.macOS,
+      );
+      await tester.tap(find.text('chart.png'));
+      await settle(tester);
+      await decoded(tester);
+
+      await tester.tap(find.byType(InteractiveViewer));
+      await tester.pump(kDoubleTapTimeout);
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'QuickLookTarget');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(scale(tester), greaterThan(1));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await settle(tester);
+      expect(quickLook.shown, endsWith('chart.png'));
+    });
+
+    testWidgets('a row with keyboard focus keeps it when a picture opens', (
+      tester,
+    ) async {
+      withImage();
+      await pump(
+        tester,
+        size: const Size(1200, 800),
+        platform: TargetPlatform.windows,
+      );
+      final row = Focus.of(tester.element(find.text('chart.png')));
+      row.requestFocus();
+      await tester.pump();
+      expect(row.hasPrimaryFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+
+      await decoded(tester);
+      await tester.pump();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(row.hasPrimaryFocus, isTrue);
     });
   });
 

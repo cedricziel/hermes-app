@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../l10n/l10n.dart';
 import '../telemetry/report_bug.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/route_dismissal.dart';
@@ -62,7 +63,7 @@ Future<String?> askKanbanText(
   required String title,
   String? hint,
   String? initial,
-  String confirm = 'OK',
+  String? confirm,
   bool multiline = false,
 }) => showAppDialog<String>(
   context: context,
@@ -82,8 +83,8 @@ Future<String?> askKanbanText(
 class _TextDialog extends StatefulWidget {
   const _TextDialog({
     required this.title,
-    required this.confirm,
     required this.multiline,
+    this.confirm,
     this.hint,
     this.initial,
   });
@@ -91,7 +92,7 @@ class _TextDialog extends StatefulWidget {
   final String title;
   final String? hint;
   final String? initial;
-  final String confirm;
+  final String? confirm;
   final bool multiline;
 
   @override
@@ -120,12 +121,12 @@ class _TextDialogState extends State<_TextDialog> {
       actions: [
         AppDialogAction(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: Text(context.l10n.widgetsCancel),
         ),
         AppDialogAction(
           isDefault: true,
           onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: Text(widget.confirm),
+          child: Text(widget.confirm ?? context.l10n.widgetsOk),
         ),
       ],
     );
@@ -141,4 +142,9 @@ Future<bool> confirmKanban(
   BuildContext context, {
   required String title,
   required String confirm,
-}) => showConfirmDialog(context, title: title, confirmLabel: confirm);
+}) => showConfirmDialog(
+  context,
+  title: title,
+  confirmLabel: confirm,
+  cancelLabel: context.l10n.widgetsCancel,
+);

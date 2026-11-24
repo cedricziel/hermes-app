@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
@@ -157,20 +157,28 @@ class SettingsSubtitleMenu<T> {
         child: Semantics(
           button: true,
           label: label,
-          child: AdaptivePopupMenuButton<T>(
-            key: const Key('settings-subtitle-menu'),
-            tooltip: '',
-            padding: EdgeInsets.zero,
-            position: PopupMenuPosition.under,
-            onSelected: onSelected,
-            itemBuilder: itemBuilder,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 2,
-              children: [
-                Flexible(child: subtitle),
-                AppIcon(AppIcons.expandMore, size: 12, color: muted),
-              ],
+          child: Padding(
+            // Room for the iOS focus ring, which sits 2 to 4 px outside the
+            // text and would run through the title above without it.
+            padding: EdgeInsets.all(
+              platformChromeOf(context) == PlatformChrome.ios ? 4 : 0,
+            ),
+            child: AdaptivePopupMenuButton<T>(
+              key: const Key('settings-subtitle-menu'),
+              tooltip: '',
+              focusRadius: 4,
+              padding: EdgeInsets.zero,
+              position: PopupMenuPosition.under,
+              onSelected: onSelected,
+              itemBuilder: itemBuilder,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 2,
+                children: [
+                  Flexible(child: subtitle),
+                  AppIcon(AppIcons.expandMore, size: 12, color: muted),
+                ],
+              ),
             ),
           ),
         ),
@@ -199,7 +207,7 @@ class SettingsScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.subtitleMenu,
-    this.previousTitle = 'Chat',
+    this.previousTitle,
     this.actions = const [],
     this.tabs,
     this.tabController,
@@ -219,7 +227,9 @@ class SettingsScaffold extends StatelessWidget {
   /// Makes the [subtitle] a button that opens this menu.
   final SettingsSubtitleMenu<Object?>? subtitleMenu;
 
-  /// The title of the page underneath, which the iOS back button shows.
+  /// The title of the page underneath, which the iOS back button shows. Null
+  /// reads the localized "Chat" (`widgetsChatBackTitle`); a page that is not
+  /// opened from the chat passes its own title or `widgetsBack`.
   final String? previousTitle;
   final List<SettingsBarAction> actions;
   final List<String>? tabs;
@@ -388,7 +398,9 @@ class SettingsScaffold extends StatelessWidget {
     final leading = pane
         ? null
         : back
-        ? AdaptiveBackButton(previousTitle: previousTitle)
+        ? AdaptiveBackButton(
+            previousTitle: previousTitle ?? context.l10n.widgetsChatBackTitle,
+          )
         : ShellMenu.button(context);
     return Scaffold(
       appBar: AppBar(

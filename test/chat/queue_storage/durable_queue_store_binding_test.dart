@@ -49,6 +49,7 @@ void main() {
     required QueueScope inner,
     required String fileId,
     required String recordId,
+    QueueRecordState state = QueueRecordState.queued,
   }) async {
     final server = hash(sealedFor.serverKey);
     final account = hash('${sealedFor.serverKey}\u0000${sealedFor.accountKey}');
@@ -72,6 +73,7 @@ void main() {
             id: recordId,
             sequence: 1,
             text: 'planted $recordId',
+            state: state,
           ).toJson(),
         }),
       ),
@@ -133,6 +135,64 @@ void main() {
       final loaded = await store().load(otherProfile);
       expect(loaded.records.map((record) => record.id), [id(1)]);
       expect(loaded.corruptRecords, 1);
+    },
+  );
+
+  test('load drops a valid accepted record and keeps the queued one', () async {
+    await plantValid();
+    await plant(
+      sealedFor: otherProfile,
+      inner: otherProfile,
+      fileId: id(2),
+      recordId: id(2),
+      state: QueueRecordState.accepted,
+    );
+    final loaded = await store().load(otherProfile);
+    expect(loaded.records.map((record) => record.id), [id(1)]);
+    expect(loaded.corruptRecords, 0);
+    final files = (await directory.list(recursive: true).toList())
+        .whereType<File>()
+        .map((file) => file.path);
+    expect(files.where((path) => path.endsWith('${id(2)}.rec')), isEmpty);
+    expect(files.where((path) => path.endsWith('${id(1)}.rec')), hasLength(1));
+  });
+
+  test(
+    'an attachment whose sealed size differs from its record is corrupt',
+    () async {
+      final source = File('${directory.path}/source.bin');
+      await source.writeAsBytes([1, 2, 3]);
+      final record = await store().commit(
+        scope,
+        'with attachment',
+        files: [QueueAttachmentInput(path: source.path, name: 'source.bin')],
+      );
+      final blobId = record.attachments.single.blobId;
+      final server = hash(scope.serverKey);
+      final account = hash('${scope.serverKey}\u0000${scope.accountKey}');
+      final box = await AesGcm.with256bits().encrypt(
+        [1, 2, 3, 4],
+        secretKey: SecretKey(keys.values[account]!),
+        aad: utf8.encode(
+          'queue.v1/$server/$account/'
+          '${hash(jsonEncode(scope.toJson()))}/$blobId',
+        ),
+      );
+      final blob = (await directory.list(recursive: true).toList())
+          .whereType<File>()
+          .singleWhere((file) => file.path.endsWith(blobId));
+      await blob.writeAsBytes(box.concatenation());
+
+      await expectLater(
+        store().readAttachment(scope, record.id, blobId),
+        throwsA(
+          isA<QueueStorageException>().having(
+            (error) => error.reason,
+            'reason',
+            'attachment_corrupt',
+          ),
+        ),
+      );
     },
   );
 }

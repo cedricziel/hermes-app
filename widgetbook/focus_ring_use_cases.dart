@@ -1,5 +1,5 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
@@ -20,6 +20,8 @@ import 'package:hermes_app/src/files/widgets/file_row.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_advanced_row.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_board_toolbar.dart';
+import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_action_row.dart';
@@ -29,7 +31,15 @@ import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_confirmation_layout.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/thread_housekeeping.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
+import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
+import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/macos/mac_source_list.dart';
 import 'package:hermes_app/src/chat/widgets/new_chat_fab.dart';
 import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
@@ -76,7 +86,9 @@ import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import '../test/support/fake_hermes_server.dart';
 import 'bot_screen_fixture.dart';
+import 'catalog_auth.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'platform_theme.dart';
@@ -455,12 +467,14 @@ Widget _settingsFormAction() => SizedBox(
   height: 320,
   child: _KeyboardFocus(
     button: 0,
-    child: SettingsScaffold(
-      title: 'New task',
-      subtitle: 'work',
-      previousTitle: null,
-      formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
-      body: ListView(children: const [ListTile(title: Text('Name'))]),
+    child: Builder(
+      builder: (context) => SettingsScaffold(
+        title: 'New task',
+        subtitle: 'work',
+        previousTitle: context.l10n.widgetsBack,
+        formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
+        body: ListView(children: const [ListTile(title: Text('Name'))]),
+      ),
     ),
   ),
 );
@@ -1369,6 +1383,415 @@ List<WidgetbookUseCase> _outsideTapTargetUseCases() => [
     ),
     platforms: const {'Mac': TargetPlatform.macOS},
   ),
+  // What the screens build: the button round the row takes the focus.
+  ..._outside(
+    'Mac pop-up value in a menu row',
+    () => GroupedSection(
+      children: [
+        GroupedMenuRow<String>(
+          title: 'Model',
+          options: const ['claude-opus-4', 'claude-sonnet-4'],
+          labelOf: (option) => option,
+          selected: 'claude-opus-4',
+          onSelected: (_) {},
+        ),
+      ],
+    ),
+    platforms: const {'Mac': TargetPlatform.macOS},
+  ),
+];
+
+/// Owns the sign-in state a sidebar reads, for as long as the use case is on
+/// screen. Built in `initState`, not asynchronously, so that the focus the
+/// preview moves is there on the first frame.
+class _SidebarHost extends StatefulWidget {
+  const _SidebarHost({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SidebarHost> createState() => _SidebarHostState();
+}
+
+class _SidebarHostState extends State<_SidebarHost> {
+  final _auth = CatalogAuth(gated: true);
+
+  @override
+  void dispose() {
+    _auth.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => withAppProviders(_auth, widget.child);
+}
+
+bool _inside<T extends Widget>(FocusNode node) {
+  var found = false;
+  node.context?.visitAncestorElements((element) {
+    found = element.widget is T;
+    return !found;
+  });
+  return found;
+}
+
+bool _inSidebarRow(FocusNode node) => _inside<SidebarRow>(node);
+
+/// The row's own ink well: inside the row and not inside a button of it.
+bool _sidebarRowItself(FocusNode node) =>
+    _inSidebarRow(node) && !_insideButton(node);
+
+bool _sidebarRowButton(FocusNode node) =>
+    _inSidebarRow(node) && _insideButton(node);
+
+bool _macTileItself(FocusNode node) =>
+    _inside<MacSourceListTile>(node) && !_insideButton(node);
+
+bool _macTileButton(FocusNode node) =>
+    _inside<MacSourceListTile>(node) && _insideButton(node);
+
+bool _inSidebarAction(FocusNode node) => _inside<SidebarAction>(node);
+
+bool _inMacHit(FocusNode node) => _inside<MacSearchHitRow>(node);
+
+const _sidebarPlatforms = {
+  'iPhone': TargetPlatform.iOS,
+  'Material': TargetPlatform.android,
+  'Windows': TargetPlatform.windows,
+  'Linux': TargetPlatform.linux,
+};
+
+/// Platforms whose thread row has the inline More button (everywhere but iOS,
+/// where a swipe and a long press open the menu).
+final _inlineMoreRows = {
+  for (final e in _sidebarPlatforms.entries)
+    if (e.value != TargetPlatform.iOS) e.key: e.value,
+};
+
+/// The thread sidebar as the app builds it, with housekeeping so a thread row
+/// has its More button off iOS.
+Widget _threadSidebar() => fill(
+  ThreadSidebar(
+    threads: threads,
+    selectedId: threads.first.id,
+    onSelect: (_) {},
+    onNewThread: () {},
+    housekeeping: ThreadHousekeeping(
+      repository: HermesChatRepository(FakeHermesServer().client().raw),
+      threads: () => threads,
+      profile: () => null,
+      changed: () {},
+      report: (_) {},
+      removed: (_) {},
+      history: (thread, {cancelled}) async => const [],
+    ),
+  ),
+  width: 300,
+);
+
+Widget _sidebarUseCase(
+  TargetPlatform platform,
+  Widget Function() build, {
+  bool Function(FocusNode node)? where,
+  bool hover = false,
+}) => _onPlatform(
+  platform,
+  _SidebarHost(
+    child: _KeyboardFocus(
+      focusIndex: 0,
+      where: where,
+      hover: hover,
+      child: build(),
+    ),
+  ),
+);
+
+WidgetbookUseCase _sidebarCase(
+  String name,
+  TargetPlatform platform,
+  Widget Function() build, {
+  bool Function(FocusNode node)? where,
+  bool hover = false,
+}) => WidgetbookUseCase(
+  name: 'Sidebar row: $name',
+  builder: (_) => _sidebarUseCase(platform, build, where: where, hover: hover),
+);
+
+Widget _sidebarActions() => fill(
+  Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 8),
+    child: Column(
+      children: [
+        SidebarAction(icon: AppIcons.add, label: 'New chat', onTap: () {}),
+        SidebarAction(
+          icon: AppIcons.settings,
+          label: 'Settings',
+          selected: true,
+          onTap: () {},
+        ),
+      ],
+    ),
+  ),
+  width: 300,
+);
+
+Widget _searchHits() => fill(
+  ThreadSearchResults(
+    query: 'backup',
+    status: ThreadSearchStatus.done,
+    hits: searchHits,
+    selectedId: 'thread-2',
+    onOpen: (_) {},
+  ),
+  width: 300,
+);
+
+Widget _macSearchResults({List<String> recent = const []}) => fill(
+  MacSearchResults(
+    query: recent.isEmpty ? 'backup' : '',
+    status: ThreadSearchStatus.done,
+    hits: recent.isEmpty ? searchHits : const [],
+    scope: ThreadSearchScope.profile,
+    recent: recent,
+    selectedId: 'thread-2',
+    onOpen: (_) {},
+    onPickRecent: (_) {},
+  ),
+  width: 300,
+);
+
+Widget _macThreadRow() => frame(
+  SizedBox(
+    width: 260,
+    child: MacThreadRow(
+      title: 'Plan the release',
+      selected: true,
+      onTap: () {},
+      onArchive: () {},
+      menuItems: (context) =>
+          macThreadMenuItems(context.l10n, pinned: false, manageable: true),
+      onAction: (_) {},
+    ),
+  ),
+);
+
+Widget _macDestination() => frame(
+  SizedBox(
+    width: 260,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          MacSourceListRow(
+            icon: AppIcons.settings,
+            label: 'Profiles',
+            caption: '3',
+            selected: true,
+            onTap: () {},
+          ),
+          MacSourceListRow(icon: AppIcons.add, label: 'Skills', onTap: () {}),
+        ],
+      ),
+    ),
+  ),
+);
+
+/// The sidebar rows that take the ring inside their own edge, because the list
+/// clips them (F.427, table A). Each is the real widget on its platform's own
+/// theme, with the keyboard on the row. A row with buttons of its own (the
+/// thread row's More, the Mac thread row's Archive and More) also has a state
+/// with a button focused, where the row draws no ring.
+List<WidgetbookUseCase> _sidebarRowUseCases() => [
+  for (final MapEntry(key: name, value: platform) in _sidebarPlatforms.entries)
+    _sidebarCase(
+      'Thread row ($name)',
+      platform,
+      _threadSidebar,
+      where: _sidebarRowItself,
+    ),
+  for (final MapEntry(key: name, value: platform) in _inlineMoreRows.entries)
+    _sidebarCase(
+      'Thread row, inline More focused ($name)',
+      platform,
+      _threadSidebar,
+      where: _sidebarRowButton,
+    ),
+  for (final MapEntry(key: name, value: platform) in _sidebarPlatforms.entries)
+    _sidebarCase(
+      'Search hit row ($name)',
+      platform,
+      _searchHits,
+      where: _inSidebarRow,
+    ),
+  for (final MapEntry(key: name, value: platform) in _sidebarPlatforms.entries)
+    _sidebarCase(
+      'Action row ($name)',
+      platform,
+      _sidebarActions,
+      where: _inSidebarAction,
+    ),
+  _sidebarCase(
+    'Mac thread row',
+    TargetPlatform.macOS,
+    _macThreadRow,
+    where: _macTileItself,
+  ),
+  _sidebarCase(
+    'Mac thread row, inline Archive focused',
+    TargetPlatform.macOS,
+    _macThreadRow,
+    where: _macTileButton,
+    hover: true,
+  ),
+  _sidebarCase(
+    'Mac destination row',
+    TargetPlatform.macOS,
+    _macDestination,
+    where: _macTileItself,
+  ),
+  _sidebarCase(
+    'Mac recent search row',
+    TargetPlatform.macOS,
+    () => _macSearchResults(recent: const ['backup', 'release notes']),
+    where: _macTileItself,
+  ),
+  _sidebarCase(
+    'Mac search hit row',
+    TargetPlatform.macOS,
+    _macSearchResults,
+    where: _inMacHit,
+  ),
+];
+
+bool _inPopupTrigger(FocusNode node) =>
+    _inside<AdaptivePopupMenuButton<Object?>>(node);
+
+/// The iPhone pull-down trigger of [AdaptivePopupMenuButton] with a custom
+/// child, with the keyboard on it (F.441): the ring sits outside the control
+/// (pill, subtitle, account footer) or inside it (value row, filter chip).
+Widget _popupTrigger(
+  Widget Function() build, {
+  double textScale = 1,
+  bool sidebar = false,
+}) {
+  final scaled = textScale == 1
+      ? build()
+      : Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: build(),
+          ),
+        );
+  final focused = _KeyboardFocus(
+    focusIndex: 0,
+    where: _inPopupTrigger,
+    child: scaled,
+  );
+  return _on(
+    TargetPlatform.iOS,
+    sidebar ? _SidebarHost(child: focused) : frame(focused),
+  );
+}
+
+Widget _logLevelPill() => const Padding(
+  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  child: Align(
+    alignment: Alignment.centerLeft,
+    child: LogLevelMenuButton(
+      value: LogLevelFilter.warnings,
+      onChanged: _ignoreLevel,
+    ),
+  ),
+);
+
+void _ignoreLevel(LogLevelFilter _) {}
+
+Widget _subtitleMenu() => SizedBox(
+  height: 260,
+  child: SettingsScaffold(
+    title: 'Server logs',
+    subtitle: 'work profile',
+    subtitleMenu: SettingsSubtitleMenu<String>(
+      label: 'Profile',
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'work', child: Text('work')),
+        PopupMenuItem(value: 'home', child: Text('home')),
+      ],
+      onSelected: (_) {},
+    ),
+    body: const SizedBox.shrink(),
+  ),
+);
+
+Widget _valueRow() => GroupedSection(
+  header: 'Model',
+  children: [
+    GroupedMenuRow<String>(
+      title: 'Provider',
+      options: const ['anthropic', 'openrouter'],
+      labelOf: (o) => o,
+      selected: 'anthropic',
+      onSelected: (_) {},
+    ),
+    GroupedMenuRow<String>(
+      title: 'Effort',
+      options: const ['low', 'high'],
+      labelOf: (o) => o,
+      selected: 'high',
+      onSelected: (_) {},
+    ),
+  ],
+);
+
+Widget _filterChips() => SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: Row(
+    children: [
+      KanbanFilterMenu(
+        label: 'All assignees',
+        all: 'All assignees',
+        options: const ['ada', 'grace'],
+        onSelected: (_) {},
+      ),
+      const SizedBox(width: 8),
+      FilterChip(label: const Text('Archived'), onSelected: (_) {}),
+    ],
+  ),
+);
+
+/// F.441: the pull-down trigger of the five callers that pass a custom child,
+/// on iPhone, with the keyboard on the trigger. The account footer is in the
+/// real thread sidebar.
+List<WidgetbookUseCase> _popupTriggerUseCases() => [
+  WidgetbookUseCase(
+    name: 'Popup trigger: Log level pill (iPhone)',
+    builder: (_) => _popupTrigger(_logLevelPill),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Log level pill, text 3x (iPhone)',
+    builder: (_) => _popupTrigger(_logLevelPill, textScale: 3),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Settings subtitle (iPhone)',
+    builder: (_) => _popupTrigger(_subtitleMenu),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Grouped value row (iPhone)',
+    builder: (_) => _popupTrigger(_valueRow),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Kanban filter chip (iPhone)',
+    builder: (_) => _popupTrigger(_filterChips),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Kanban filter chip, text 3x (iPhone)',
+    builder: (_) => _popupTrigger(_filterChips, textScale: 3),
+  ),
+  WidgetbookUseCase(
+    name: 'Popup trigger: Account footer (iPhone)',
+    builder: (_) => _popupTrigger(_threadSidebar, sidebar: true),
+  ),
 ];
 
 /// The keyboard focus ring: 2 px in the link colour, 2 px outside a button
@@ -1409,6 +1832,8 @@ WidgetbookNode focusRingNode() => WidgetbookComponent(
     ..._remainingControlUseCases(),
     ..._outsideTapTargetUseCases(),
     ..._insideRowUseCases(),
+    ..._sidebarRowUseCases(),
+    ..._popupTriggerUseCases(),
     WidgetbookUseCase(
       name: 'Try it (press Tab)',
       builder: (_) => _at(

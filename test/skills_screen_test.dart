@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -7,6 +7,7 @@ import 'package:hermes_app/src/skills/skills_screen.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// The Skills pages against a fake dashboard, through the real generated
 /// client.
@@ -483,7 +484,7 @@ void main() {
   group('new skill', () {
     Future<void> openCreate(WidgetTester tester) async {
       await pumpSkills(tester);
-      await tester.tap(find.byTooltip('New skill'));
+      await tester.tap(find.tooltip('New skill'));
       await tester.pumpAndSettle();
     }
 

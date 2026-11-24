@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/mac_chat_more_menu.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
@@ -27,6 +28,7 @@ import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'keyboard_focused.dart';
 import 'platform_theme.dart';
 
 /// [child] with the Mac look, whatever the catalog's viewport.
@@ -86,6 +88,57 @@ class _OpenMenuState extends State<_OpenMenu> {
   );
 }
 
+/// The compact toolbar's "…" button with its menu open, as a user sees it
+/// after a click: [exportRunning] greys "Export Chat as JSON…".
+class _OpenMoreMenu extends StatefulWidget {
+  const _OpenMoreMenu({
+    this.exportRunning = false,
+    this.canCopy = true,
+    this.complete = true,
+  });
+
+  final bool exportRunning;
+
+  /// Whether a chat is open to copy; Copy Transcript is greyed without one.
+  final bool canCopy;
+
+  /// Whether Show Files and the export are offered (an older server has
+  /// neither).
+  final bool complete;
+
+  @override
+  State<_OpenMoreMenu> createState() => _OpenMoreMenuState();
+}
+
+class _OpenMoreMenuState extends State<_OpenMoreMenu> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _menu.open();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topRight,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: MacChatMoreMenu(
+        controller: _menu,
+        onShowFiles: widget.complete ? () {} : null,
+        onCopyTranscript: widget.canCopy ? () {} : null,
+        exportJson: widget.complete
+            ? ExportJsonOffer(onSelected: () {}, enabled: !widget.exportRunning)
+            : null,
+        onShowConnection: () {},
+      ),
+    ),
+  );
+}
+
 WidgetbookNode macSidebarNode() => WidgetbookFolder(
   name: 'macOS sidebar',
   children: [
@@ -134,6 +187,23 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
                 onToggle: () {},
               ),
               maxWidth: 260,
+            ),
+          ),
+        for (final (name, collapsed) in [('Open', false), ('Folded', true)])
+          _case(
+            'Keyboard focus, $name',
+            () => KeyboardFocused(
+              target: const Key('sidebar-section-header'),
+              child: frame(
+                MacSidebarSectionHeader(
+                  key: const Key('sidebar-section-header'),
+                  label: 'Today',
+                  count: 4,
+                  collapsed: collapsed,
+                  onToggle: () {},
+                ),
+                maxWidth: 260,
+              ),
             ),
           ),
       ],
@@ -330,6 +400,20 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
               ),
             ),
           ),
+        _case(
+          'End search button with keyboard focus',
+          () => KeyboardFocused(
+            target: const Key('toolbar-search-clear'),
+            child: frame(
+              MacToolbarSearchField(
+                query: 'backup',
+                active: true,
+                onChanged: (_) {},
+                onEnd: () {},
+              ),
+            ),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -366,6 +450,24 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
               ),
             ),
           ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacChatMoreMenu',
+      useCases: [
+        _case('Idle', () => frame(const _OpenMoreMenu())),
+        _case(
+          'Export running',
+          () => frame(const _OpenMoreMenu(exportRunning: true)),
+        ),
+        _case(
+          'Copy Transcript disabled',
+          () => frame(const _OpenMoreMenu(canCopy: false)),
+        ),
+        _case(
+          'Without Show Files and export',
+          () => frame(const _OpenMoreMenu(complete: false)),
+        ),
       ],
     ),
     WidgetbookComponent(

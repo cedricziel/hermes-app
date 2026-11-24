@@ -1,9 +1,12 @@
+import 'dart:convert' show base64Decode;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter/cupertino.dart' show CupertinoSlidingSegmentedControl;
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show CupertinoSlidingSegmentedControl;
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
@@ -31,7 +34,11 @@ import 'package:hermes_app/src/models/model_provider_option.dart'
     show ModelChoice;
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/macos/mac_source_list.dart';
+import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/widgets/settings_search_field.dart';
 import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/voice/widgets/voice_orb.dart';
@@ -42,13 +49,26 @@ import 'package:hermes_app/src/widgets/whats_the_difference_link.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../widgetbook/bot_screen_fixture.dart';
-import '../widgetbook/fixtures.dart' show modelOptions;
+import '../widgetbook/fixtures.dart' show modelOptions, searchHits;
+import 'support/fake_hermes_server.dart';
+import 'support/popup_trigger_callers.dart';
 import 'support/test_localizations.dart';
+import 'support/wait_until.dart';
 
+import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/thread_housekeeping.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
+import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
+import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
+import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
@@ -61,6 +81,7 @@ import 'package:hermes_app/src/widgets/composer_selector_chip.dart';
 import 'package:hermes_app/src/widgets/disclosure_tile.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/named_icon_button.dart';
+import 'package:hermes_app/src/widgets/named_popup_menu_button.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line_model.dart';
 import 'package:hermes_app/src/chat/activity/working_summary.dart';
@@ -92,6 +113,13 @@ import 'package:hermes_app/src/workspaces/widgets/working_directory_row.dart';
 final _ringFinder = find.byWidgetPredicate(
   (w) => w is CustomPaint && w.foregroundPainter is FocusRingPainter,
 );
+
+/// Whether [inner] lies inside [outer].
+bool _within(Rect outer, Rect inner) =>
+    inner.left >= outer.left &&
+    inner.top >= outer.top &&
+    inner.right <= outer.right &&
+    inner.bottom <= outer.bottom;
 
 /// A canvas that keeps the one rounded rectangle drawn on it, with the
 /// transform in force when it was drawn (save, restore, translate and
@@ -1022,6 +1050,99 @@ void main() {
         name: 'Mac pop-up value',
       );
     });
+
+    // The case above builds a GroupedValueRow with an onTap, which draws its
+    // own ring; the screens build a GroupedMenuRow, whose pop-up is a
+    // PopupMenuButton around the whole row. Reached by Tab, as a user does.
+    // [value] in a row [width] wide with [title]: one ring, on the pop-up
+    // face, whatever shape the row gives it.
+    Future<void> expectMenuRowRing(
+      WidgetTester tester, {
+      required double width,
+      required String title,
+      required String value,
+      bool truncated = false,
+      bool titleWraps = false,
+    }) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        SizedBox(
+          width: width,
+          child: GroupedSection(
+            children: [
+              GroupedMenuRow<String>(
+                title: title,
+                options: [value, 'sonnet'],
+                labelOf: (option) => option,
+                selected: value,
+                onSelected: (_) {},
+              ),
+            ],
+          ),
+        ),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(value));
+      expect(paragraph.didExceedMaxLines, truncated, reason: 'value truncates');
+      final titleParagraph = tester.renderObject<RenderParagraph>(
+        find.text(title),
+      );
+      expect(
+        titleParagraph.size.height > 1.5 * 12 * 1.3,
+        titleWraps,
+        reason: 'title wraps',
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      final face = find
+          .ancestor(of: find.text(value), matching: find.byType(Material))
+          .first;
+      expect(_ringFinder, findsOneWidget, reason: 'the pop-up shows a ring');
+      expect(tester.getRect(_ringFinder), tester.getRect(face));
+      final (band, painter) = _ring(tester);
+      expect(painter.width, kFocusRingWidth);
+      expect(painter.inset, -(kFocusRingOffset + kFocusRingWidth));
+      expectRingHugs(band, (
+        tester.getRect(face),
+        6,
+      ), reason: 'Mac pop-up value of a GroupedMenuRow');
+      await expectKeyboardOnly(tester);
+    }
+
+    testWidgets('Mac pop-up value of a GroupedMenuRow, reached by Tab: '
+        'radius 6', (tester) async {
+      await expectMenuRowRing(
+        tester,
+        width: 360,
+        title: 'Model',
+        value: 'opus',
+      );
+    });
+
+    testWidgets('Mac pop-up value of a GroupedMenuRow whose value truncates, '
+        'reached by Tab: the ring is round the shortened face', (tester) async {
+      await expectMenuRowRing(
+        tester,
+        width: 300,
+        title: 'Profile',
+        value: 'Aktives Profil (default) mit weiteren Einstellungen',
+        truncated: true,
+      );
+    });
+
+    testWidgets('Mac pop-up value of a GroupedMenuRow whose title wraps in a '
+        'narrow row, reached by Tab: the ring is round the face', (
+      tester,
+    ) async {
+      await expectMenuRowRing(
+        tester,
+        width: 280,
+        title: 'Bei Abschluss benachrichtigen',
+        value: 'Aktives Profil (default) mit weiteren Einstellungen',
+        truncated: true,
+        titleWraps: true,
+      );
+    });
   });
 
   group('rings merged earlier follow the painted shape too', () {
@@ -1161,6 +1282,167 @@ void main() {
   });
 
   group('rows and cards of F.427 (tables B and C)', _insideRowTests);
+  group('sidebar rows of F.427 (table A)', _sidebarRowTests);
+  group('iOS popup triggers of F.441', _popupTriggerTests);
+
+  group('gesture-detector controls of F.441', () {
+    // A 240 by 160 picture, so the thumbnail shows at its full size.
+    final landscape = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAPAAAACgCAIAAAC9uXYyAAABU0lEQVR42u3SQREAEBQA0Z9JCCGchRBCEsHkcFXB92Zegp2NsTakERJgaDA0GBoMjaHB0GBoMDQYGkODocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgyNocHQYGgwNBgaQ4OhwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2GxtBgaDA0GBpDg6HB0GBoMDSGBkODocHQYGgMDc8OXWeDNAyNocHQYGgwNIYGQ4OhwdBgaAwNhgZDg6HB0BgaDA2GBkODoTE0GBoMDYYGQ2NoMDQYGgwNhsbQYGgwNBgaDI2hwdBgaDA0vw9deoU0DI2hwdBgaDA0hgZDg6HB0GBoDA2GBkODocHQGBoMDYYGQ4OhMTQYGgwNhgZDY2gwNBgaDA2XAy3QjoI76FvSAAAAAElFTkSuQmCC',
+    );
+
+    for (final (platform, width) in [
+      (TargetPlatform.iOS, 32.0),
+      (TargetPlatform.android, 36.0),
+    ]) {
+      testWidgets('${platform.name}: the settings search clear button is a '
+          'round ring inside the field', (tester) async {
+        await _pump(
+          tester,
+          platform,
+          SizedBox(
+            width: 360,
+            child: SettingsSearchField(
+              search: SettingsSearch(query: 'kan', onChanged: (_) {}),
+            ),
+          ),
+        );
+        const clear = Key('settings-search-clear');
+        await _focus(tester, find.byKey(clear));
+        final box = tester.getRect(find.byKey(clear));
+        final field = tester.getRect(find.byType(SettingsSearchField));
+        expect(box.width, width, reason: 'the icon and its 8 px each side');
+        expect(box.height, field.height, reason: 'as tall as the field at 1x');
+        expect(tester.getRect(_ringFinder), box, reason: 'wraps the tap box');
+        final (_, painter) = _ring(tester);
+        expect(painter.radius, width / 2 - 2, reason: 'half the box, less 2');
+        expect(painter.inset, kFocusRingOffset, reason: 'inside');
+        expectInsideClip(tester, box, why: 'clear button');
+        expect(_within(field, box.deflate(2)), isTrue);
+      });
+    }
+
+    for (final scale in [1.0, 3.1]) {
+      testWidgets('android: the clear ring stays inside the stadium field at '
+          'text scale $scale', (tester) async {
+        await _pump(
+          tester,
+          TargetPlatform.android,
+          MediaQuery.withClampedTextScaling(
+            minScaleFactor: scale,
+            maxScaleFactor: scale,
+            child: SizedBox(
+              width: 360,
+              child: SettingsSearchField(
+                search: SettingsSearch(query: 'kan', onChanged: (_) {}),
+              ),
+            ),
+          ),
+        );
+        const clear = Key('settings-search-clear');
+        await _focus(tester, find.byKey(clear));
+        final field = tester.getRect(find.byType(SettingsSearchField));
+        final band = _ringBand(tester);
+        final stadium = Path()
+          ..addRRect(
+            RRect.fromRectAndRadius(field, Radius.circular(field.height / 2)),
+          );
+        final outside = Path.combine(PathOperation.difference, band, stadium);
+        final cut = outside.computeMetrics().fold<double>(
+          0,
+          (sum, m) => sum + m.length,
+        );
+        expect(cut, lessThan(0.5), reason: 'no part of the ring is clipped');
+        final box = tester.getRect(find.byKey(clear));
+        expect(box.center.dy, closeTo(field.center.dy, 0.5));
+      });
+    }
+
+    testWidgets('macOS: the End search button is a round-rect ring inside '
+        'the 26 pt field', (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        MacToolbarSearchField(
+          query: 'backup',
+          active: true,
+          onChanged: (_) {},
+          onEnd: () {},
+        ),
+      );
+      const end = Key('toolbar-search-clear');
+      await _focus(tester, find.byKey(end));
+      final box = tester.getRect(find.byKey(end));
+      final field = tester.getRect(find.byType(MacToolbarSearchField));
+      expect(field.height, 26);
+      expect(box.width, 26, reason: 'unchanged: 14 px icon, 6 px each side');
+      expect(tester.getRect(_ringFinder), box, reason: 'wraps the tap box');
+      final (band, painter) = _ring(tester);
+      expect(painter.radius, 6);
+      expect(painter.inset, kFocusRingOffset, reason: 'inside');
+      expectInsideClip(tester, box, why: 'End search');
+      // The ring's outer edge stays clear of the field's border.
+      final outer = box.deflate(2);
+      expect(_within(field.deflate(1), outer), isTrue);
+      expect(band.getBounds().top, greaterThan(field.top + 1));
+    });
+
+    testWidgets('macOS: the sidebar section header is a full-bleed ring of '
+        'radius 4 inside its edge', (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.macOS,
+        SizedBox(
+          width: 260,
+          child: MacSidebarSectionHeader(
+            label: 'Today',
+            collapsed: false,
+            onToggle: () {},
+          ),
+        ),
+      );
+      await _focus(tester, find.byType(MacSidebarSectionHeader));
+      final header = tester.getRect(find.byType(MacSidebarSectionHeader));
+      expect(tester.getRect(_ringFinder), header, reason: 'wraps the header');
+      expect(_ring(tester).$2.radius, 4);
+      expectInsideClip(tester, header, why: 'section header');
+    });
+
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('${platform.name}: the image thumbnail has an outside ring '
+          'at its own corner radius', (tester) async {
+        await _pump(
+          tester,
+          platform,
+          Provider<MediaStore?>.value(
+            value: null,
+            child: AttachmentThumbnail(
+              attachment: ChatAttachment(
+                name: 'photo.png',
+                kind: AttachmentKind.image,
+                bytes: landscape,
+              ),
+            ),
+          ),
+        );
+        await waitUntil(
+          tester,
+          () => tester
+              .widgetList<RawImage>(find.byType(RawImage))
+              .any((image) => image.image != null),
+          reason: 'the thumbnail to decode',
+        );
+        await _focus(tester, find.byType(AttachmentThumbnail));
+        final picture = tester.getRect(find.byType(ImageThumbnailView));
+        expect(picture.size, const Size(240, 160));
+        expectRingHugs(_ringBand(tester), (
+          picture,
+          kHermesRadius,
+        ), reason: 'the thumbnail');
+        expect(tester.getRect(_ringFinder), picture, reason: 'wraps it');
+      });
+    }
+  });
 
   group('inside rings lie 2 px within their clip or item', () {
     testOnPlatforms('GroupedRow', (tester, platform) async {
@@ -1404,25 +1686,27 @@ Widget _still(Widget child) => Builder(
   ),
 );
 
+/// Pumps [body] (360 wide, no animations), focuses [focus], and checks the
+/// ring against [clipFinder] with the brief's radius and inset.
+Future<void> _checkInside(
+  WidgetTester tester, {
+  required TargetPlatform platform,
+  required Widget body,
+  required Finder focus,
+  required Finder clipFinder,
+  required double radius,
+  double inset = 2,
+  String why = 'row',
+}) async {
+  await _pump(tester, platform, _still(SizedBox(width: 360, child: body)));
+  await _focus(tester, focus);
+  final clip = tester.getRect(clipFinder);
+  expect(tester.getRect(_ringFinder), clip, reason: '$why: wraps the row');
+  expectInsideRow(tester, clip, radius: radius, inset: inset, why: why);
+}
+
 void _insideRowTests() {
-  /// Pumps [body] (360 wide, no animations), focuses [focus], and checks the
-  /// ring against [clipFinder] with the brief's radius and inset.
-  Future<void> check(
-    WidgetTester tester, {
-    required TargetPlatform platform,
-    required Widget body,
-    required Finder focus,
-    required Finder clipFinder,
-    required double radius,
-    double inset = 2,
-    String why = 'row',
-  }) async {
-    await _pump(tester, platform, _still(SizedBox(width: 360, child: body)));
-    await _focus(tester, focus);
-    final clip = tester.getRect(clipFinder);
-    expect(tester.getRect(_ringFinder), clip, reason: '$why: wraps the row');
-    expectInsideRow(tester, clip, radius: radius, inset: inset, why: why);
-  }
+  const check = _checkInside;
 
   Finder inkIn(Type t) => find
       .descendant(of: find.byType(t).last, matching: find.byType(InkWell))
@@ -1823,6 +2107,459 @@ void _insideRowTests() {
   }, platforms: _rowPlatforms);
 }
 
+/// The platforms whose sidebar rows are `SidebarRow`s (a Mac has its own).
+const _sidebarPlatforms = [
+  TargetPlatform.iOS,
+  TargetPlatform.android,
+  TargetPlatform.linux,
+  TargetPlatform.windows,
+];
+
+/// The platforms whose thread row has an inline More button of its own.
+const _inlineMorePlatforms = [
+  TargetPlatform.android,
+  TargetPlatform.linux,
+  TargetPlatform.windows,
+];
+
+const _macOnly = [TargetPlatform.macOS];
+
+/// The ink well of the first [T] on screen.
+Finder _inkOf(Type t) => find
+    .descendant(of: find.byType(t).first, matching: find.byType(InkWell))
+    .first;
+
+/// Gives the row's own ink well primary focus (the nearest focus node above
+/// the row's content), not a button inside the row.
+Future<void> _focusInk(WidgetTester tester, Finder ink) async {
+  final content = find.descendant(of: ink, matching: find.byType(Padding));
+  Focus.of(tester.element(content.first)).requestFocus();
+  await tester.pumpAndSettle();
+}
+
+Widget _sidebarThread({bool housekeeping = true}) => ChangeNotifierProvider(
+  create: (_) => AuthController(),
+  child: SizedBox(
+    width: 300,
+    height: 500,
+    child: ThreadSidebar(
+      threads: [
+        ChatThread(
+          id: 'thread-1',
+          title: 'Plan the release',
+          updatedAt: DateTime(2026, 1, 2),
+          remote: true,
+        ),
+      ],
+      selectedId: 'thread-1',
+      onSelect: (_) {},
+      onNewThread: () {},
+      housekeeping: housekeeping
+          ? ThreadHousekeeping(
+              repository: HermesChatRepository(FakeHermesServer().client().raw),
+              threads: () => const [],
+              profile: () => null,
+              changed: () {},
+              report: (_) {},
+              removed: (_) {},
+              history: (thread, {cancelled}) async => const [],
+            )
+          : null,
+    ),
+  ),
+);
+
+Widget _macThreadRow() => MacThreadRow(
+  title: 'Plan the release',
+  selected: true,
+  onTap: () {},
+  onArchive: () {},
+  menuItems: (context) =>
+      macThreadMenuItems(context.l10n, pinned: false, manageable: true),
+  onAction: (_) {},
+);
+
+/// The sidebar rows of F.427, table A: the hand-rolled `InkWell` rows of the
+/// thread list, search results, destinations and the Mac source list. Each
+/// ring is 2 px, inside the row's edge (the row's radius, 8 or 6, less the
+/// inset), on keyboard focus only.
+void _sidebarRowTests() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  Widget rows(Widget Function(String title, bool selected) row) => Column(
+    spacing: 4,
+    children: [row('Plan the release', true), row('Fix the login test', false)],
+  );
+
+  Widget sidebarRow(String title, bool selected) => SidebarRow(
+    selected: selected,
+    onTap: () {},
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+    child: Text(title),
+  );
+
+  Widget sidebarAction(String title, bool selected) => SidebarAction(
+    icon: AppIcons.add,
+    label: title,
+    selected: selected,
+    onTap: () {},
+  );
+
+  Widget macRow(String title, bool selected) => MacSourceListRow(
+    icon: AppIcons.add,
+    label: title,
+    selected: selected,
+    onTap: () {},
+  );
+
+  final macSearchHit = MacSearchHitRow(
+    hit: searchHits.first,
+    selected: true,
+    onTap: () {},
+  );
+
+  testOnPlatforms(
+    'SidebarRow',
+    (tester, platform) => _checkInside(
+      tester,
+      platform: platform,
+      body: rows(sidebarRow),
+      focus: find.byType(SidebarRow).first,
+      clipFinder: _inkOf(SidebarRow),
+      radius: 6,
+      why: 'SidebarRow',
+    ),
+    platforms: _sidebarPlatforms,
+  );
+
+  testOnPlatforms(
+    'search hit row (a SidebarRow)',
+    (tester, platform) => _checkInside(
+      tester,
+      platform: platform,
+      body: SizedBox(
+        height: 300,
+        child: ThreadSearchResults(
+          query: 'backup',
+          status: ThreadSearchStatus.done,
+          hits: searchHits,
+          selectedId: 'thread-2',
+          onOpen: (_) {},
+        ),
+      ),
+      focus: find.byType(SidebarRow).first,
+      clipFinder: _inkOf(SidebarRow),
+      radius: 6,
+      why: 'search hit row',
+    ),
+    platforms: _sidebarPlatforms,
+  );
+
+  testOnPlatforms(
+    'SidebarAction',
+    (tester, platform) => _checkInside(
+      tester,
+      platform: platform,
+      body: rows(sidebarAction),
+      focus: find.byType(SidebarAction).first,
+      clipFinder: _inkOf(SidebarAction),
+      radius: 6,
+      why: 'SidebarAction',
+    ),
+    platforms: _sidebarPlatforms,
+  );
+
+  testOnPlatforms('thread row with its More button: the row focused', (
+    tester,
+    platform,
+  ) async {
+    await _pump(tester, platform, _still(_sidebarThread()));
+    await tester.pumpAndSettle();
+    final ink = _inkOf(SidebarRow);
+    await _focusInk(tester, ink);
+    expect(tester.getRect(_ringFinder), tester.getRect(ink));
+    expectInsideRow(tester, tester.getRect(ink), radius: 6, why: 'thread row');
+  }, platforms: _inlineMorePlatforms);
+
+  testOnPlatforms(
+    'thread row with its More button: the button focused, no row ring',
+    (tester, platform) async {
+      await _pump(tester, platform, _still(_sidebarThread()));
+      await tester.pumpAndSettle();
+      expect(find.byType(ThreadActionsButton), findsOneWidget);
+      await _focus(tester, find.byType(ThreadActionsButton));
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<ThreadActionsButton>(),
+        isNotNull,
+        reason: 'the More button has the focus',
+      );
+      expect(_ringFinder, findsNothing);
+    },
+    platforms: _inlineMorePlatforms,
+  );
+
+  testOnPlatforms(
+    'MacSourceListTile (destination row)',
+    (tester, platform) => _checkInside(
+      tester,
+      platform: platform,
+      body: rows(macRow),
+      focus: find.byType(MacSourceListRow).first,
+      clipFinder: _inkOf(MacSourceListTile),
+      radius: 4,
+      why: 'MacSourceListTile',
+    ),
+    platforms: _macOnly,
+  );
+
+  testOnPlatforms(
+    'MacSourceListTile (recent search row)',
+    (tester, platform) => _checkInside(
+      tester,
+      platform: platform,
+      body: SizedBox(
+        height: 300,
+        child: MacSearchResults(
+          query: '',
+          status: ThreadSearchStatus.done,
+          hits: const [],
+          scope: ThreadSearchScope.profile,
+          recent: const ['backup', 'release notes'],
+          onOpen: (_) {},
+          onPickRecent: (_) {},
+        ),
+      ),
+      focus: find.byType(MacSourceListTile).first,
+      clipFinder: _inkOf(MacSourceListTile),
+      radius: 4,
+      why: 'recent search row',
+    ),
+    platforms: _macOnly,
+  );
+
+  testOnPlatforms('Mac thread row: the row focused', (tester, platform) async {
+    await _pump(
+      tester,
+      platform,
+      _still(SizedBox(width: 260, child: _macThreadRow())),
+    );
+    final ink = _inkOf(MacSourceListTile);
+    await _focusInk(tester, ink);
+    expect(tester.getRect(_ringFinder), tester.getRect(ink));
+    expectInsideRow(
+      tester,
+      tester.getRect(ink),
+      radius: 4,
+      why: 'Mac thread row',
+    );
+  }, platforms: _macOnly);
+
+  for (final button in [NamedIconButton, NamedPopupMenuButton<ThreadAction>]) {
+    testOnPlatforms('Mac thread row: the $button focused, no row ring', (
+      tester,
+      platform,
+    ) async {
+      await _pump(
+        tester,
+        platform,
+        _still(SizedBox(width: 260, child: _macThreadRow())),
+      );
+      // The row shows its buttons, and so lets them take focus, while the
+      // pointer is over it.
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byType(MacThreadRow)));
+      await tester.pumpAndSettle();
+      await _focus(tester, find.byType(button));
+      var inButton = false;
+      FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+        inButton = e.widget is ButtonStyleButton;
+        return !inButton;
+      });
+      expect(inButton, isTrue, reason: 'a button of the row has the focus');
+      expect(_ringFinder, findsNothing);
+    }, platforms: _macOnly);
+  }
+
+  testOnPlatforms(
+    'MacSearchHitRow',
+    (tester, platform) => _checkInside(
+      tester,
+      platform: platform,
+      body: macSearchHit,
+      focus: find.byType(MacSearchHitRow),
+      clipFinder: _inkOf(MacSearchHitRow),
+      radius: 4,
+      why: 'MacSearchHitRow',
+    ),
+    platforms: _macOnly,
+  );
+
+  // A pointer press focuses an ink well too, and shows no ring; the next key
+  // press shows it again.
+  void keyboardOnly(
+    String name,
+    Widget body,
+    Finder row,
+    List<TargetPlatform> platforms,
+  ) => testOnPlatforms(
+    '$name: keyboard focus shows the ring, a click does not',
+    (tester, platform) async {
+      await _pump(tester, platform, _still(SizedBox(width: 360, child: body)));
+      await _focus(tester, row);
+      expect(_ringFinder, findsOneWidget, reason: 'keyboard focus');
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      expect(_ringFinder, findsNothing, reason: 'after a pointer click');
+      await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+      expect(_ringFinder, findsOneWidget, reason: 'the next key press');
+    },
+    platforms: platforms,
+  );
+
+  keyboardOnly(
+    'SidebarRow',
+    rows(sidebarRow),
+    find.byType(SidebarRow).first,
+    _sidebarPlatforms,
+  );
+  keyboardOnly(
+    'SidebarAction',
+    rows(sidebarAction),
+    find.byType(SidebarAction).first,
+    _sidebarPlatforms,
+  );
+  keyboardOnly(
+    'MacSourceListTile',
+    rows(macRow),
+    find.byType(MacSourceListRow).first,
+    _macOnly,
+  );
+  keyboardOnly(
+    'MacSearchHitRow',
+    macSearchHit,
+    find.byType(MacSearchHitRow),
+    _macOnly,
+  );
+}
+
 void _ignore(AttachOrigin _) {}
 
 void _ignoreTap() {}
+
+/// The iOS pull-down trigger of [AdaptivePopupMenuButton] with a custom child
+/// (F.441), as each of its five callers builds it: the ring follows the shape
+/// the caller paints, outside it for the pill, the subtitle and the account
+/// footer, inside it for the value row and the filter chip.
+void _popupTriggerTests() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  PopupCaller caller(String name) =>
+      popupCallers.singleWhere((c) => c.name == name);
+
+  Future<void> pumpCaller(
+    WidgetTester tester,
+    PopupCaller caller, {
+    double textScale = 1,
+  }) => _pump(
+    tester,
+    TargetPlatform.iOS,
+    textScale == 1
+        ? caller.build()
+        : Builder(
+            builder: (context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(textScale)),
+              child: caller.build(),
+            ),
+          ),
+  );
+
+  for (final scale in [1.0, 3.0]) {
+    testWidgets('log level pill: outside, a stadium at text ${scale}x', (
+      tester,
+    ) async {
+      final pill = caller('log level pill');
+      await pumpCaller(tester, pill, textScale: scale);
+      await _focus(tester, pill.popup);
+      final shape = find
+          .descendant(
+            of: pill.popup,
+            matching: find.byWidgetPredicate(
+              (w) => w is DecoratedBox && w.decoration is ShapeDecoration,
+            ),
+          )
+          .first;
+      expectRingHugs(
+        _ringBand(tester),
+        _painted(tester, shape),
+        reason: 'the ring is a stadium round the painted pill',
+      );
+    });
+  }
+
+  testWidgets('settings subtitle: outside, radius 4, in 4 pt of room', (
+    tester,
+  ) async {
+    final subtitle = caller('settings subtitle menu');
+    await pumpCaller(tester, subtitle);
+    await _focus(tester, subtitle.popup);
+    final row = tester.getRect(subtitle.child);
+    expectRingHugs(_ringBand(tester), (row, 4), reason: 'the subtitle row');
+    final room = tester.getRect(
+      find.ancestor(of: subtitle.popup, matching: find.byType(Padding)).first,
+    );
+    final bounds = _ringBand(tester).getBounds();
+    expect(room.inflate(0.01).contains(bounds.topLeft), isTrue);
+    expect(room.inflate(0.01).contains(bounds.bottomRight), isTrue);
+  });
+
+  testWidgets('grouped value row: inside, 2 px within the row', (tester) async {
+    final value = caller('grouped value row');
+    await pumpCaller(tester, value);
+    await _focus(tester, value.popup);
+    final row = tester.getRect(value.child);
+    expect(tester.getRect(_ringFinder), row, reason: 'wraps the whole row');
+    expectInsideClip(tester, row, why: 'value row');
+    // The iOS section radius (12) less the inset.
+    expect(_ring(tester).$2.radius, 10, reason: 'value row ring radius');
+  });
+
+  for (final scale in [1.0, 3.0]) {
+    testWidgets('kanban filter chip: inside the painted chip at ${scale}x', (
+      tester,
+    ) async {
+      final chip = caller('kanban filter chip');
+      await pumpCaller(tester, chip, textScale: scale);
+      await _focus(tester, chip.popup);
+      final painted = tester.getRect(
+        find
+            .descendant(of: find.byType(Chip), matching: find.byType(Material))
+            .first,
+      );
+      expect(tester.getRect(_ringFinder), painted, reason: 'the chip itself');
+      expectInsideClip(tester, painted, why: 'chip');
+      // The chip's own radius (8) less the inset.
+      expect(_ring(tester).$2.radius, 6, reason: 'chip ring radius');
+    });
+  }
+
+  testWidgets('account footer: outside, radius 8', (tester) async {
+    final footer = caller('account footer');
+    await pumpCaller(tester, footer);
+    await _focus(tester, footer.popup);
+    expectRingHugs(_ringBand(tester), (
+      tester.getRect(footer.child),
+      8,
+    ), reason: 'the footer');
+  });
+}

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
@@ -10,6 +10,7 @@ import 'package:hermes_app/src/widgets/settings_search_field.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'keyboard_focused.dart';
 import 'platform_theme.dart';
 
 WidgetbookNode settingsChromeNode() => WidgetbookFolder(
@@ -76,6 +77,34 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
         ...onEachPlatform(
           'Filter in use',
           (_) => _searchField(query: '', filterActive: true),
+        ),
+        for (final (name, platform) in [
+          ('iPhone', TargetPlatform.iOS),
+          ('Material', TargetPlatform.android),
+        ])
+          WidgetbookUseCase(
+            name: 'Clear button with keyboard focus ($name)',
+            builder: (context) => Theme(
+              data: platformTheme(context, platform),
+              child: const KeyboardFocused(
+                target: Key('settings-search-clear'),
+                child: _SearchHostFocused(),
+              ),
+            ),
+          ),
+        WidgetbookUseCase(
+          name: 'Clear button with keyboard focus at largest text (Material)',
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.android),
+            child: MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(3.1)),
+              child: const KeyboardFocused(
+                target: Key('settings-search-clear'),
+                child: _SearchHostFocused(),
+              ),
+            ),
+          ),
         ),
         ...onEachPlatform(
           'Largest text',
@@ -387,6 +416,17 @@ class _SearchHostState extends State<_SearchHost> {
           ),
       ],
     ),
+  );
+}
+
+/// The search field with a query, so its clear button is there to focus.
+class _SearchHostFocused extends StatelessWidget {
+  const _SearchHostFocused();
+
+  @override
+  Widget build(BuildContext context) => frame(
+    const _SearchHost(query: 'calendar', filterActive: false),
+    maxWidth: 360,
   );
 }
 

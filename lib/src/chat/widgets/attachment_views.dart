@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/app_icons.dart';
@@ -9,6 +9,7 @@ import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../media/quick_look.dart';
+import '../../widgets/focusable_tap.dart';
 import '../../widgets/named_icon_button.dart';
 import '../attachments/attachment_file_actions.dart';
 import '../chat_models.dart';
@@ -56,6 +57,7 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
   Uint8List? _fetched;
   MediaFailure? _failure;
   var _loading = false;
+  final _focus = FocusNode(debugLabel: 'AttachmentThumbnail');
 
   ChatAttachment get _attachment => widget.attachment;
 
@@ -77,6 +79,12 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
   }
 
   @override
@@ -148,15 +156,26 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
     );
     return quickLookTarget(
       onOpen: open,
+      // On a Mac the target is the control (select, double-click, Space), so
+      // there is no second tab stop. Elsewhere Enter and Space open it, with
+      // the ring 2 px outside the picture's own corners; the focus wraps the
+      // semantics so the button, its label and the focus share one node.
       child: mac
           ? thumbnail
-          : Semantics(
-              button: true,
-              image: true,
-              label: _attachment.name,
-              onTap: open,
-              excludeSemantics: true,
-              child: thumbnail,
+          : FocusRing.outside(
+              radius: kHermesRadius,
+              child: FocusableTap(
+                focusNode: _focus,
+                onActivate: open,
+                child: Semantics(
+                  button: true,
+                  image: true,
+                  label: _attachment.name,
+                  onTap: open,
+                  excludeSemantics: true,
+                  child: thumbnail,
+                ),
+              ),
             ),
     );
   }
@@ -166,7 +185,11 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
     if (platformChromeOf(context) == PlatformChrome.ios &&
         store != null &&
         !busy) {
-      FocusManager.instance.primaryFocus?.unfocus();
+      // Whatever else has the focus (the composer) lets go before the native
+      // panel; the thumbnail keeps it, so the keyboard returns to it.
+      if (!_focus.hasPrimaryFocus) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
       final current = store.beginPreview();
       final route = ModalRoute.of(context);
       useFile(

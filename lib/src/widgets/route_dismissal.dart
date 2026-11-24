@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Dismisses [context]'s active route with [result], preserving other routes.
 /// Does nothing once the route has begun closing or its context is disposed.

@@ -249,3 +249,94 @@ Accepted differences from the Flutter build:
 - Motion, hover, focus rings, Esc and the radio's pressed state are behaviour and are not shown on static boards.
 
 Rendered locally with headless Chrome; not checked in the claude.ai viewer or on a device. Contrast and large text sizes were not measured.
+
+## AppBanner action stacking at large text
+
+Recorded after the fact on 2026-11-24; describes what #1107 built. The look below is read from `lib/src/widgets/app_banner.dart` on main. No design canvas was made for it; the use cases named at the end are the record.
+
+Box (every case): 12 pt padding, a 10 pt radius, a fill of the tone colour at 10% and a 1 px border of the tone colour at 35%. The icon is 18 pt with a 10 pt gap before the text. The title is semibold (w600), the detail follows in the body style. Tone colours are `HermesChatColors.success` (#166534 light, #4ADE80 dark), `HermesChatColors.warning` (#92400E, #FBBF24), the scheme's error colour and, for neutral, `subtleText`. The widget has no dark-specific branch; dark comes from those tokens.
+
+Placement of the action:
+
+- Beside the text (default): the action is the last child of the icon and text row. The text column takes the rest of the width.
+- Stacked: the action moves under the text row and starts at the text's leading edge (the box's inner start plus 18 pt icon plus 10 pt gap, so 28 pt), not the box's edge. This applies when the text scaler turns 14 pt into more than 21 pt (above 150% text size) or when the locale's language is German, at any text size. A caller that caps its button's width while the action sits beside the text lifts the cap when `AppBanner.stacksAction(context)` is true (`_noteAction` in `lib/src/files/widgets/files_notes.dart` does: 150 pt cap beside, none stacked).
+- A stacked button gets no inner side padding and 8 pt vertical padding, and is start-aligned, so its label lines up with the title above it while its target still reaches past the label. A button that sets its own side padding (through `style:`) is moved back toward the leading edge by that padding, clamped to 0 to 28 pt. The move is done in layout, so the whole target stays tappable. A button inside a Semantics, ExcludeSemantics or MergeSemantics wrapper is seen; one inside any other wrapper is not moved.
+- A button action's minimum target, beside or stacked, is 44 pt on iOS (`kAppleMinTapTarget`), 48 dp on Material and 28 pt on a Mac, as a constraint around the button, so the Mac theme's compact density and a caller's own `minimumSize` cannot cut it. The tap target size is shrink-wrapped.
+- An action that is not a button, such as a small spinner, is passed with `actionIsButton: false`; it keeps its own size and is not moved.
+
+Large text: nothing is cut. The title and detail wrap in full at 2x and 3x; the stacked action sits under them. In German the banner is already stacked at 1.0x text, because long words would squeeze the text into a narrow column beside the action.
+
+The banner is a polite live region; its container label is "title. detail" and the icon and text are excluded from the tree so it is read once. The action keeps its own node.
+
+Use cases, in `widgetbook/app_banner_use_cases.dart` (the catalog shows each in light and dark, and the text scale addon covers 1x to 3x):
+
+- `Largest text, with action` (2x, neutral, "You are offline" with "Try again")
+- `Largest text (3x), long title, stacked action` (warning, "Couldn't confirm the save" with "Check")
+- `German, stacked action` (warning, "Die Speicherung konnte nicht bestätigt werden" with "Erneut prüfen")
+- `Action target (iPhone)`, `Action target (Mac)` and `Action target (Material)` (a pink outline marks the action's box: 44, 28 and 48)
+- each tone with and without an action, title only, and `Custom icon`
+
+Tests: `test/app_banner_test.dart` (stacking threshold, German, the three targets, the flush move and its tap target).
+
+## Bot Screen viewer theme in Mac catalog previews
+
+Recorded after the fact on 2026-11-24; describes what #1295 built. The Bot Screen viewer (`BotScreenViewerView`) builds its black theme with `buildHermesDarkTheme(platform: …)` for the platform of the surrounding theme, so a Mac catalog session no longer gives the iPhone and Material viewer use cases desktop tap-target size and density (and a flutter-test desktop case no longer gets phone sizing); the use cases that pick a platform (`onEachPlatform`, `_on` in `widgetbook/bot_screen_use_cases.dart`) go through `platformTheme` in `widgetbook/platform_theme.dart`, which keeps the surrounding brightness. Guarded by `arch.theme-platform-copy` and `test/bot_screen/viewer/bot_screen_viewer_view_test.dart` ("the viewer theme is built for ...").
+
+## Grouped row value width
+
+How the shared grouped rows split width between the title and the trailing value when space is short. The pick is built; see "Design (done)" below.
+
+Decision: picked by the orchestrator on 2026-11-24, per platform (see "Design (done)" below).
+
+### Canvas
+
+Claude Design canvas "Hermes: Grouped row value width" (private; ask the owner for access): https://claude.ai/artifact/UXaCxeow4quCktDz18tBHR
+Date: 2026-11-22. Ten board files on the Hermes App design system. Every board shows "before" (today) and four options in the same four rows: a long switch title, a long title with a long value, a short title with a long value, and a short pair as the control that must not change. Sample text is invented, with long German labels such as "Aktives Profil (default)".
+
+Boards:
+
+- iPhone 390, settings list, light (`Main`), dark (`IphoneListDark`) and 1.5x text (`IphoneListLarge`).
+- iPhone dialog, light and dark (`IphoneDialogLight`, `IphoneDialogDark`), with an extra "before" on a wide window (1180).
+- Mac 1280, narrow dialog with a 246 px row (the Kanban orchestration dialog), light and dark (`MacDialogLight`, `MacDialogDark`).
+- Android 412, list, light and dark (`AndroidLight`, `AndroidDark`). Its picker row already shows the value under the title.
+- `Rows`: the shared column the boards import. Its rows are plain markup on `var(--h-*)` tokens, because the design system's `GroupedRow` cannot show an overflow.
+
+### Measured defects
+
+Measured with a throwaway Flutter widget test kept outside the repo (scratchpad), Roboto registered in place of the system font, so widths are close but not exact.
+
+1. macOS: `_PopUpValue` is capped at 260 px but not at the row, and `GroupedRow` gives its trailing widget its natural width. In a 246 px row the title gets about 99 px with the value "Hermes" and about 18 px with "Aktives Profil (default)". With the Ahem test font the same row gives the title 0 px and an overflow of 22 to 86 px, so the overflow itself depends on the font, the squeeze does not.
+2. iOS: the `GroupedValueRow` cap is 0.45 of the window (`MediaQuery.sizeOf`), not of the row. In a 320 px dialog row with a 46-char value the value overflows by 44 px in a 600 px window and 97 px in a 900 px or wider one, and the title gets 0.
+3. iPhone 390 (row 358, content 326): a `GroupedSwitchRow` title gets 258 pt on iOS and Android; an iOS `GroupedValueRow` title gets 176 pt at 1x and 121 pt at 1.5x (value "Hermes Standard"; Material picker titles get 326 pt, the value sits below).
+   - 1x: a 35-char title ("Automatisch Unteraufgaben erstellen") is cut on the switch row; a 29-char title ("Bei Abschluss benachrichtigen") is cut on the iOS picker row.
+   - 1.5x: 24-char ("Aktives Profil (default)") and 29-char titles are cut on the switch row; every title, even 18 chars ("Benachrichtigungen"), is cut on the iOS picker row. Android cuts 29 and 35 chars.
+   - 2x: every title is cut on both. 3x: the same.
+
+### What each platform does (public documentation and common knowledge)
+
+- iOS: Settings rows use the `UITableViewCell` value1 style, the title on the left and the detail on the right; the title wins and the detail truncates. At the accessibility Dynamic Type sizes the detail moves below the title. Unconfirmed: the exact size where it flips (believed AX1 and up) and whether SwiftUI `Form` rows behave the same.
+- macOS: a System Settings or `NSPopUpButton` form row puts the label on the left and the pop-up on the right; the pop-up sizes to its selected title and truncates it at the tail when narrow. Unconfirmed: whether a narrow sheet stacks the label over the pop-up.
+- Android: Material 3 list items put supporting text below the headline (one to three lines) and keep trailing supporting text for a short value; AndroidX `ListPreference` shows the choice as the summary under the title. Unconfirmed: the exact clamp of the M3 trailing text (believed one line).
+
+### Options (the pick is under "Design (done)")
+
+- A: the value takes what is left and is ellipsized; the title keeps at least a third and wraps to 2 lines. Never overflows and short pairs are unchanged; a long value is cut, and both can be cut in the worst case.
+- B: when title and value do not fit on one line the value moves under the title. Nothing is cut that fits in two lines, and it is the iOS accessibility behaviour; row heights vary in a list and it needs a measuring layout (more code and tests). `GroupedRow` already stacks above 1x text through `_stacksValue`, but only for its own `value`, not for `GroupedValueRow`'s trailing widget.
+- C: the value is at most 50% of the row, the title the rest (2 lines). One simple, testable rule on every platform; it cuts a long value at half even when there is room and cuts early at large text.
+- D: in a narrow row the value always sits under the title at full width (label over control). The value is always readable and nothing is measured; every picker in a narrow container gets taller, and it is a second look next to the beside layout.
+
+All four let a switch row title wrap to 2 lines (defect 3). The rows on the boards are drawn in markup, not with the design system's `GroupedRow`.
+
+### Design (done)
+
+Picked by the orchestrator, 2026-11-24, from the options above:
+
+- iOS: B. The value drops under the title only when the pair does not fit on one line, through `GroupedRow`'s existing stacking (`_stacksValue`), so `GroupedValueRow` routes its value through `GroupedRow`'s own `value` instead of a trailing widget. Like the iOS Settings value1 rows, which move the detail below the title at the accessibility sizes.
+- macOS: A. The value truncates at the tail and is capped at 260 px (as before, so a wide row is unchanged) and leaves the title the wider of a third of the row and its longest word, as long as the pop-up keeps a readable minimum (its chrome and about three characters with an ellipsis); otherwise the title gets a third. The longest-word refinement is part of the orchestrator's pick (2026-11-24): a mid-word title break is worse than a value cut a few characters sooner, and the full value stays in the menu and in semantics. Its known cost: in a 246 px row, "Bei Abschluss benachrichtigen" shows its value as "Hermes Stan…". The title may wrap to two lines and is cut after that, as in the 246 px Kanban orchestration dialog with "Aktives Profil (default)". Like `NSPopUpButton`, which truncates its title at the tail.
+- Android, and Windows and Linux, which follow the Material branch: no layout change. The picker value already sits under the title. Switch titles wrap to two lines.
+- Every platform: a `GroupedSwitchRow` title wraps to two lines instead of being cut on one (unless the caller sets `titleMaxLines`). A title that needs three lines is still cut after the second, e.g. a 35-character German title at 1.5x on an iPhone 390.
+- A truncated value stays reachable in full. A pop-up's own menu shows the whole value. On the Mac, a value that is not a pop-up gets a tooltip with the full text. Every platform keeps the full value in semantics.
+- Catalog: each caller type (`GroupedValueRow`, `GroupedMenuRow`, `GroupedSwitchRow`) at 1x and at large text, light and dark, at the measured widths: a 246 px Mac dialog row, iOS dialogs in an 800 and a 1200 px window, and an iPhone 390 list.
+- Tests fail first for the three measured overflows: the 246 px Mac dialog row, the iOS dialog in a wide window, and the iPhone 390 switch and picker titles.
+
+Rendered locally with headless Chrome for the Main, Mac and Android light boards; not checked in the claude.ai viewer or on a device. The 1.5x board scales font sizes only.

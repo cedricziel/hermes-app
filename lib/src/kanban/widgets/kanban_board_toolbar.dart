@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoSearchTextField;
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../../l10n/l10n.dart';
@@ -147,7 +147,13 @@ class KanbanFilterMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     // PopupMenuButton reads a null result as a dismissed menu, so each entry
     // wraps its value in a record that is never null itself.
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
     return AdaptivePopupMenuButton<({String? option})>(
+      // On iOS the chip is the trigger's box, so its keyboard ring hugs it,
+      // and the 44 pt hit box is the button's own.
+      focusRadius: 8,
+      focusInside: true,
+      minTapTarget: kAppleMinTapTarget,
       onSelected: (choice) => onSelected(choice.option),
       itemBuilder: (_) => [
         PopupMenuItem(value: (option: null), child: Text(all)),
@@ -155,6 +161,7 @@ class KanbanFilterMenu extends StatelessWidget {
           PopupMenuItem(value: (option: o), child: Text(o)),
       ],
       child: Chip(
+        materialTapTargetSize: ios ? MaterialTapTargetSize.shrinkWrap : null,
         label: Text(label),
         avatar: const AppIcon(AppIcons.filter, size: 16),
       ),

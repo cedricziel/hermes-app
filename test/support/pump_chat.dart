@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
@@ -38,6 +38,7 @@ import 'fake_hermes_server.dart';
 import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
 import 'mac_commands_builder.dart';
+import 'test_localizations.dart';
 
 /// The composer's editable text; the sidebar's search field is another one.
 final composerField = find.descendant(
@@ -102,7 +103,7 @@ Future<void> pumpChatScreen(
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: theme ?? buildHermesLightTheme(platform: platform),
       builder: (context, child) {

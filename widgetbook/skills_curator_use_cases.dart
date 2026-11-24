@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
@@ -235,30 +235,26 @@ List<WidgetbookUseCase> _states(
 ];
 
 /// The Skills screen's states around the section, built from the real
-/// chrome, list and message widgets. The screen itself wires the section in
-/// a later change; this fixes where it sits.
+/// chrome, list and message widgets the way the screen wires them: the
+/// section above the categories, then the hub update row and the link that
+/// ends the list ([updating] is a running hub job).
 Widget _placed({
   required CuratorSectionModel model,
   bool hub = true,
+  bool updating = false,
   _Body body = _Body.list,
 }) {
   final section = _section(model);
-  final groups = [
-    const SkillGroup('github', [
-      HermesSkill(
-        name: 'pr-review',
-        description: 'Review a pull request',
-        category: 'github',
-        source: SkillSource.agent,
-      ),
-    ]),
-  ];
+  const groups = _installedGroups;
   final Widget content = switch (body) {
     _Body.list => InstalledSkillsList(
       groups: groups,
       onOpen: (_) {},
       onToggle: (_, _) {},
       onClearFilters: () {},
+      onCheckForUpdates: hub ? () {} : null,
+      updating: updating,
+      onWhatsTheDifference: () {},
       header: section,
     ),
     _Body.loading => GroupedListView(
@@ -327,6 +323,40 @@ class _ScreenState extends State<_Screen> with SingleTickerProviderStateMixin {
     body: widget.body,
   );
 }
+
+const _installedGroups = [
+  SkillGroup('apple', [
+    HermesSkill(
+      name: 'apple-notes',
+      description: 'Read and write Apple Notes',
+      category: 'apple',
+      usage: 14,
+    ),
+    HermesSkill(
+      name: 'apple-reminders',
+      description: 'Add reminders and read the lists',
+      category: 'apple',
+      enabled: false,
+    ),
+  ]),
+  SkillGroup('devops', [
+    HermesSkill(
+      name: 'compose',
+      description: 'Manage Compose stacks',
+      category: 'devops',
+      source: SkillSource.hub,
+      usage: 3,
+    ),
+  ]),
+  SkillGroup('github', [
+    HermesSkill(
+      name: 'pr-review',
+      description: 'Review a pull request',
+      category: 'github',
+      source: SkillSource.agent,
+    ),
+  ]),
+];
 
 const _knownDays = CuratorRunConfirmationModel(
   staleAfterDays: 14,
@@ -725,6 +755,19 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
             name,
             (_) => _calm(_placed(model: _model(), body: body)),
           ),
+        ...onEachPlatform(
+          'Installed list, paused and updating',
+          (_) => _calm(
+            _placed(
+              model: _model(status: _status(paused: true), paused: true),
+              updating: true,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Installed list, largest text',
+          builder: (_) => _largest(_calm(_placed(model: _model()))),
+        ),
         WidgetbookUseCase(
           name: 'No hub, no tabs',
           builder: (_) => _placed(model: _model(), hub: false),

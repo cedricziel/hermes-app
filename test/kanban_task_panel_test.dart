@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,8 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_kanban_files.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -52,13 +55,24 @@ void main() {
     changes = 0;
   });
 
-  Future<void> pumpPanel(WidgetTester tester, {VoidCallback? onClose}) async {
+  Future<void> pumpPanel(
+    WidgetTester tester, {
+    VoidCallback? onClose,
+    Locale? locale,
+  }) async {
     tester.view.physicalSize = const Size(500, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         theme: buildHermesLightTheme(),
+        locale: locale,
+        localizationsDelegates: locale == null
+            ? null
+            : kTestLocalizationsDelegates,
+        supportedLocales: locale == null
+            ? const [Locale('en', 'US')]
+            : AppLocalizations.supportedLocales,
         home: Scaffold(
           body: KanbanTaskPanel(
             repository: KanbanRepository(server.client()),
@@ -77,7 +91,7 @@ void main() {
     tester,
   ) async {
     await pumpPanel(tester);
-    await tester.tap(find.byTooltip('Edit'));
+    await tester.tap(find.tooltip('Edit'));
     await tester.pumpAndSettle();
     expect(find.byType(GroupedDialog), findsOneWidget);
     await tester.enterText(
@@ -241,6 +255,54 @@ void main() {
     );
   });
 
+  testWidgets('the assign picker speaks German under a German locale', (
+    tester,
+  ) async {
+    await pumpPanel(tester, locale: const Locale('de'));
+
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(KanbanTaskChoiceDialog<String>);
+    expect(
+      find.descendant(of: dialog, matching: find.text('Zuweisen an')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('Niemand')),
+      findsOneWidget,
+    );
+    expect(find.text('Assign to'), findsNothing);
+    expect(find.text('Nobody'), findsNothing);
+  });
+
+  testWidgets('the priority picker speaks German under a German locale', (
+    tester,
+  ) async {
+    await pumpPanel(tester, locale: const Locale('de'));
+
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(KanbanTaskChoiceDialog<int>);
+    expect(
+      find.descendant(of: dialog, matching: find.text('Priorität')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('Normal')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('P2')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: dialog, matching: find.text('Priority')),
+      findsNothing,
+    );
+  });
+
   testWidgets(
     'priority picker ignores the current value and sends a typed change',
     (tester) async {
@@ -282,7 +344,7 @@ void main() {
     server.on('DELETE', '/api/plugins/kanban/links', {'ok': true});
     await pumpPanel(tester);
 
-    await tester.tap(find.byTooltip('Remove dependency t0'));
+    await tester.tap(find.tooltip('Remove dependency t0'));
     await tester.pumpAndSettle();
 
     expect(
@@ -445,8 +507,8 @@ void main() {
     serveRich();
     await pumpPanel(tester);
 
-    await tester.ensureVisible(find.byTooltip('Remove attachment'));
-    await tester.tap(find.byTooltip('Remove attachment'));
+    await tester.ensureVisible(find.tooltip('Remove attachment'));
+    await tester.tap(find.tooltip('Remove attachment'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
     await tester.pumpAndSettle();
@@ -647,8 +709,8 @@ void main() {
       server.on('GET', '/api/plugins/kanban/attachments/3', bytes);
       await pumpWithFiles(tester);
 
-      await tester.ensureVisible(find.byTooltip('Save attachment'));
-      await tester.tap(find.byTooltip('Save attachment'));
+      await tester.ensureVisible(find.tooltip('Save attachment'));
+      await tester.tap(find.tooltip('Save attachment'));
       await tester.pumpAndSettle();
 
       expect(files.saved.single.name, 'spec.pdf');
@@ -662,8 +724,8 @@ void main() {
       files.saves = false;
       await pumpWithFiles(tester);
 
-      await tester.ensureVisible(find.byTooltip('Save attachment'));
-      await tester.tap(find.byTooltip('Save attachment'));
+      await tester.ensureVisible(find.tooltip('Save attachment'));
+      await tester.tap(find.tooltip('Save attachment'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Saved'), findsNothing);
@@ -676,8 +738,8 @@ void main() {
       }, status: 404);
       await pumpWithFiles(tester);
 
-      await tester.ensureVisible(find.byTooltip('Save attachment'));
-      await tester.tap(find.byTooltip('Save attachment'));
+      await tester.ensureVisible(find.tooltip('Save attachment'));
+      await tester.tap(find.tooltip('Save attachment'));
       await tester.pumpAndSettle();
 
       expect(find.text('attachment file missing on disk'), findsOneWidget);

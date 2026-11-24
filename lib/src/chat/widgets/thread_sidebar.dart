@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
 
@@ -22,6 +22,7 @@ import '../../settings/widgets/mac_account_footer.dart';
 import '../../spotlight/spotlight_dialog.dart';
 import '../../spotlight/spotlight_settings.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../voice/calls/portable_call_settings.dart';
@@ -505,25 +506,30 @@ class SidebarAction extends StatelessWidget {
                   .withValues(alpha: 0.7)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                AppIcon(icon, size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        child: FocusRing(
+          radius: 6,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  AppIcon(icon, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

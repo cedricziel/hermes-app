@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_runs.dart';
 
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   for (final (name, platform, size, brightness) in [
@@ -102,12 +103,12 @@ void main() {
       expect(sent, ['Retry this comment', 'Retry this comment']);
       expect(tester.widget<EditableText>(field).controller.text, isEmpty);
       await tester.scrollUntilVisible(
-        find.byTooltip('Save attachment'),
+        find.tooltip('Save attachment'),
         150,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.byTooltip('Save attachment'));
-      await tester.tap(find.byTooltip('Remove attachment'));
+      await tester.tap(find.tooltip('Save attachment'));
+      await tester.tap(find.tooltip('Remove attachment'));
       expect((saved, removed), (1, 1));
       expect(
         find.bySemanticsLabel(

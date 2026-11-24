@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_icons.dart';
 import '../theme/focus_ring.dart';
@@ -355,6 +355,7 @@ class GroupedRow extends StatelessWidget {
     this.titleMiddleEllipsis = false,
     this.subtitleMiddleEllipsis = false,
     this.wrapWhenStacked = false,
+    this.stackCrampedValue = false,
     this.monospaceSubtitle = false,
     this.caption,
     this.warning,
@@ -405,6 +406,11 @@ class GroupedRow extends StatelessWidget {
   /// under the title, whatever [titleMaxLines] and [subtitleMaxLines] say.
   /// Beside the value, and at the default text size, they keep those limits.
   final bool wrapWhenStacked;
+
+  /// Puts the [value] under the title at any text size, whenever the two do
+  /// not fit on one line together, instead of cutting the value at half the
+  /// row. A value that fits beside the title stays there.
+  final bool stackCrampedValue;
 
   /// Sets [subtitle] in a monospaced font, for a command line.
   final bool monospaceSubtitle;
@@ -490,6 +496,7 @@ class GroupedRow extends StatelessWidget {
   ) {
     final value = this.value;
     if (value == null || trailing != null) return false;
+    if (stackCrampedValue) return _valueCramped(context, width, metrics);
     final scaler = MediaQuery.textScalerOf(context);
     if (scaler.scale(metrics.titleSize) <= metrics.titleSize) return false;
     // Called from under the row's Material, so this is the style the row's
@@ -511,6 +518,28 @@ class GroupedRow extends StatelessWidget {
     // The title keeps at least its own width, or a third of the row.
     final titleMin = titleNeeds < width / 3 ? titleNeeds : width / 3;
     return valueWidth > width / 2 || room - valueWidth < titleMin;
+  }
+
+  /// Whether the title and the [value] do not fit on one line in a row
+  /// [width] wide.
+  bool _valueCramped(
+    BuildContext context,
+    double width,
+    GroupedMetrics metrics,
+  ) {
+    final base = DefaultTextStyle.of(context).style;
+    double measure(String text, double size) => measureRowText(
+      context,
+      text,
+      base.merge(TextStyle(fontSize: size)),
+      maxLines: 1,
+    );
+
+    var room = width;
+    if (leading != null) room -= metrics.leadingSize + metrics.leadingGap;
+    if (chevron ?? (onTap != null)) room -= 26;
+    final valueWidth = measure(value!, metrics.subtitleSize) + 8;
+    return measure(title, metrics.titleSize) + valueWidth + 1 > room;
   }
 
   @override
@@ -718,7 +747,9 @@ class GroupedRow extends StatelessWidget {
             ? row()
             : LayoutBuilder(
                 builder: (context, box) => row(
-                  valueWidth: box.maxWidth / 2,
+                  valueWidth: stackCrampedValue
+                      ? box.maxWidth
+                      : box.maxWidth / 2,
                   stacked: _stacksValue(context, box.maxWidth, metrics),
                 ),
               ),
@@ -822,7 +853,7 @@ class GroupedSwitchRow extends StatelessWidget {
   const GroupedSwitchRow({
     super.key,
     required this.title,
-    this.titleMaxLines = 1,
+    this.titleMaxLines = 2,
     required this.value,
     required this.onChanged,
     this.subtitle,

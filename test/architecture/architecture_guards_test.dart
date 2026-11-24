@@ -9,6 +9,10 @@
 /// The `architecture-guards` skill says how to add a rule and prove it fails.
 library;
 
+import 'package:analyzer/dart/analysis/features.dart';
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'ratchet.dart';
@@ -641,6 +645,446 @@ List<Hit> _testsReadingDocs() {
   return hits;
 }
 
+/// The widgets that draw the keyboard focus ring for what is built in their
+/// `child:` slot, and nothing else of theirs: [FocusRing] (and
+/// `FocusRing.outside`), the grouped row's ink, and the mini floating button's
+/// ring. A [GroupedRow] is not one: it rings its own ink, and an ink well in its
+/// `trailing` or any other slot sits inside that one with no ring.
+const _ringOwners = {'FocusRing', 'GroupedRowInk', 'MiniFabFocusRing'};
+
+/// The classes whose `InkWell` or `InkResponse` takes its ring from somewhere
+/// other than an enclosing ring widget, as `path#Class`, each with the reason.
+/// Exact: an entry that no longer matches a call fails, so the list shrinks with
+/// the code.
+const _inkWellRingOwnedElsewhere = <String, String>{
+  'lib/src/widgets/grouped_list.dart#GroupedRowInk':
+      'the building block itself: it wraps the ink well it builds in a '
+      'FocusRing in the same build (through a local, which the syntax tree '
+      'does not follow), unless the row takes no focus or draws its own mark',
+};
+
+/// How a call reads in the parse tree (nothing is resolved): the type it names
+/// and the named constructor, if any. `a.B(` is the constructor of `B` under
+/// the import prefix `a` or the named constructor `B` of the type `a`, so a
+/// call has up to two shapes.
+List<({String type, String? named})> _inkCallShapes(AstNode node) {
+  if (node is InstanceCreationExpression) {
+    return [
+      (
+        type: node.constructorName.type.name.lexeme,
+        named: node.constructorName.name?.name,
+      ),
+    ];
+  }
+  if (node is MethodInvocation && !node.isCascaded) {
+    final target = node.target;
+    final name = node.methodName.name;
+    if (target == null) return [(type: name, named: null)];
+    if (target is SimpleIdentifier) {
+      return [(type: name, named: null), (type: target.name, named: name)];
+    }
+    if (target is PrefixedIdentifier) {
+      return [(type: target.identifier.name, named: name)];
+    }
+  }
+  return const [];
+}
+
+bool _isInkCall(AstNode node) => _inkCallShapes(node).any(
+  (s) => s.named == null && (s.type == 'InkWell' || s.type == 'InkResponse'),
+);
+
+ArgumentList? _argumentsOf(AstNode node) => switch (node) {
+  InstanceCreationExpression() => node.argumentList,
+  MethodInvocation() => node.argumentList,
+  _ => null,
+};
+
+/// The handlers that make an ink well take focus, as Flutter's
+/// `_primaryButtonEnabled` and `_secondaryButtonEnabled` read them
+/// (`onTapCancel` alone does not).
+const _inkHandlers = {
+  'onTap',
+  'onDoubleTap',
+  'onLongPress',
+  'onLongPressUp',
+  'onTapUp',
+  'onTapDown',
+  'onSecondaryTap',
+  'onSecondaryTapUp',
+  'onSecondaryTapDown',
+};
+
+/// Whether the ink well [node] has a handler that is not a literal null.
+bool _hasTapHandler(AstNode node) {
+  for (final a in _argumentsOf(node)?.arguments ?? const <Expression>[]) {
+    if (a is NamedArgument &&
+        _inkHandlers.contains(a.name.lexeme) &&
+        a.argumentExpression is! NullLiteral) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Whether [node] is built in the `child:` slot of a ring owner. The walk goes
+/// up the tree and stops, with no ring, at the first enclosing ink well (that
+/// one decides, an outer ring does not reach through it), at any function body
+/// (a callback or a route builder such as `showDialog`'s runs elsewhere), and
+/// at an owner reached through any slot but `child`.
+bool _insideRingOwner(AstNode node) {
+  String? slot;
+  for (var p = node.parent; p != null; p = p.parent) {
+    if (p is FunctionBody || p is Declaration) return false;
+    if (_isInkCall(p)) return false;
+    if (p is NamedArgument) slot = p.name.lexeme;
+    for (final shape in _inkCallShapes(p)) {
+      if (_ringOwners.contains(shape.type) && slot == 'child') return true;
+    }
+  }
+  return false;
+}
+
+/// An `InkWell(` or `InkResponse(` with a tap handler that no enclosing ring
+/// widget or button covers, and the `path#Class` it sits in (no class for a
+/// top-level function).
+typedef InkFinding = ({Hit hit, String owner});
+
+/// The `InkWell(` and `InkResponse(` calls of [file] with a tap handler that no
+/// enclosing ring widget or button covers. Read from the analyzer's unresolved
+/// syntax tree, so what encloses a call is what the tree says, not how many
+/// lines above a `FocusRing` happens to be.
+List<InkFinding> inkWellFindingsIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  final found = <AstNode>[];
+  unit.accept(_InkCalls(found));
+  return [
+    for (final node in found)
+      if (_hasTapHandler(node) && !_insideRingOwner(node))
+        (
+          hit: Hit(
+            file.path,
+            file.lineOf(node.offset),
+            file.lineText(file.lineOf(node.offset)),
+          ),
+          owner:
+              '${file.path}#'
+              '${node.thisOrAncestorOfType<ClassDeclaration>()?.namePart.typeName.lexeme ?? ''}',
+        ),
+  ];
+}
+
+/// Every call of a tree, for the canary.
+class _AllCalls extends RecursiveAstVisitor<void> {
+  _AllCalls._(this.nodes);
+  final List<AstNode> nodes;
+
+  static List<AstNode> of(AstNode unit) {
+    final all = <AstNode>[];
+    unit.accept(_AllCalls._(all));
+    return all;
+  }
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    nodes.add(node);
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    nodes.add(node);
+    super.visitInstanceCreationExpression(node);
+  }
+}
+
+class _InkCalls extends RecursiveAstVisitor<void> {
+  _InkCalls(this.found);
+  final List<AstNode> found;
+
+  @override
+  void visitMethodInvocation(MethodInvocation node) {
+    if (_isInkCall(node)) found.add(node);
+    super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitInstanceCreationExpression(InstanceCreationExpression node) {
+    if (_isInkCall(node)) found.add(node);
+    super.visitInstanceCreationExpression(node);
+  }
+}
+
+List<InkFinding>? _inkFindings;
+
+List<InkFinding> _allInkFindings() => _inkFindings ??= [
+  for (final file in dartFiles('lib')) ...inkWellFindingsIn(file),
+];
+
+List<Hit> _inkWellHits() => [
+  for (final f in _allInkFindings())
+    if (!_inkWellRingOwnedElsewhere.containsKey(f.owner)) f.hit,
+];
+
+/// The widget that gives what is built in its `child:` slot a tab stop and an
+/// activate key: [FocusableTap] (lib/src/widgets/focusable_tap.dart). `Focus`
+/// is not one (a tab stop with no Enter or Space, and `canRequestFocus: false`
+/// takes none), and a bare `FocusableActionDetector` is not either (it needs
+/// actions and `enabled`; `FocusableTap` is the one that carries them). A
+/// `GestureDetector` inside its `child:`, or holding one in its own `child:`
+/// chain, has a keyboard path.
+const _focusableOwners = {'FocusableTap'};
+
+/// The handlers that make a `GestureDetector` a tap target: a tap, a double
+/// tap, a long press or a secondary (right-click) tap. A drag, scale, pan or
+/// force-press handler is not one, and `onTapCancel` alone does nothing.
+const _gestureHandlers = {
+  'onTap',
+  'onTapUp',
+  'onTapDown',
+  'onDoubleTap',
+  'onLongPress',
+  'onLongPressStart',
+  'onLongPressUp',
+  'onSecondaryTap',
+  'onSecondaryTapUp',
+  'onSecondaryTapDown',
+};
+
+/// The classes whose `GestureDetector` is not keyboard-reachable on its own, as
+/// `path#Class`, each with its reason. Only two reasons are accepted: "over a
+/// focusable control" (the detector adds a pointer-only extra path, such as a
+/// long press or a double tap, over a control the keyboard already reaches with
+/// the same action or an equivalent) and "beside a focusable control" (the same
+/// action is reachable by a focusable control next to it). Exact: an entry that
+/// no longer matches a call fails, so the list shrinks with the code.
+///
+/// Known gaps are not on this list but in `baseline/arch.yaml`, as the ratchet
+/// keeps them honest: the hold-to-record send control (F.463: the keyboard
+/// cannot start a recording), the thread row's long press and `TouchRowMenu`
+/// (F.474: the thread actions have no keyboard path on iPhone and iPad, and
+/// Enter opens the chat) and `RowActions` (a row's actions have no keyboard
+/// path on iOS for the profile row's "Change default model", and a macOS
+/// right-click has none of its own; a roadmap row, to be numbered).
+const _gestureDetectorKeyboardElsewhere = <String, String>{
+  'lib/src/bot_screen/widgets/bot_screen_card.dart#_Tappable': 'beside a focusable control: a click on the picture opens the viewer, which the focusable Enlarge button next to it opens for the keyboard',
+  'lib/src/chat/checkpoints/widgets/checkpoint_row.dart#_CheckpointRowState': 'over a focusable control: a right-click opens the row menu, which the row\'s focusable trailing menu button opens for the keyboard, over a focusable GroupedRow',
+  'lib/src/chat/widgets/attachment_views.dart#_AttachmentThumbnailState': 'over a focusable control: the thumbnail is built in a local that the syntax tree does not follow into the FocusableTap and FocusRing that wrap it; on a Mac the click only selects and Quick Look opens it with Space',
+  'lib/src/files/widgets/file_previews.dart#_ImagePreviewState': 'over a focusable control: the double-tap zoom sits over the viewer, which ZoomKeyboardShortcuts zooms from the keyboard',
+  'lib/src/macos/mac_sidebar.dart#MacSplitView': 'beside a focusable control: a click on the scrim closes the sidebar overlay, which the focusable sidebar toggle (and its chord) closes for the keyboard',
+  'lib/src/macos/mac_source_list.dart#_MacSourceListTileState': 'over a focusable control: a right-click over the tile\'s focusable, ringed InkWell opens its menu; on a Mac the keyboard equivalent is the menu bar\'s Pin, Rename and Archive commands for the selected thread (the row\'s More and Archive buttons show only under the pointer and take no focus)',
+  'lib/src/models/widgets/model_picker.dart#_EffortSegment': 'over a focusable control: the detector only extends the tap target of the focusable, ringed InkWell pill it wraps',
+  'lib/src/server_care/widgets/usage_chart.dart#_UsageChartState': 'over a focusable control: a tap or hover on the plot selects a day, which the chart\'s own Focus selects with the arrow, Home and End keys',
+  'lib/src/tools/widgets/tools_switch.dart#ToolsSwitch': 'beside a focusable control: the box around the switch is the touch target, and the focusable GroupedSwitch inside it toggles the same value from the keyboard',
+  'lib/src/widgets/adaptive_popup_menu_button.dart#_AdaptivePopupMenuButtonState': 'over a focusable control: the trigger it wraps is built by _ringed, a FocusableTap in a FocusRing, which opens the same menu from the keyboard',
+  'lib/src/widgets/adaptive_popup_menu_button.dart#_ContextMenuRowState': 'over a focusable control: a right-click over a row opens the menu of the row\'s focusable AdaptivePopupMenuButton',
+  'lib/src/widgets/adaptive_segmented_control.dart#_ExtendedHitArea': 'over a focusable control: it only extends the tap area of the focusable segments inside it, whose own taps win',
+  'lib/src/widgets/inspector_layout.dart#InspectorLayout': 'beside a focusable control: a click on the barrier closes the overlaid Activity inspector, which the focusable Activity toggle in the toolbar closes too, and Escape closes while focus is inside the overlay',
+};
+
+bool _isGestureCall(AstNode node) =>
+    _inkCallShapes(node)
+        .any((s) => s.named == null && s.type == 'GestureDetector');
+
+bool _hasGestureHandler(AstNode node) {
+  for (final a in _argumentsOf(node)?.arguments ?? const <Expression>[]) {
+    if (a is NamedArgument &&
+        _gestureHandlers.contains(a.name.lexeme) &&
+        a.argumentExpression is! NullLiteral) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Whether [node] is a focusable owner, or reaches one through `child:` slots
+/// only (a `Padding`, a `Semantics`, a `DecoratedBox` between them).
+bool _childChainHasOwner(AstNode node) {
+  for (var n = node; ;) {
+    Expression? child;
+    for (final a in _argumentsOf(n)?.arguments ?? const <Expression>[]) {
+      if (a is NamedArgument && a.name.lexeme == 'child') {
+        child = a.argumentExpression;
+      }
+    }
+    if (child == null) return false;
+    if (_inkCallShapes(child).any((s) => _focusableOwners.contains(s.type))) {
+      return true;
+    }
+    n = child;
+  }
+}
+
+/// Whether [node] sits in the `child:` slot of a focusable owner, on the same
+/// walk rules as [_insideRingOwner]: it stops at a function body, a declaration
+/// and the first enclosing gesture detector.
+bool _insideFocusableOwner(AstNode node) {
+  String? slot;
+  for (var p = node.parent; p != null; p = p.parent) {
+    if (p is FunctionBody || p is Declaration) return false;
+    if (_isGestureCall(p)) return false;
+    if (p is NamedArgument) slot = p.name.lexeme;
+    for (final shape in _inkCallShapes(p)) {
+      if (_focusableOwners.contains(shape.type) && slot == 'child') return true;
+    }
+  }
+  return false;
+}
+
+/// The `GestureDetector(` calls of [file] with a tap-like handler that no
+/// focusable owner covers, in the shape of [inkWellFindingsIn].
+List<InkFinding> gestureDetectorFindingsIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  return [
+    for (final node in _AllCalls.of(unit))
+      if (_isGestureCall(node) &&
+          _hasGestureHandler(node) &&
+          !_childChainHasOwner(node) &&
+          !_insideFocusableOwner(node))
+        (
+          hit: Hit(
+            file.path,
+            file.lineOf(node.offset),
+            file.lineText(file.lineOf(node.offset)),
+          ),
+          owner:
+              '${file.path}#'
+              '${node.thisOrAncestorOfType<ClassDeclaration>()?.namePart.typeName.lexeme ?? ''}',
+        ),
+  ];
+}
+
+List<InkFinding>? _gestureFindings;
+
+List<InkFinding> _allGestureFindings() => _gestureFindings ??= [
+  for (final file in dartFiles('lib')) ...gestureDetectorFindingsIn(file),
+];
+
+List<Hit> _gestureDetectorHits() => [
+  for (final f in _allGestureFindings())
+    if (!_gestureDetectorKeyboardElsewhere.containsKey(f.owner)) f.hit,
+];
+
+/// A parameter default that is an English word or sentence, as the text of one
+/// string literal: it starts with a capital letter, holds a space, or ends in
+/// sentence punctuation. A lowercase id (`menu`, `png`, `/api/ws`) is none of
+/// these.
+bool looksLikeEnglishLabel(String value) {
+  if (!RegExp(r'[A-Za-z]').hasMatch(value)) return false;
+  return RegExp(r'^[A-Z]').hasMatch(value) ||
+      value.contains(' ') ||
+      RegExp(r'[.!?:\u2026]$').hasMatch(value);
+}
+
+/// Parameter defaults that read as English but are not visible UI text, as
+/// `path#parameter`, each with the reason. Exact: an entry that no longer
+/// matches fails, so the list shrinks with the code.
+const _englishDefaultNotVisibleText = <String, String>{
+  'lib/src/drag_out/sanitize_drag_file_name.dart#fallback':
+      'a file name handed to another app when nothing is left of the dragged '
+      'name, not a label drawn in the app; callers pass their own',
+};
+
+/// A `String` parameter default that is an English literal, and the
+/// `path#parameter` it is on.
+typedef EnglishDefault = ({Hit hit, String owner});
+
+/// The parameters of [file] (named, optional positional, `this.x` and
+/// `super.x`) whose default is a plain string literal that reads as English.
+/// Read from the analyzer's unresolved syntax tree. A default that is a
+/// constant, an interpolation or an empty string is not one.
+List<EnglishDefault> englishDefaultsIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  final found = <EnglishDefault>[];
+  unit.accept(
+    _DefaultClauses((clause) {
+      final value = clause.value;
+      final text = value is StringLiteral ? value.stringValue : null;
+      if (text == null || !looksLikeEnglishLabel(text)) return;
+      final parameter = clause.parent;
+      if (parameter is! FormalParameter) return;
+      final name = parameter.name;
+      if (name == null) return;
+      final line = file.lineOf(clause.offset);
+      found.add((
+        hit: Hit(file.path, line, file.lineText(line)),
+        owner: '${file.path}#${name.lexeme}',
+      ));
+    }),
+  );
+  return found;
+}
+
+class _DefaultClauses extends RecursiveAstVisitor<void> {
+  _DefaultClauses(this.onClause);
+  final void Function(FormalParameterDefaultClause) onClause;
+
+  @override
+  void visitFormalParameterDefaultClause(FormalParameterDefaultClause node) {
+    onClause(node);
+    super.visitFormalParameterDefaultClause(node);
+  }
+}
+
+List<EnglishDefault>? _englishDefaults;
+
+List<EnglishDefault> _allEnglishDefaults() => _englishDefaults ??= [
+  for (final file in dartFiles('lib'))
+    if (!file.path.startsWith('lib/l10n/') &&
+        !file.path.endsWith('.g.dart') &&
+        !file.path.endsWith('.freezed.dart'))
+      ...englishDefaultsIn(file),
+];
+
+List<Hit> _englishDefaultHits() => [
+  for (final f in _allEnglishDefaults())
+    if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
+];
+
+/// An `import` or `export` of a Flutter barrel that starts a line.
+final _flutterBarrelImport = RegExp(
+  r'''^[ \t]*(?:import|export)\s+['"]package:flutter/(?:material|cupertino)\.dart['"]''',
+  multiLine: true,
+);
+
+/// Dart roots the barrel guard reads; `packages/hermes_api` is generated.
+const _barrelRoots = [
+  'lib',
+  'test',
+  'widgetbook',
+  'integration_test',
+  'test_driver',
+  'packages',
+  'benchmark',
+  'tool',
+  'scripts',
+];
+
+List<Hit> _flutterBarrelImports() => [
+  for (final root in _barrelRoots)
+    ...scanPattern(
+      root,
+      _flutterBarrelImport,
+      view: _text,
+      where: (f) => !f.path.startsWith('packages/hermes_api/'),
+    ),
+];
+
 /// Every guard of this file.
 final guardRules = <Rule>[
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
@@ -840,6 +1284,18 @@ final guardRules = <Rule>[
     where: (f) => f.path.startsWith('lib/src/') && f.path.contains('/widgets/'),
   ),
 
+  // Flutter 3.50 deprecates the two barrels (#1232).
+  _custom(
+    name: 'material-ui-imports',
+    message:
+        'import package:material_ui/material_ui.dart and '
+        'package:cupertino_ui/cupertino_ui.dart, not package:flutter/material.dart '
+        'or package:flutter/cupertino.dart (deprecated since Flutter 3.50). '
+        'Rewrite the files with: dart run tool/migrate_material_ui_imports.dart '
+        '<file ...>',
+    hits: _flutterBarrelImports,
+  ),
+
   // component-catalog skill: icon buttons are NamedIconButton.
   _guard(
     name: 'raw-icon-button',
@@ -873,6 +1329,51 @@ final guardRules = <Rule>[
         '(lib/src/theme/focus_ring.dart).',
     pattern: _bareListTile,
     view: _code,
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": a tappable
+  // row or card takes its ring from FocusRing, not from Material's own tint.
+  _custom(
+    name: 'inkwell-without-focus-ring',
+    message:
+        'an InkWell or InkResponse with an onTap takes keyboard focus and shows '
+        'no ring of its own: put it inside FocusRing(radius: <the row\'s '
+        'radius minus 2>, child: ...) for a row or card a container clips, '
+        'FocusRing.outside(radius: ...) for a tap target nothing clips '
+        '(lib/src/theme/focus_ring.dart), or GroupedRowInk / GroupedRow in a '
+        'grouped section; a class (path#Class) whose ring another widget owns goes on '
+        '_inkWellRingOwnedElsewhere with its reason.',
+    hits: _inkWellHits,
+  ),
+
+  // docs/architecture/settings-screens.md, "Keyboard focus ring": a tap box a
+  // GestureDetector builds is a keyboard control only through FocusableTap.
+  _custom(
+    name: 'gesture-detector-without-focus',
+    message:
+        'a GestureDetector with a tap, double tap or long press handler has no '
+        'tab stop and no Enter or Space: build the control with FocusableTap('
+        'onActivate: ..., child: ...) (lib/src/widgets/focusable_tap.dart) '
+        'inside a FocusRing (lib/src/theme/focus_ring.dart), or an InkWell. A '
+        'class (path#Class) whose detector is a pointer-only extra path '
+        '"over a focusable control", or whose action a focusable control '
+        '"beside" it reaches, goes on _gestureDetectorKeyboardElsewhere with '
+        'that reason.',
+    hits: _gestureDetectorHits,
+  ),
+
+  // CLAUDE.md "Architecture" > Localization; docs/architecture/localization.md.
+  _custom(
+    name: 'english-default-label',
+    message:
+        'a String parameter whose default is an English literal shows English '
+        'in a German UI and the style score cannot see it: take the label as '
+        'a required parameter, or nullable with no default, and resolve the '
+        'fallback with context.l10n.<key> at the widget layer (a key in '
+        'lib/l10n/arb/app_en.arb and app_de.arb). A default that is not '
+        'visible text goes on _englishDefaultNotVisibleText (path#parameter) '
+        'with its reason.',
+    hits: _englishDefaultHits,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take
@@ -1354,6 +1855,533 @@ void main() {
         bare('MyFocusRing.outside(radius: 20, child: FloatingActionButton(a))'),
         isTrue,
       );
+    });
+  });
+
+  group('inkwell guard', () {
+    int hits(String source) =>
+        inkWellFindingsIn(SourceFile('lib/x.dart', source)).length;
+
+    test('a tappable ink well outside a ring is flagged', () {
+      expect(hits('f() => InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => InkResponse(onTap: g, child: a);'), 1);
+      expect(hits('f() => const InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => new InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => m.InkWell(onTap: g, child: a);'), 1);
+      expect(hits('f() => Material(child: InkWell(onTap: g, child: a));'), 1);
+      expect(
+        hits(
+          'f() => Column(children: [InkWell(onTap: g, child: a), '
+          'InkWell(onTap: h, child: b)]);',
+        ),
+        2,
+      );
+    });
+
+    test('the ring must enclose the call, not sit near it', () {
+      // A ring above, below or beside, however close, rings nothing.
+      expect(
+        hits(
+          'f() => Column(children: [FocusRing(child: a), '
+          'InkWell(onTap: g, child: b)]);',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() { final r = FocusRing(radius: 4, child: a);\n'
+          'return InkWell(onTap: g, child: r); }',
+        ),
+        1,
+      );
+      expect(hits('f() => InkWell(onTap: g, child: FocusRing(child: a));'), 1);
+      // And it counts however far down the call is, and however many lines
+      // the arguments take.
+      expect(
+        hits(
+          'f() => FocusRing(\n${'  // pad\n' * 40}  child: Padding(\n'
+          '    padding: p,\n    child: InkWell(\n${'      key: k,\n' * 30}'
+          '      onTap: g,\n      child: a,\n    ),\n  ),\n);',
+        ),
+        0,
+      );
+    });
+
+    test('a ring widget in its child slot encloses', () {
+      for (final owner in [
+        'FocusRing(radius: 4, child: ',
+        'FocusRing.outside(radius: 8, child: ',
+        'm.FocusRing(child: ',
+        'GroupedRowInk(onTap: g, child: ',
+        'MiniFabFocusRing(child: ',
+        'FocusRing(radius: 4, child: Padding(child: ',
+      ]) {
+        expect(
+          hits('f() => $owner InkWell(onTap: g, child: a));'),
+          0,
+          reason: owner,
+        );
+      }
+      // An unrelated widget, or one that only ends alike, does not.
+      expect(hits('f() => Padding(child: InkWell(onTap: g));'), 1);
+      expect(hits('f() => NotARing(child: InkWell(onTap: g));'), 1);
+      expect(hits('f() => FocusRingLike(child: InkWell(onTap: g));'), 1);
+    });
+
+    test('a nested ink well is decided by itself, not by an outer ring', () {
+      expect(
+        hits(
+          'f() => FocusRing(ownFocus: true, child: '
+          'InkWell(onTap: g, child: InkWell(onTap: g)));',
+        ),
+        1,
+      );
+    });
+
+    test('a ring owner reached through another slot does not enclose', () {
+      expect(hits('f() => FocusRing(radius: 4, other: InkWell(onTap: g));'), 1);
+      expect(
+        hits('f() => GroupedRow(title: t, trailing: InkWell(onTap: g));'),
+        1,
+      );
+    });
+
+    test('a button or a custom trigger is not a ring owner', () {
+      expect(
+        hits(
+          'f() => AdaptivePopupMenuButton(items: i, '
+          'child: InkWell(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits('f() => TextButton(onPressed: g, child: InkWell(onTap: g));'),
+        1,
+      );
+    });
+
+    test('ownership does not cross a callback or a route builder', () {
+      expect(
+        hits(
+          'f() => TextButton(onPressed: () => showDialog(builder: (_) => '
+          'InkWell(onTap: g)));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusRing(child: Builder(builder: (c) { '
+          'return InkWell(onTap: g); }));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusRing(child: Builder(builder: (c) => '
+          'FocusRing(child: InkWell(onTap: g))));',
+        ),
+        0,
+      );
+    });
+
+    test('every handler that makes an ink well focusable is read', () {
+      for (final h in [
+        'onTap',
+        'onDoubleTap',
+        'onLongPress',
+        'onLongPressUp',
+        'onTapUp',
+        'onTapDown',
+        'onSecondaryTap',
+        'onSecondaryTapUp',
+        'onSecondaryTapDown',
+      ]) {
+        expect(hits('f() => InkWell($h: g, child: a);'), 1, reason: h);
+        expect(hits('f() => InkResponse($h: g, child: a);'), 1, reason: h);
+        expect(hits('f() => InkWell($h: null, child: a);'), 0, reason: h);
+        expect(
+          hits('f() => FocusRing(child: InkWell($h: g, child: a));'),
+          0,
+          reason: h,
+        );
+      }
+      // onTapCancel alone does not enable an ink well.
+      expect(hits('f() => InkWell(onTapCancel: g, child: a);'), 0);
+    });
+
+    test('only a handler makes an ink well focusable here', () {
+      expect(hits('f() => InkWell(child: a);'), 0);
+      expect(hits('f() => InkWell(onTap: null, child: a);'), 0);
+      expect(hits('f() => InkWell(onTap: cond ? g : null, child: a);'), 1);
+      expect(hits('f() => InkWell(onTap: () {}, child: a);'), 1);
+    });
+
+    test('comments and strings are not code', () {
+      expect(hits('// InkWell(onTap: g)\nf() => 1;'), 0);
+      expect(hits("f() => 'InkWell(onTap: g, child: a)';"), 0);
+      expect(hits('/* InkResponse(onTap: g) */ f() => 1;'), 0);
+    });
+
+    test('the finding names the line and the class it sits in', () {
+      final found = inkWellFindingsIn(
+        SourceFile(
+          'lib/y.dart',
+          'class A {\n  Widget w() => InkWell(\n    onTap: g,\n  );\n}\n'
+              'Widget top() => InkWell(onTap: g);\n',
+        ),
+      );
+      expect(found.map((f) => f.hit.line), [2, 6]);
+      expect(found.map((f) => f.owner), ['lib/y.dart#A', 'lib/y.dart#']);
+    });
+
+    test('an allowlist entry still matches a call, so the list shrinks', () {
+      final owners = {for (final f in _allInkFindings()) f.owner};
+      for (final entry in _inkWellRingOwnedElsewhere.keys) {
+        expect(
+          owners,
+          contains(entry),
+          reason: '$entry no longer has an unringed ink well: remove it',
+        );
+      }
+    });
+
+    test('the analyzer API canary: the parser still produces what the scan '
+        'reads', () {
+      final unit = parseString(
+        content:
+            'f() { InkWell(onTap: g); const InkWell(onTap: g); '
+            'm.InkResponse(onTap: null); FocusRing.outside(radius: 1, '
+            'child: x); }',
+        featureSet: FeatureSet.latestLanguageVersion(),
+      ).unit;
+      final calls = <AstNode>[];
+      unit.accept(_InkCalls(calls));
+      expect(calls, hasLength(3), reason: 'the ink calls it finds');
+      expect(
+        calls.where(_hasTapHandler),
+        hasLength(2),
+        reason: 'a NamedArgument onTap that is not a NullLiteral',
+      );
+      final outside = _AllCalls.of(
+        unit,
+      ).firstWhere((n) => _inkCallShapes(n).any((s) => s.named == 'outside'));
+      expect(
+        _inkCallShapes(outside).any((s) => s.type == 'FocusRing'),
+        isTrue,
+        reason: 'a named constructor reads as its type with a name',
+      );
+    });
+  });
+
+  group('gesture detector guard', () {
+    int hits(String source) =>
+        gestureDetectorFindingsIn(SourceFile('lib/x.dart', source)).length;
+
+    test('a tappable detector with no focusable owner is flagged', () {
+      expect(hits('f() => GestureDetector(onTap: g, child: a);'), 1);
+      expect(hits('f() => const GestureDetector(onTap: g, child: a);'), 1);
+      expect(hits('f() => new GestureDetector(onTap: g, child: a);'), 1);
+      expect(hits('f() => m.GestureDetector(onTap: g, child: a);'), 1);
+      expect(
+        hits('f() => Padding(child: GestureDetector(onTap: g, child: a));'),
+        1,
+      );
+      expect(
+        hits(
+          'f() => Column(children: [GestureDetector(onTap: g), '
+          'GestureDetector(onLongPress: h)]);',
+        ),
+        2,
+      );
+    });
+
+    test('every tap-like handler is read, a literal null is not', () {
+      for (final h in [
+        'onTap',
+        'onTapUp',
+        'onTapDown',
+        'onDoubleTap',
+        'onLongPress',
+        'onLongPressStart',
+        'onLongPressUp',
+        'onSecondaryTap',
+        'onSecondaryTapUp',
+        'onSecondaryTapDown',
+      ]) {
+        expect(hits('f() => GestureDetector($h: g, child: a);'), 1, reason: h);
+        expect(
+          hits('f() => GestureDetector($h: null, child: a);'),
+          0,
+          reason: h,
+        );
+        expect(
+          hits(
+            'f() => FocusableTap(onActivate: g, child: GestureDetector($h: g));',
+          ),
+          0,
+          reason: h,
+        );
+      }
+      expect(hits('f() => GestureDetector(onTap: c ? g : null);'), 1);
+    });
+
+    test('drag, scale, pan and cancel handlers are not tap targets', () {
+      for (final h in [
+        'onPanStart',
+        'onPanUpdate',
+        'onHorizontalDragUpdate',
+        'onVerticalDragEnd',
+        'onScaleUpdate',
+        'onTapCancel',
+        'onDoubleTapDown',
+        'onLongPressEnd',
+        'onForcePressStart',
+      ]) {
+        expect(hits('f() => GestureDetector($h: g, child: a);'), 0, reason: h);
+      }
+      expect(hits('f() => GestureDetector(child: a);'), 0);
+      // A drag beside a tap is still a tap target.
+      expect(hits('f() => GestureDetector(onPanStart: g, onTap: h);'), 1);
+    });
+
+    test(
+      'an owner in its child slot, or the detector\'s child chain, covers',
+      () {
+        for (final source in [
+          'f() => FocusableTap(onActivate: g, child: @@);',
+          'f() => m.FocusableTap(onActivate: g, child: @@);',
+          'f() => FocusRing(child: FocusableTap(onActivate: g, child: @@));',
+          'f() => Padding(child: FocusableTap(onActivate: g, child: Padding(child: @@)));',
+        ]) {
+          expect(
+            hits(
+              source.replaceFirst('@@', 'GestureDetector(onTap: g, child: a)'),
+            ),
+            0,
+            reason: source,
+          );
+        }
+        expect(
+          hits(
+            'f() => GestureDetector(onTap: g, child: Padding(child: '
+            'FocusableTap(onActivate: g, child: a)));',
+          ),
+          0,
+        );
+        expect(
+          hits(
+            'f() => GestureDetector(onTap: g, child: '
+            'FocusableTap(onActivate: g, child: a));',
+          ),
+          0,
+        );
+      },
+    );
+
+    test('an owner that only sits near, or ends alike, does not cover', () {
+      expect(hits('f() => Padding(child: GestureDetector(onTap: g));'), 1);
+      expect(
+        hits(
+          'f() => Column(children: [FocusableTap(child: a), '
+          'GestureDetector(onTap: g)]);',
+        ),
+        1,
+      );
+      expect(hits('f() => FocusableTap(other: GestureDetector(onTap: g));'), 1);
+      expect(hits('f() => NotFocus(child: GestureDetector(onTap: g));'), 1);
+      // Focus is a tab stop with no Enter or Space, and a bare
+      // FocusableActionDetector carries no actions: neither is an owner.
+      expect(hits('f() => Focus(child: GestureDetector(onTap: g));'), 1);
+      expect(
+        hits(
+          'f() => Focus(canRequestFocus: false, child: GestureDetector(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusableActionDetector(child: GestureDetector(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusableActionDetector(enabled: false, child: '
+          'GestureDetector(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits('f() => GestureDetector(onTap: g, child: Focus(child: a));'),
+        1,
+      );
+      expect(
+        hits('f() => GestureDetector(onTap: g, child: FocusableTapLike());'),
+        1,
+      );
+      // An owner beside the detector's child, not in its child chain.
+      expect(
+        hits('f() => GestureDetector(onTap: g, child: a, other: Focus());'),
+        1,
+      );
+      expect(
+        hits('f() => FocusRing(child: GestureDetector(onTap: g, child: a));'),
+        1,
+      );
+    });
+
+    test('ownership does not cross a callback or a route builder', () {
+      expect(
+        hits(
+          'f() => FocusableTap(onActivate: g, child: Builder(builder: (c) { '
+          'return GestureDetector(onTap: g); }));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusableTap(onActivate: g, child: Builder(builder: (c) => '
+          'GestureDetector(onTap: g)));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusableTap(onActivate: g, child: Builder(builder: (c) => '
+          'FocusableTap(onActivate: g, child: GestureDetector(onTap: g))));',
+        ),
+        0,
+      );
+    });
+
+    test('a nested detector is decided by itself, not by an outer owner', () {
+      expect(
+        hits(
+          'f() => FocusableTap(onActivate: g, child: GestureDetector(onTap: g, '
+          'child: Padding(child: GestureDetector(onTap: h))));',
+        ),
+        1,
+      );
+    });
+
+    test('comments and strings are not code', () {
+      expect(hits('// GestureDetector(onTap: g)\nf() => 1;'), 0);
+      expect(hits("f() => 'GestureDetector(onTap: g)';"), 0);
+    });
+
+    test('the finding names the line and the class it sits in', () {
+      final found = gestureDetectorFindingsIn(
+        SourceFile(
+          'lib/y.dart',
+          'class A {\n  Widget w() => GestureDetector(\n    onTap: g,\n  );\n}\n'
+              'Widget top() => GestureDetector(onTap: g);\n',
+        ),
+      );
+      expect(found.map((f) => f.hit.line), [2, 6]);
+      expect(found.map((f) => f.owner), ['lib/y.dart#A', 'lib/y.dart#']);
+    });
+
+    test('an allowlist entry still matches a call, so the list shrinks', () {
+      final owners = {for (final f in _allGestureFindings()) f.owner};
+      for (final entry in _gestureDetectorKeyboardElsewhere.keys) {
+        expect(
+          owners,
+          contains(entry),
+          reason: '$entry no longer has an unowned detector: remove it',
+        );
+      }
+    });
+
+    test('every allowlist reason names one of the two accepted kinds', () {
+      for (final e in _gestureDetectorKeyboardElsewhere.entries) {
+        expect(
+          e.value.startsWith('over a focusable control: ') ||
+              e.value.startsWith('beside a focusable control: '),
+          isTrue,
+          reason: '${e.key}: ${e.value}',
+        );
+      }
+    });
+  });
+
+  group('english default label scan', () {
+    List<String> names(String source) => [
+      for (final f in englishDefaultsIn(SourceFile('lib/y.dart', source)))
+        f.owner,
+    ];
+
+    test(
+      'a named parameter, an optional positional and a field formal hit',
+      () {
+        expect(names("void f({String cancel = 'Cancel'}) {}"), [
+          'lib/y.dart#cancel',
+        ]);
+        expect(names("void f([String x = 'Ok']) {}"), ['lib/y.dart#x']);
+        expect(
+          names("class A { A({this.label = 'Install'}); final String label; }"),
+          ['lib/y.dart#label'],
+        );
+        expect(names("class B extends A { B({super.hint = 'Search'}); }"), [
+          'lib/y.dart#hint',
+        ]);
+        expect(names("void f({String? text = 'Someone took over.'}) {}"), [
+          'lib/y.dart#text',
+        ]);
+        expect(names("void f({String t = 'Try again'}) {}"), ['lib/y.dart#t']);
+      },
+    );
+
+    test('ids, an empty string, interpolation, constants and comments pass', () {
+      expect(
+        names(
+          "void f({String a = 'menu', String b = 'png', String c = '/api/ws', "
+          "String d = 'session-lock', String e = 'default', String g = '', "
+          "String h = '\$x', String i = 'a-\$x', String j = kFoo, "
+          "int k = 3, String? l}) {}",
+        ),
+        isEmpty,
+      );
+      expect(
+        names("// void f({String a = 'Cancel'}) {}\nvoid g({String b}) {}"),
+        isEmpty,
+      );
+      expect(
+        names("final x = 'Cancel'; void f() { var y = 'Hello there'; }"),
+        isEmpty,
+      );
+    });
+
+    test('adjacent literals read as one; interpolated ones do not hit', () {
+      expect(names("void f({String a = 'Someone else ' 'took control.'}) {}"), [
+        'lib/y.dart#a',
+      ]);
+      expect(names("void f({String a = 'Someone ' '\$x'}) {}"), isEmpty);
+    });
+
+    test('the letter guard: no letter, no label', () {
+      expect(looksLikeEnglishLabel(' \u00b7 '), isFalse);
+      expect(looksLikeEnglishLabel('...'), isFalse);
+    });
+
+    test('the word heuristic', () {
+      expect(looksLikeEnglishLabel('Cancel'), isTrue);
+      expect(looksLikeEnglishLabel('try again'), isTrue);
+      expect(looksLikeEnglishLabel('done.'), isTrue);
+      expect(looksLikeEnglishLabel('menu'), isFalse);
+      expect(looksLikeEnglishLabel('1234'), isFalse);
+      expect(looksLikeEnglishLabel('A'), isTrue);
+      expect(looksLikeEnglishLabel(''), isFalse);
+    });
+
+    test('an allowlist entry still matches a default, so the list shrinks', () {
+      final owners = {for (final f in _allEnglishDefaults()) f.owner};
+      for (final entry in _englishDefaultNotVisibleText.keys) {
+        expect(
+          owners,
+          contains(entry),
+          reason: '$entry no longer has an English default: remove it',
+        );
+      }
     });
   });
 

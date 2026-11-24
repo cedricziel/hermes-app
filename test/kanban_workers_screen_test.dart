@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
@@ -11,6 +12,8 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -30,12 +33,15 @@ void main() {
     'started_at': 1780000000,
   };
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Locale? locale}) async {
     tester.view.physicalSize = const Size(500, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(),
         home: KanbanWorkersScreen(
           repository: KanbanRepository(server.client()),
@@ -129,6 +135,35 @@ void main() {
     expect(find.textContaining('process not found'), findsOneWidget);
   });
 
+  testWidgets('the Inspect dialog is in German', (tester) async {
+    server
+      ..on('GET', '/api/plugins/kanban/workers/active', {
+        'workers': [worker()],
+      })
+      ..on('GET', '/api/plugins/kanban/runs/7/inspect', {
+        'alive': true,
+        'pid': 4242,
+        'memory_rss_bytes': 104857600,
+        'num_threads': 9,
+      });
+    await pump(tester, locale: const Locale('de'));
+
+    await openMenu(tester, 'Inspect process');
+
+    expect(find.text('Lauf #7'), findsOneWidget);
+    expect(
+      find.text('Prozess 4242\nArbeitsspeicher: 100 MB\nThreads: 9'),
+      findsOneWidget,
+    );
+    expect(find.text('Schließen'), findsOneWidget);
+    await tester.tap(find.text('Schließen'));
+    await tester.pumpAndSettle();
+
+    server.on('GET', '/api/plugins/kanban/runs/7/inspect', {'alive': false});
+    await openMenu(tester, 'Inspect process');
+    expect(find.text('Der Prozess läuft nicht mehr.'), findsOneWidget);
+  });
+
   testWidgets('terminates a run after confirming and refreshes', (
     tester,
   ) async {
@@ -215,7 +250,7 @@ void main() {
     server.on('GET', '/api/plugins/kanban/workers/active', {
       'detail': 'gateway timeout',
     }, status: 504);
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
 
     expect(find.text('Migrate webhooks'), findsOneWidget);
@@ -248,9 +283,9 @@ void main() {
     await pump(tester);
     expect(find.text('Migrate webhooks'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
     slow.complete();
     await tester.pumpAndSettle();

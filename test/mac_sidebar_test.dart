@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -26,10 +25,7 @@ Future<void> _pump(
       registry: _registry,
       child: MaterialApp(
         locale: locale,
-        localizationsDelegates: const [
-          ...kTestLocalizationsDelegates,
-          GlobalMaterialLocalizations.delegate,
-        ],
+        localizationsDelegates: const [...kTestLocalizationsDelegates],
         supportedLocales: AppLocalizations.supportedLocales,
         home: MacSidebarScope(
           child: Scaffold(
