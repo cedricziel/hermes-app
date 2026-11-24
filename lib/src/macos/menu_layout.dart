@@ -285,6 +285,14 @@ final menuLayout = <MenuSection>[
         desktopShortcuts: const [SingleActivator(LogicalKeyboardKey.f1)],
         platforms: _desktopOnly,
       ),
+      // Moves the keyboard into the optional menu bar; the bar registers it
+      // while it is shown, so F10 is free for anything else otherwise.
+      MenuEntry(
+        MacCommand.focusMenuBar,
+        (l10n) => l10n.navigationFocusMenuBar,
+        desktopShortcuts: const [SingleActivator(LogicalKeyboardKey.f10)],
+        platforms: _desktopOnly,
+      ),
     ],
   ]),
 ];
