@@ -1,5 +1,6 @@
 import 'files_use_cases.dart';
 import 'markdown_use_cases.dart';
+import 'desktop_menu_bar_use_cases.dart';
 import 'keyboard_shortcuts_use_cases.dart';
 import 'focus_ring_use_cases.dart';
 import 'server_care_logs_use_cases.dart';
@@ -144,6 +145,7 @@ final List<WidgetbookNode> directories = [
   groupedRowValueNode(),
   focusRingNode(),
   keyboardShortcutsNode(),
+  desktopMenuBarNode(),
   ...serverCareStatusNodes(),
   ...serverCareSplitNodes(),
   ...serverCareGatewayNodes(),
