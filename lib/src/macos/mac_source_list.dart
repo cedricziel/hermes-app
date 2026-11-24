@@ -58,22 +58,28 @@ class _MacSourceListTileState extends State<MacSourceListTile> {
               ? macSourceListHoverFill(context)
               : Colors.transparent,
           borderRadius: radius,
-          child: InkWell(
-            borderRadius: radius,
-            onTap: widget.onTap,
-            hoverColor: Colors.transparent,
-            splashFactory: NoSplash.splashFactory,
-            highlightColor: Colors.transparent,
-            child: SizedBox(
-              height: widget.height,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                // On the ink's own node, which holds the label, not on one
-                // around it that hover buttons would split from it.
-                child: Semantics(
-                  button: true,
-                  selected: widget.selected,
-                  child: widget.builder(context, _hovered),
+          // The ring follows the tile's own ink well only: a button the row
+          // shows under the pointer (Archive, More) draws its own ring.
+          child: FocusRing(
+            radius: 4,
+            ownFocus: true,
+            child: InkWell(
+              borderRadius: radius,
+              onTap: widget.onTap,
+              hoverColor: Colors.transparent,
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: Colors.transparent,
+              child: SizedBox(
+                height: widget.height,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  // On the ink's own node, which holds the label, not on one
+                  // around it that hover buttons would split from it.
+                  child: Semantics(
+                    button: true,
+                    selected: widget.selected,
+                    child: widget.builder(context, _hovered),
+                  ),
                 ),
               ),
             ),

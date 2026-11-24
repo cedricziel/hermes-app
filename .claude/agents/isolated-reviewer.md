@@ -55,6 +55,19 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    restore the fix. A test that still passes with the fix reverted is a
    finding. Also flag fixed delays, implementation-detail assertions and
    duplicates.
+9. Catalog first. If the diff adds a public widget class (`class X extends
+   StatelessWidget` or `StatefulWidget`) under `lib/src/**/widgets/` and no
+   line the diff adds under `widgetbook/` names it, either list that as a
+   finding, or, when you have checked that a reason is true, emit
+   `Catalog-first: not applicable, <reason>` in your block (see Output).
+   Valid reasons: the widget has no state or layout a use case could show,
+   or it is shown through the `<Parent>` use case (name the parent and
+   confirm that use case builds it). Only a line inside your pasted block
+   unlocks the `PR policy` catalog-first check; that relies on the block
+   being pasted unchanged, the same trust as the `Reviewer:` line itself.
+10. UI behaviour change to an existing widget: which Widgetbook use case
+    shows it? Expect a `## Proof` line naming it. Advisory: record a
+    finding only when the change is visible and no use case covers it.
 
 ## Output
 
@@ -66,6 +79,11 @@ after them:
   `changes-requested`, a single value, never both.
 - The `Findings:` line gives the count, then one line per finding (severity,
   file:line, issue, fix expected).
+- Only when item 9 applies and you checked the reason: one line
+  `Catalog-first: not applicable, <reason>` (reason of at least 10
+  characters, plain words, not `n/a` or `<reason>`) after the `Findings:`
+  lines and before `Revert-the-fix:`. `pr-policy` reads it only between your
+  `Reviewer:` and `Proof reproduced:` lines.
 - The `Revert-the-fix:` line names the test and the fix reverted and says it
   failed, or says `not applicable`.
 - The `Proof reproduced:` line says `yes`, or `no` and what.
