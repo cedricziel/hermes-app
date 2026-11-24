@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
@@ -17,6 +16,7 @@ import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
+import 'widgets/kanban_run_inspect_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
@@ -105,35 +105,8 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     final i = inspection!;
     await showAppDialog<void>(
       context: context,
-      builder: (context) {
-        final l10n = context.l10n;
-        return AppAlertDialog(
-          title: Text(l10n.kanbanInspectTitle(worker.runId)),
-          content: Text(
-            i.alive
-                ? [
-                    if (i.pid != null) l10n.kanbanInspectProcess(i.pid!),
-                    if (i.status != null) l10n.kanbanInspectStatus(i.status!),
-                    if (i.memoryBytes != null)
-                      l10n.kanbanInspectMemory(
-                        (i.memoryBytes! / (1024 * 1024)).toStringAsFixed(0),
-                      ),
-                    if (i.threads != null)
-                      l10n.kanbanInspectThreads(i.threads!),
-                    if (i.note != null) i.note!,
-                  ].join('\n')
-                : i.note == null
-                ? l10n.kanbanInspectGone
-                : l10n.kanbanInspectGoneNote(i.note!),
-          ),
-          actions: [
-            AppDialogAction(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.kanbanInspectClose),
-            ),
-          ],
-        );
-      },
+      builder: (context) =>
+          KanbanRunInspectDialog(runId: worker.runId, inspection: i),
     );
   }
 

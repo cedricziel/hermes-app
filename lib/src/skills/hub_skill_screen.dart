@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 
-import '../../l10n/l10n.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
+import 'widgets/skill_install_confirm_dialog.dart';
 import 'widgets/skill_security_scan.dart';
 import 'widgets/skill_markdown_panel.dart';
-
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'widgets/skill_badges.dart';
 import 'hermes_skills_hub_repository.dart';
@@ -90,43 +88,8 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
     if (scan == null) return;
     final go = await showAppDialog<bool>(
       context: context,
-      builder: (context) {
-        final l10n = context.l10n;
-        return AppAlertDialog(
-          title: Text(l10n.skillsHubInstallTitle(widget.skill.name)),
-          // Findings are data: start-aligned on every platform, not centred as
-          // an Apple alert would centre its message.
-          content: DefaultTextStyle.merge(
-            textAlign: TextAlign.start,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    scan.policyReason.isNotEmpty
-                        ? scan.policyReason
-                        : l10n.skillsHubInstallScanAsks,
-                  ),
-                  const SizedBox(height: 12),
-                  for (final f in scan.findings) SkillScanFinding(f),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            AppDialogAction(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(l10n.skillsHubInstallCancel),
-            ),
-            AppDialogAction(
-              isDefault: true,
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(l10n.skillsHubInstallAnyway),
-            ),
-          ],
-        );
-      },
+      builder: (context) =>
+          SkillInstallConfirmDialog(skillName: widget.skill.name, scan: scan),
     );
     if (go == true) await _install(confirmed: true);
   }
