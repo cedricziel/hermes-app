@@ -296,6 +296,22 @@ void main() {
       expect(find.text('Erneut versuchen'), findsOneWidget);
     });
 
+    testWidgets('the profile picker is named in German', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpSkills(tester, locale: de);
+
+      expect(
+        tester.getSemantics(find.text('default')),
+        isSemantics(
+          label: 'Profil\ndefault',
+          tooltip: '',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
+    });
+
     testWidgets('an older server and an empty profile are told in German', (
       tester,
     ) async {

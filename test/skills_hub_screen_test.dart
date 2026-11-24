@@ -514,6 +514,92 @@ void main() {
     });
   });
 
+  group('German chrome', () {
+    setUp(() => locale = const Locale('de'));
+
+    const status = '/api/actions/skills-install-web-scraper/status';
+
+    Future<void> installInBackground(
+      WidgetTester tester,
+      Map<String, Object?> after, {
+      int httpStatus = 200,
+    }) async {
+      server.on(
+        'GET',
+        status,
+        jobStatusBody(running: true, exitCode: null, lines: ['Fetching…']),
+      );
+      await openWebScraper(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Install'));
+      await pumpFor(tester, 800);
+      await tester.tap(find.text('Run in background'));
+      await pumpFor(tester, 800);
+      await tester.tap(find.byTooltip('Zurück'));
+      await pumpFor(tester, 800);
+      server.on('GET', status, after, status: httpStatus);
+      await pumpFor(tester, 2500);
+      await pumpFor(tester, 800);
+    }
+
+    testWidgets('the tabs and the Discover search are in German', (
+      tester,
+    ) async {
+      await openDiscover(tester);
+
+      expect(find.text('Installiert'), findsOneWidget);
+      expect(find.text('Skills-Hub durchsuchen'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(CheckedPopupMenuItem<VoidCallback>, 'Alle Quellen'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a job that ended well says Fertig', (tester) async {
+      await installInBackground(tester, jobStatusBody(lines: ['Done']));
+
+      expect(find.text('Fertig: Installing web-scraper'), findsOneWidget);
+    });
+
+    testWidgets('a job that failed says Fehlgeschlagen', (tester) async {
+      await installInBackground(
+        tester,
+        jobStatusBody(exitCode: 1, lines: ['boom']),
+      );
+
+      expect(
+        find.text('Fehlgeschlagen: Installing web-scraper'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a job whose end never arrived says Nicht bestätigt', (
+      tester,
+    ) async {
+      await installInBackground(tester, {
+        'detail': 'Unknown action',
+      }, httpStatus: 404);
+
+      expect(
+        find.text('Nicht bestätigt: Installing web-scraper'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the Mac subtitle counts skills in German', (tester) async {
+      platform = TargetPlatform.macOS;
+      await pumpSkills(tester);
+      expect(find.text('work · 2 Skills'), findsOneWidget);
+
+      server.on('GET', '/api/skills', [skillRow(name: 'compose')]);
+      await tester.pumpWidget(const SizedBox());
+      await pumpSkills(tester);
+      expect(find.text('work · 1 Skill'), findsOneWidget);
+    });
+  });
+
   group('uninstall and update', () {
     testWidgets('a hub skill can be uninstalled after a confirmation', (
       tester,

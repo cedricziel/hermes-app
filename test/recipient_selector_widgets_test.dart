@@ -359,6 +359,12 @@ void main() {
 
       await chip(RecipientSelectorState.unavailable);
       expect(find.textContaining('nicht verfügbar'), findsOneWidget);
+
+      await chip(RecipientSelectorState.unavailable, profile: false);
+      expect(find.text('Empfänger nicht verfügbar'), findsOneWidget);
+
+      await chip(RecipientSelectorState.loading, profile: false);
+      expect(find.text('Empfänger werden geladen'), findsOneWidget);
       handle.dispose();
     });
 
