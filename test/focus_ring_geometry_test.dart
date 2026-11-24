@@ -1086,6 +1086,7 @@ void main() {
         tester.getRect(face),
         6,
       ), reason: 'Mac pop-up value of a GroupedMenuRow');
+      await expectKeyboardOnly(tester);
     });
   });
 

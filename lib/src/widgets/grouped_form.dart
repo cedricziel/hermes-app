@@ -78,7 +78,12 @@ class GroupedValueRow extends StatelessWidget {
         focusable: false,
         trailing:
             progress ??
-            _PopUpValue(value: value, enabled: enabled, onPressed: onTap),
+            _PopUpValue(
+              value: value,
+              enabled: enabled,
+              onPressed: onTap,
+              inMenu: _inMenu,
+            ),
       ),
       // The value stays inside the row's tap target, which a trailing
       // widget beside a tappable GroupedRow would not.
@@ -127,10 +132,14 @@ class _PopUpValue extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onPressed,
+    required this.inMenu,
   });
 
   final String value;
   final bool enabled;
+
+  /// Whether a menu button round the row takes the focus and the tap.
+  final bool inMenu;
   final VoidCallback? onPressed;
 
   @override
@@ -157,33 +166,37 @@ class _PopUpValue extends StatelessWidget {
       ),
     );
     final onPressed = this.onPressed;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
-      child: Material(
-        color: scheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: BorderSide(color: scheme.outline),
-        ),
-        child: onPressed == null
-            ? face
-            : Semantics(
-                button: true,
-                value: value,
-                onTap: onPressed,
-                excludeSemantics: true,
-                // The row has 12 pt of padding round it: the ring goes
-                // outside.
-                child: FocusRing.outside(
-                  radius: 6,
-                  child: InkWell(
-                    borderRadius: radius,
-                    onTap: onPressed,
-                    child: face,
-                  ),
+    final material = Material(
+      color: scheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(color: scheme.outline),
+      ),
+      child: onPressed == null
+          ? face
+          : Semantics(
+              button: true,
+              value: value,
+              onTap: onPressed,
+              excludeSemantics: true,
+              // The row has 12 pt of padding round it: the ring goes
+              // outside.
+              child: FocusRing.outside(
+                radius: 6,
+                child: InkWell(
+                  borderRadius: radius,
+                  onTap: onPressed,
+                  child: face,
                 ),
               ),
-      ),
+            ),
+    );
+    // In a menu the button round the row takes the focus, not the face.
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 260),
+      child: inMenu
+          ? AncestorFocusRing.outside(radius: 6, child: material)
+          : material,
     );
   }
 }

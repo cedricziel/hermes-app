@@ -602,6 +602,86 @@ class _HostFocusRingState<H extends Widget> extends State<HostFocusRing<H>> {
   }
 }
 
+/// A ring [kFocusRingOffset] outside [child], shown while the primary focus
+/// sits on a control above it (the nearest focus node there that takes focus,
+/// not a row's inert one in between): for a face drawn inside a control that
+/// Material builds around it and that takes the focus itself (the
+/// `PopupMenuButton` round a row), so [FocusRing.outside], which follows nodes
+/// below it, would never light. [radius] is the face's own.
+class AncestorFocusRing extends StatefulWidget {
+  const AncestorFocusRing.outside({
+    super.key,
+    required this.child,
+    required this.radius,
+  });
+
+  final Widget child;
+  final double radius;
+
+  @override
+  State<AncestorFocusRing> createState() => _AncestorFocusRingState();
+}
+
+class _AncestorFocusRingState extends State<AncestorFocusRing> {
+  bool _keyboard = keyboardFocusShows;
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _watchInput();
+    _inputChanges.addListener(_onInput);
+    FocusManager.instance.addListener(_onFocusMoved);
+  }
+
+  @override
+  void dispose() {
+    _inputChanges.removeListener(_onInput);
+    FocusManager.instance.removeListener(_onFocusMoved);
+    super.dispose();
+  }
+
+  /// Whether the primary focus is on a node whose widget is above this one.
+  bool _ancestorFocused() {
+    final focus = FocusManager.instance.primaryFocus?.context;
+    if (focus == null || !focus.mounted) return false;
+    var found = false;
+    context.visitAncestorElements((element) {
+      found = identical(element, focus);
+      return !found;
+    });
+    return found;
+  }
+
+  void _onFocusMoved() {
+    if (!mounted) return;
+    final next = _ancestorFocused();
+    if (next != _focused) setState(() => _focused = next);
+  }
+
+  void _onInput() {
+    final next = keyboardFocusShows;
+    if (next == _keyboard) return;
+    _keyboard = next;
+    if (_focused) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _focused = _ancestorFocused();
+    return CustomPaint(
+      foregroundPainter: _focused && _keyboard
+          ? FocusRingPainter(
+              color: context.hermesColors.link,
+              radius: widget.radius + kFocusRingOffset + kFocusRingWidth,
+              inset: -(kFocusRingOffset + kFocusRingWidth),
+            )
+          : null,
+      child: widget.child,
+    );
+  }
+}
+
 /// Builds with whether the keyboard has the last input ([keyboardFocusShows]),
 /// and again when a pointer press or a key press changes it, for a control
 /// that draws its own focus state and must hide it after a pointer press. An
