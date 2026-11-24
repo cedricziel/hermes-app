@@ -29,14 +29,16 @@ const kHighlightMaxDocument = 10000;
 ///
 /// Blocks are told apart by their place in the document, not by their text: a
 /// document that repeats one block is charged for every copy. A render pass
-/// starts with [begin] and asks about its blocks in document order. A block
-/// asked about again at the same place (a rebuild, or a reply that streams and
-/// grows by a few characters) is judged again in place of its old self, since
-/// a block's decision only reads the blocks before it. Only the length granted
-/// to each block is kept. [BoundedMarkdown] starts a pass whenever a frame
-/// asks about its first block, not only when it builds itself: the renderer
-/// also redraws the document without a rebuild of its parent (a timer, a
-/// theme change).
+/// starts with [begin] and asks about its blocks in document order with
+/// [admit]. A block asked about again at the same place (a rebuild, or a reply
+/// that streams and grows by a few characters) is judged again in place of its
+/// old self, since a block's decision only reads the blocks before it. The
+/// length granted to each block and its code are kept.
+///
+/// `GptMarkdown` also draws some blocks again outside such a pass, and only
+/// the blocks of the segments it redraws (the end of a held reply is released
+/// by a timer). Those go to [admitRedrawn], which finds the place of the block
+/// by its code and charges it for every other place's grant.
 class CodeHighlightBudget {
   CodeHighlightBudget({
     this.maxLine = kHighlightMaxLine,
@@ -50,6 +52,12 @@ class CodeHighlightBudget {
 
   /// The characters each block was granted (0 when it is plain).
   final List<int> _granted = [];
+
+  /// The code each block was asked about with, by place.
+  final List<String> _codes = [];
+
+  /// The places [admitRedrawn] gave out since [beginRedrawn].
+  final Set<int> _taken = {};
   int _next = 0;
 
   /// Characters granted to the blocks asked about so far in this pass.
@@ -66,21 +74,55 @@ class CodeHighlightBudget {
   /// Starts a pass over the document, from its first block.
   void begin() => _next = 0;
 
+  /// Starts a series of [admitRedrawn] calls: a place is given out once in it,
+  /// so a document that repeats a block gets each copy its own place.
+  void beginRedrawn() => _taken.clear();
+
   /// Forgets every decision, for a document that was replaced.
   void clear() {
     _granted.clear();
+    _codes.clear();
+    _taken.clear();
     _next = 0;
   }
 
   /// Whether the next block of the document, with body [code], may be coloured.
   bool admit(String code) {
     final index = _next++;
-    final ok = _fits(code, _usedBefore(index));
+    return _judge(index, code, _usedBefore(index));
+  }
+
+  /// Whether a block drawn again outside a pass, with body [code], may be
+  /// coloured. Its place is the one that was asked about with the same code, or
+  /// with a start of it (a block that is still growing); a block with no place
+  /// takes a new one at the end. It is charged for every other place's grant,
+  /// so the document limit holds whichever blocks are drawn again.
+  bool admitRedrawn(String code) {
+    bool free(int i) => !_taken.contains(i);
+    var place = -1;
+    for (var i = 0; i < _codes.length && place < 0; i++) {
+      if (free(i) && _codes[i] == code) place = i;
+    }
+    for (var i = 0; i < _codes.length && place < 0; i++) {
+      if (free(i) && _codes[i].isNotEmpty && code.startsWith(_codes[i])) {
+        place = i;
+      }
+    }
+    if (place < 0) place = _codes.length;
+    _taken.add(place);
+    final own = place < _granted.length ? _granted[place] : 0;
+    return _judge(place, code, _usedBefore(_granted.length) - own);
+  }
+
+  bool _judge(int index, String code, int usedBefore) {
+    final ok = _fits(code, usedBefore);
     final length = ok ? code.length : 0;
     if (index < _granted.length) {
       _granted[index] = length;
+      _codes[index] = code;
     } else {
       _granted.add(length);
+      _codes.add(code);
     }
     return ok;
   }
@@ -134,20 +176,38 @@ class BoundedMarkdown extends StatefulWidget {
 class _BoundedMarkdownState extends State<BoundedMarkdown> {
   final _budget = CodeHighlightBudget();
 
-  /// Whether the frame in progress already started a pass of [_budget].
+  /// Whether `build` started the pass of the frame in progress, and whether a
+  /// series of redrawn blocks has started in it.
   bool _passOpen = false;
+  bool _redrawOpen = false;
 
-  /// Starts a pass over the document, once per frame. `GptMarkdown` redraws
-  /// its code blocks without `build` here when a timer fires (the held end of
-  /// a streaming reply is released after 1.5 s) or the theme changes; a pass
-  /// that kept counting from the one before judged the same blocks again as
-  /// blocks after the document's end, which refused them for the characters
-  /// they were already charged.
+  void _endOfFrame() {
+    if (_passOpen || _redrawOpen) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _passOpen = false;
+      _redrawOpen = false;
+    });
+  }
+
+  /// Starts a pass over the document. Only `build` does: a block asked about
+  /// in a frame where it did not (`GptMarkdown` draws its blocks again by
+  /// itself, from its own rebuild or a timer) goes to
+  /// [CodeHighlightBudget.admitRedrawn], since it may be the only block drawn
+  /// and has no place in a pass that begins at the first block.
   void _beginPass() {
     _budget.begin();
-    if (_passOpen) return;
+    _endOfFrame();
     _passOpen = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) => _passOpen = false);
+  }
+
+  bool _admit(String code) {
+    if (_passOpen) return _budget.admit(code);
+    if (!_redrawOpen) {
+      _budget.beginRedrawn();
+      _endOfFrame();
+      _redrawOpen = true;
+    }
+    return _budget.admitRedrawn(code);
   }
 
   @override
@@ -159,7 +219,6 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   Widget _code(BuildContext context, String name, String code, bool closed) {
     const config = GptMarkdownConfig();
-    if (!_passOpen) _beginPass();
     final style =
         (resolvedStyleSheet(context, config).codeBlock ??
                 const CodeBlockStyle())
@@ -172,8 +231,7 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
       name: name,
       codes: code,
       highlightCode:
-          _budget.admit(code) &&
-          (closed || (style.highlightWhileStreaming ?? true)),
+          _admit(code) && (closed || (style.highlightWhileStreaming ?? true)),
       style: style,
     );
   }

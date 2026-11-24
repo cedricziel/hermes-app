@@ -109,4 +109,27 @@ void main() {
     expect(colouredChars(tester), lessThanOrEqualTo(kDocumentLimit));
     expect(colourableChars(tester), greaterThan(kDocumentLimit));
   });
+
+  testWidgets('a held tail block is judged after the closed block before it', (
+    tester,
+  ) async {
+    // The stream ends on a lone backtick, so the renderer holds that line and
+    // releases it after 1.5 s: it then draws only the open block again, with
+    // the 7000-character block before it still cached.
+    final document =
+        'Intro\n\n${fenced(exactCode(7000))}\n\nMiddle paragraph.\n\n'
+        '${fence}js\n${exactCode(5000)}\n`';
+    await streamDocument(
+      tester,
+      document,
+      chunk: 400,
+      steps: [Step(document.length, hold: const Duration(milliseconds: 3000))],
+    );
+    List<bool> drawn() => [for (final b in codeBlocks(tester)) b.highlightCode];
+    final settled = drawn();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(markdownApp(document, const Env()));
+    expect(settled, drawn(), reason: 'the streamed look is the fresh one');
+    expect(settled, [true, false]);
+  });
 }
