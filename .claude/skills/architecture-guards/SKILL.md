@@ -29,6 +29,10 @@ description: Use when a test under test/architecture/ fails (a guard or the base
 4. Prove the rule can fail: add one violating line to a `lib/` file, run `flutter test test/architecture`, see the failure with the right message, revert it. Do not commit the line. A rule over `test/` (`arch.tests-read-docs`) needs a temporary file under `test/` instead, deleted afterwards.
 5. Keep the whole directory fast (it may run in a pre-commit hook): read files once, no process spawns.
 
+## Test rules
+
+- `test.geometry-focus-by-tab` (`test_conventions_test.dart`): a test file that checks a focus ring's shape (`expectRingHugs`, `expectInsideClip` or `expectInsideRow`) must reach focus with `tabTo(tester, finder)` (`test/support/tab_to.dart`: Tab until the primary focus is inside the finder, a bounded loop that fails with where the focus is), not with `requestFocus`, `_focus` or `_focusInk`. A node focused by hand can be one no Tab reaches, which is how the Mac `GroupedMenuRow` showed no ring while its case passed. The scan counts every call of `_focus(`, `_focusInk(` and `.requestFocus(` in such a file; only the helpers' own definitions (`_focusByRequestHelpers`: `_focus`, and `_focusInk`, which focuses a row's own ink well so that a button inside the row is not the focused control) are skipped, so a new call of either helper moves the ratchet. The baseline (`test/focus_ring_geometry_test.dart`: 34 = 30 `_focus` + 2 `_focusInk` + 2 `requestFocus`) only goes down. The self-test group in the same file shows a `requestFocus` case and a `_focusInk` call failing and a `tabTo` case passing.
+
 ## Known gaps
 
 The scans read text, not types, so some slips get through. They are known, and a review is still the backstop:
