@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -142,6 +144,11 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
                   ? current * ZoomKeyboardShortcuts.zoomStep
                   : current / ZoomKeyboardShortcuts.zoomStep)
               .clamp(1.0, widget.maxScale);
+      // Fit is exactly the identity, not a product that rounds to 0.9999...
+      if (target <= 1) {
+        controller.value = Matrix4.identity();
+        return KeyEventResult.handled;
+      }
       final factor = target / current;
       final centre = viewport.center(Offset.zero);
       final next = Matrix4.identity()
@@ -168,8 +175,13 @@ class _ZoomKeyboardShortcutsState extends State<ZoomKeyboardShortcuts> {
   Matrix4 _within(Matrix4 m, Size viewport) {
     final scale = m.getColumn(0).length;
     final t = m.getTranslation();
-    final x = t.x.clamp(viewport.width * (1 - scale), 0.0);
-    final y = t.y.clamp(viewport.height * (1 - scale), 0.0);
+    // A scale a hair under 1 would put the lower bound above the upper one.
+    final x = t.x
+        .clamp(math.min(viewport.width * (1 - scale), 0.0), 0.0)
+        .toDouble();
+    final y = t.y
+        .clamp(math.min(viewport.height * (1 - scale), 0.0), 0.0)
+        .toDouble();
     return m.clone()..setTranslationRaw(x, y, 0);
   }
 

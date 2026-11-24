@@ -394,6 +394,22 @@ void main() {
         expect(controller.value.storage[10], closeTo(1, 1e-9));
       });
 
+      testWidgets('zoom out to fit lands on exactly fit whatever the start', (
+        tester,
+      ) async {
+        await viewer.pump(tester, TargetPlatform.linux);
+        final controller = _viewer(tester).transformationController!;
+
+        for (var s = 1.05; s < 8; s += 0.0731) {
+          controller.value = Matrix4.diagonal3Values(s, s, s);
+          for (var i = 0; i < 12 && controller.value.storage[0] > 1; i++) {
+            await _chord(tester, LogicalKeyboardKey.minus);
+          }
+          expect(controller.value.storage[0], 1, reason: 'from $s');
+          expect(_shift(tester), Offset.zero, reason: 'from $s');
+        }
+      });
+
       testWidgets('Tab never lands on the picture', (tester) async {
         await viewer.pump(tester, TargetPlatform.linux);
         final block = FocusManager.instance.primaryFocus;
