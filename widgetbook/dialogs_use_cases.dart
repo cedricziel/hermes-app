@@ -88,6 +88,23 @@ WidgetbookUseCase _mac(String name, Widget Function(BuildContext) build) =>
       ),
     );
 
+/// The worker Inspect dialog over an empty page, opened once shown.
+Widget _inspect(KanbanRunInspection inspection) => openOnShow(
+  (context) => showAppDialog<void>(
+    context: context,
+    builder: (_) => KanbanRunInspectDialog(runId: 7, inspection: inspection),
+  ),
+);
+
+/// The hub skill's install confirmation over an empty page, opened once shown.
+Widget _confirmInstall(HubScan scan) => openOnShow(
+  (context) => showAppDialog<bool>(
+    context: context,
+    builder: (_) =>
+        SkillInstallConfirmDialog(skillName: 'web-scraper', scan: scan),
+  ),
+);
+
 WidgetbookNode dialogsNode() => WidgetbookFolder(
   name: 'Dialogs and sheets',
   children: [
@@ -282,73 +299,83 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'KanbanRunInspectDialog',
       useCases: [
-        _mac(
+        ...onEachPlatform(
           'Process running',
-          (_) => openOnShow(
-            (context) => showAppDialog<void>(
-              context: context,
-              builder: (_) => const KanbanRunInspectDialog(
-                runId: 7,
-                inspection: KanbanRunInspection(
-                  alive: true,
-                  pid: 4242,
-                  cpuPercent: 12.5,
-                  memoryBytes: 104857600,
-                  threads: 9,
-                  status: 'sleeping',
-                  note: 'child of dispatcher',
-                ),
-              ),
+          (_) => _inspect(
+            const KanbanRunInspection(
+              alive: true,
+              pid: 4242,
+              cpuPercent: 12.5,
+              memoryBytes: 104857600,
+              threads: 9,
+              status: 'sleeping',
+              note: 'child of dispatcher',
             ),
           ),
         ),
-        _mac(
+        ...onEachPlatform(
           'Process gone',
-          (_) => openOnShow(
-            (context) => showAppDialog<void>(
-              context: context,
-              builder: (_) => const KanbanRunInspectDialog(
-                runId: 7,
-                inspection: KanbanRunInspection(
-                  alive: false,
-                  note: 'process not found',
-                ),
-              ),
-            ),
+          (_) => _inspect(
+            const KanbanRunInspection(alive: false, note: 'process not found'),
           ),
+        ),
+        ...onEachPlatform(
+          'Process gone, no note',
+          (_) => _inspect(const KanbanRunInspection(alive: false)),
         ),
       ],
     ),
     WidgetbookComponent(
       name: 'SkillInstallConfirmDialog',
       useCases: [
-        _mac(
+        ...onEachPlatform(
           'With findings',
-          (_) => openOnShow(
-            (context) => showAppDialog<bool>(
-              context: context,
-              builder: (_) => const SkillInstallConfirmDialog(
-                skillName: 'web-scraper',
-                scan: HubScan(
-                  identifier: 'example/web-scraper',
-                  policy: InstallPolicy.ask,
-                  policyReason: 'The scan found operations that need a look.',
-                  findings: [
-                    ScanFinding(
-                      severity: 'high',
-                      description: 'Downloads and runs a remote script',
-                      file: 'scripts/fetch.sh',
-                      line: 12,
-                    ),
-                    ScanFinding(
-                      severity: 'low',
-                      description: 'Reads the environment',
-                      file: 'scripts/env.sh',
-                      line: 3,
-                    ),
-                  ],
+          (_) => _confirmInstall(
+            const HubScan(
+              identifier: 'example/web-scraper',
+              policy: InstallPolicy.ask,
+              policyReason: 'The scan found operations that need a look.',
+              findings: [
+                ScanFinding(
+                  severity: 'high',
+                  description: 'Downloads and runs a remote script',
+                  file: 'scripts/fetch.sh',
+                  line: 12,
                 ),
-              ),
+                ScanFinding(
+                  severity: 'low',
+                  description: 'Reads the environment',
+                  file: 'scripts/env.sh',
+                  line: 3,
+                ),
+              ],
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'No policy reason',
+          (_) => _confirmInstall(
+            const HubScan(
+              identifier: 'example/web-scraper',
+              policy: InstallPolicy.ask,
+              findings: [
+                ScanFinding(
+                  severity: 'high',
+                  description: 'Downloads and runs a remote script',
+                  file: 'scripts/fetch.sh',
+                  line: 12,
+                ),
+              ],
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'No findings',
+          (_) => _confirmInstall(
+            const HubScan(
+              identifier: 'example/web-scraper',
+              policy: InstallPolicy.ask,
+              policyReason: 'The scan found operations that need a look.',
             ),
           ),
         ),

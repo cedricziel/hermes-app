@@ -91,9 +91,20 @@ class _OpenMenuState extends State<_OpenMenu> {
 /// The compact toolbar's "…" button with its menu open, as a user sees it
 /// after a click: [exportRunning] greys "Export Chat as JSON…".
 class _OpenMoreMenu extends StatefulWidget {
-  const _OpenMoreMenu({this.exportRunning = false});
+  const _OpenMoreMenu({
+    this.exportRunning = false,
+    this.canCopy = true,
+    this.complete = true,
+  });
 
   final bool exportRunning;
+
+  /// Whether a chat is open to copy; Copy Transcript is greyed without one.
+  final bool canCopy;
+
+  /// Whether Show Files and the export are offered (an older server has
+  /// neither).
+  final bool complete;
 
   @override
   State<_OpenMoreMenu> createState() => _OpenMoreMenuState();
@@ -117,12 +128,11 @@ class _OpenMoreMenuState extends State<_OpenMoreMenu> {
       padding: const EdgeInsets.all(8),
       child: MacChatMoreMenu(
         controller: _menu,
-        onShowFiles: () {},
-        onCopyTranscript: () {},
-        exportJson: ExportJsonOffer(
-          onSelected: () {},
-          enabled: !widget.exportRunning,
-        ),
+        onShowFiles: widget.complete ? () {} : null,
+        onCopyTranscript: widget.canCopy ? () {} : null,
+        exportJson: widget.complete
+            ? ExportJsonOffer(onSelected: () {}, enabled: !widget.exportRunning)
+            : null,
         onShowConnection: () {},
       ),
     ),
@@ -449,6 +459,14 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Export running',
           () => frame(const _OpenMoreMenu(exportRunning: true)),
+        ),
+        _case(
+          'Copy Transcript disabled',
+          () => frame(const _OpenMoreMenu(canCopy: false)),
+        ),
+        _case(
+          'Without Show Files and export',
+          () => frame(const _OpenMoreMenu(complete: false)),
         ),
       ],
     ),
