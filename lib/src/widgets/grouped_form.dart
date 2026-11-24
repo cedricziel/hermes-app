@@ -118,6 +118,9 @@ class GroupedValueRow extends StatelessWidget {
   /// The widest the Mac pop-up gets in a row [rowWidth] wide: at most 260,
   /// and what is left once the title has its longest word or a third of the
   /// row inside its padding, whichever is wider, and the gap to the pop-up.
+  /// The longest word is reserved only while the pop-up keeps room for its
+  /// chrome and about three characters of the value and an ellipsis;
+  /// otherwise the title gets a third.
   static double _popUpMaxWidth(
     BuildContext context,
     double rowWidth,
@@ -131,7 +134,14 @@ class GroupedValueRow extends StatelessWidget {
       if (part.isEmpty) continue;
       word = math.max(word, measureRowText(context, part, style));
     }
-    final titleMin = math.max(inner / 3, word + 1);
+    // The pop-up's padding, gap and chevron, and "Abc…" at its 12 pt size.
+    final readable =
+        31 +
+        measureRowText(context, 'Abc…', _popUpTextStyle(Colors.transparent));
+    final wordMin = word + 1;
+    final titleMin = inner - 8 - wordMin >= readable
+        ? math.max(inner / 3, wordMin)
+        : inner / 3;
     return math.max(32, math.min(260, inner - 8 - titleMin));
   }
 
@@ -144,6 +154,8 @@ class GroupedValueRow extends StatelessWidget {
           ),
         );
 }
+
+TextStyle _popUpTextStyle(Color color) => TextStyle(fontSize: 12, color: color);
 
 /// A Mac pop-up button showing [value].
 class _PopUpValue extends StatelessWidget {
@@ -180,7 +192,7 @@ class _PopUpValue extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: color),
+              style: _popUpTextStyle(color),
             ),
           ),
           AppIcon(AppIcons.expandMore, size: 12, color: color),

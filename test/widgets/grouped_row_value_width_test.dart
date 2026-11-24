@@ -278,7 +278,7 @@ void main() {
     );
   });
 
-  for (final scale in [1.0, 1.5]) {
+  for (final scale in [1.0]) {
     for (final title in ['Orchestrator-Profil', 'Standardmäßig zuständig']) {
       testWidgets('a Mac title "$title" in a 246 px row breaks no word at '
           '${scale}x', (tester) async {
@@ -308,4 +308,47 @@ void main() {
       });
     }
   }
+
+  testWidgets('a Mac pop-up in a 246 px row at 3x shows part of its value', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      TargetPlatform.macOS,
+      _menuRow('Orchestrator-Profil', _longValue),
+      rowWidth: 246,
+      scale: 3,
+    );
+    expect(tester.takeException(), isNull);
+    // At least "Abc" of the value is drawn, so the pop-up is not just a
+    // chevron in an empty box.
+    expect(_width(tester, _longValue), greaterThan(30));
+    expect(_paragraph(tester, _longValue).didExceedMaxLines, isTrue);
+  });
+
+  testWidgets('a Mac pop-up cuts a short value to keep the title words whole', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      TargetPlatform.macOS,
+      _valueRow(_title29, 'Hermes Standard'),
+      rowWidth: 246,
+    );
+    expect(tester.takeException(), isNull);
+    final title = _paragraph(tester, _title29);
+    for (var i = 1; i < _title29.length; i++) {
+      double top(int at) => title
+          .getBoxesForSelection(
+            TextSelection(baseOffset: at, extentOffset: at + 1),
+          )
+          .first
+          .top;
+      if (top(i) > top(i - 1)) {
+        expect(_title29[i - 1], ' ', reason: 'a word breaks at $i');
+      }
+    }
+    expect(_paragraph(tester, 'Hermes Standard').didExceedMaxLines, isTrue);
+    expect(_width(tester, 'Hermes Standard'), greaterThan(30));
+  });
 }

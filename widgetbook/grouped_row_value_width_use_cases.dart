@@ -11,7 +11,7 @@ import 'platform_theme.dart';
 WidgetbookNode groupedRowValueWidthNode() => WidgetbookComponent(
   name: 'Grouped row value width',
   useCases: [
-    for (final scale in [1.0, 1.5])
+    for (final scale in [1.0, 1.5, 3.0])
       _useCase(
         'Mac dialog row, 246 px',
         TargetPlatform.macOS,
@@ -28,6 +28,18 @@ WidgetbookNode groupedRowValueWidthNode() => WidgetbookComponent(
           window: window,
           scale: scale,
         ),
+    _useCase(
+      'Mac dialog row, 246 px, long title and "Hermes Standard"',
+      TargetPlatform.macOS,
+      rowWidth: 246,
+      window: 1280,
+      scale: 1,
+      child: GroupedValueRow(
+        title: 'Bei Abschluss benachrichtigen',
+        value: 'Hermes Standard',
+        onTap: () {},
+      ),
+    ),
     for (final scale in [1.0, 1.5])
       _useCase(
         'iPhone list, 390 px',
@@ -53,8 +65,14 @@ WidgetbookUseCase _useCase(
   required double rowWidth,
   required double window,
   required double scale,
+  Widget child = const _Rows(),
 }) => WidgetbookUseCase(
-  name: '$name, ${scale == 1 ? "1x" : "large text"}',
+  name:
+      '$name, ${scale == 1
+          ? "1x"
+          : scale == 3
+          ? "3x"
+          : "large text"}',
   builder: (context) => Theme(
     data: platformTheme(context, platform),
     child: MediaQuery(
@@ -65,7 +83,7 @@ WidgetbookUseCase _useCase(
         padding: const EdgeInsets.all(16),
         child: Align(
           alignment: Alignment.topLeft,
-          child: SizedBox(width: rowWidth, child: const _Rows()),
+          child: SizedBox(width: rowWidth, child: child),
         ),
       ),
     ),
