@@ -4,6 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/kanban/kanban_errors.dart';
 import 'package:hermes_app/src/kanban/kanban_files.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_run_inspect_dialog.dart';
+import 'package:hermes_app/src/skills/widgets/skill_install_confirm_dialog.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_log_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
@@ -230,8 +233,9 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
       ],
     ),
     // Dialogs opened through showAppDialog are, on macOS, a fading window
-    // with a barrier a click closes. Only the task log is a widget of its
-    // own; the others are built inline in their screens.
+    // with a barrier a click closes. The task log, the worker Inspect dialog
+    // and the skill install confirmation are widgets of their own; the others
+    // are built inline in their screens.
     WidgetbookComponent(
       name: 'showAppDialog (Mac)',
       useCases: [
@@ -268,6 +272,81 @@ WidgetbookNode dialogsNode() => WidgetbookFolder(
                 builder: (_) => KanbanTaskLogDialog(
                   repository: repository,
                   taskId: 't_run',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'KanbanRunInspectDialog',
+      useCases: [
+        _mac(
+          'Process running',
+          (_) => openOnShow(
+            (context) => showAppDialog<void>(
+              context: context,
+              builder: (_) => const KanbanRunInspectDialog(
+                runId: 7,
+                inspection: KanbanRunInspection(
+                  alive: true,
+                  pid: 4242,
+                  cpuPercent: 12.5,
+                  memoryBytes: 104857600,
+                  threads: 9,
+                  status: 'sleeping',
+                  note: 'child of dispatcher',
+                ),
+              ),
+            ),
+          ),
+        ),
+        _mac(
+          'Process gone',
+          (_) => openOnShow(
+            (context) => showAppDialog<void>(
+              context: context,
+              builder: (_) => const KanbanRunInspectDialog(
+                runId: 7,
+                inspection: KanbanRunInspection(
+                  alive: false,
+                  note: 'process not found',
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillInstallConfirmDialog',
+      useCases: [
+        _mac(
+          'With findings',
+          (_) => openOnShow(
+            (context) => showAppDialog<bool>(
+              context: context,
+              builder: (_) => const SkillInstallConfirmDialog(
+                skillName: 'web-scraper',
+                scan: HubScan(
+                  identifier: 'example/web-scraper',
+                  policy: InstallPolicy.ask,
+                  policyReason: 'The scan found operations that need a look.',
+                  findings: [
+                    ScanFinding(
+                      severity: 'high',
+                      description: 'Downloads and runs a remote script',
+                      file: 'scripts/fetch.sh',
+                      line: 12,
+                    ),
+                    ScanFinding(
+                      severity: 'low',
+                      description: 'Reads the environment',
+                      file: 'scripts/env.sh',
+                      line: 3,
+                    ),
+                  ],
                 ),
               ),
             ),

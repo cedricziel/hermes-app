@@ -6,6 +6,7 @@ import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/mac_chat_more_menu.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
@@ -83,6 +84,47 @@ class _OpenMenuState extends State<_OpenMenu> {
       controller: _menu,
       icon: const AppIcon(AppIcons.more),
       itemBuilder: (_) => widget.items(context.l10n),
+    ),
+  );
+}
+
+/// The compact toolbar's "…" button with its menu open, as a user sees it
+/// after a click: [exportRunning] greys "Export Chat as JSON…".
+class _OpenMoreMenu extends StatefulWidget {
+  const _OpenMoreMenu({this.exportRunning = false});
+
+  final bool exportRunning;
+
+  @override
+  State<_OpenMoreMenu> createState() => _OpenMoreMenuState();
+}
+
+class _OpenMoreMenuState extends State<_OpenMoreMenu> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _menu.open();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topRight,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: MacChatMoreMenu(
+        controller: _menu,
+        onShowFiles: () {},
+        onCopyTranscript: () {},
+        exportJson: ExportJsonOffer(
+          onSelected: () {},
+          enabled: !widget.exportRunning,
+        ),
+        onShowConnection: () {},
+      ),
     ),
   );
 }
@@ -398,6 +440,13 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
               ),
             ),
           ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacChatMoreMenu',
+      useCases: [
+        _case('Idle', () => const _OpenMoreMenu()),
+        _case('Export running', () => const _OpenMoreMenu(exportRunning: true)),
       ],
     ),
     WidgetbookComponent(
