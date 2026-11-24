@@ -2264,6 +2264,8 @@ void _popupTriggerTests() {
     final row = tester.getRect(value.child);
     expect(tester.getRect(_ringFinder), row, reason: 'wraps the whole row');
     expectInsideClip(tester, row, why: 'value row');
+    // The iOS section radius (12) less the inset.
+    expect(_ring(tester).$2.radius, 10, reason: 'value row ring radius');
   });
 
   for (final scale in [1.0, 3.0]) {
@@ -2280,6 +2282,8 @@ void _popupTriggerTests() {
       );
       expect(tester.getRect(_ringFinder), painted, reason: 'the chip itself');
       expectInsideClip(tester, painted, why: 'chip');
+      // The chip's own radius (8) less the inset.
+      expect(_ring(tester).$2.radius, 6, reason: 'chip ring radius');
     });
   }
 
