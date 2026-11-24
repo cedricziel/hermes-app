@@ -3,8 +3,11 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/navigation/desktop_menu_models.dart';
 import 'package:hermes_app/src/navigation/widgets/desktop_menu_bar.dart';
+import 'package:hermes_app/src/navigation/widgets/desktop_menu_bar_section.dart';
+import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'frame.dart';
 import 'platform_theme.dart';
 
 void _nothing() {}
@@ -110,6 +113,21 @@ WidgetbookNode desktopMenuBarNode() => WidgetbookFolder(
           builder: (context) =>
               _window(context, TargetPlatform.linux, const {}, open: 1),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'DesktopMenuBarSection',
+      useCases: [
+        for (final on in [false, true])
+          WidgetbookUseCase(
+            name: on ? 'On' : 'Off (default)',
+            builder: (_) => fill(
+              GroupedDialog(
+                title: 'Settings',
+                children: [DesktopMenuBarSection(value: on, onChanged: (_) {})],
+              ),
+            ),
+          ),
       ],
     ),
   ],

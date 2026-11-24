@@ -6949,6 +6949,10 @@
   "@settingsReportBug": {
     "description": "Link to the project's issue tracker."
   },
+  "settingsShowMenuBar": "Show menu bar",
+  "@settingsShowMenuBar": {
+    "description": "Settings switch on Windows and Linux that shows the File, View, Chat and Help menu bar above the app. Off by default."
+  },
   "settingsSignOut": "Sign Out",
   "@settingsSignOut": {
     "description": "Signs out of the dashboard: account menu item and the confirmation's button."
