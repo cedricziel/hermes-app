@@ -64,7 +64,7 @@ Future<String?> askKanbanText(
   required String title,
   String? hint,
   String? initial,
-  String confirm = 'OK',
+  String? confirm,
   bool multiline = false,
 }) => showAppDialog<String>(
   context: context,

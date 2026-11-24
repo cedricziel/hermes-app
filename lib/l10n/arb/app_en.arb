@@ -84,6 +84,14 @@
   "@@x-area-bot_mode": "",
 
   "@@x-area-bot_screen": "",
+  "botScreenLostToAgent": "Hermes took control back.",
+  "@botScreenLostToAgent": {
+    "description": "Notice over the Bot Screen viewer after this device lost control of the screen because Hermes took it back."
+  },
+  "botScreenLostToOther": "Someone else took control.",
+  "@botScreenLostToOther": {
+    "description": "Notice over the Bot Screen viewer after this device lost control of the screen to someone other than Hermes."
+  },
 
   "@@x-area-chat": "",
   "chatComposerHoldHandedBack": "Your last message is back in the box.",
@@ -2136,6 +2144,25 @@
   "@chatWidgetsMacToolbarMore": {
     "description": "Accessibility label and tooltip of the \"…\" button in the Mac chat toolbar that opens the overflow menu."
   },
+  "chatWidgetsMoaFinished": "Finished",
+  "@chatWidgetsMoaFinished": {
+    "description": "Shown in the advisor progress card title once the advisors are done."
+  },
+  "chatWidgetsMoaPhaseAdvisors": "Advisors",
+  "@chatWidgetsMoaPhaseAdvisors": {
+    "description": "Phase shown in the advisor progress card while the advisors answer, when the server reports no phase name."
+  },
+  "chatWidgetsMoaPhaseAggregating": "Aggregating",
+  "@chatWidgetsMoaPhaseAggregating": {
+    "description": "Phase shown in the advisor progress card while the aggregator combines the advisors' answers."
+  },
+  "chatWidgetsMoaProgressTitle": "Advisor progress · {phase}",
+  "@chatWidgetsMoaProgressTitle": {
+    "description": "Title of the advisor progress card: the phase, or Finished, after the dot.",
+    "placeholders": {
+      "phase": {"type": "String", "example": "Finished"}
+    }
+  },
   "chatWidgetsNewChat": "New chat",
   "@chatWidgetsNewChat": {
     "description": "Name and hover text of the buttons that start a new chat."
@@ -2349,6 +2376,10 @@
   "chatWidgetsThreadMenuUnpin": "Unpin",
   "@chatWidgetsThreadMenuUnpin": {
     "description": "A pinned chat row's action that takes it off the top of the list, shown in the iPad popover menu, the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsToolArgumentsTitle": "Input",
+  "@chatWidgetsToolArgumentsTitle": {
+    "description": "Label above the arguments Hermes passed to a tool, in an expanded tool call."
   },
   "chatWidgetsToolValueCopied": "Copied",
   "@chatWidgetsToolValueCopied": {
@@ -3694,6 +3725,10 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsInstall": "Install",
+  "@pluginsInstall": {
+    "description": "Button on a plugin catalog row that installs the plugin on the server."
+  },
   "pluginsInstallFailed": "Could not install this plugin",
   "@pluginsInstallFailed": {
     "description": "Snackbar line after an install the server refused without giving a reason."
@@ -3720,6 +3755,10 @@
   "pluginsRefreshAction": "Refresh",
   "@pluginsRefreshAction": {
     "description": "Name of the Mac toolbar button that reads the open Plugins tab again."
+  },
+  "pluginsUpdateFailed": "Could not update this plugin",
+  "@pluginsUpdateFailed": {
+    "description": "Snack bar when the server refused a change to a plugin and gave no reason."
   },
 
   "@@x-area-profiles": "",
@@ -8958,13 +8997,29 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
+  "widgetsBack": "Back",
+  "@widgetsBack": {
+    "description": "Back button title on a settings page that has no named page underneath it."
+  },
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
     "description": "Label of the button that closes a form or dialog without saving: in a settings page bar and in the Kanban export, import, edit task and orchestration dialogs."
   },
+  "widgetsChatBackTitle": "Chat",
+  "@widgetsChatBackTitle": {
+    "description": "Back button title on iOS of a settings page opened from the chat."
+  },
   "widgetsDone": "Done",
   "@widgetsDone": {
     "description": "Button in the header of a settings dialog that closes it."
+  },
+  "widgetsOk": "OK",
+  "@widgetsOk": {
+    "description": "Confirm button of a one-line text question dialog when the caller names none."
+  },
+  "widgetsSearch": "Search",
+  "@widgetsSearch": {
+    "description": "Placeholder and screen reader name of a settings page search field when the page names none."
   },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {

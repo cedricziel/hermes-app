@@ -9,8 +9,8 @@ class KanbanTextDialog extends StatefulWidget {
   const KanbanTextDialog({
     super.key,
     required this.title,
-    required this.confirm,
     required this.multiline,
+    this.confirm,
     this.hint,
     this.initial,
   });
@@ -18,7 +18,7 @@ class KanbanTextDialog extends StatefulWidget {
   final String title;
   final String? hint;
   final String? initial;
-  final String confirm;
+  final String? confirm;
   final bool multiline;
 
   @override
@@ -52,7 +52,7 @@ class _KanbanTextDialogState extends State<KanbanTextDialog> {
         AppDialogAction(
           isDefault: true,
           onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: Text(widget.confirm),
+          child: Text(widget.confirm ?? context.l10n.widgetsOk),
         ),
       ],
     );
