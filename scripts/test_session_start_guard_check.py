@@ -1,5 +1,6 @@
 """Tests for .claude/hooks/check_guard_freshness.py (the session-start warning)."""
 
+import hashlib
 import json
 import os
 import subprocess
@@ -66,6 +67,7 @@ def make_repo(
     dirty=False,
     origin=True,
     ahead=0,
+    real_origin=False,
 ):
     """A repo whose HEAD is `behind` commits behind a fake origin/main."""
     root = Path(root)
@@ -77,6 +79,7 @@ def make_repo(
         text = settings if isinstance(settings, str) else json.dumps(settings)
         (root / ".claude" / "settings.json").write_text(text)
     (root / "n.txt").write_text("base")
+    (root / "d.txt").write_text("base")
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "base")
     for i in range(behind):
@@ -86,6 +89,18 @@ def make_repo(
     tip = git(root, "rev-parse", "HEAD")
     if origin:
         git(root, "update-ref", "refs/remotes/origin/main", tip)
+    if real_origin:
+        # a bare origin whose main is one commit ahead of the local origin/main
+        bare = root.parent / "up.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(bare)], check=True)
+        git(root, "checkout", "-q", "-b", "tmp")
+        (root / "extra.txt").write_text("new upstream file")
+        git(root, "add", "extra.txt")
+        git(root, "commit", "-q", "-m", "upstream")
+        git(root, "push", "-q", str(bare), "tmp:main")
+        git(root, "checkout", "-q", "main")
+        git(root, "branch", "-q", "-D", "tmp")
+        git(root, "remote", "add", "origin", str(bare))
     if behind:
         git(root, "checkout", "-q", "--detach", f"HEAD~{behind}")
         if not detached:
@@ -97,7 +112,9 @@ def make_repo(
     if detached and not behind:
         git(root, "checkout", "-q", "--detach")
     if dirty:
-        (root / "n.txt").write_text("dirty")
+        (root / "d.txt").write_text("dirty")
+    # stale stat info so a status that may write would refresh the index
+    os.utime(root / "n.txt", (1_000_000_000, 1_000_000_000))
     return root
 
 
@@ -129,9 +146,8 @@ class FreshnessTest(unittest.TestCase):
     def assertWarns(self, p, *needles):
         self.assertEqual(p.returncode, 0, p.stderr)
         self.assertTrue(
-            p.stdout.startswith(
-                "WARNING: the Bash guard is not active in this session:"
-            )
+            p.stdout.startswith("WARNING: the Bash guard is not active in this session:")
+            or p.stdout.startswith("WARNING: the Bash guard in this checkout is ")
         )
         self.assertIn(FIX, p.stdout)
         self.assertIn("new session", p.stdout)
@@ -166,8 +182,59 @@ class FreshnessTest(unittest.TestCase):
     def test_malformed_settings_warns(self):
         self.assertWarns(run(self.repo(settings="{ not json")), "PreToolUse")
 
-    def test_behind_more_than_limit_warns(self):
-        self.assertWarns(run(self.repo(behind=MAX_BEHIND + 1)), str(MAX_BEHIND + 1))
+    def test_behind_more_than_limit_warns_with_lag_header(self):
+        p = run(self.repo(behind=MAX_BEHIND + 1))
+        self.assertWarns(p, str(MAX_BEHIND + 1))
+        self.assertTrue(
+            p.stdout.startswith(
+                "WARNING: the Bash guard in this checkout is 21 commits behind origin/main:"
+            )
+        )
+        self.assertNotIn("not active", p.stdout)
+
+    def test_behind_and_unwired_uses_not_active_header(self):
+        p = run(self.repo(guard=False, behind=MAX_BEHIND + 1))
+        self.assertTrue(p.stdout.startswith("WARNING: the Bash guard is not active"))
+        self.assertIn("commits behind", p.stdout)
+
+    def _settings(self, matcher, command, event="PreToolUse"):
+        group = {"hooks": [{"type": "command", "command": command}]}
+        if matcher is not None:
+            group["matcher"] = matcher
+        return {"hooks": {event: [group]}}
+
+    def test_wiring_matchers(self):
+        cmd = 'python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py"'
+        for m, ok in [
+            ("Bash", True),
+            ("*", True),
+            ("", True),
+            (None, True),
+            ("Bash|Edit", True),
+            (".*", True),
+            ("Edit", False),
+            ("Write|Edit", False),
+        ]:
+            with self.subTest(matcher=m):
+                with tempfile.TemporaryDirectory() as d:
+                    r = make_repo(Path(d) / "r", settings=self._settings(m, cmd))
+                    p = run(r)
+                    if ok:
+                        self.assertSilent(p)
+                    else:
+                        self.assertWarns(p, "PreToolUse")
+
+    def test_post_only_command_warns(self):
+        cmd = 'python3 -I "$CLAUDE_PROJECT_DIR/.claude/hooks/guard_bash.py" --post'
+        s = self._settings("Bash", cmd)
+        self.assertWarns(run(self.repo(settings=s)), "PreToolUse")
+
+    def test_echo_naming_the_file_warns(self):
+        s = self._settings("Bash", "echo guard_bash.py")
+        self.assertWarns(run(self.repo(settings=s)), "PreToolUse")
+
+    def test_committed_wiring_form_is_accepted(self):
+        self.assertSilent(run(self.repo(settings=GOOD_SETTINGS)))
 
     def test_behind_exactly_limit_is_silent(self):
         self.assertSilent(run(self.repo(behind=MAX_BEHIND)))
@@ -183,18 +250,19 @@ class FreshnessTest(unittest.TestCase):
 
     def test_diverged_and_stale_warns_and_says_so(self):
         p = run(self.repo(behind=MAX_BEHIND + 1, ahead=2))
-        self.assertWarns(p, "diverged")
+        self.assertWarns(p, "diverged", 'merge origin/main')
 
     def test_dirty_stale_mentions_clean_tree(self):
         p = run(self.repo(behind=MAX_BEHIND + 1, dirty=True))
-        self.assertWarns(p, "clean")
-
-    def test_clean_stale_does_not_mention_clean_tree(self):
-        p = run(self.repo(behind=MAX_BEHIND + 1))
+        self.assertWarns(p, "Local changes", "touch files the update changes")
         self.assertNotIn("clean tree", p.stdout)
 
+    def test_clean_stale_does_not_mention_local_changes(self):
+        p = run(self.repo(behind=MAX_BEHIND + 1))
+        self.assertNotIn("Local changes", p.stdout)
+
     def test_dirty_missing_guard_mentions_clean_tree(self):
-        self.assertWarns(run(self.repo(guard=False, dirty=True)), "clean")
+        self.assertWarns(run(self.repo(guard=False, dirty=True)), "Local changes")
 
     def test_no_origin_ref_skips_lag_check(self):
         self.assertSilent(run(self.repo(origin=False)))
@@ -202,12 +270,28 @@ class FreshnessTest(unittest.TestCase):
     def test_no_origin_ref_still_checks_guard(self):
         self.assertWarns(run(self.repo(origin=False, guard=False)), "guard_bash.py")
 
-    def test_not_a_git_repo_is_quiet(self):
+    def _plain(self, guard, settings):
         d = self.tmp / "plain"
-        d.mkdir()
-        p = run(d)
-        self.assertEqual(p.returncode, 0)
-        self.assertNotIn("Traceback", p.stderr)
+        (d / ".claude" / "hooks").mkdir(parents=True)
+        if guard:
+            (d / ".claude" / "hooks" / "guard_bash.py").write_text("# guard\n")
+        if settings is not None:
+            (d / ".claude" / "settings.json").write_text(json.dumps(settings))
+        return d
+
+    def test_non_git_dir_without_guard_warns(self):
+        p = run(self._plain(False, None))
+        self.assertWarns(p, "guard_bash.py", "PreToolUse")
+
+    def test_non_git_dir_with_guard_is_silent(self):
+        self.assertSilent(run(self._plain(True, GOOD_SETTINGS)))
+
+    def test_git_missing_from_path_still_checks_files(self):
+        empty = self.tmp / "emptybin"
+        empty.mkdir()
+        env = {"PATH": str(empty)}
+        self.assertWarns(run(self.repo(guard=False), extra_env=env), "guard_bash.py")
+        self.assertSilent(run(self._plain(True, GOOD_SETTINGS), extra_env=env))
 
     def test_unset_and_missing_dir(self):
         for d in (None, self.tmp / "nope", ""):
@@ -215,12 +299,32 @@ class FreshnessTest(unittest.TestCase):
             self.assertEqual(p.returncode, 0)
             self.assertNotIn("Traceback", p.stderr)
 
+    def snapshot(self, r):
+        index = Path(r) / ".git" / "index"
+        st = index.stat()
+        env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+        status = subprocess.run(
+            ["git", "-C", str(r), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            env=env,
+        ).stdout
+        return {
+            "refs": git(r, "for-each-ref"),
+            "head": git(r, "rev-parse", "HEAD"),
+            "reflog": git(r, "reflog", "show", "--all"),
+            "fetch_head": (Path(r) / ".git" / "FETCH_HEAD").exists(),
+            "index_mtime": st.st_mtime_ns,
+            "index_sha": hashlib.sha256(index.read_bytes()).hexdigest(),
+            "status": status,
+        }
+
     def test_checkout_is_untouched(self):
-        r = self.repo(behind=MAX_BEHIND + 1, dirty=True)
-        before = (git(r, "rev-parse", "HEAD"), git(r, "status", "--porcelain"))
-        run(r)
-        after = (git(r, "rev-parse", "HEAD"), git(r, "status", "--porcelain"))
-        self.assertEqual(before, after)
+        r = self.repo(behind=MAX_BEHIND + 1, dirty=True, real_origin=True)
+        before = self.snapshot(r)
+        p = run(r)
+        self.assertIn("commits behind", p.stdout)  # the warning path ran
+        self.assertEqual(before, self.snapshot(r))
 
 
 class SessionStartScriptTest(unittest.TestCase):
@@ -230,6 +334,31 @@ class SessionStartScriptTest(unittest.TestCase):
             p = run(r, script=SESSION_START, extra_env={"CLAUDE_CODE_REMOTE": ""})
             self.assertEqual(p.returncode, 0, p.stderr)
             self.assertIn("WARNING: the Bash guard is not active", p.stdout)
+
+    def test_remote_mode_warns_and_keeps_setup_steps(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            r = make_repo(d / "repo", guard=False)
+            stubs = d / "stubs"
+            stubs.mkdir()
+            log = d / "calls.log"
+            for name in ("claude", "flutter", "dart"):
+                f = stubs / name
+                f.write_text(f'#!/bin/sh\necho "{name} $*" >> "{log}"\nexit 0\n')
+                f.chmod(0o755)
+            path = str(stubs) + os.pathsep + os.environ["PATH"]
+            p = run(
+                r,
+                script=SESSION_START,
+                extra_env={"CLAUDE_CODE_REMOTE": "true", "PATH": path},
+            )
+            self.assertEqual(p.returncode, 0, p.stderr)
+            self.assertIn("WARNING: the Bash guard is not active", p.stdout)
+            calls = log.read_text()
+            self.assertIn("claude plugin marketplace add", calls)
+            self.assertIn("claude plugin install", calls)
+            self.assertIn("flutter pub get", calls)
+            self.assertIn("dart run tool/setup_git_hooks.dart", calls)
 
     def test_current_tree_silent_locally(self):
         with tempfile.TemporaryDirectory() as d:

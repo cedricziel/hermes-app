@@ -14,6 +14,8 @@ session: every error path ends in exit 0.
 
 import json
 import os
+import re
+import shlex
 import subprocess
 import sys
 
@@ -27,14 +29,17 @@ FIX = (
 
 
 def _git(project, *args):
-    env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
-    p = subprocess.run(
-        ["git", "-C", project, *args],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        env=env,
-    )
+    try:
+        env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+        p = subprocess.run(
+            ["git", "-C", project, *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+    except Exception:
+        return None
     return p.stdout.strip() if p.returncode == 0 else None
 
 
@@ -43,14 +48,34 @@ def _count(project, rng):
     return int(out) if out and out.isdigit() else None
 
 
+def _matcher_covers_bash(matcher):
+    if matcher is None or matcher in ("", "*"):
+        return True
+    try:
+        return re.fullmatch(str(matcher), "Bash") is not None
+    except re.error:
+        return False
+
+
+def _runs_guard(command):
+    try:
+        words = shlex.split(str(command))
+    except ValueError:
+        return False
+    if "--post" in words:
+        return False
+    return any(w.endswith(GUARD) for w in words)
+
+
 def has_pretooluse_wiring(settings_path):
     try:
         with open(settings_path, encoding="utf-8") as f:
             data = json.load(f)
-        groups = data["hooks"]["PreToolUse"]
-        for group in groups:
+        for group in data["hooks"]["PreToolUse"]:
+            if not _matcher_covers_bash(group.get("matcher")):
+                continue
             for hook in group.get("hooks", []):
-                if "guard_bash.py" in str(hook.get("command", "")):
+                if _runs_guard(hook.get("command", "")):
                     return True
     except Exception:
         return False
@@ -58,22 +83,19 @@ def has_pretooluse_wiring(settings_path):
 
 
 def problems(project):
-    """Return (reasons, behind, ahead) for the checkout."""
+    """Return (file_reasons, behind, ahead); the file checks need no git."""
     reasons = []
     if not os.path.isfile(os.path.join(project, GUARD)):
         reasons.append("%s is missing from the checkout." % GUARD)
     if not has_pretooluse_wiring(os.path.join(project, SETTINGS)):
-        reasons.append("%s has no PreToolUse hook that runs guard_bash.py." % SETTINGS)
+        reasons.append(
+            "%s has no PreToolUse hook for Bash that runs guard_bash.py." % SETTINGS
+        )
     behind = ahead = 0
     try:
         if _git(project, "rev-parse", "--verify", "-q", "refs/remotes/origin/main"):
             behind = _count(project, "HEAD..origin/main") or 0
             ahead = _count(project, "origin/main..HEAD") or 0
-            if behind > MAX_COMMITS_BEHIND:
-                reasons.append(
-                    "HEAD is %d commits behind origin/main (limit %d)."
-                    % (behind, MAX_COMMITS_BEHIND)
-                )
     except Exception:
         pass
     return reasons, behind, ahead
@@ -81,30 +103,41 @@ def problems(project):
 
 def build_message(project):
     reasons, behind, ahead = problems(project)
-    if not reasons:
+    lagging = behind > MAX_COMMITS_BEHIND
+    if not reasons and not lagging:
         return ""
-    lines = ["WARNING: the Bash guard is not active in this session:"]
-    lines += ["- " + r for r in reasons]
-    lines.append("Fix: " + FIX)
-    notes = ["Then start a new session: hooks are loaded at session start."]
-    if ahead and behind:
-        notes.append("HEAD has diverged from origin/main, so --ff-only will fail.")
-    try:
-        if _git(project, "status", "--porcelain", "--untracked-files=no"):
-            notes.append(
-                "The tree has uncommitted changes: the fast-forward needs a clean tree."
+    if reasons:
+        lines = ["WARNING: the Bash guard is not active in this session:"]
+        lines += ["- " + r for r in reasons]
+        if lagging:
+            lines.append(
+                "- HEAD is %d commits behind origin/main (limit %d)."
+                % (behind, MAX_COMMITS_BEHIND)
             )
-    except Exception:
-        pass
-    lines += notes
+    else:
+        lines = [
+            "WARNING: the Bash guard in this checkout is %d commits behind origin/main:"
+            % behind,
+            "- newer guard rules may be missing (limit %d)." % MAX_COMMITS_BEHIND,
+        ]
+    lines.append("Fix: " + FIX)
+    lines.append("Then start a new session: hooks are loaded at session start.")
+    if ahead and behind:
+        lines.append(
+            "HEAD has diverged, so --ff-only will fail; merge instead: "
+            'git -C "$CLAUDE_PROJECT_DIR" merge origin/main (a merge commit).'
+        )
+    if _git(project, "status", "--porcelain", "--untracked-files=no"):
+        lines.append(
+            "Local changes: the fast-forward stops only if they touch files "
+            "the update changes."
+        )
     return "\n".join(lines) + "\n"
 
 
 def main():
     project = os.environ.get("CLAUDE_PROJECT_DIR", "")
     if not project or not os.path.isdir(project):
-        return
-    if _git(project, "rev-parse", "--git-dir") is None:
         return
     sys.stdout.write(build_message(project))
 

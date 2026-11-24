@@ -45,7 +45,7 @@ add a test, do not work around it.
 - Only when `CLAUDE_CODE_REMOTE=true` (cloud sessions; unset, empty, `false` or
   anything else is local and behaves as before, so the release skill's `gh`
   commands work locally), `gh` is search-only (F.333): only `gh api` GET on `search/{code,repositories,
-issues,commits,users}` (with `-f` needing an explicit `-X GET`, since gh turns
+  issues,commits,users}` (with `-f` needing an explicit `-X GET`, since gh turns
   `-f` into a POST), `gh --version`, `gh help` and bare `gh` pass; every other
   `gh` call is blocked with the nearest `mcp__github__*` tool. It sees `gh` after
   `env`/`sudo`/`command`/a path, inside `$(...)`, `bash -c`, `xargs` and
@@ -99,7 +99,8 @@ Hooks load from `$CLAUDE_PROJECT_DIR`, so a checkout from before the guard
 existed runs unguarded and silent. `.claude/hooks/session-start.sh` (local and
 cloud) runs `check_guard_freshness.py` first and prints `WARNING: the Bash guard
 is not active in this session:` when `guard_bash.py` is missing, `settings.json`
-has no `PreToolUse` hook running it, or HEAD is more than `MAX_COMMITS_BEHIND`
+has no `PreToolUse` hook for Bash running it (checks (a) and (b) need no git),
+and, with a lag-only header, when HEAD is more than `MAX_COMMITS_BEHIND`
 (20) commits behind the local `origin/main` (no fetch; skipped without that
 ref). It is read-only, always exits 0, and names the fix
 (`git -C "$CLAUDE_PROJECT_DIR" fetch origin main && ... merge --ff-only origin/main`,
