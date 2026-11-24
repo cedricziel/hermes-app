@@ -831,11 +831,14 @@ List<Hit> _inkWellHits() => [
     if (!_inkWellRingOwnedElsewhere.containsKey(f.owner)) f.hit,
 ];
 
-/// The widgets that put a tab stop and an activate key on what is built in their
-/// `child:` slot: [FocusableTap] (lib/src/widgets/focusable_tap.dart) and the
-/// two Flutter widgets it is made of. A `GestureDetector` inside the `child:` of
-/// one, or holding one in its own `child:` chain, has a keyboard path.
-const _focusableOwners = {'FocusableTap', 'FocusableActionDetector', 'Focus'};
+/// The widget that gives what is built in its `child:` slot a tab stop and an
+/// activate key: [FocusableTap] (lib/src/widgets/focusable_tap.dart). `Focus`
+/// is not one (a tab stop with no Enter or Space, and `canRequestFocus: false`
+/// takes none), and a bare `FocusableActionDetector` is not either (it needs
+/// actions and `enabled`; `FocusableTap` is the one that carries them). A
+/// `GestureDetector` inside its `child:`, or holding one in its own `child:`
+/// chain, has a keyboard path.
+const _focusableOwners = {'FocusableTap'};
 
 /// The handlers that make a `GestureDetector` a tap target: a tap, a double
 /// tap, a long press or a secondary (right-click) tap. A drag, scale, pan or
@@ -860,24 +863,28 @@ const _gestureHandlers = {
 /// the same action or an equivalent) and "beside a focusable control" (the same
 /// action is reachable by a focusable control next to it). Exact: an entry that
 /// no longer matches a call fails, so the list shrinks with the code.
+///
+/// Known gaps are not on this list but in `baseline/arch.yaml`, as the ratchet
+/// keeps them honest: the hold-to-record send control (F.463: the keyboard
+/// cannot start a recording), the thread row's long press and `TouchRowMenu`
+/// (F.474: the thread actions have no keyboard path on iPhone and iPad, and
+/// Enter opens the chat) and `RowActions` (a row's actions have no keyboard
+/// path on iOS for the profile row's "Change default model", and a macOS
+/// right-click has none of its own; a roadmap row, to be numbered).
 const _gestureDetectorKeyboardElsewhere = <String, String>{
   'lib/src/bot_screen/widgets/bot_screen_card.dart#_Tappable': 'beside a focusable control: a click on the picture opens the viewer, which the focusable Enlarge button next to it opens for the keyboard',
   'lib/src/chat/checkpoints/widgets/checkpoint_row.dart#_CheckpointRowState': 'over a focusable control: a right-click opens the row menu, which the row\'s focusable trailing menu button opens for the keyboard, over a focusable GroupedRow',
   'lib/src/chat/widgets/attachment_views.dart#_AttachmentThumbnailState': 'over a focusable control: the thumbnail is built in a local that the syntax tree does not follow into the FocusableTap and FocusRing that wrap it; on a Mac the click only selects and Quick Look opens it with Space',
-  'lib/src/chat/widgets/swipeable_thread_row.dart#SwipeableThreadRow': 'over a focusable control: a long press over the focusable, ringed SidebarRow opens the same sheet the touch menu does; Enter on the row opens the chat',
-  'lib/src/chat/widgets/touch_row_menu.dart#_TouchRowMenuState': 'over a focusable control: a long press or right-click over the focusable, ringed thread row opens its action menu (a keyboard path to the actions is F.474); the row itself takes Enter',
   'lib/src/files/widgets/file_previews.dart#_ImagePreviewState': 'over a focusable control: the double-tap zoom sits over the viewer, which ZoomKeyboardShortcuts zooms from the keyboard',
   'lib/src/macos/mac_sidebar.dart#MacSplitView': 'beside a focusable control: a click on the scrim closes the sidebar overlay, which the focusable sidebar toggle (and its chord) closes for the keyboard',
-  'lib/src/macos/mac_source_list.dart#_MacSourceListTileState': 'over a focusable control: a right-click over the tile\'s focusable, ringed InkWell opens its menu (a keyboard path to the actions is F.474)',
+  'lib/src/macos/mac_source_list.dart#_MacSourceListTileState': 'over a focusable control: a right-click over the tile\'s focusable, ringed InkWell opens its menu; on a Mac the keyboard equivalent is the menu bar\'s Pin, Rename and Archive commands for the selected thread (the row\'s More and Archive buttons show only under the pointer and take no focus)',
   'lib/src/models/widgets/model_picker.dart#_EffortSegment': 'over a focusable control: the detector only extends the tap target of the focusable, ringed InkWell pill it wraps',
   'lib/src/server_care/widgets/usage_chart.dart#_UsageChartState': 'over a focusable control: a tap or hover on the plot selects a day, which the chart\'s own Focus selects with the arrow, Home and End keys',
   'lib/src/tools/widgets/tools_switch.dart#ToolsSwitch': 'beside a focusable control: the box around the switch is the touch target, and the focusable GroupedSwitch inside it toggles the same value from the keyboard',
-  'lib/src/voice/widgets/voice_recording_controls.dart#_HoldToRecordSendState': 'over a focusable control: the hold-to-record long press sits over the focusable send button, which Enter and Space press',
   'lib/src/widgets/adaptive_popup_menu_button.dart#_AdaptivePopupMenuButtonState': 'over a focusable control: the trigger it wraps is built by _ringed, a FocusableTap in a FocusRing, which opens the same menu from the keyboard',
   'lib/src/widgets/adaptive_popup_menu_button.dart#_ContextMenuRowState': 'over a focusable control: a right-click over a row opens the menu of the row\'s focusable AdaptivePopupMenuButton',
   'lib/src/widgets/adaptive_segmented_control.dart#_ExtendedHitArea': 'over a focusable control: it only extends the tap area of the focusable segments inside it, whose own taps win',
-  'lib/src/widgets/inspector_layout.dart#InspectorLayout': 'beside a focusable control: a click on the barrier dismisses the inspector overlay, which Escape (CallbackShortcuts on the overlay) dismisses for the keyboard',
-  'lib/src/widgets/row_actions.dart#RowActions': 'over a focusable control: a right-click or long press over a focusable row opens its actions (a keyboard path to the actions is F.474)',
+  'lib/src/widgets/inspector_layout.dart#InspectorLayout': 'beside a focusable control: a click on the barrier closes the overlaid Activity inspector, which the focusable Activity toggle in the toolbar closes too, and Escape closes while focus is inside the overlay',
 };
 
 bool _isGestureCall(AstNode node) =>
@@ -2101,11 +2108,9 @@ void main() {
       () {
         for (final source in [
           'f() => FocusableTap(onActivate: g, child: @@);',
-          'f() => FocusableActionDetector(child: @@);',
-          'f() => Focus(child: @@);',
           'f() => m.FocusableTap(onActivate: g, child: @@);',
           'f() => FocusRing(child: FocusableTap(onActivate: g, child: @@));',
-          'f() => Padding(child: Focus(child: Padding(child: @@)));',
+          'f() => Padding(child: FocusableTap(onActivate: g, child: Padding(child: @@)));',
         ]) {
           expect(
             hits(
@@ -2123,7 +2128,10 @@ void main() {
           0,
         );
         expect(
-          hits('f() => GestureDetector(onTap: g, child: Focus(child: a));'),
+          hits(
+            'f() => GestureDetector(onTap: g, child: '
+            'FocusableTap(onActivate: g, child: a));',
+          ),
           0,
         );
       },
@@ -2140,6 +2148,32 @@ void main() {
       );
       expect(hits('f() => FocusableTap(other: GestureDetector(onTap: g));'), 1);
       expect(hits('f() => NotFocus(child: GestureDetector(onTap: g));'), 1);
+      // Focus is a tab stop with no Enter or Space, and a bare
+      // FocusableActionDetector carries no actions: neither is an owner.
+      expect(hits('f() => Focus(child: GestureDetector(onTap: g));'), 1);
+      expect(
+        hits(
+          'f() => Focus(canRequestFocus: false, child: GestureDetector(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusableActionDetector(child: GestureDetector(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits(
+          'f() => FocusableActionDetector(enabled: false, child: '
+          'GestureDetector(onTap: g));',
+        ),
+        1,
+      );
+      expect(
+        hits('f() => GestureDetector(onTap: g, child: Focus(child: a));'),
+        1,
+      );
       expect(
         hits('f() => GestureDetector(onTap: g, child: FocusableTapLike());'),
         1,
@@ -2165,7 +2199,7 @@ void main() {
       );
       expect(
         hits(
-          'f() => Focus(child: Builder(builder: (c) => '
+          'f() => FocusableTap(onActivate: g, child: Builder(builder: (c) => '
           'GestureDetector(onTap: g)));',
         ),
         1,
