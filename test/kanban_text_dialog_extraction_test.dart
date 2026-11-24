@@ -325,7 +325,7 @@ void main() {
       expect(field.maxLines, 1);
     });
 
-    testWidgets('on macOS a click outside keeps it, Esc and Cancel close it', (
+    testWidgets('on macOS a click outside keeps it and Esc closes it', (
       tester,
     ) async {
       await openBoards(tester, platform: TargetPlatform.macOS);
