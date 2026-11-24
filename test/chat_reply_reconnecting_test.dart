@@ -118,7 +118,7 @@ void main() {
       await startTurn();
       await lose();
 
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
 
       expectOneSubmit();
@@ -147,7 +147,7 @@ void main() {
     test('a loss before the server had the prompt still fails', () async {
       chat.newThread();
       thread = chat.selectedThread!;
-      chat.submit('Hello', const []);
+      await chat.submit('Hello', const []);
       send = transport.sends.single;
       send.emit(const ThreadBound('s1'));
       await pumpEventQueue();
@@ -337,7 +337,7 @@ void main() {
         transport.promptAccepted = true;
         chat.newThread();
         thread = chat.selectedThread!;
-        chat.submit('Hello', const []);
+        await chat.submit('Hello', const []);
         send = transport.sends.single;
         send.emit(const ThreadBound('s1'));
         await pumpEventQueue();
@@ -381,7 +381,7 @@ void main() {
       () async {
         await startTurn();
         await lose();
-        chat.submit('And then deploy', const []);
+        await chat.submit('And then deploy', const []);
         await pumpEventQueue();
         expectOneSubmit();
 
@@ -448,7 +448,7 @@ void main() {
       );
       other.newThread();
       thread = other.selectedThread!;
-      other.submit('Run the build', const []);
+      await other.submit('Run the build', const []);
       send = transport.sends.single;
       send
         ..emit(const ThreadBound('s1'))
@@ -488,7 +488,7 @@ void main() {
         'waits when the connection is lost', () async {
       chat.newThread();
       thread = chat.selectedThread!;
-      chat.submit('Hello', const []);
+      await chat.submit('Hello', const []);
       send = transport.sends.single;
       send.emit(const ThreadBound('s1'));
       await pumpEventQueue();
@@ -577,7 +577,7 @@ void main() {
       addTearDown(other.dispose);
       other.newThread();
       thread = other.selectedThread!;
-      other.submit('Run the build', const []);
+      await other.submit('Run the build', const []);
       send = transport.sends.single;
       send
         ..emit(const ThreadBound('s1'))
