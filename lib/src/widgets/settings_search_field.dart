@@ -186,7 +186,9 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
               button: true,
               label: 'Clear search',
               // The field clips, so the ring sits inside the icon's box: round
-              // and 2 px in from it (the box is as tall as the field).
+              // and 2 px in from it. The box keeps the platform's button size,
+              // centred, however tall the field gets, so at large text the
+              // ring stays inside the stadium's end cap.
               child: FocusRing(
                 radius: (ios ? 32 : 36) / 2 - kFocusRingOffset,
                 child: FocusableTap(
@@ -196,7 +198,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
                     behavior: HitTestBehavior.opaque,
                     onTap: _clear,
                     child: SizedBox(
-                      height: height,
+                      height: buttonSize,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Center(

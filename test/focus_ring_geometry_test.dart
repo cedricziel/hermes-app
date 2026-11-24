@@ -1215,13 +1215,49 @@ void main() {
         final box = tester.getRect(find.byKey(clear));
         final field = tester.getRect(find.byType(SettingsSearchField));
         expect(box.width, width, reason: 'the icon and its 8 px each side');
-        expect(box.height, field.height, reason: 'as tall as the field');
+        expect(box.height, field.height, reason: 'as tall as the field at 1x');
         expect(tester.getRect(_ringFinder), box, reason: 'wraps the tap box');
         final (_, painter) = _ring(tester);
         expect(painter.radius, width / 2 - 2, reason: 'half the box, less 2');
         expect(painter.inset, kFocusRingOffset, reason: 'inside');
         expectInsideClip(tester, box, why: 'clear button');
         expect(_within(field, box.deflate(2)), isTrue);
+      });
+    }
+
+    for (final scale in [1.0, 3.1]) {
+      testWidgets('android: the clear ring stays inside the stadium field at '
+          'text scale $scale', (tester) async {
+        await _pump(
+          tester,
+          TargetPlatform.android,
+          MediaQuery.withClampedTextScaling(
+            minScaleFactor: scale,
+            maxScaleFactor: scale,
+            child: SizedBox(
+              width: 360,
+              child: SettingsSearchField(
+                search: SettingsSearch(query: 'kan', onChanged: (_) {}),
+              ),
+            ),
+          ),
+        );
+        const clear = Key('settings-search-clear');
+        await _focus(tester, find.byKey(clear));
+        final field = tester.getRect(find.byType(SettingsSearchField));
+        final band = _ringBand(tester);
+        final stadium = Path()
+          ..addRRect(
+            RRect.fromRectAndRadius(field, Radius.circular(field.height / 2)),
+          );
+        final outside = Path.combine(PathOperation.difference, band, stadium);
+        final cut = outside.computeMetrics().fold<double>(
+          0,
+          (sum, m) => sum + m.length,
+        );
+        expect(cut, lessThan(0.5), reason: 'no part of the ring is clipped');
+        final box = tester.getRect(find.byKey(clear));
+        expect(box.center.dy, closeTo(field.center.dy, 0.5));
       });
     }
 

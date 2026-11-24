@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'support/attachment_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_quick_look.dart';
+import 'support/wait_until.dart';
 
 /// The gesture-detector controls of F.441 take keyboard focus: Tab reaches
 /// them, Enter and Space activate them once, a pointer press shows no ring.
@@ -98,24 +99,25 @@ void main() {
           ('Enter', LogicalKeyboardKey.enter),
           ('Space', LogicalKeyboardKey.space),
         ]) {
-          testWidgets('$name clears the search once and refocuses the field', (
-            tester,
-          ) async {
-            await pump(tester);
-            await tab(tester, 2);
-            await tester.sendKeyEvent(key);
-            await tester.pump();
-            expect(changes, ['']);
-            expect(find.byKey(clear), findsNothing);
-            final field = tester.widget<TextField>(
-              find.byKey(const Key('settings-search-field')),
-            );
-            expect(
-              field.focusNode!.hasPrimaryFocus,
-              isTrue,
-              reason: 'the button is gone, so the field takes the focus',
-            );
-          });
+          testWidgets(
+            '$name clears the search once, and the field has the focus',
+            (tester) async {
+              await pump(tester);
+              await tab(tester, 2);
+              await tester.sendKeyEvent(key);
+              await tester.pump();
+              expect(changes, ['']);
+              expect(find.byKey(clear), findsNothing);
+              final field = tester.widget<TextField>(
+                find.byKey(const Key('settings-search-field')),
+              );
+              expect(
+                field.focusNode!.hasPrimaryFocus,
+                isTrue,
+                reason: 'the button is gone, so the field takes the focus',
+              );
+            },
+          );
         }
 
         testWidgets('a pointer press shows no ring, the keyboard does', (
@@ -300,6 +302,18 @@ void main() {
       expect(chevron(tester), 0, reason: 'focus left the header');
     });
 
+    testWidgets('the chevron hides when a pointer press ends the keyboard '
+        'mode, though the header keeps the focus', (tester) async {
+      await pump(tester, collapsed: true);
+      await tab(tester);
+      expect(chevron(tester), 1);
+      await tester.tapAt(const Offset(700, 500));
+      await tester.pump();
+      expect(focusIn(const Key('header')), isTrue, reason: 'focus stays');
+      expect(chevron(tester), 0);
+      expect(ring, findsNothing);
+    });
+
     testWidgets('a pointer press shows no ring and no chevron once the '
         'pointer leaves, the keyboard shows both', (tester) async {
       await pump(tester);
@@ -406,12 +420,11 @@ void main() {
       await tab(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
-      for (var i = 0; i < 100 && native.previewed.isEmpty; i++) {
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 25)),
-        );
-        await tester.pump();
-      }
+      await waitUntil(
+        tester,
+        () => native.previewed.isNotEmpty,
+        reason: 'Quick Look to be asked to preview the photo',
+      );
       expect(native.previewed, hasLength(1));
       expect(find.byType(ImageViewerPage), findsNothing);
       expect(focusIn(thumb), isTrue, reason: 'the thumbnail keeps the focus');

@@ -92,6 +92,20 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
               ),
             ),
           ),
+        WidgetbookUseCase(
+          name: 'Clear button with keyboard focus at largest text (Material)',
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.android),
+            child: MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(3.1)),
+              child: const KeyboardFocused(
+                target: Key('settings-search-clear'),
+                child: _SearchHostFocused(),
+              ),
+            ),
+          ),
+        ),
         ...onEachPlatform(
           'Largest text',
           (context) => MediaQuery(
