@@ -15,7 +15,8 @@ const kHighlightMaxBlock = 8000;
 /// over its code blocks (later blocks are plain).
 const kHighlightMaxDocument = 10000;
 
-/// Decides which code blocks of one markdown document are coloured.
+/// Which code blocks of one markdown document are coloured, decided from the
+/// text alone, in document order.
 ///
 /// The highlighter (`val_highlight`) is quadratic on some inputs and gives
 /// every token its own text run, and a run costs about 20 us of layout and
@@ -23,111 +24,115 @@ const kHighlightMaxDocument = 10000;
 /// and 50 blocks of a few thousand runs each ~17 s, all on the UI isolate. So a
 /// block is coloured only when no line is over [maxLine], the block is at most
 /// [maxBlock] characters, and the coloured blocks before it plus this one stay
-/// within [maxDocument]. The decision is made on the parsed code string, so it
-/// holds for every fence form the renderer accepts (quotes, lists,
-/// indentation, `<pre><code>`, CRLF).
+/// within [maxDocument] (greedy, in document order).
 ///
-/// Blocks are told apart by their place in the document, not by their text: a
-/// document that repeats one block is charged for every copy. A render pass
-/// starts with [begin] and asks about its blocks in document order with
-/// [admit]. A block asked about again at the same place (a rebuild, or a reply
-/// that streams and grows by a few characters) is judged again in place of its
-/// old self, since a block's decision only reads the blocks before it. The
-/// length granted to each block and its code are kept.
+/// The order in which `GptMarkdown` calls its `codeBuilder` says nothing about
+/// the document order: it keeps the segments it rendered and draws arbitrary
+/// subsets of them again (a changed segment, the end of a held reply released
+/// by a timer, a dependency change). So the decision is made once per text, by
+/// parsing it with the package's own public parser (`Plusparse.parse`, no
+/// `BuildContext`), and the builder only looks its block up by
+/// `(code, occurrence)`, where the occurrence counts identical code strings in
+/// document order. A block the plan does not know is plain.
 ///
-/// `GptMarkdown` also draws some blocks again outside such a pass, and only
-/// the blocks of the segments it redraws (the end of a held reply is released
-/// by a timer). Those go to [admitRedrawn], which finds the place of the block
-/// by its code and charges it for every other place's grant.
-class CodeHighlightBudget {
-  CodeHighlightBudget({
-    this.maxLine = kHighlightMaxLine,
-    this.maxBlock = kHighlightMaxBlock,
-    this.maxDocument = kHighlightMaxDocument,
-  });
+/// Where the plan can disagree with what the renderer draws, it fails safe
+/// (the block stays plain; a block is never coloured because of a mismatch):
+///
+/// * The renderer parses the document segment by segment and the plan parses
+///   it whole, so a block whose code differs between the two (a list split at
+///   a blank line, a definition that a segment resolves differently) is not
+///   found and stays plain.
+/// * The text is prepared as the package prepares it: CRLF and lone CR become
+///   LF, the text is trimmed, a lone surrogate becomes U+FFFD (one at the very
+///   end is dropped). A change in that preparation makes blocks mismatch.
+/// * An unclosed fence at the end of a streaming reply is a block like any
+///   other, with the code so far; its key changes with every chunk, so it is
+///   always judged on its current text.
+/// * Blocks the parser does not report as code nodes (inside raw HTML such as
+///   `<details>`, in a table cell) are not in the plan.
+/// * Identical code strings are told apart only by how often one was asked
+///   about in the render in progress. When the package draws just one of
+///   several identical blocks again, that block takes the decision of an
+///   earlier copy.
+class CodeColourPlan {
+  CodeColourPlan._(
+    this._admitted,
+    this._tail,
+    this._tailUsedBefore,
+    this._maxLine,
+    this._maxBlock,
+    this._maxDocument,
+  );
 
-  final int maxLine;
-  final int maxBlock;
-  final int maxDocument;
-
-  /// The characters each block was granted (0 when it is plain).
-  final List<int> _granted = [];
-
-  /// The code each block was asked about with, by place.
-  final List<String> _codes = [];
-
-  /// The places [admitRedrawn] gave out since [beginRedrawn].
-  final Set<int> _taken = {};
-  int _next = 0;
-
-  /// Characters granted to the blocks asked about so far in this pass.
-  int get used => _usedBefore(_next);
-
-  int _usedBefore(int index) {
-    var sum = 0;
-    for (var i = 0; i < index && i < _granted.length; i++) {
-      sum += _granted[i];
+  /// The plan for [markdown], as `GptMarkdown` would read it.
+  factory CodeColourPlan.scan(
+    String markdown, {
+    int maxLine = kHighlightMaxLine,
+    int maxBlock = kHighlightMaxBlock,
+    int maxDocument = kHighlightMaxDocument,
+  }) {
+    final admitted = <String, List<bool>>{};
+    var used = 0;
+    String? tail;
+    var tailUsed = 0;
+    for (final (code, closed) in _codeBlocks(markdown)) {
+      final ok = _fits(code, used, maxLine, maxBlock, maxDocument);
+      tail = closed ? null : code;
+      tailUsed = used;
+      if (ok) used += code.length;
+      (admitted[code] ??= []).add(ok);
     }
-    return sum;
+    return CodeColourPlan._(
+      admitted,
+      tail,
+      tailUsed,
+      maxLine,
+      maxBlock,
+      maxDocument,
+    );
   }
 
-  /// Starts a pass over the document, from its first block.
-  void begin() => _next = 0;
+  final Map<String, List<bool>> _admitted;
 
-  /// Starts a series of [admitRedrawn] calls: a place is given out once in it,
-  /// so a document that repeats a block gets each copy its own place.
-  void beginRedrawn() => _taken.clear();
+  /// The code of the unclosed block the document ends in, and the characters
+  /// coloured before it.
+  final String? _tail;
+  final int _tailUsedBefore;
+  final int _maxLine;
+  final int _maxBlock;
+  final int _maxDocument;
 
-  /// Forgets every decision, for a document that was replaced.
-  void clear() {
-    _granted.clear();
-    _codes.clear();
-    _taken.clear();
-    _next = 0;
-  }
-
-  /// Whether the next block of the document, with body [code], may be coloured.
-  bool admit(String code) {
-    final index = _next++;
-    return _judge(index, code, _usedBefore(index));
-  }
-
-  /// Whether a block drawn again outside a pass, with body [code], may be
-  /// coloured. Its place is the one that was asked about with the same code, or
-  /// with a start of it (a block that is still growing); a block with no place
-  /// takes a new one at the end. It is charged for every other place's grant,
-  /// so the document limit holds whichever blocks are drawn again.
-  bool admitRedrawn(String code) {
-    bool free(int i) => !_taken.contains(i);
-    var place = -1;
-    for (var i = 0; i < _codes.length && place < 0; i++) {
-      if (free(i) && _codes[i] == code) place = i;
+  /// Whether the [occurrence]th (0-based) block with body [code] may be
+  /// coloured. False for a block the plan does not know, except for the start
+  /// of the unclosed block the document ends in: the renderer holds back the
+  /// last characters of a streaming reply (a partly typed fence line), so it
+  /// draws that block with a start of its code. The start is judged on its own
+  /// text, where the block is.
+  bool admits(String code, int occurrence) {
+    final key = _key(code);
+    final list = _admitted[key];
+    if (list != null && occurrence >= 0 && occurrence < list.length) {
+      return list[occurrence];
     }
-    for (var i = 0; i < _codes.length && place < 0; i++) {
-      if (free(i) && _codes[i].isNotEmpty && code.startsWith(_codes[i])) {
-        place = i;
-      }
+    final tail = _tail;
+    if (tail != null && tail.startsWith(key)) {
+      return _fits(key, _tailUsedBefore, _maxLine, _maxBlock, _maxDocument);
     }
-    if (place < 0) place = _codes.length;
-    _taken.add(place);
-    final own = place < _granted.length ? _granted[place] : 0;
-    return _judge(place, code, _usedBefore(_granted.length) - own);
+    return false;
   }
 
-  bool _judge(int index, String code, int usedBefore) {
-    final ok = _fits(code, usedBefore);
-    final length = ok ? code.length : 0;
-    if (index < _granted.length) {
-      _granted[index] = length;
-      _codes[index] = code;
-    } else {
-      _granted.add(length);
-      _codes.add(code);
-    }
-    return ok;
-  }
+  /// A code string as both sides compare it: line ends as LF.
+  static String _key(String code) => code.contains('\r')
+      ? code.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
+      : code;
 
-  bool _fits(String code, int usedBefore) {
+  static bool _fits(
+    String code,
+    int usedBefore,
+    int maxLine,
+    int maxBlock,
+    int maxDocument,
+  ) {
     if (code.length > maxBlock || usedBefore + code.length > maxDocument) {
       return false;
     }
@@ -142,10 +147,73 @@ class CodeHighlightBudget {
     }
     return true;
   }
+
+  /// The code of every block the parser reports, in document order.
+  static Iterable<(String, bool)> _codeBlocks(String markdown) sync* {
+    for (final node in Plusparse.parse(_prepare(markdown)).children) {
+      yield* _inside(node);
+    }
+  }
+
+  static Iterable<(String, bool)> _inside(MdNode node) sync* {
+    switch (node) {
+      case MdCodeBlock(:final code, :final closed):
+        yield (_key(code), closed);
+      case MdBlockQuote(:final children):
+        for (final child in children) {
+          yield* _inside(child);
+        }
+      case MdUnorderedList(:final items) || MdOrderedList(:final items):
+        for (final item in items) {
+          for (final child in item.children) {
+            yield* _inside(child);
+          }
+        }
+      case MdFootnoteDefinitions(:final footnotes):
+        for (final note in footnotes) {
+          for (final child in note.children) {
+            yield* _inside(child);
+          }
+        }
+      default:
+        break;
+    }
+  }
+
+  /// The source as `GptMarkdown` prepares it before parsing.
+  static String _prepare(String source) {
+    final text =
+        (source.contains('\r')
+                ? source.replaceAll('\r\n', '\n').replaceAll('\r', '\n')
+                : source)
+            .trim();
+    StringBuffer? out;
+    var copied = 0;
+    final n = text.length;
+    for (var i = 0; i < n; i++) {
+      final c = text.codeUnitAt(i);
+      if (c < 0xD800 || c > 0xDFFF) continue;
+      final high = c <= 0xDBFF;
+      if (high && i + 1 < n) {
+        final next = text.codeUnitAt(i + 1);
+        if (next >= 0xDC00 && next <= 0xDFFF) {
+          i++;
+          continue;
+        }
+      }
+      out ??= StringBuffer();
+      out.write(text.substring(copied, i));
+      if (!(high && i == n - 1)) out.write('�');
+      copied = i + 1;
+    }
+    if (out == null) return text;
+    out.write(text.substring(copied));
+    return out.toString();
+  }
 }
 
 /// `GptMarkdown` whose fenced code blocks stay within a render budget (see
-/// [CodeHighlightBudget]): a block over it is drawn as plain monospace text in
+/// [CodeColourPlan]): a block over it is drawn as plain monospace text in
 /// the same block, with its language label.
 ///
 /// Use it for every markdown a server, a model or another person can write.
@@ -159,6 +227,7 @@ class BoundedMarkdown extends StatefulWidget {
     this.linkBuilder,
     this.checkboxBuilder,
     this.radioOptionBuilder,
+    @visibleForTesting this.debugPlanFor,
   });
 
   final String data;
@@ -169,52 +238,45 @@ class BoundedMarkdown extends StatefulWidget {
   final CheckboxBuilder? checkboxBuilder;
   final RadioOptionBuilder? radioOptionBuilder;
 
+  /// Replaces the scan, so a test can hand the renderer blocks the plan does
+  /// not know.
+  final CodeColourPlan Function(String data)? debugPlanFor;
+
   @override
   State<BoundedMarkdown> createState() => _BoundedMarkdownState();
 }
 
 class _BoundedMarkdownState extends State<BoundedMarkdown> {
-  final _budget = CodeHighlightBudget();
+  /// The plan for [_planFor], made when a block first asks, once per text.
+  CodeColourPlan? _plan;
+  String? _planFor;
 
-  /// Whether `build` started the pass of the frame in progress, and whether a
-  /// series of redrawn blocks has started in it.
-  bool _passOpen = false;
-  bool _redrawOpen = false;
+  /// How often each code string was asked about in the render in progress.
+  final _seen = <String, int>{};
 
-  void _endOfFrame() {
-    if (_passOpen || _redrawOpen) return;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      _passOpen = false;
-      _redrawOpen = false;
-    });
-  }
+  /// Whether the frame in progress already started its count.
+  bool _frameOpen = false;
 
-  /// Starts a pass over the document. Only `build` does: a block asked about
-  /// in a frame where it did not (`GptMarkdown` draws its blocks again by
-  /// itself, from its own rebuild or a timer) goes to
-  /// [CodeHighlightBudget.admitRedrawn], since it may be the only block drawn
-  /// and has no place in a pass that begins at the first block.
-  void _beginPass() {
-    _budget.begin();
-    _endOfFrame();
-    _passOpen = true;
+  /// Marks the frame as counted until it ends. Only the first call of a frame
+  /// clears the count: `build` clears it itself, and a block `GptMarkdown`
+  /// draws again in a frame where `build` did not run (the end of a held reply
+  /// released by its timer) starts its own.
+  void _openFrame() {
+    if (_frameOpen) return;
+    _frameOpen = true;
+    _seen.clear();
+    SchedulerBinding.instance.addPostFrameCallback((_) => _frameOpen = false);
   }
 
   bool _admit(String code) {
-    if (_passOpen) return _budget.admit(code);
-    if (!_redrawOpen) {
-      _budget.beginRedrawn();
-      _endOfFrame();
-      _redrawOpen = true;
+    _openFrame();
+    if (_planFor != widget.data) {
+      _plan = (widget.debugPlanFor ?? CodeColourPlan.scan)(widget.data);
+      _planFor = widget.data;
     }
-    return _budget.admitRedrawn(code);
-  }
-
-  @override
-  void didUpdateWidget(BoundedMarkdown old) {
-    super.didUpdateWidget(old);
-    // A reply that streams only grows; anything else is another document.
-    if (!widget.data.startsWith(old.data)) _budget.clear();
+    final seen = (_seen[code] ?? 0) + 1;
+    _seen[code] = seen;
+    return _plan!.admits(code, seen - 1);
   }
 
   Widget _code(BuildContext context, String name, String code, bool closed) {
@@ -238,7 +300,8 @@ class _BoundedMarkdownState extends State<BoundedMarkdown> {
 
   @override
   Widget build(BuildContext context) {
-    _beginPass();
+    _openFrame();
+    _seen.clear();
     return GptMarkdown(
       widget.data,
       style: widget.style,

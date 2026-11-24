@@ -60,7 +60,11 @@ class Env {
 
 /// Mounts [text] as `ChatTextMessage` does: `AppMarkdownTheme` around
 /// `BoundedMarkdown` with an explicit style, under `AppThemeScopes`.
-Widget markdownApp(String text, Env env) => MaterialApp(
+Widget markdownApp(
+  String text,
+  Env env, {
+  CodeColourPlan Function(String data)? planFor,
+}) => MaterialApp(
   theme: env.dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
   localizationsDelegates: kTestLocalizationsDelegates,
   builder: (context, child) => MediaQuery(
@@ -85,6 +89,7 @@ Widget markdownApp(String text, Env env) => MaterialApp(
                 BoundedMarkdown(
                   text,
                   style: const TextStyle(fontSize: 15, height: 1.4),
+                  debugPlanFor: planFor,
                 ),
               ),
             ],

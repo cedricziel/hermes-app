@@ -10,6 +10,8 @@ library;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/widgets/bounded_markdown.dart';
+
 import '../support/markdown_colour_harness.dart';
 
 /// A closed fence of [first] characters, a paragraph, then an open fence whose
@@ -105,20 +107,26 @@ void main() {
   testWidgets('a block the scan did not read is never coloured', (
     tester,
   ) async {
-    // The renderer decodes the entities of an HTML code block, so the code it
-    // hands over is not the text of the source: a block whose key the scan
-    // does not know stays plain, however small it is.
-    const document =
-        'Intro\n\n<pre><code class="language-js">'
-        'const a = 1 &amp;&amp; 2;</code></pre>\n\n'
-        'Outro\n';
+    // The renderer parses with the package's own parser, so no document of
+    // ours makes it hand over a block the scan lacks. The plan is replaced by
+    // the plan of another text: every block the renderer hands over is then
+    // unknown to it, and unknown means plain, however small the block is.
+    final document =
+        'Intro\n\n${fenced('const a = 1;')}\n\n${fenced('b();')}\n';
     tester.view.physicalSize = const Size(400, 2000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(markdownApp(document, const Env()));
-    final blocks = codeBlocks(tester);
-    expect(blocks, hasLength(1));
-    expect(blocks.single.codes, 'const a = 1 && 2;');
-    expect(blocks.single.highlightCode, isFalse);
+    expect(drawnColours(tester), [true, true], reason: 'the control');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(
+      markdownApp(
+        document,
+        const Env(),
+        planFor: (_) => CodeColourPlan.scan(fenced('const other = 2;')),
+      ),
+    );
+    expect(codeBlocks(tester), hasLength(2));
+    expect(drawnColours(tester), [false, false]);
   });
 }
