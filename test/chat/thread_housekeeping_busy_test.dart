@@ -54,6 +54,21 @@ void main() {
       expect(thread.pinned, isFalse);
     });
 
+    test('says Hermes is busy for a rename, which goes back', () async {
+      await housekeeping(withBusy: true).rename(thread, 'New');
+
+      expect(busy, 1);
+      expect(reported, isEmpty);
+      expect(thread.title, 'Plan');
+    });
+
+    test('says Hermes is busy for an archive, which keeps the chat', () async {
+      await housekeeping(withBusy: true).archive(thread);
+
+      expect(busy, 1);
+      expect(reported, isEmpty);
+    });
+
     test('reports the plain failure where no screen words the busy '
         'notice', () async {
       await housekeeping(withBusy: false).delete(thread);
