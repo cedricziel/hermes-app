@@ -2884,16 +2884,14 @@ void main() {
     });
 
     test('a file that does not import the widget layer is read too', () {
-      // The scan takes every file under lib/, not only widget-layer ones.
-      final plain = SourceFile(
-        'lib/src/mcp/presentation.dart',
-        "String serverLabel(int n) => 'Server';",
-      );
-      expect(_importsWidgetLayer(plain), isFalse);
-      expect(
-        [for (final f in labelHelpersIn(plain)) f.owner],
-        ['lib/src/mcp/presentation.dart#serverLabel'],
-      );
+      // The file selection itself: _allLabelHelpers takes every file under
+      // lib/, so a helper of a file with no widget-layer import is found.
+      final file = dartFiles('lib')
+          .firstWhere((f) => f.path == 'lib/src/mcp/mcp_presentation.dart');
+      expect(_importsWidgetLayer(file), isFalse);
+      expect({
+        for (final f in _allLabelHelpers()) f.owner,
+      }, contains('lib/src/mcp/mcp_presentation.dart#mcpTransportLabel'));
     });
 
     test('static methods of an enum, a mixin and an extension hit', () {
