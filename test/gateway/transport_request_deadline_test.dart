@@ -301,4 +301,25 @@ void main() {
       expect(span(tracer, 'prompt.submit').attributes['error.type'], isNull);
     });
   });
+
+  test('an answer to a clarify the server already took is not turned into a '
+      'failure because the app slept before reading it', () {
+    run((async, gateway, transport, tracer, jump, now, events) {
+      gateway.silent.add('clarify.respond');
+      bool? answered;
+      Object? error;
+      transport
+          .answerClarify('req-1', const ['yes'])
+          .then<void>((v) => answered = v, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+      final request = gateway.requestOf('clarify.respond');
+
+      jump(const Duration(minutes: 10));
+      gateway.replyTo(request, {'status': 'ok'});
+      async.flushMicrotasks();
+
+      expect(error, isNull);
+      expect(answered, isTrue);
+    });
+  });
 }

@@ -363,4 +363,37 @@ void main() {
       });
     },
   );
+
+  test('a request with no deadline of its own still settles on a late answer, '
+      'with its span ended at the default deadline', () {
+    run((async, open, jump, now) {
+      final client = open(defaultTimeout: deadline);
+      final sent = now();
+      Map<String, Object?>? result;
+      Object? error;
+      client
+          .request('approval.respond', const {})
+          .then<void>((r) => result = r, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+
+      jump(const Duration(minutes: 10));
+      wire.foreign.sink.add(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': frames.single['id'],
+          'result': {'resolved': 1},
+        }),
+      );
+      async.flushMicrotasks();
+
+      expect(error, isNull);
+      expect(result, {'resolved': 1});
+      final span = tracer.spans.single;
+      expect(span.endCalls, 1);
+      expect(span.status?.name, 'ok');
+      expect(span.endTime, sent.add(deadline));
+      unawaited(client.close());
+      async.flushMicrotasks();
+    });
+  });
 }

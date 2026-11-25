@@ -403,7 +403,10 @@ class GatewayRpcClient {
       clock.now(),
       limit,
       onLateResult,
-      acceptLate,
+      // A request that sets no deadline of its own (an answer to the user's
+      // approval, a clarify) always settled on its answer; the default only
+      // bounds how long its span and its future stay open.
+      acceptLate || timeout == null,
     );
     _channel.sink.add(
       jsonEncode({
