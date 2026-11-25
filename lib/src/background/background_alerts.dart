@@ -123,9 +123,9 @@ class RunningRepliesStep extends BackgroundStep {
     String? profile,
   ) async {
     try {
-      final listed = await context
-          .request('session.active_list', {'profile': ?profile})
-          .timeout(lookup);
+      final listed = await context.request('session.active_list', {
+        'profile': ?profile,
+      }, lookup);
       final rows = listed['sessions'];
       return (
         profile,

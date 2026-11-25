@@ -18,6 +18,7 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'gateway_request_timeout_scan.dart';
 import 'ratchet.dart';
 import 'source_scan.dart';
 
@@ -1388,6 +1389,21 @@ List<Hit> _flutterBarrelImports() => [
 
 /// Every guard of this file.
 final guardRules = <Rule>[
+  // docs/architecture/gateway.md, "Request deadlines": a deadline belongs to
+  // the request, not to the caller waiting for it.
+  _custom(
+    name: 'gateway-request-timeout',
+    message:
+        '.timeout(...) on a gateway RPC future abandons the caller and leaves '
+        'the request, its pending entry and its span open until the socket '
+        'ends: pass the deadline to the request instead, '
+        'GatewayRpcClient.request(..., timeout: d) (or requestWithin / '
+        'requestGuarded, or the timeout: of requestKeepingConnection), which '
+        'settles the request and ends its span '
+        '(lib/src/chat/gateway/gateway_rpc_client.dart).',
+    hits: gatewayRequestTimeoutHits,
+  ),
+
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
   _guard(
     name: 'deep-link-literal',
@@ -1859,6 +1875,72 @@ final guardRules = <Rule>[
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  group('gateway request timeout scan', () {
+    int hits(String source, {String path = 'lib/src/x.dart'}) =>
+        gatewayRequestTimeoutHitsIn(SourceFile(path, source)).length;
+
+    test('flags a timeout wrapped around a request call', () {
+      expect(hits("f() => client.request('session.resume', p).timeout(t);"), 1);
+      expect(hits('f() async => await t.request(method, p).timeout(d);'), 1);
+      expect(
+        hits(
+          "f() => (c.requestWithin('a.b', p, timeout: d)).timeout(t, onTimeout: g);",
+        ),
+        1,
+      );
+      expect(hits('f() => t.requestKeepingConnection(m, p).timeout(d);'), 1);
+      expect(
+        hits("f() => c.request('x.y', {}).then((r) => r).timeout(t);"),
+        1,
+        reason: 'a chain after the call',
+      );
+    });
+
+    test('flags a variable that holds a request, in the same member', () {
+      expect(
+        hits(
+          'f() async {\n'
+          "  final pending = client.request('session.resume', p);\n"
+          '  return await pending.timeout(t);\n'
+          '}',
+        ),
+        1,
+      );
+    });
+
+    test('flags the transport helpers only inside the gateway directory', () {
+      const source = 'f() => _call(client, m, p).timeout(t);';
+      expect(hits(source, path: 'lib/src/chat/gateway/x.dart'), 1);
+      expect(hits(source), 0);
+    });
+
+    test('leaves other futures and other request APIs alone', () {
+      for (final fine in [
+        'f() => connect().timeout(t);',
+        'f() => pending.timeout(t);',
+        'f() => permission.request().timeout(t);',
+        'f() => queue.request(open).timeout(t);',
+        "f() => dio.request('/x').timeout(t);",
+        "f() => client.request('session.resume', p);",
+        'f() async {\n  final x = other();\n  return x.timeout(t);\n}',
+        "// client.request('a.b', p).timeout(t)\nf() => 1;",
+        "f() => 'client.request(a.b).timeout(t)';",
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test('a variable of another member is not followed', () {
+      expect(
+        hits(
+          "g() { final pending = client.request('a.b', p); }\n"
+          'f() => pending.timeout(t);',
+        ),
+        0,
+      );
+    });
+  });
 
   group('theme-platform-copy scan', () {
     int hits(String source) =>
