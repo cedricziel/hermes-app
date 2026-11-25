@@ -472,6 +472,7 @@ extension _ChatControllerCommands on ChatController {
     open(
       NotificationTarget(threadId: branch.id, profile: profile),
       fetchMissing: true,
+      branchParent: branch.parent,
     );
   }
 

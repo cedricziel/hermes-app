@@ -115,7 +115,7 @@ class DiscoverTab extends StatelessWidget {
       trustLabel(l10n, skill.trustLevel),
       if (skill.description.isNotEmpty) skill.description,
     ].join(' · '),
-    value: hub.isInstalled(skill) ? 'Installed' : null,
+    value: hub.isInstalled(skill) ? l10n.skillsHubInstalled : null,
     onTap: () => onOpen(skill),
   );
 }

@@ -1144,12 +1144,18 @@ const _labelReturnTypes = {
   'String?',
   'Future<String>',
   'Future<String?>',
+  'FutureOr<String>',
+  'FutureOr<String?>',
+  'Stream<String>',
+  'Stream<String?>',
 };
 final _l10nParameterType = RegExp(r'\b(?:AppLocalizations|BuildContext)\b');
 
 /// The top-level functions and static methods of [file] named `*Label`,
-/// `*Title` or `*Summary` that return `String`, `String?`, `Future<String>`
-/// or `Future<String?>` (or declare no type), return at
+/// `*Title` or `*Summary` that return `String`, `String?`, `Future<String>`,
+/// `Future<String?>`, `FutureOr<String>`, `FutureOr<String?>`,
+/// `Stream<String>` or `Stream<String?>` (or declare no type), return or
+/// yield at
 /// least one string literal that holds a letter, and take neither an
 /// `AppLocalizations` nor a `BuildContext`. Read from the analyzer's
 /// unresolved syntax tree. A literal counts when it sits in a returned
@@ -1245,6 +1251,10 @@ class _ReturnedLiteral extends RecursiveAstVisitor<void> {
     final e = node.expression;
     if (e != null) _scan(e);
   }
+
+  // A `Stream<String>` helper yields its text.
+  @override
+  void visitYieldStatement(YieldStatement node) => _scan(node.expression);
 
   // A nested function's returns are not this function's.
   @override
@@ -2748,6 +2758,48 @@ void main() {
       );
       expect(
         owners("Future<int> pageTitle() async => 'Settings'.length;"),
+        isEmpty,
+      );
+    });
+
+    test('a helper that returns a FutureOr of text hits', () {
+      expect(owners("FutureOr<String> pageTitle() => 'Settings';"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(owners("FutureOr<String?> pageTitle() { return 'Settings'; }"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(
+        owners("FutureOr<String> pageTitle(AppLocalizations l) => 'a';"),
+        isEmpty,
+      );
+      expect(
+        owners("FutureOr<int> pageTitle() => 'Settings'.length;"),
+        isEmpty,
+      );
+    });
+
+    test('a helper that returns a Stream of text hits', () {
+      expect(
+        owners("Stream<String> pageTitle() async* { yield 'Settings'; }"),
+        ['lib/src/y.dart#pageTitle'],
+      );
+      expect(
+        owners("Stream<String?> pageTitle() async* { yield 'Settings'; }"),
+        ['lib/src/y.dart#pageTitle'],
+      );
+      expect(
+        owners(
+          "Stream<String> pageTitle(BuildContext c) async* { yield 'a'; }",
+        ),
+        isEmpty,
+      );
+      expect(
+        owners("Stream<int> pageTitle() async* { yield 'Settings'.length; }"),
+        isEmpty,
+      );
+      expect(
+        owners("Stream<String> pageTitle() async* { yield id; }"),
         isEmpty,
       );
     });

@@ -16,9 +16,9 @@ Plain-model widgets only: no controller, no repository, no screen.
 
 ## 2. PR 2 - `feat(chat): read the branch parent from session rows`
 
-- [ ] 2.1 Failing tests first, with `FakeHermesServer` rows: `_branched_from` gives `ChatThread.branchParentId`; `_reset_from` set gives none; `parent_session_id` without a marker gives none (a compression continuation and a sub-agent row); a blank marker gives none; a row of the wrong type is skipped.
-- [ ] 2.2 `HermesChatRepository` parses it leniently; `BranchedThread` carries the gateway result's `parent` and `ChatController._branchImpl` seeds the new thread with it.
-- [ ] 2.3 Contract test in `test/real_backend_contract_test.dart` (skips without `HERMES_DEV_URL`): branch a chat on a throwaway Hermes, read the list row and the detail row, assert the marker and its value; delete the parent and assert the marker stays and `latest-descendant` answers 404 `Session not found`; compress a parent and assert what its list row carries (id, `_lineage_root_id`) against the marker, to decide whether the title can be matched without a tap. This also settles "Not verified" in `design.md`.
+- [x] 2.1 Failing tests first, with `FakeHermesServer` rows: `_branched_from` gives `ChatThread.branchParentId`; `_reset_from` set gives none; `parent_session_id` without a marker gives none (a compression continuation and a sub-agent row); a blank marker gives none; a row of the wrong type is skipped.
+- [x] 2.2 `HermesChatRepository` parses it leniently; `BranchedThread` carries the gateway result's `parent` and `ChatController._branchImpl` seeds the new thread with it.
+- [ ] 2.3 (written, not run until `scripts/verify.sh contract`; leave open until it has) Contract test in `test/real_backend_contract_test.dart` (skips without `HERMES_DEV_URL`): branch a chat on a throwaway Hermes, read the list row and the detail row, assert the marker and its value; delete the parent and assert the marker stays and `latest-descendant` answers 404 `Session not found`; compress a parent and assert what its list row carries (id, `_lineage_root_id`) against the marker, to decide whether the title can be matched without a tap. This also settles "Not verified" in `design.md`.
 
 ## 3. PR 3 - `feat(chat): open the original chat from a branch`
 
