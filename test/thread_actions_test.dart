@@ -482,6 +482,33 @@ void main() {
       expect(find.text('Could not delete this chat'), findsOneWidget);
     });
 
+    testWidgets('says Hermes is still working when it answers 409, and asks '
+        'once', (tester) async {
+      server.on('DELETE', '/api/sessions/s2', {
+        'detail': 'session has an active write guard',
+      }, status: 409);
+      await pumpChatScreen(tester, server: server);
+
+      await openMenu(tester, 's2');
+      await choose(tester, 'Delete');
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Delete'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(row('s2'), findsOneWidget);
+      expect(
+        find.text(
+          'Hermes is still working in this chat. Try again when it is done.',
+        ),
+        findsOneWidget,
+      );
+      expect(server.requestsTo('DELETE', '/api/sessions/s2'), hasLength(1));
+    });
+
     testWidgets('deleting the last thread lands on the welcome view', (
       tester,
     ) async {

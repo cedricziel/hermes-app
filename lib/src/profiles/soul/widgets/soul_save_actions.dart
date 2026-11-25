@@ -4,14 +4,13 @@ import '../../../../l10n/l10n.dart';
 import '../../../tools/widgets/tools_target.dart';
 import '../../../widgets/motion_spinner.dart';
 import '../../../widgets/settings_scaffold.dart';
-import 'soul_line_metrics.dart';
 
 /// Whether Save (and Revert) can be pressed: only while the text differs from
 /// what the server holds and nothing is running. Both are always drawn and
 /// disabled while clean, never hidden.
 bool soulCanSave({required bool dirty, required bool busy}) => dirty && !busy;
 
-enum _Part { buttons, revertRow }
+enum _Part { buttons, revertButton }
 
 /// Save and Revert.
 ///
@@ -20,10 +19,9 @@ enum _Part { buttons, revertRow }
 ///   no Save there.
 /// - A phone: Save is the bar's text action ([SoulSaveActions.barAction],
 ///   which the page hands to `SettingsScaffold.formAction`), and Revert is a
-///   quiet text button on its own row under the editor
-///   ([SoulSaveActions.revertRow]), its label lined up with the text of the
-///   note and status lines above it (after their icon, see
-///   [SoulLineMetrics.textInset]).
+///   quiet text button in the footer of the editor's card, before the count
+///   ([SoulSaveActions.revertButton], handed to `SoulEditor.footerAction`),
+///   its label lined up with the text of the field above it.
 ///
 /// Both are enabled by [soulCanSave]. While [busy] (the check read, the PUT
 /// or a check runs) Save shows a spinner in place of its label. Every button
@@ -39,13 +37,13 @@ class SoulSaveActions extends StatelessWidget {
   }) : _part = _Part.buttons;
 
   /// Only the quiet Revert button, for a phone.
-  const SoulSaveActions.revertRow({
+  const SoulSaveActions.revertButton({
     super.key,
     required this.dirty,
     required this.busy,
     required this.onRevert,
   }) : onSave = null,
-       _part = _Part.revertRow;
+       _part = _Part.revertButton;
 
   final bool dirty;
   final bool busy;
@@ -70,29 +68,17 @@ class SoulSaveActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final enabled = soulCanSave(dirty: dirty, busy: busy);
-    if (_part == _Part.revertRow) {
-      return Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: Padding(
-          padding: EdgeInsetsDirectional.only(
-            start: SoulLineMetrics.textInset(context),
-          ),
-          child: TextButton(
-            onPressed: enabled ? onRevert : null,
-            // No inner side padding, so the label starts where the note and
-            // status text above it start (the row's inset is the icon, the gap
-            // and the lines' own padding); the target still extends past it.
-            style: toolsButtonStyle(context).merge(
-              const ButtonStyle(
-                padding: WidgetStatePropertyAll(
-                  EdgeInsets.symmetric(vertical: 8),
-                ),
-                alignment: AlignmentDirectional.centerStart,
-              ),
-            ),
-            child: Text(l10n.profilesSoulRevert),
+    if (_part == _Part.revertButton) {
+      return TextButton(
+        onPressed: enabled ? onRevert : null,
+        // No inner side padding, so the label starts where the card's text
+        // starts; the target still extends past it.
+        style: toolsButtonStyle(context).merge(
+          const ButtonStyle(
+            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
           ),
         ),
+        child: Text(l10n.profilesSoulRevert),
       );
     }
     final style = toolsButtonStyle(context);

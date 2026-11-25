@@ -38,6 +38,7 @@ import '../thread_search.dart';
 import '../thread_sections.dart';
 import '../thread_list_preferences.dart';
 import 'thread_grouping_controls.dart';
+import 'branch_glyph.dart';
 import 'mac_search_results.dart';
 import 'mac_thread_row.dart';
 import 'relative_time.dart';
@@ -84,6 +85,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenSkills,
     this.onOpenMemory,
     this.memoryWaiting,
+    this.onOpenSoul,
     this.onOpenPlugins,
     this.onOpenMcp,
     this.onOpenProviders,
@@ -123,6 +125,10 @@ class ThreadSidebar extends StatelessWidget {
 
   /// How many staged memory changes wait, for the Memory entry.
   final int? memoryWaiting;
+
+  /// Opens Personality of the chat's profile; the entry shows only while the
+  /// server offers it.
+  final VoidCallback? onOpenSoul;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
   final VoidCallback? onOpenProviders;
@@ -273,6 +279,12 @@ class ThreadSidebar extends StatelessWidget {
                       AppIcons.memory,
                       memoryEntryLabel(memoryWaiting),
                       onOpenMemory!,
+                    ),
+                  if (onOpenSoul != null)
+                    (
+                      AppIcons.personality,
+                      context.l10n.profilesSoulTitle,
+                      onOpenSoul!,
                     ),
                   if (onOpenMessaging != null)
                     (AppIcons.bot, 'Messaging', onOpenMessaging!),
@@ -452,7 +464,7 @@ class ThreadSidebar extends StatelessWidget {
                 );
               }
               final thread = threads[index];
-              return _ThreadRow(
+              return SidebarThreadRow(
                 key: ValueKey('thread-${thread.id}'),
                 avatar: avatarBuilder?.call(thread),
                 thread: thread,
@@ -580,8 +592,10 @@ class _MoreSectionState extends State<_MoreSection> {
   }
 }
 
-class _ThreadRow extends StatefulWidget {
-  const _ThreadRow({
+/// A thread in the phone, iPad and Material sidebar: a [SidebarRow] with its
+/// title, a pin, a working dot and, outside iOS, the thread's menu button.
+class SidebarThreadRow extends StatefulWidget {
+  const SidebarThreadRow({
     super.key,
     required this.thread,
     required this.selected,
@@ -589,9 +603,14 @@ class _ThreadRow extends StatefulWidget {
     required this.onTap,
     this.housekeeping,
     this.avatar,
+    this.branch = false,
   });
 
   final Widget? avatar;
+
+  /// Whether the chat was branched from another: a 14 pt glyph before the
+  /// title, and "Branch" in its label.
+  final bool branch;
   final ChatThread thread;
   final bool selected;
   final bool busy;
@@ -599,10 +618,10 @@ class _ThreadRow extends StatefulWidget {
   final ThreadHousekeeping? housekeeping;
 
   @override
-  State<_ThreadRow> createState() => _ThreadRowState();
+  State<SidebarThreadRow> createState() => _SidebarThreadRowState();
 }
 
-class _ThreadRowState extends State<_ThreadRow> {
+class _SidebarThreadRowState extends State<SidebarThreadRow> {
   final _actions = GlobalKey<ThreadActionsButtonState>();
 
   ChatThread get _thread => widget.thread;
@@ -649,17 +668,23 @@ class _ThreadRowState extends State<_ThreadRow> {
                 AppIcon(AppIcons.pin, size: 12, color: subtle),
                 const SizedBox(width: 4),
               ],
+              if (widget.branch) const BranchGlyph(),
               Expanded(
-                child: Text(
-                  _thread.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: widget.selected
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: scheme.onSurface,
+                child: branchTitled(
+                  context,
+                  branch: widget.branch,
+                  title: _thread.title,
+                  child: Text(
+                    _thread.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: widget.selected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: scheme.onSurface,
+                    ),
                   ),
                 ),
               ),
@@ -799,7 +824,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
 
   Widget _row(BuildContext context, ChatThread thread) {
     if (platformChromeOf(context) != PlatformChrome.macos) {
-      return _ThreadRow(
+      return SidebarThreadRow(
         key: ValueKey('thread-${thread.id}'),
         avatar: widget.avatarBuilder?.call(thread),
         thread: thread,

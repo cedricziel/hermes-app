@@ -27,8 +27,8 @@ enum VoiceTurnRefusal {
   sessionReclaimed,
 }
 
-/// Why a prompt the user typed or queued left no trace in the chat. Fixed
-/// codes: the screen words them.
+/// Why a prompt the user typed or queued left no trace in the chat, or why a
+/// chat action was refused. Fixed codes: the screen words them.
 enum ChatSendNotice {
   /// The words were exactly a stop phrase of Hermes' voice mode, which Hermes
   /// answers without running a turn, so nothing reached the agent.
@@ -36,6 +36,10 @@ enum ChatSendNotice {
 
   /// The same, in a chat that is not open: the words wait for that chat.
   stopCommandElsewhere,
+
+  /// Hermes refused to rename, pin, archive or delete a chat (409): its turn
+  /// still writes to it.
+  threadBusy,
 }
 
 /// What Hermes (or the transport) did with a spoken turn that was handed over.
