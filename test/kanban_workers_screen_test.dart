@@ -104,7 +104,7 @@ void main() {
     await pump(tester, locale: const Locale('de'));
 
     expect(find.text('Aktive Worker'), findsOneWidget);
-    expect(find.text('1 laufen'), findsOneWidget);
+    expect(find.text('1 läuft'), findsOneWidget);
 
     server.on('GET', '/api/plugins/kanban/workers/active', {'workers': []});
     await tester.drag(find.byType(ListView).first, const Offset(0, 300));
