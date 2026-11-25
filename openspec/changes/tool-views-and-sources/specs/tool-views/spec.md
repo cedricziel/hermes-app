@@ -31,17 +31,17 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 #### Scenario: Cut short
 
-- **WHEN** the result carries `truncated` and no `truncated_by`
+- **WHEN** the result has `truncated` true and no `truncated_by`
 - **THEN** a warning note with an icon says which lines were shown and where the next read starts, without mentioning a character limit
 
 #### Scenario: Cut by the size limit
 
-- **WHEN** the result carries `truncated_by` `bytes` and `next_offset`
+- **WHEN** the result has `truncated_by` `bytes` and a `next_offset`
 - **THEN** the note also says the server stopped at its size limit
 
 #### Scenario: A document
 
-- **WHEN** the result carries `extracted_document`
+- **WHEN** the result has `extracted_document` true
 - **THEN** a note says the text was taken from the document, it draws plain, and Copy copies the extracted text
 
 #### Scenario: Masked secrets
@@ -51,7 +51,7 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 #### Scenario: A long line
 
-- **WHEN** the result carries `truncated_lines`
+- **WHEN** the result has `truncated_lines` true
 - **THEN** a note says some long lines were cut by Hermes, and Copy copies them as returned
 
 ### Requirement: Write outcome
@@ -70,9 +70,14 @@ A `write_file` card SHALL show the content as sent, coloured as soon as the call
 
 ### Requirement: Binary and image reads
 
-A `read_file` result with `is_binary` or `is_image` SHALL show the path and a note with Hermes' description and the size, even when it also carries `error`. It SHALL NOT draw, copy or log any base64 content.
+A `read_file` result with `is_binary` or `is_image` true SHALL show the path and a note with Hermes' description and the size, even when it also carries `error`. It SHALL NOT draw, copy or log any base64 content.
 
-#### Scenario: An image read
+#### Scenario: An ordinary read
+
+- **WHEN** a result has `truncated`, `is_binary`, `is_image` and `not_found` all false
+- **THEN** the card shows the code with no note about truncation or a binary file
+
+#### Scenario: A binary file
 
 - **WHEN** the result is `{is_binary: true, file_size, error}`
 - **THEN** the card shows "Not a text file.", Hermes' description and the size, and no content
