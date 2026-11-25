@@ -340,6 +340,98 @@ void main() {
       );
     });
 
+    testWidgets('the hub skill page is German in every state', (tester) async {
+      locale = const Locale('de');
+      server.on(
+        'GET',
+        '/api/skills/hub/scan',
+        hubScanBody(policy: 'ask', findings: [hubFindingRow()]),
+      );
+      await openWebScraper(tester);
+
+      // Mutation: put any of these English texts back on the page.
+      for (final text in [
+        '2 Dateien',
+        'Dateien',
+        'Sicherheitsprüfung',
+        'Achtung: Bestätigung erforderlich',
+        'Trotzdem installieren…',
+        'Richtlinie des Servers: nachfragen. Du wirst um Bestätigung gebeten.',
+      ]) {
+        expect(find.text(text), findsWidgets, reason: text);
+      }
+      for (final text in [
+        '2 files',
+        'Files',
+        'Security scan',
+        'Install anyway…',
+        'Server policy: ask. You will be asked to confirm.',
+        'Caution: confirmation required',
+      ]) {
+        expect(find.text(text), findsNothing, reason: text);
+      }
+    });
+
+    testWidgets('an allowed hub skill is German', (tester) async {
+      locale = const Locale('de');
+      await openWebScraper(tester);
+      expect(find.text('Bestanden'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, 'Installieren'), findsOneWidget);
+      expect(find.text('Passed'), findsNothing);
+      expect(find.text('Install'), findsNothing);
+    });
+
+    testWidgets('a blocked hub skill is German', (tester) async {
+      locale = const Locale('de');
+      server.on(
+        'GET',
+        '/api/skills/hub/scan',
+        hubScanBody(policy: 'block', reason: 'Credential stealer'),
+      );
+      await openWebScraper(tester);
+      expect(find.text('Blockiert'), findsOneWidget);
+      expect(
+        find.text('Von der Richtlinie des Servers blockiert.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a failed hub skill load is German', (tester) async {
+      locale = const Locale('de');
+      server.on('GET', '/api/skills/hub/scan', {'detail': 'x'}, status: 502);
+      server.on('GET', '/api/skills/hub/preview', {'detail': 'x'}, status: 502);
+      await openWebScraper(tester);
+      expect(
+        find.text('Die Sicherheitsprüfung konnte nicht ausgeführt werden.'),
+        findsOneWidget,
+      );
+      expect(find.text('Erneut versuchen'), findsOneWidget);
+      expect(
+        find.text('Der Inhalt des Skills konnte nicht geladen werden.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an installed hub skill says Installiert in German', (
+      tester,
+    ) async {
+      locale = const Locale('de');
+      server.on('GET', '/api/skills/hub/search', {
+        'results': [hubSkillRow(name: 'compose', identifier: 'github/compose')],
+        'installed': {'github/compose': {}},
+      });
+      server.on('GET', '/api/skills', [
+        skillRow(name: 'other', provenance: 'hub'),
+      ]);
+      await openDiscover(tester);
+      await tester.enterText(find.byType(TextField), 'compose');
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('hub-github/compose')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(FilledButton, 'Installiert'), findsOneWidget);
+    });
+
     testWidgets('the install confirmation is in German', (tester) async {
       locale = const Locale('de');
       server.on(
@@ -349,7 +441,7 @@ void main() {
       );
       await openWebScraper(tester);
 
-      await tester.tap(find.text('Install anyway…'));
+      await tester.tap(find.text('Trotzdem installieren…'));
       await tester.pumpAndSettle();
 
       expect(find.text('web-scraper installieren?'), findsOneWidget);
@@ -543,7 +635,7 @@ void main() {
         jobStatusBody(running: true, exitCode: null, lines: ['Fetching…']),
       );
       await openWebScraper(tester);
-      await tester.tap(find.widgetWithText(FilledButton, 'Install'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Installieren'));
       await pumpFor(tester, 800);
       await tester.tap(find.text('Run in background'));
       await pumpFor(tester, 800);

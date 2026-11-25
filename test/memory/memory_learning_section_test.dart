@@ -11,7 +11,7 @@ void main() {
     WidgetTester tester, {
     MemorySettings? settings = MemorySettings.defaults,
     bool unreadable = false,
-    String? message,
+    MemorySetting? failedSetting,
   }) async {
     calls.clear();
     retried = 0;
@@ -23,7 +23,7 @@ void main() {
               MemoryLearningSection(
                 settings: settings,
                 unreadable: unreadable,
-                message: message,
+                failedSetting: failedSetting,
                 onChanged: (setting, value) => calls.add((setting, value)),
                 onRetry: () => retried++,
               ),
@@ -137,7 +137,7 @@ void main() {
   });
 
   testWidgets('a refused change is told above the section', (tester) async {
-    await pump(tester, message: "Couldn't change Keep agent notes. Try again.");
+    await pump(tester, failedSetting: MemorySetting.agentNotes);
     expect(
       find.text("Couldn't change Keep agent notes. Try again."),
       findsOneWidget,

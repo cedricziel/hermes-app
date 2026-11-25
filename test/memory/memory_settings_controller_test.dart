@@ -63,7 +63,7 @@ void main() {
     expect(controller.settings!.writeApproval, isTrue);
     await controller.whenIdle;
     expect(controller.settings!.writeApproval, isTrue);
-    expect(controller.message, isNull);
+    expect(controller.failedSetting, isNull);
     expect(writes(), [
       {
         'config': {
@@ -81,7 +81,7 @@ void main() {
     expect(controller.settings!.agentNotes, isFalse);
     await controller.whenIdle;
     expect(controller.settings!.agentNotes, isTrue);
-    expect(controller.message, "Couldn't change Keep agent notes. Try again.");
+    expect(controller.failedSetting, MemorySetting.agentNotes);
   });
 
   test('a change made while the key is in flight goes after it', () async {
