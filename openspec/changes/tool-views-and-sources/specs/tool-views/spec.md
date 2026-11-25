@@ -39,6 +39,16 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 - **WHEN** the result has `truncated_by` `bytes` and a `next_offset`
 - **THEN** the note also says the server stopped at its size limit
 
+#### Scenario: A file with Windows line endings
+
+- **WHEN** every row ends with a carriage return
+- **THEN** the code view shows and Copy keeps the text as returned
+
+#### Scenario: An empty file
+
+- **WHEN** the result is `{content: "", hint}`
+- **THEN** the card shows the path and "This file is empty.", not a blank code box
+
 #### Scenario: A document
 
 - **WHEN** the result has `extracted_document` true
@@ -46,7 +56,7 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 #### Scenario: Masked secrets
 
-- **WHEN** the content holds a `«redacted:` marker
+- **WHEN** the content holds the prefix `«redacted`, as `«redacted:ghp_…»` or `«redacted-secret»`
 - **THEN** a note says Hermes may have hidden passwords or keys in this text, and Copy copies it as returned
 
 #### Scenario: A long line
