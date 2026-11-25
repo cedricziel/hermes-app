@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'plugin_install_result.dart';
+import 'widgets/plugin_missing_env_dialog.dart';
 
 /// Tells the user how an install ended: what was installed and any warnings
 /// the server gave, or why it was refused. A dialog then lists the
@@ -43,22 +43,6 @@ Future<void> reportInstall(
   if (!result.ok || result.missingEnv.isEmpty || !context.mounted) return;
   await showAppDialog<void>(
     context: context,
-    builder: (context) => AppAlertDialog(
-      title: Text(context.l10n.pluginsInstallMissingEnvTitle),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final name in result.missingEnv)
-            Text(name, style: const TextStyle(fontFamily: 'monospace')),
-        ],
-      ),
-      actions: [
-        AppDialogAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(MaterialLocalizations.of(context).okButtonLabel),
-        ),
-      ],
-    ),
+    builder: (_) => PluginMissingEnvDialog(missingEnv: result.missingEnv),
   );
 }
