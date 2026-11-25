@@ -387,7 +387,6 @@ style.string:
   lib/src/memory/widgets/memory_entry_editor.dart: 9
   lib/src/memory/widgets/memory_entry_list.dart: 4
   lib/src/memory/widgets/memory_fill_bar.dart: 2
-  lib/src/memory/widgets/memory_learning_section.dart: 1
   lib/src/memory/widgets/memory_proposal_detail.dart: 3
   lib/src/memory/widgets/memory_proposals_list.dart: 3
   lib/src/memory/widgets/memory_storage_section.dart: 6
