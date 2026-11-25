@@ -6,6 +6,7 @@ import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 import 'bot_screen_viewer_view.dart' show BotScreenViewerPresentation;
+import '../../../l10n/l10n.dart';
 
 /// The button in the viewer's header: Take over or Hand Back. It is disabled
 /// while [onPressed] is null (a take over or hand back on its way).
@@ -90,7 +91,7 @@ class BotScreenViewerHeader extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      control ?? 'Bot screen',
+                      control ?? context.l10n.botScreenViewerTitleFallback,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(

@@ -66,33 +66,6 @@ arch.widget-layer-imports:
   lib/src/skills/widgets/skill_badges.dart: 1
   lib/src/voice/widgets/dictation_notice.dart: 1
 
-arch.english-null-fallback:
-  lib/src/bot_mode/bot_mode_roster_screen.dart: 1
-  lib/src/bot_mode/groups/group_rooms_panel.dart: 1
-  lib/src/bot_mode/groups/widgets/group_widgets.dart: 3
-  lib/src/bot_mode/widgets/bot_creation_fields.dart: 2
-  lib/src/bot_mode/widgets/bot_edit_fields.dart: 1
-  lib/src/bot_screen/widgets/bot_screen_viewer_header.dart: 1
-  lib/src/chat/memory/memory_activity_card.dart: 1
-  lib/src/chat/widgets/approval_card.dart: 1
-  lib/src/chat/widgets/reasoning_block.dart: 1
-  lib/src/chat/widgets/session_status_card.dart: 3
-  lib/src/chat/widgets/thread_sidebar.dart: 1
-  lib/src/chat/widgets/tool_value_view.dart: 1
-  lib/src/mcp/mcp_sign_in_screen.dart: 1
-  lib/src/messaging/messaging_setup_screen.dart: 1
-  lib/src/plugins/providers_tab.dart: 1
-  lib/src/profiles/widgets/mac_profile_switcher.dart: 1
-  lib/src/providers/providers_screen.dart: 1
-  lib/src/quick_panel/widgets/quick_panel_view.dart: 1
-  lib/src/schedules/schedule_actions.dart: 1
-  lib/src/schedules/schedule_detail.dart: 1
-  lib/src/screens/widgets/connection_summary.dart: 1
-  lib/src/shell/app_shell.dart: 1
-  lib/src/skills/skill_job_sheet.dart: 1
-  lib/src/voice/voice_call_screen.dart: 1
-  lib/src/widgets/hermes_code_block.dart: 3
-
 arch.label-helper-takes-l10n:
   lib/src/memory/widgets/memory_learning_section.dart: 2
   lib/src/schedules/schedule_widgets.dart: 1

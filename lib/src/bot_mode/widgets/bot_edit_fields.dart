@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../widgets/grouped_form.dart';
 import '../../widgets/grouped_list.dart';
+import '../../../l10n/l10n.dart';
 
 class BotEditFields extends StatelessWidget {
   const BotEditFields({
@@ -60,7 +61,7 @@ class BotEditFields extends StatelessWidget {
           children: [
             GroupedValueRow(
               title: 'Default model',
-              value: model ?? 'Choose default model',
+              value: model ?? context.l10n.botModeEditModelChoose,
               caption: provider,
               onTap: onChooseModel,
             ),

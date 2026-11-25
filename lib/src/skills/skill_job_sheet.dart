@@ -4,6 +4,7 @@ import '../widgets/adaptive_sheet.dart';
 import '../widgets/busy_bar.dart';
 import 'skill_job.dart';
 import 'skills_hub_controller.dart';
+import '../../l10n/l10n.dart';
 
 /// Shows a running or finished job: a progress bar and the tail of its log
 /// while it runs, and the outcome when it ends. Closing it while the job runs
@@ -58,7 +59,7 @@ class SkillJobSheet extends StatelessWidget {
             if (job.running) const BusyBar(),
             if (!job.running)
               Text(
-                _outcome(job),
+                _outcome(job, context.l10n),
                 style: TextStyle(
                   color: job.state == JobState.succeeded
                       ? null
@@ -104,9 +105,12 @@ class SkillJobSheet extends StatelessWidget {
     );
   }
 
-  static String _outcome(SkillJob job) => switch (job.state) {
+  static String _outcome(
+    SkillJob job,
+    AppLocalizations l10n,
+  ) => switch (job.state) {
     JobState.succeeded => 'Done.',
-    JobState.failed => job.error ?? 'It failed.',
+    JobState.failed => job.error ?? l10n.skillsJobFailedFallback,
     JobState.unknown =>
       'The result could not be confirmed. The installed list was refreshed.',
     _ => '',
