@@ -1,10 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 
 import 'plugin_install_result.dart';
-
-const installStillRunningText =
-    'The server is still installing. Pull the list down in a moment to check.';
+import 'widgets/plugin_missing_env_dialog.dart';
 
 /// Tells the user how an install ended: what was installed and any warnings
 /// the server gave, or why it was refused. A dialog then lists the
@@ -17,13 +16,16 @@ Future<void> reportInstall(
   PluginInstallResult result,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
+  final l10n = context.l10n;
   final lines = [
     if (result.ok)
-      result.pluginName.isEmpty ? 'Installed' : 'Installed ${result.pluginName}'
+      result.pluginName.isEmpty
+          ? l10n.pluginsInstalled
+          : l10n.pluginsInstalledNamed(result.pluginName)
     else if (result.timedOut)
-      installStillRunningText
+      l10n.pluginsInstallStillRunning
     else
-      result.message ?? 'Could not install this plugin',
+      result.message ?? l10n.pluginsInstallFailed,
     if (result.ok) ...result.warnings,
   ];
   messenger
@@ -39,24 +41,8 @@ Future<void> reportInstall(
       ),
     );
   if (!result.ok || result.missingEnv.isEmpty || !context.mounted) return;
-  await showAdaptiveDialog<void>(
+  await showAppDialog<void>(
     context: context,
-    builder: (context) => AppAlertDialog(
-      title: const Text('Set these on the server'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final name in result.missingEnv)
-            Text(name, style: const TextStyle(fontFamily: 'monospace')),
-        ],
-      ),
-      actions: [
-        AppDialogAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
-        ),
-      ],
-    ),
+    builder: (_) => PluginMissingEnvDialog(missingEnv: result.missingEnv),
   );
 }

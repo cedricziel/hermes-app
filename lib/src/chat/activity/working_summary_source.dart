@@ -285,7 +285,7 @@ WorkingInputs workingInputsOf(ChatController chat, ChatThread thread) {
     moa: live == null
         ? null
         : MoaInput(
-            combining: live.phase == 'Aggregating',
+            combining: live.aggregating,
             models: live.total,
             done: live.done,
             total: live.total,

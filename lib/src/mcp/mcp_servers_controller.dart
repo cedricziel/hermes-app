@@ -221,8 +221,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
 
   Future<String?> _activeProfile() async {
     try {
-      final active = (await profiles?.loadActive())?.active;
-      return active == null || active.isEmpty ? null : active;
+      return await profiles?.resolver.load();
     } on Object catch (e) {
       if (isMcpNotFound(e)) return null;
       rethrow;

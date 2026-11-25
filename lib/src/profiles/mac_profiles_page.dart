@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -124,7 +124,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     if (!_toolsReading.add(name)) return;
     final ToolsResult<ToolsetList> result;
     try {
-      result = await repositories.tools.forProfile(name).list();
+      result = await repositories.tools
+          .forProfile(repositories.profiles.resolver.named(name))
+          .list();
     } finally {
       _toolsReading.remove(name);
     }
@@ -184,7 +186,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         () => MemoryRepository(
           repositories.api.raw,
           telemetry: repositories.telemetry,
-        ).count(name),
+        ).count(repositories.profiles.resolver.named(name)),
       ),
       count(
         ProfileSection.mcp,
@@ -233,7 +235,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final snapshot = await MemoryProposalsRepository(
       MemoryProposalSession(transport),
       telemetry: repositories.telemetry,
-    ).load(name);
+    ).load(repositories.profiles.resolver.named(name));
     if (!mounted || generation != _generation) return;
     setState(() {
       switch (snapshot.waiting) {
@@ -273,7 +275,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         entry: ProvidersEntry.profiles,
       ),
       ProfileSection.tools => ToolsScreen(
-        repository: repositories.tools.forProfile(name),
+        repository: repositories.tools.forProfile(
+          repositories.profiles.resolver.named(name),
+        ),
         availability: _availability,
         onProfileGone: () => unawaited(_profiles.load()),
       ),

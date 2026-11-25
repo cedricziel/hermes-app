@@ -5,6 +5,9 @@ description: Use when one hermes-app change (a restyle, a shared widget migratio
 
 # Rolling out a UI change with parallel agents
 
+Process rules for every session (git, PR body, review, ready to merge) are in
+the `fleet-rules` skill; this skill covers the fan-out itself.
+
 Learned from the clean settings restyle and its design port: about two dozen
 PRs in #511–#542, over one night. These are the rules that would have saved
 the rework.
@@ -38,8 +41,9 @@ the rework.
   switch row that no longer flips on a row tap), flows (a picker sheet became
   an Add button) and added buttons (Done). Either forbid behaviour changes
   outright or require them under a "Behaviour changes" heading in the PR body.
-- **Size the load, not just the count.** Every agent runs only the tests for
-  the files it touched (`flutter test <files>`) and leaves the full suite to
+- **Size the load, not just the count.** Every agent runs the tests for the
+  files it touched plus every test that names what the change alters
+  (`flutter test <files>`; `fleet-rules`) and leaves the full suite to
   CI. Keep about four agents at once and launch more as earlier ones finish.
   Check `df -h /` before each wave; seven agents at once drove the load average
   to ~200 and the free disk under 500 MB.
@@ -75,7 +79,8 @@ the rework.
   accessibility and unintended behaviour or API changes, and its findings go
   in as `## Review`. Fix what it confirms. Never merge unreviewed.
 - **Never rebase or force-push a pushed branch.** To pick up main or a lower
-  branch, merge it in with a plain merge commit and push normally.
+  branch, merge it in with a plain merge commit and push normally, never while
+  auto-merge is armed (ask the orchestrator to disarm).
 
 ## While they run
 
@@ -104,9 +109,12 @@ levels and the orchestrator does the reviewing:
   path, leases, App Lock). Why: reviewers started this way found a defect the
   lead had missed in most PRs of the run that added this section.
 - The orchestrator sends the findings back to the same lead, which keeps its
-  context, and the lead writes the `## Review` section when it pushes the fixes.
-- Merge only after that follow-up push, and only once `Analyze & test` has
-  passed on the PR's current head (see "Child cloud sessions").
+  context; the lead pushes the fixes and adds fix notes to `## Review`; the
+  isolated re-review of the pushed head supplies the `Reviewer:` line, which the
+  lead pastes unchanged.
+- The orchestrator arms auto-merge only after that follow-up push has been
+  re-reviewed (a new isolated review of the new head SHA, in `## Review`).
+  GitHub waits for the required checks.
 - A follow-up push cancels the previous commit's CI run, and `Analyze & test`
   then reports failure for the old commit. Compare a failure event's `head_sha`
   with the PR's current head before acting on it.
@@ -118,12 +126,14 @@ levels and the orchestrator does the reviewing:
 ## Child cloud sessions
 
 Work is fanned out to child cloud sessions. Each child owns one feature and
-reports to the orchestrator, who merges.
+reports to the orchestrator, who arms auto-merge.
 
 - **Stacked PRs.** Build them with plain merge commits of the lower branch into
   the upper one. Merge bottom-up: after the lower PR merges, retarget the next
-  PR's base to main, then merge it. Retargeting does not rerun CI, so check the
-  required check on the current head before merging.
+  PR's base to main, merge main into its branch, get a review of the new head
+  (a clean merge-only review is enough, as for any main merge), then report
+  READY as usual. A retarget alone does not rerun CI, so the checks are read on
+  the new head.
 - **No rebases, no force-pushes** on a pushed branch.
 - **No `git stash`.** Agents sharing one clone share one stash list, so one
   worker's pop can take another's work. Workers use commits or patch files.
@@ -131,12 +141,14 @@ reports to the orchestrator, who merges.
   `gh api -X GET search/...`.
 - **Review.** CodeRabbit often skips stacked PRs and rate-limits. Then an
   isolated reviewer agent is the review of record.
-- **Merging is by hand.** Auto-merge armed through the API often does not fire.
-  The orchestrator merges once the required check `Analyze & test` has passed
-  on the PR's current head. A superseded commit's cancelled run shows as a
-  failure: compare the run's head sha with the PR's head before acting.
-- **Release PR.** Each merge regenerates the release-please PR. Do not touch it
-  until the rollout is done.
+- **Merging is by auto-merge.** The orchestrator arms squash auto-merge once
+  the PR is READY (`fleet-rules`), and GitHub merges when the required checks
+  are green on the head. Never push to an armed PR; ask the orchestrator to
+  disarm first. A superseded commit's cancelled run shows as a failure: compare
+  the run's head sha with the PR's head before acting.
+- **Release PR.** Each merge regenerates the release-please PR. The orchestrator
+  may cut a pre-release between waves at its discretion (`release` skill); never
+  arm or merge it while rollout PRs are armed or about to merge.
 
 ## Afterwards
 

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -18,6 +18,7 @@ import '../support/pump_chat.dart' show openSidebarMore;
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart' show newAppLock, workflowPlatform;
 import '../tools/tools_setup_world.dart';
+import '../support/test_localizations.dart';
 
 /// Setting a toolset up from the real shell: Web with a key (saved, failed,
 /// answer lost), an install, where Terminal runs commands, and Computer use
@@ -73,7 +74,7 @@ void main() {
           MaterialApp(
             debugShowCheckedModeBanner: false,
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(base),
             home: const AppShell(),

@@ -7,6 +7,7 @@ import Foundation
 
 import app_badge_plus
 import app_links
+import app_settings
 import audio_session
 import connectivity_plus
 import desktop_drop
@@ -17,6 +18,7 @@ import file_selector_macos
 import flutter_app_group_directory
 import flutter_local_notifications
 import flutter_secure_storage_darwin
+import flutter_soloud
 import hermes_speech
 import local_auth_darwin
 import macos_window_utils
@@ -33,6 +35,7 @@ import workmanager_apple
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AppBadgePlusPlugin.register(with: registry.registrar(forPlugin: "AppBadgePlusPlugin"))
   AppLinksMacosPlugin.register(with: registry.registrar(forPlugin: "AppLinksMacosPlugin"))
+  AppSettingsPlugin.register(with: registry.registrar(forPlugin: "AppSettingsPlugin"))
   AudioSessionPlugin.register(with: registry.registrar(forPlugin: "AudioSessionPlugin"))
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
   DesktopDropPlugin.register(with: registry.registrar(forPlugin: "DesktopDropPlugin"))
@@ -43,6 +46,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FlutterAppGroupDirectoryPlugin.register(with: registry.registrar(forPlugin: "FlutterAppGroupDirectoryPlugin"))
   FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   FlutterSecureStorageDarwinPlugin.register(with: registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin"))
+  FlutterSoloudPlugin.register(with: registry.registrar(forPlugin: "FlutterSoloudPlugin"))
   HermesSpeechPlugin.register(with: registry.registrar(forPlugin: "HermesSpeechPlugin"))
   LocalAuthPlugin.register(with: registry.registrar(forPlugin: "LocalAuthPlugin"))
   MacOSWindowUtilsPlugin.register(with: registry.registrar(forPlugin: "MacOSWindowUtilsPlugin"))

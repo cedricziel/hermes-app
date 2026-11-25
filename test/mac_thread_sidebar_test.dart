@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -18,6 +18,7 @@ import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -26,6 +27,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/tooltip_finder.dart';
 
 /// The thread list of the Mac sidebar: sections by recency, 28pt rows with
 /// hover buttons and a Mac context menu.
@@ -82,6 +84,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: platform),
           home: MacSidebarScope(
             child: ChatScreen(
@@ -106,9 +109,22 @@ void main() {
     return mouse;
   }
 
-  Future<void> rightClick(WidgetTester tester, String id) async {
+  /// [settle] false pumps a fixed second instead: a chat whose messages are
+  /// still loading shows a skeleton that pulses until they arrive, so the
+  /// tree never settles.
+  Future<void> rightClick(
+    WidgetTester tester,
+    String id, {
+    bool settle = true,
+  }) async {
     await tester.tap(row(id), buttons: kSecondaryButton);
-    await tester.pumpAndSettle();
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
   }
 
   testWidgets('sorts threads under Pinned, Today and Older', (tester) async {
@@ -179,14 +195,14 @@ void main() {
     await pump(tester);
     final archive = find.descendant(
       of: row('s2'),
-      matching: find.byTooltip('Archive'),
+      matching: find.tooltip('Archive'),
     );
     expect(tester.widget<Visibility>(_visibility(archive)).visible, isFalse);
 
     await hover(tester, row('s2'));
     expect(tester.widget<Visibility>(_visibility(archive)).visible, isTrue);
     expect(
-      find.descendant(of: row('s2'), matching: find.byTooltip('More')),
+      find.descendant(of: row('s2'), matching: find.tooltip('More')),
       findsOneWidget,
     );
     await tester.tap(archive);
@@ -293,7 +309,7 @@ void main() {
       await tester.tap(row('s1'));
       await tester.pump();
 
-      await rightClick(tester, 's1');
+      await rightClick(tester, 's1', settle: false);
       await tester.tap(find.text('Copy Transcript'));
       await tester.pump();
       answer.complete((
@@ -351,6 +367,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: Scaffold(
             body: ThreadSidebar(
@@ -380,6 +397,7 @@ void main() {
     Future<void> pumpNavigation(WidgetTester tester, TargetPlatform platform) =>
         tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(platform: platform),
             home: Scaffold(
               body: ShellNavigation(

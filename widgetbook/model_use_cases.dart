@@ -1,13 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/models/widgets/model_setup_dialog.dart';
 import 'package:hermes_app/src/settings/widgets/helper_model_list.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _longModel = ModelChoice(
   'openrouter',
@@ -115,6 +118,45 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         ...onEachPlatform(
+          'Default entry, long model name',
+          (_) => _picker(
+            ModelPicker(
+              options: ModelOptions(
+                current: _longModel,
+                providers: modelOptions.providers,
+              ),
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Default entry, default unknown',
+          (_) => _picker(
+            ModelPicker(
+              options: kanbanModelOptions,
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Explicit pick checked, default still named',
+          (_) => _picker(
+            ModelPicker(
+              options: modelOptions,
+              selected: const ModelChoice('anthropic', 'claude-haiku-4-5'),
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+          ),
+        ),
+        ...onEachPlatform(
           'Kanban task: default entry and effort',
           (_) => _picker(
             ModelPicker(
@@ -130,12 +172,117 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         ...onEachPlatform(
+          'Long model ids, cut in the middle',
+          (_) => _picker(
+            ModelPicker(
+              options: _longIds,
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+            width: 320,
+          ),
+        ),
+        ...onEachPlatform(
+          'Largest text',
+          (_) => _picker(
+            ModelPicker(
+              options: _longIds,
+              selected: const ModelChoice('acme', _longId, effort: 'high'),
+              onChanged: (_) {},
+              onUseDefault: () {},
+            ),
+            width: 390,
+            textScale: 2,
+          ),
+        ),
+        ...onEachPlatform(
           'Long list with search',
           (_) => _picker(
             ModelPicker(
               options: _manyModels,
               selected: const ModelChoice('openrouter', 'openai/gpt-5.1'),
               onChanged: (_) {},
+            ),
+          ),
+        ),
+      ],
+    ),
+    // On a desktop platform the picker opens as a popover on the composer's
+    // pill (a dialog without an anchor) at any window width, never as a
+    // bottom sheet. 800 pt is the default Mac window.
+    WidgetbookComponent(
+      name: 'ModelPicker presentation',
+      useCases: [
+        for (final (label, platform, width, state) in [
+          ('Default checked', TargetPlatform.macOS, 800.0, _State.defaultRow),
+          ('Pick with effort', TargetPlatform.macOS, 800.0, _State.effort),
+          (
+            'Pick with effort, wide',
+            TargetPlatform.macOS,
+            1200.0,
+            _State.effort,
+          ),
+          ('Long ids', TargetPlatform.macOS, 800.0, _State.longIds),
+          ('Default unknown', TargetPlatform.macOS, 800.0, _State.unknown),
+          ('Search, scrolls', TargetPlatform.macOS, 800.0, _State.many),
+          (
+            'Keyboard focus on a row, 800',
+            TargetPlatform.macOS,
+            800.0,
+            _State.focused,
+          ),
+          (
+            'Keyboard focus on a row, wide',
+            TargetPlatform.macOS,
+            1200.0,
+            _State.focused,
+          ),
+          ('Windows', TargetPlatform.windows, 800.0, _State.effort),
+          ('Linux', TargetPlatform.linux, 800.0, _State.effort),
+          (
+            'Without an anchor (dialog)',
+            TargetPlatform.macOS,
+            800.0,
+            _State.noAnchor,
+          ),
+          ('Phone (bottom sheet)', TargetPlatform.iOS, 390.0, _State.effort),
+        ])
+          WidgetbookUseCase(
+            name: 'Desktop popover: $label',
+            builder: (context) => Theme(
+              data: platformTheme(context, platform),
+              child: Builder(
+                builder: (context) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(size: Size(width, 700)),
+                  child: _PopoverHost(state: state),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ModelSetupAlert',
+      useCases: [
+        ...onEachPlatform(
+          'Default profile',
+          (_) =>
+              _behindAlert(ModelSetupAlert(profile: null, onCheckAgain: () {})),
+        ),
+        ...onEachPlatform(
+          'Named profile',
+          (_) => _behindAlert(
+            ModelSetupAlert(profile: 'work-assistant', onCheckAgain: () {}),
+          ),
+        ),
+        ...onEachPlatform(
+          'Profile name that needs quoting',
+          (_) => _behindAlert(
+            ModelSetupAlert(
+              profile: "it's a long profile",
+              onCheckAgain: () {},
             ),
           ),
         ),
@@ -207,14 +354,45 @@ WidgetbookNode modelNode() => WidgetbookFolder(
 );
 
 /// A picker in a sheet's width and colour.
-Widget _picker(ModelPicker picker) => Builder(
-  builder: (context) => fill(
-    Material(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: picker,
+Widget _picker(ModelPicker picker, {double width = 420, double? textScale}) =>
+    Builder(
+      builder: (context) {
+        final sheet = Material(
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          child: picker,
+        );
+        return fill(
+          textScale == null
+              ? sheet
+              : MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(textScale)),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: 640),
+                    child: sheet,
+                  ),
+                ),
+          width: width,
+        );
+      },
+    );
+
+const _longId = 'acme-lm-large-2025-0914-long-context-instruct';
+
+/// Invented ids that share a long prefix and differ at the end.
+const _longIds = ModelOptions(
+  current: ModelChoice('acme', _longId),
+  providers: [
+    ModelProviderOption(
+      id: 'acme',
+      label: 'Acme',
+      models: [
+        ModelOption(id: _longId),
+        ModelOption(id: 'acme-lm-large-2025-0914-long-context-preview'),
+        ModelOption(id: 'acme-lm-small', reasoning: false),
+      ],
     ),
-    width: 420,
-  ),
+  ],
 );
 
 const _manyModels = ModelOptions(
@@ -272,6 +450,110 @@ class _PillState extends State<_Pill> {
       onUseDefault: widget.canReset
           ? () => setState(() => _choice = null)
           : null,
+    ),
+  );
+}
+
+/// The alert as the app shows it: centred over a dimmed page.
+Widget _behindAlert(Widget alert) => Stack(
+  children: [
+    const Scaffold(body: Center(child: Text('Chat'))),
+    const ModalBarrier(dismissible: false, color: Colors.black54),
+    Center(child: alert),
+  ],
+);
+
+enum _State { defaultRow, effort, longIds, unknown, many, noAnchor, focused }
+
+/// A fake composer pill at the bottom left that opens the picker on itself,
+/// as the real pill does.
+class _PopoverHost extends StatefulWidget {
+  const _PopoverHost({required this.state});
+
+  final _State state;
+
+  @override
+  State<_PopoverHost> createState() => _PopoverHostState();
+}
+
+class _PopoverHostState extends State<_PopoverHost> {
+  final _pill = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // The outline on the focused row is the keyboard's mark: show it.
+    if (widget.state == _State.focused) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // A click on an earlier example must not hide the focused row's ring.
+      if (widget.state == _State.focused) markFocusRingKeyboardInput();
+      _open();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (widget.state == _State.focused) {
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.automatic;
+    }
+    super.dispose();
+  }
+
+  void _open() {
+    final box = _pill.currentContext!.findRenderObject()! as RenderBox;
+    final anchor = widget.state == _State.noAnchor
+        ? null
+        : box.localToGlobal(Offset.zero) & box.size;
+    final (options, selected) = switch (widget.state) {
+      _State.defaultRow => (modelOptions, null),
+      _State.longIds => (
+        ModelOptions(current: _longModel, providers: modelOptions.providers),
+        _longModel,
+      ),
+      _State.unknown => (kanbanModelOptions, null),
+      _State.many || _State.focused => (
+        _manyModels,
+        const ModelChoice('openrouter', 'openai/gpt-5.1'),
+      ),
+      _ => (
+        modelOptions,
+        const ModelChoice('anthropic', 'claude-opus-4', effort: 'high'),
+      ),
+    };
+    showModelPicker(
+      context,
+      options: options,
+      selected: selected,
+      onChanged: (_) {},
+      onUseDefault: widget.state == _State.effort ? null : () {},
+      anchor: anchor,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Align(
+      alignment: Alignment.bottomLeft,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          key: _pill,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.onSurface
+                .withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Text('claude-opus-4 · High'),
+        ),
+      ),
     ),
   );
 }

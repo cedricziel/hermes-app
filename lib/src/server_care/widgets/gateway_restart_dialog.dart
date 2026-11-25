@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/platform_chrome.dart';
 import '../../widgets/adaptive_dialog.dart';

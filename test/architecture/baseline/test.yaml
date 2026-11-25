@@ -1,0 +1,17 @@
+# Baseline of the `test.*` source guards (test/architecture/test_conventions_test.dart).
+#
+# Rule id -> (repo-relative path -> allowed count of violations). Shrink-only:
+# a count above its entry or an unlisted file fails with the offending lines
+# and the building block to use instead; a count below its entry fails with the
+# exact edit ("lower <rule> <path> to N" or "remove the entry"). Never raise or
+# add an entry to get green: fix the call site, or, if the site is legitimate,
+# add it to the rule's allowlist in code with a reason, in a reviewed change.
+# `UPDATE_BASELINE=1 flutter test test/architecture` lowers it for you and
+# never raises it. A rule with no violations has no entry.
+
+# Focus ring geometry cases that reach focus with the _focus or _focusInk
+# helper or with requestFocus instead of tabTo (test/support/tab_to.dart):
+# 34 = 30 _focus calls + 2 _focusInk calls + 2 direct requestFocus calls.
+# Switch each to tabTo and lower the count.
+test.geometry-focus-by-tab:
+  test/focus_ring_geometry_test.dart: 34

@@ -314,6 +314,57 @@ void main() {
     expect(controller.live, isTrue);
   });
 
+  test('a refetch that reports an older latest event does not rewind the '
+      'cursor the stream resumes from', () async {
+    serveBoard([kanbanTaskRow(id: 't1')], latest: 1);
+    await controller.start();
+    sockets.single.local.sink.add(jsonEncode(frame(9, events: false)));
+    await pump();
+
+    serveBoard([kanbanTaskRow(id: 't1')], latest: 3);
+    await controller.refresh();
+    await sockets.single.local.sink.close();
+    await until(() => connects.length == 2 && controller.live);
+
+    expect(connects.last.since, 9);
+  });
+
+  test('moving a task to the column it is in sends nothing', () async {
+    serveBoard([kanbanTaskRow(id: 't1', status: 'todo')]);
+    await controller.start();
+    final task = controller.board!.columns
+        .firstWhere((c) => c.name == 'todo')
+        .tasks
+        .single;
+    final fetches = boardFetches();
+
+    await controller.moveTask(task, task.status);
+    await pump();
+
+    expect(server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t1'), isEmpty);
+    expect(boardFetches(), fetches);
+    expect(
+      controller.board!.columns.firstWhere((c) => c.name == 'todo').tasks,
+      hasLength(1),
+    );
+  });
+
+  test('a bulk update with nothing selected sends nothing', () async {
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    await controller.start();
+    final fetches = boardFetches();
+
+    final failures = await controller.bulkUpdate(status: 'done');
+    await pump();
+
+    expect(failures, isEmpty);
+    expect(
+      server.requestsTo('POST', '/api/plugins/kanban/tasks/bulk'),
+      isEmpty,
+    );
+    expect(boardFetches(), fetches);
+  });
+
   test('a connect that throws a StateError is retried and reported', () async {
     final previous = FlutterError.onError;
     final reported = <FlutterErrorDetails>[];
@@ -549,6 +600,18 @@ void main() {
       expect(controller.refreshFailed, isFalse);
     },
   );
+
+  test('switching board ends the selection', () async {
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    await controller.start();
+    controller.startSelecting('t1');
+    expect(controller.selected, {'t1'});
+
+    await controller.selectBoard('ops');
+
+    expect(controller.boardSlug, 'ops');
+    expect(controller.selected, isEmpty);
+  });
 
   test('drops selected tasks that left the board', () async {
     serveBoard([kanbanTaskRow(id: 't1'), kanbanTaskRow(id: 't2')]);

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The wide Waiting for you layout: the list in a column, the selected
 /// proposal's detail beside it.

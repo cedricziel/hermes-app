@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_icons.dart';
 
@@ -6,8 +6,8 @@ import '../theme/app_icons.dart';
 /// state it is in.
 ///
 /// [AppBadge.tinted] tells a state in its own colour, with an optional icon so
-/// the colour never carries the meaning alone. [AppBadge.filled] is a neutral
-/// tag on a surface colour. The badge reads as its label and is not a button.
+/// the colour never carries the meaning alone. [AppBadge.filled] is a solid tag on
+/// a scheme colour, with the `on*` label colour that matches it. The badge reads as its label and is not a button.
 /// It takes plain values only: no controller and no lookups beyond the theme.
 class AppBadge extends StatelessWidget {
   /// A label and optional icon in [color], on a faint tint of it. Long labels
@@ -19,14 +19,21 @@ class AppBadge extends StatelessWidget {
     this.icon,
     this.minWidth = 0,
     this.verticalPadding = 3,
-  }) : fill = null;
+  }) : fill = null,
+       labelColor = null;
 
-  /// A label in the theme's small label style on [fill].
-  const AppBadge.filled({super.key, required this.label, required this.fill})
-    : color = null,
-      icon = null,
-      minWidth = 0,
-      verticalPadding = 1;
+  /// A label in the theme's small label style on [fill]. [labelColor] is
+  /// required so a fill is never paired with a label colour that cannot be
+  /// read on it: pass the `on*` role that matches [fill].
+  const AppBadge.filled({
+    super.key,
+    required this.label,
+    required this.fill,
+    required Color this.labelColor,
+  }) : color = null,
+       icon = null,
+       minWidth = 0,
+       verticalPadding = 1;
 
   final String label;
 
@@ -35,6 +42,9 @@ class AppBadge extends StatelessWidget {
 
   /// The box colour of a filled badge; null for a tinted one.
   final Color? fill;
+
+  /// The label colour of a filled badge; null for a tinted one.
+  final Color? labelColor;
   final AppIconSet? icon;
   final double minWidth;
   final double verticalPadding;
@@ -43,7 +53,7 @@ class AppBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final tint = color;
     final textStyle = tint == null
-        ? Theme.of(context).textTheme.labelSmall
+        ? Theme.of(context).textTheme.labelSmall?.copyWith(color: labelColor)
         : TextStyle(color: tint, fontSize: 12, fontWeight: FontWeight.w600);
     final text = Text(label, style: textStyle);
     final content = icon == null

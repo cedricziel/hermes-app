@@ -1,4 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show NumberFormat;
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../theme/app_icons.dart';
@@ -6,12 +9,15 @@ import 'kanban_board_controller.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
+import 'kanban_transfer_options.dart';
+import 'widgets/kanban_board_export_dialog.dart';
+import 'widgets/kanban_board_import_dialog.dart';
 import 'widgets/kanban_list_rows.dart';
 import '../widgets/grouped_list.dart';
-import '../widgets/grouped_dialog.dart';
-import '../widgets/grouped_form.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/route_dismissal.dart';
+
+export 'kanban_transfer_options.dart';
 
 /// Lists the plugin's boards; opens, creates, renames, archives or deletes them.
 class KanbanBoardsScreen extends StatelessWidget {
@@ -34,17 +40,15 @@ class KanbanBoardsScreen extends StatelessWidget {
   Future<void> _create(BuildContext context) async {
     final name = await askKanbanText(
       context,
-      title: 'New board',
-      hint: 'Name',
-      confirm: 'Create',
+      title: context.l10n.kanbanBoardsNew,
+      hint: context.l10n.kanbanBoardsNameHint,
+      confirm: context.l10n.kanbanBoardsCreate,
     );
     if (name == null || name.isEmpty || !context.mounted) return;
     final slug = slugFor(name);
     if (slug.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Use letters or numbers in the board name.'),
-        ),
+        SnackBar(content: Text(context.l10n.kanbanBoardsNameInvalid)),
       );
       return;
     }
@@ -62,9 +66,9 @@ class KanbanBoardsScreen extends StatelessWidget {
   ) async {
     final name = await askKanbanText(
       context,
-      title: 'Rename board',
+      title: context.l10n.kanbanBoardsRenameTitle,
       initial: current,
-      confirm: 'Rename',
+      confirm: context.l10n.kanbanBoardsRename,
     );
     if (name == null || name.isEmpty || name == current || !context.mounted) {
       return;
@@ -84,8 +88,10 @@ class KanbanBoardsScreen extends StatelessWidget {
   }) async {
     final confirmed = await confirmKanban(
       context,
-      title: hard ? 'Delete “$name” for good?' : 'Archive “$name”?',
-      confirm: hard ? 'Delete' : 'Archive',
+      title: hard
+          ? context.l10n.kanbanBoardsDeleteTitle(name)
+          : context.l10n.kanbanBoardsArchiveTitle(name),
+      confirm: hard ? context.l10n.kanbanDelete : context.l10n.kanbanArchive,
     );
     if (!confirmed || !context.mounted) return;
     final ok = await runKanbanAction(
@@ -96,10 +102,7 @@ class KanbanBoardsScreen extends StatelessWidget {
   }
 
   Future<void> _export(BuildContext context, String slug, String name) async {
-    final options = await showDialog<_ExportOptions>(
-      context: context,
-      builder: (_) => _ExportDialog(name: name),
-    );
+    final options = await showKanbanExportDialog(context, name: name);
     if (options == null || !context.mounted) return;
     KanbanExport? result;
     final ok = await runKanbanAction(
@@ -113,25 +116,37 @@ class KanbanBoardsScreen extends StatelessWidget {
     );
     if (!ok || result == null || !context.mounted) return;
     final exported = result!;
-    await showAdaptiveDialog<void>(
+    await showAppDialog<void>(
       context: context,
       builder: (context) => AppAlertDialog(
-        title: const Text('Board exported'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('The archive is on the server, at:'),
-            const SizedBox(height: 8),
-            SelectableText(exported.archive),
-            const SizedBox(height: 8),
-            Text('${(exported.size / 1024).toStringAsFixed(1)} KB'),
-          ],
+        title: Text(context.l10n.kanbanBoardsExportedTitle),
+        // A path is data: the whole block lines up at the start on every
+        // platform, where an Apple alert would centre only the wrapped lines.
+        content: DefaultTextStyle.merge(
+          textAlign: TextAlign.start,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(context.l10n.kanbanBoardsExportedLocation),
+              const SizedBox(height: 8),
+              SelectableText(exported.archive),
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.kanbanBoardsExportedSize(
+                  NumberFormat(
+                    '0.0',
+                    context.l10n.localeName,
+                  ).format(exported.size / 1024),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           AppDialogAction(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(context.l10n.kanbanBoardsExportedClose),
           ),
         ],
       ),
@@ -139,10 +154,7 @@ class KanbanBoardsScreen extends StatelessWidget {
   }
 
   Future<void> _import(BuildContext context) async {
-    final options = await showDialog<_ImportOptions>(
-      context: context,
-      builder: (_) => const _ImportDialog(),
-    );
+    final options = await showKanbanImportDialog(context);
     if (options == null || !context.mounted) return;
     KanbanImport? result;
     final ok = await runKanbanAction(
@@ -157,9 +169,7 @@ class KanbanBoardsScreen extends StatelessWidget {
     if (context.mounted && result!.renamed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'That name was taken, so the board is ${result!.board}.',
-          ),
+          content: Text(context.l10n.kanbanBoardsImportRenamed(result!.board)),
         ),
       );
     }
@@ -179,17 +189,17 @@ class KanbanBoardsScreen extends StatelessWidget {
         final boards = controller.boards;
         final removable = boards.length > 1;
         return SettingsScaffold(
-          title: 'Boards',
-          subtitle: boards.length == 1 ? '1 board' : '${boards.length} boards',
-          previousTitle: 'Kanban',
+          title: context.l10n.kanbanBoardsTitle,
+          subtitle: context.l10n.kanbanBoardsCount(boards.length),
+          previousTitle: context.l10n.kanbanBoardsPreviousTitle,
           actions: [
             SettingsBarAction(
-              label: 'Import a board',
+              label: context.l10n.kanbanImportTitle,
               icon: AppIcons.openFile,
               onPressed: () => _import(context),
             ),
             SettingsBarAction(
-              label: 'New board',
+              label: context.l10n.kanbanBoardsNew,
               icon: AppIcons.add,
               onPressed: () => _create(context),
             ),
@@ -225,143 +235,20 @@ class KanbanBoardsScreen extends StatelessWidget {
   }
 }
 
-typedef _ExportOptions = ({String output, bool attachments, bool logs});
+/// Asks what to put in the archive of the board [name].
+Future<KanbanExportOptions?> showKanbanExportDialog(
+  BuildContext context, {
+  required String name,
+}) => showKanbanDialog<KanbanExportOptions>(
+  context,
+  textEntry: true,
+  builder: (_) => KanbanBoardExportDialog(name: name),
+);
 
-class _ExportDialog extends StatefulWidget {
-  const _ExportDialog({required this.name});
-
-  final String name;
-
-  @override
-  State<_ExportDialog> createState() => _ExportDialogState();
-}
-
-class _ExportDialogState extends State<_ExportDialog> {
-  final _output = TextEditingController();
-  bool _attachments = true;
-  bool _logs = false;
-
-  @override
-  void dispose() {
-    _output.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Export ${widget.name}',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.pop<_ExportOptions>(context, (
-          output: _output.text.trim(),
-          attachments: _attachments,
-          logs: _logs,
-        )),
-        child: const Text('Export'),
-      ),
-    ],
-    children: [
-      GroupedSection(
-        footer: 'The archive is written on the server, not on this device. Empty uses the server’s export folder.',
-        children: [
-          GroupedTextFieldRow(
-            label: 'Server path',
-            hint: 'Use export folder',
-            controller: _output,
-          ),
-        ],
-      ),
-      GroupedSection(
-        children: [
-          GroupedSwitchRow(
-            title: 'Include attachments',
-            value: _attachments,
-            onTap: () => setState(() => _attachments = !_attachments),
-            onChanged: (value) => setState(() => _attachments = value),
-          ),
-          GroupedSwitchRow(
-            title: 'Include worker logs',
-            value: _logs,
-            onTap: () => setState(() => _logs = !_logs),
-            onChanged: (value) => setState(() => _logs = value),
-          ),
-        ],
-      ),
-    ],
-  );
-}
-
-typedef _ImportOptions = ({String archive, String slug, bool open});
-
-class _ImportDialog extends StatefulWidget {
-  const _ImportDialog();
-
-  @override
-  State<_ImportDialog> createState() => _ImportDialogState();
-}
-
-class _ImportDialogState extends State<_ImportDialog> {
-  final _archive = TextEditingController();
-  final _slug = TextEditingController();
-  bool _open = true;
-
-  @override
-  void dispose() {
-    _archive.dispose();
-    _slug.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Import a board',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _archive.text.trim().isEmpty
-            ? null
-            : () => Navigator.pop<_ImportOptions>(context, (
-                archive: _archive.text.trim(),
-                slug: _slug.text.trim(),
-                open: _open,
-              )),
-        child: const Text('Import'),
-      ),
-    ],
-    children: [
-      GroupedSection(
-        footer: 'The archive must already be on the server.',
-        children: [
-          GroupedTextFieldRow(
-            label: 'Archive path',
-            controller: _archive,
-            autofocus: true,
-            onChanged: (_) => setState(() {}),
-          ),
-          GroupedTextFieldRow(
-            label: 'New board slug',
-            hint: 'Optional',
-            controller: _slug,
-          ),
-        ],
-      ),
-      GroupedSection(
-        children: [
-          GroupedSwitchRow(
-            title: 'Open it afterwards',
-            value: _open,
-            onTap: () => setState(() => _open = !_open),
-            onChanged: (value) => setState(() => _open = value),
-          ),
-        ],
-      ),
-    ],
-  );
-}
+/// Asks which server-side archive to import and how to name the board.
+Future<KanbanImportOptions?> showKanbanImportDialog(BuildContext context) =>
+    showKanbanDialog<KanbanImportOptions>(
+      context,
+      textEntry: true,
+      builder: (_) => const KanbanBoardImportDialog(),
+    );

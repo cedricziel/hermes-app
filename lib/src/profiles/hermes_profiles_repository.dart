@@ -1,5 +1,7 @@
 import 'package:hermes_api/hermes_api.dart';
 
+import 'profile_resolver.dart';
+
 class HermesProfile {
   const HermesProfile({
     required this.name,
@@ -21,6 +23,10 @@ class HermesProfile {
 
   String get label => displayName.isNotEmpty ? displayName : name;
 }
+
+/// What `GET /api/profiles/active` answers: the sticky default and the
+/// profile the running dashboard is scoped to.
+typedef ActiveProfile = ({String active, String current});
 
 class ProfilesOverview {
   const ProfilesOverview({
@@ -48,7 +54,11 @@ class HermesProfilesRepository {
 
   final DefaultApi _api;
 
-  Future<({String active, String current})> loadActive() async {
+  /// Where a chat with no profile works; see [ProfileResolver]. One per
+  /// repository, so one per connection.
+  late final ProfileResolver resolver = ProfileResolver(loadActive);
+
+  Future<ActiveProfile> loadActive() async {
     final response = await _api.getActiveProfileEndpointApiProfilesActiveGet();
     final body = response.data is Map ? response.data as Map : const {};
     final active = body['active'] as String? ?? '';

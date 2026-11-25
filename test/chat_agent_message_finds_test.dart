@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/agent_messages/agent_message_watcher.dart';
@@ -321,9 +321,9 @@ void main() {
       () async {
         chat.select('recent');
         await pumpEventQueue();
-        chat.submit('First', const []);
+        await chat.submit('First', const []);
         await pumpEventQueue();
-        chat.submit('Second', const []);
+        await chat.submit('Second', const []);
         await pumpEventQueue();
         final replying = thread('recent');
         expect(replying.isReplying, isTrue);

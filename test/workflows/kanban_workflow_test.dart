@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
@@ -8,6 +8,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// Working the board: browsing columns, opening a task, selecting several,
 /// creating one, and what the board says when the plugin is gone.
@@ -185,7 +186,7 @@ void main() {
     await tester.pumpAndSettle();
     await shots.capture(tester, 'selection');
 
-    await tester.tap(find.byTooltip('Cancel selection'));
+    await tester.tap(find.tooltip('Cancel selection'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('New task'));
     await tester.pumpAndSettle();
@@ -200,7 +201,7 @@ void main() {
   testWidgets('phone: menus', (tester) async {
     final shots = ScreenshotRecorder('kanban-phone-menus');
     await pumpBoard(tester, shots, size: phoneSize);
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await tester.pumpAndSettle();
     await shots.capture(tester, 'switch-board');
     await tester.tap(find.text('Manage boards…'));
@@ -229,18 +230,14 @@ void main() {
       await pumpScreen(
         tester,
         shots,
-        Builder(
-          builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-            child: KanbanScreen(
-              repository: KanbanRepository(server.client()),
-              connect: ({required since, board}) async =>
-                  StreamChannelController<String>().foreign,
-            ),
-          ),
+        KanbanScreen(
+          repository: KanbanRepository(server.client()),
+          connect: ({required since, board}) async =>
+              StreamChannelController<String>().foreign,
         ),
         size: size,
         brightness: brightness,
+        platform: TargetPlatform.macOS,
       );
       await shots.capture(tester, 'board');
 

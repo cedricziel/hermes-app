@@ -62,7 +62,7 @@ void main() {
     await chat.loadThreads('work');
     chat.select('stored-1');
     await pumpEventQueue();
-    chat.submit('Start', const []);
+    await chat.submit('Start', const []);
     await pumpEventQueue();
   }
 
@@ -240,7 +240,7 @@ void main() {
     await open();
     await emit('status.update', {'kind': 'lifecycle', 'text': recall});
     await emit('message.complete', {'text': 'Done', 'status': 'complete'});
-    chat.submit('Again', const []);
+    await chat.submit('Again', const []);
     await pumpEventQueue();
     expect(chat.selectedThread!.isReplying, isTrue);
     expect(summary(), isNull);
@@ -294,7 +294,7 @@ void main() {
       'the last one', () async {
     await open();
     await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
-    chat.submit('Next', const []);
+    await chat.submit('Next', const []);
     await pumpEventQueue();
     gateway.event('message.complete', 'rt-1', {
       'text': 'Done',
@@ -324,7 +324,7 @@ void main() {
     await open();
     await emit('status.update', {'kind': 'status', 'text': 'Thinking'});
     await emit('message.complete', {'text': 'Done', 'status': 'complete'});
-    chat.submit('Next', const []);
+    await chat.submit('Next', const []);
     await pumpEventQueue();
     expect(summary(), isNull);
     await emit('agent.terminal.output', {'process_id': 'a', 'chunk': 'x'});

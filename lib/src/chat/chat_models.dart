@@ -21,6 +21,39 @@ enum ChatRole { user, assistant }
 
 enum MessageStatus { sent, thinking, streaming, error }
 
+/// Why a reply was settled without an ending the server gave it, so the note
+/// under it says what is true (see [ChatMessage.loss]).
+enum ReplyLoss {
+  /// Hermes restarted (its replay epoch changed) and its turn died with it.
+  restarted,
+
+  /// The server answered and no longer has the turn or its session.
+  notOnServer,
+
+  /// The server could not be made to say how the turn ended.
+  unconfirmed,
+}
+
+/// What a failed reply says when the server gave no explanation of its own
+/// (see [ChatMessage.failure]). The widget layer words it, so it follows the
+/// locale of the screen that shows it.
+enum ReplyFailure {
+  /// The send or the stream broke and nothing more is known.
+  generic,
+
+  /// The profile the reply was sent for is gone.
+  profileUnavailable,
+}
+
+/// Why a stored chat's transcript has nothing to show yet: its messages are
+/// being read, or reading them failed.
+enum ChatHistoryStatus { loading, failed }
+
+/// What the first item of a transcript says about the older messages of a
+/// chat that already shows its newest ones: their read failed
+/// ([ChatEarlierMessagesStatus.failed]) or Retry is reading them again.
+enum ChatEarlierMessagesStatus { failed, retrying }
+
 /// Where a tool call stands. [cancelled] is a call the reply stopped before
 /// it finished, or one the model began to write but never ran.
 enum ToolCallStatus { running, completed, warning, error, cancelled }
@@ -555,6 +588,8 @@ class ChatMessage {
     this.sealedProse = const [],
     this.subagents = const [],
     this.error,
+    this.failure,
+    this.loss,
   }) : reasoningActive = status == MessageStatus.thinking,
        thinkingStarted = status == MessageStatus.thinking && toolCalls.isEmpty;
 
@@ -634,8 +669,29 @@ class ChatMessage {
   /// What the sender attached, shown above the text.
   final List<ChatAttachment> attachments;
 
-  /// Why the reply failed, shown under whatever text it kept.
+  /// Why the reply failed, as the server said it, shown under whatever text it
+  /// kept. Null with [MessageStatus.error] means the server gave no
+  /// explanation: [failure] (or [loss]) says what is shown instead.
   String? error;
+
+  /// With [MessageStatus.error], no [error] and no [loss]: which wording the
+  /// widget layer gives the failure. Null reads as [ReplyFailure.generic].
+  ReplyFailure? failure;
+
+  /// With [MessageStatus.error]: the server may still be running this reply's
+  /// turn, because the reply ended on a lost connection or on a server that
+  /// could not be made to say how the turn ended, not on an answer of the
+  /// server's. Retry, Edit and Branch are held while it is set, since the
+  /// server would answer them busy, or run the prompt twice. It is cleared
+  /// when the server lists the session as not running, or when a completion
+  /// reaches the reply.
+  bool serverMayRun = false;
+
+  /// With [MessageStatus.error] and no [error]: the reply was settled because
+  /// the server no longer has its turn, or could not confirm how it ended. It
+  /// is shown with a note that says which, not as a failure. A completion that
+  /// arrives later clears it.
+  ReplyLoss? loss;
 
   /// What the agent is doing now, shown in the thinking row. Null keeps the
   /// generic label. Setting it clears [activityKind].
@@ -660,6 +716,23 @@ class ChatMessage {
   /// The message of a held error event. It is shown only if the turn settles
   /// without a completion that would carry its own error.
   String? pendingError;
+
+  /// The connection to Hermes dropped while this reply ran and could not be
+  /// won back in time, but the server may well still be running the turn. The
+  /// reply stays pending with what it had (text and running tool calls
+  /// included, none of them marked failed) and says so, until the thread is
+  /// picked up again or the server says the turn is over. See
+  /// [markReconnecting].
+  bool reconnecting = false;
+
+  /// How many times this reply entered [reconnecting], so a screen reader is
+  /// told once per loss and not each time the row is built.
+  int reconnectEpisodes = 0;
+
+  /// With [reconnecting]: nothing is trying any more (the tries ran out), and
+  /// the reply is picked up again when the app comes to the front or the chat
+  /// is opened. The note says so instead of claiming to reconnect.
+  bool reconnectIdle = false;
 
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;

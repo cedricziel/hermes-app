@@ -1,4 +1,8 @@
 import 'files_use_cases.dart';
+import 'markdown_use_cases.dart';
+import 'desktop_menu_bar_use_cases.dart';
+import 'keyboard_shortcuts_use_cases.dart';
+import 'focus_ring_use_cases.dart';
 import 'server_care_logs_use_cases.dart';
 import 'workspaces_use_cases.dart';
 import 'tools_use_cases.dart';
@@ -11,6 +15,7 @@ import 'memory_proposal_use_cases.dart';
 import 'memory_tool_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
+import 'tool_value_use_cases.dart';
 import 'connector_operation_use_cases.dart';
 import 'side_result_use_cases.dart';
 import 'process_output_use_cases.dart';
@@ -28,12 +33,15 @@ import 'needs_you_dock_use_cases.dart';
 import 'activity_line_use_cases.dart';
 import 'moa_progress_use_cases.dart';
 import 'background_check_status_use_cases.dart';
+import 'open_settings_button_use_cases.dart';
 import 'queue_recovery_use_cases.dart';
 import 'chat_checkpoints_use_cases.dart';
 import 'chat_checkpoint_restore_use_cases.dart';
 import 'chat_context_use_cases.dart';
 import 'chat_send_hold_use_cases.dart';
 import 'transcript_outcome_line_use_cases.dart';
+import 'reply_interrupted_use_cases.dart';
+import 'reply_reconnecting_use_cases.dart';
 import 'chat_suggestions_use_cases.dart';
 import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
@@ -42,7 +50,9 @@ import 'session_export_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
+import 'grouped_dialog_use_cases.dart';
 import 'grouped_form_use_cases.dart';
+import 'grouped_row_value_width_use_cases.dart';
 import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
 import 'adaptive_chrome_use_cases.dart';
@@ -54,6 +64,8 @@ import 'conversation_window_use_cases.dart';
 import 'dialogs_use_cases.dart';
 import 'kanban_use_cases.dart';
 import 'kanban_form_use_cases.dart';
+import 'kanban_dialog_use_cases.dart';
+import 'thread_rename_plugin_env_dialog_use_cases.dart';
 import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
@@ -76,8 +88,10 @@ import 'settings_chrome_use_cases.dart';
 import 'settings_screen_use_cases.dart';
 import 'messaging_use_cases.dart';
 import 'skills_messaging_use_cases.dart';
+import 'skills_curator_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
+import 'bot_screen_header_use_cases.dart';
 import 'bot_screen_use_cases.dart';
 import 'soul_use_cases.dart';
 import 'busy_bar_use_cases.dart';
@@ -113,6 +127,7 @@ final List<WidgetbookNode> directories = [
   botScreenNode(),
   sudoPasswordPromptNode(),
   botScreenViewerNode(),
+  botScreenViewerHeaderNode(),
   activityButtonNode(),
   activityLineNode(),
   macToolbarSubtitleNode(),
@@ -121,6 +136,7 @@ final List<WidgetbookNode> directories = [
   activityWaitingMarkerNode(),
   moaProgressNode(),
   backgroundCheckStatusNode(),
+  openSettingsButtonNode(),
   queueRecoveryNode(),
   connectionNode(),
   handoffNode(),
@@ -128,6 +144,9 @@ final List<WidgetbookNode> directories = [
   stateMessageNode(),
   busyBarNode(),
   groupedRowValueNode(),
+  focusRingNode(),
+  keyboardShortcutsNode(),
+  desktopMenuBarNode(),
   ...serverCareStatusNodes(),
   ...serverCareSplitNodes(),
   ...serverCareGatewayNodes(),
@@ -140,6 +159,8 @@ final List<WidgetbookNode> directories = [
   adaptiveChromeNode(),
   settingsChromeNode(),
   groupedFormNode(),
+  groupedRowValueWidthNode(),
+  groupedDialogNode(),
   macToolbarNode(),
   menuBarExtraNode(),
   spotlightNode(),
@@ -152,10 +173,13 @@ final List<WidgetbookNode> directories = [
   memoryProposalsNode(),
   memoryToolNode(),
   sessionUsageNode(),
+  toolValueNode(),
   chatContextNode(),
   chatCheckpointsNode(),
   chatCheckpointRestoreNode(),
   transcriptOutcomeLineNode(),
+  replyReconnectingNode(),
+  replyInterruptedNode(),
   chatSendHoldNode(),
   connectorOperationNode(),
   sideResultNode(),
@@ -180,11 +204,14 @@ final List<WidgetbookNode> directories = [
   modelNode(),
   kanbanNode(),
   kanbanFormFieldsNode(),
+  kanbanDialogsNode(),
+  threadRenamePluginEnvDialogsNode(),
   schedulesNode(),
   schedulesScreensNode(),
   schedulesMacNode(),
   skillsMessagingNode(),
   skillsNode(),
+  skillsCuratorNode(),
   messagingNode(),
   botModeRosterNode(),
   botChatNode(),
@@ -202,4 +229,5 @@ final List<WidgetbookNode> directories = [
   settingsScreensNode(),
   toolsNode(),
   soulNode(),
+  markdownNode(),
 ];

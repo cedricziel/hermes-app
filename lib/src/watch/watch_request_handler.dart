@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
+import 'watch_status_source.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../notifications/attention_policy.dart';
 import 'watch_complication.dart';
@@ -16,7 +17,7 @@ class WatchRequestHandler {
     required this.repository,
     required this.transport,
     required this.activeProfile,
-    this.statusTransport,
+    this.statusSource,
     this.statusBudget = const Duration(seconds: 2),
     DateTime Function()? now,
     this.serverUrl = _noServer,
@@ -70,7 +71,7 @@ class WatchRequestHandler {
   final HermesChatRepository? Function() repository;
   final ChatTransport? Function() transport;
   final Future<String?> Function() activeProfile;
-  final ChatTransport? Function()? statusTransport;
+  final WatchStatusSource? statusSource;
   final Duration statusBudget;
   final DateTime Function() _now;
 
@@ -106,7 +107,8 @@ class WatchRequestHandler {
   final Future<bool> Function(AttentionNotification notification) announce;
 
   /// Whether App Lock is on: a request is then announced without its text
-  /// or buttons, so a watch send cannot wait for an answer to it.
+  /// or buttons, so the notification cannot answer it. The send still waits
+  /// when inline handling on the watch can answer the request.
   final bool Function() appLock;
 
   /// What the phone's own recognizer heard in a voice message, or null when
@@ -164,6 +166,7 @@ class WatchRequestHandler {
       attempt.wake();
     }
     _sends.clear();
+    unawaited(statusSource?.close());
     for (final chat in _activeTransports.toList()) {
       unawaited(chat.close().catchError((Object _) {}));
     }
@@ -325,23 +328,21 @@ class WatchRequestHandler {
     if (threads
         .take(threadLimit)
         .any((thread) => !statuses.containsKey(thread.id))) {
-      final status = statusTransport?.call();
-      if (status != null) {
-        try {
-          final active = await status
-              .activeStatuses(profile: profile)
-              .timeout(statusBudget);
-          if (!_current(scope, generation)) return _error('context_changed');
+      try {
+        final active = await statusSource?.activeStatuses(
+          profile: profile,
+          budget: statusBudget,
+        );
+        if (!_current(scope, generation)) return _error('context_changed');
+        if (active != null) {
           for (final thread in threads.take(threadLimit)) {
             if (active[thread.id] == 'running') {
               statuses.putIfAbsent(thread.id, () => 'running');
             }
           }
-        } on Object {
-          // Optional status failure must not hide the successful chat list.
-        } finally {
-          unawaited(status.close().catchError((Object _) {}));
         }
+      } on Object {
+        // Optional status failure must not hide the successful chat list.
       }
     }
     if (!_current(scope, generation)) return _error('context_changed');

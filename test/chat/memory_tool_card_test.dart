@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -310,7 +310,7 @@ void main() {
         expect(chat.memoryDecisionsIn(thread), same(decisions));
         expect(decisions.available(), isFalse);
 
-        chat.submit('Remember this', const []);
+        await chat.submit('Remember this', const []);
         transport.sends.single
           ..emit(const ThreadBound('s1'))
           ..emit(const ReplyCompleted('Done'));

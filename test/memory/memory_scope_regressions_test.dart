@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -75,7 +76,10 @@ void main() {
         ..on('GET', '/api/learning/node', memoryDetail);
       final controller = MemoryController();
       addTearDown(controller.dispose);
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       final entry = controller.entries.first;
       controller.addListener(() {
@@ -217,7 +221,10 @@ void main() {
       ..on('GET', '/api/learning/node', memoryDetail);
     final controller = MemoryController();
     addTearDown(controller.dispose);
-    controller.bind(MemoryRepository(server.client().raw), 'work');
+    controller.bind(
+      MemoryRepository(server.client().raw),
+      resolvedProfile('work'),
+    );
     await pumpEventQueue();
     await controller.open(controller.entries.first);
     controller.beginEdit();

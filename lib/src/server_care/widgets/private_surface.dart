@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
+import '../../widgets/app_inactive_watcher.dart';
 
 /// Shows [child] normally, and a blank surface in its place while the app is
 /// inactive or hidden on a phone, so the app switcher's snapshot holds none
@@ -55,18 +55,9 @@ class _PrivateSurfaceState extends State<PrivateSurface>
   void didChangeAppLifecycleState(AppLifecycleState state) =>
       setState(() => _state = state);
 
-  bool get _applies =>
-      widget.blankWhenInactive ??
-      (!kIsWeb &&
-          (defaultTargetPlatform == TargetPlatform.iOS ||
-              defaultTargetPlatform == TargetPlatform.android));
+  bool get _applies => widget.blankWhenInactive ?? blanksWhenInactiveHere;
 
-  bool get _hidden =>
-      widget.blank ||
-      _applies &&
-          (_state == AppLifecycleState.inactive ||
-              _state == AppLifecycleState.hidden ||
-              _state == AppLifecycleState.paused);
+  bool get _hidden => widget.blank || _applies && isAwayState(_state);
 
   @override
   Widget build(BuildContext context) {

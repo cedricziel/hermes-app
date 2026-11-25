@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +25,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import 'bot_screen_repository_test.dart' show jpeg;
+import '../support/tooltip_finder.dart';
 
 /// Taking over from the chat screen's viewer and using the screen: the
 /// question, the touch, the keyboard, Paste and the keys of a computer.
@@ -143,7 +144,7 @@ void main() {
     await settle(tester);
     // A phone's sheet is still sliding in.
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Enlarge screen'));
+    await tester.tap(find.tooltip('Enlarge screen'));
     await settle(tester);
     // A phone's page is still sliding in.
     await tester.pump(const Duration(milliseconds: 500));
@@ -312,8 +313,8 @@ void main() {
       await takeOver(tester);
       expect(find.byKey(const Key('trackpad-cursor')), findsNothing);
 
-      await tester.ensureVisible(find.byTooltip('Use Trackpad mode'));
-      await tester.tap(find.byTooltip('Use Trackpad mode'));
+      await tester.ensureVisible(find.tooltip('Use Trackpad mode'));
+      await tester.tap(find.tooltip('Use Trackpad mode'));
       await tester.pump();
 
       expect(find.byKey(const Key('trackpad-cursor')), findsOne);
@@ -327,8 +328,8 @@ void main() {
         ScreenGestureMode.trackpad,
       );
 
-      await tester.ensureVisible(find.byTooltip('Use Touch mode'));
-      await tester.tap(find.byTooltip('Use Touch mode'));
+      await tester.ensureVisible(find.tooltip('Use Touch mode'));
+      await tester.tap(find.tooltip('Use Touch mode'));
       await tester.pump();
       expect(find.byKey(const Key('trackpad-cursor')), findsNothing);
       expect(crumbs(), contains('bot_screen.input.mode {mode: touch}'));
@@ -343,7 +344,7 @@ void main() {
       await takeOver(tester);
       final before = sent().length;
 
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
 
       final args = tester.testTextInput.setClientArgs!;
@@ -393,7 +394,7 @@ void main() {
 
       await tester.tap(find.text('Ctrl'));
       await tester.pump();
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       tester.testTextInput.enterText('​c');
       await tester.pump();
@@ -429,7 +430,7 @@ void main() {
         'away and it can be opened again on return', (tester) async {
       await openViewer(tester, size: const Size(390, 844));
       await takeOver(tester);
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       expect(tester.testTextInput.hasAnyClients, isTrue);
 
@@ -463,7 +464,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       tester.testTextInput.enterText('\u200b7');
       await tester.pump();
@@ -475,14 +476,14 @@ void main() {
         'dismissed it, and hides it while it is on screen', (tester) async {
       await openViewer(tester, size: const Size(390, 844));
       await takeOver(tester);
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       expect(tester.testTextInput.isVisible, isTrue);
 
       // The person dismissed it with the keyboard's own key: attached, but not
       // on screen.
       tester.testTextInput.hide();
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       expect(tester.testTextInput.isVisible, isTrue);
 
@@ -490,7 +491,7 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       addTearDown(tester.view.resetViewInsets);
       await tester.pump();
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       expect(tester.testTextInput.hasAnyClients, isFalse);
       await finish(tester);
@@ -500,7 +501,7 @@ void main() {
         'bar', (tester) async {
       await openViewer(tester, size: const Size(390, 844));
       await takeOver(tester);
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       expect(
         tester
@@ -524,7 +525,7 @@ void main() {
     testWidgets('losing control closes the keyboard', (tester) async {
       await openViewer(tester, size: const Size(390, 844));
       await takeOver(tester);
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
       expect(tester.testTextInput.hasAnyClients, isTrue);
 
@@ -546,8 +547,8 @@ void main() {
       await takeOver(tester);
       final before = sent().length;
 
-      await tester.ensureVisible(find.byTooltip('Paste'));
-      await tester.tap(find.byTooltip('Paste'));
+      await tester.ensureVisible(find.tooltip('Paste'));
+      await tester.tap(find.tooltip('Paste'));
       await tester.pump();
       await settle(tester);
 
@@ -572,8 +573,8 @@ void main() {
       await takeOver(tester);
       final before = sent().length;
 
-      await tester.ensureVisible(find.byTooltip('Paste'));
-      await tester.tap(find.byTooltip('Paste'));
+      await tester.ensureVisible(find.tooltip('Paste'));
+      await tester.tap(find.tooltip('Paste'));
       await tester.pump();
       await settle(tester);
 
@@ -668,8 +669,8 @@ void main() {
       await openViewer(tester, platform: TargetPlatform.linux);
       await takeOver(tester);
 
-      expect(find.byTooltip('Keyboard'), findsNothing);
-      expect(find.byTooltip('Paste'), findsOne);
+      expect(find.tooltip('Keyboard'), findsNothing);
+      expect(find.tooltip('Paste'), findsOne);
       await finish(tester);
     });
 
@@ -884,11 +885,11 @@ void main() {
       clipboard = 'hunter2';
       await openViewer(tester, size: const Size(390, 844));
       await takeOver(tester);
-      await tester.ensureVisible(find.byTooltip('Paste'));
-      await tester.tap(find.byTooltip('Paste'));
+      await tester.ensureVisible(find.tooltip('Paste'));
+      await tester.tap(find.tooltip('Paste'));
       await tester.pump();
       await tester.tap(find.text('Ctrl'));
-      await tester.tap(find.byTooltip('Keyboard'));
+      await tester.tap(find.tooltip('Keyboard'));
       await tester.pump();
 
       await tester.tap(find.text('Hand Back'));
@@ -908,7 +909,7 @@ void main() {
       clipboard = 'hunter2';
       await openViewer(tester, platform: TargetPlatform.linux);
       await takeOver(tester);
-      await tester.tap(find.byTooltip('Paste'));
+      await tester.tap(find.tooltip('Paste'));
       await tester.pump();
       await settle(tester);
 
@@ -937,7 +938,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(ScreenGestureLayer), findsNothing);
-      expect(find.byTooltip('Paste'), findsNothing);
+      expect(find.tooltip('Paste'), findsNothing);
       expect(sent().length, before);
       expect(dropped(), isEmpty);
       await finish(tester);
@@ -989,12 +990,12 @@ void main() {
     clipboard = 'hunter2';
     await openViewer(tester, size: const Size(390, 844));
     await takeOver(tester);
-    await tester.tap(find.byTooltip('Keyboard'));
+    await tester.tap(find.tooltip('Keyboard'));
     await tester.pump();
     tester.testTextInput.enterText('​hunter2');
     await tester.tapAt(tester.getCenter(find.byType(ScreenGestureLayer)));
-    await tester.ensureVisible(find.byTooltip('Paste'));
-    await tester.tap(find.byTooltip('Paste'));
+    await tester.ensureVisible(find.tooltip('Paste'));
+    await tester.tap(find.tooltip('Paste'));
     await tester.pump();
     await settle(tester);
 

@@ -5,22 +5,31 @@ description: Use when cutting, checking or shipping a hermes-app release — mer
 
 # Release hermes-app
 
-A release goes through three steps, each started by a person:
+A release goes through three steps:
 
-1. **Cut**: merge the release-please PR. The tag `vX.Y.Z` and a GitHub
-   **pre-release** are created, and `release-please.yml` uploads the build to
-   TestFlight (iOS and macOS, external group "Public beta") and attaches the
-   downloads: a notarized macOS DMG, the Linux tar.gz and .deb (x86_64, arm64),
-   an Android APK and AAB, and a Windows x64 zip (unsigned, so SmartScreen
-   warns on first launch).
+1. **Cut**: the release-please PR merges through auto-merge, which the
+   orchestrator arms at its discretion on the conditions below (when GitHub
+   refuses to arm it because it is already clean, it merges directly, see
+   below). The tag `vX.Y.Z` and a GitHub **pre-release** are created, and
+   `release-please.yml` uploads the build to TestFlight (iOS and macOS, external
+   group "Public beta") and attaches the downloads: a notarized macOS DMG, the
+   Linux tar.gz and .deb (x86_64, arm64), an Android APK and AAB, and a Windows
+   x64 zip (unsigned, so SmartScreen warns on first launch).
 2. **Test**: testers use the TestFlight build.
-3. **Ship**: promote the pre-release to a full release. `app-store.yml` then
-   submits that version's TestFlight build to App Review on iOS and macOS. It does
-   not rebuild. `automatic_release: true` in the `submit` lane makes an approved
-   version go live without further action.
+3. **Ship** (the owner's step): promote the pre-release to a full release.
+   `app-store.yml` then submits that version's TestFlight build to App Review on
+   iOS and macOS. It does not rebuild. `automatic_release: true` in the `submit`
+   lane makes an approved version go live without further action.
 
-Merging the release PR and promoting a release are outward steps. Do them only
-when the user asks for that release.
+Merging the release PR and promoting a release are outward steps. The
+orchestrator cuts a pre-release at its discretion, an interim cut as well as one
+that closes a wave, once main's tip has a full green run (the five builds
+included) and the release PR's current head has its five builds green; the
+release PR is merged last. Promoting a pre-release to a full release
+(`gh release edit ... --prerelease=false`) and running `app-store.yml` with
+`dry_run` false are the owner's step: run them only when the owner asks you
+directly in that conversation, never on your own initiative or on a message
+relayed by another session.
 
 ## Cut a release
 
@@ -38,9 +47,21 @@ Store "What's New" are both read from that body (`scripts/plain_release_notes.py
 removes the Markdown, leaves out lines about Android, Windows or Linux, which
 App Review rejects under guideline 2.3.10, and cuts the text to 4000 characters).
 
-Merge the PR when `Analyze & test` is green. The PR is opened with
-`RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did not run, the token is
-missing or expired.
+The release-please PR is the one explicit exception to READY: it is generated
+and has no isolated review. The orchestrator arms auto-merge on it at its
+discretion, once main's tip has a full green run (the five builds included),
+only when no other PR is about to merge, and only once the release PR's current
+head has its five builds green. release-please pushes a new head on every merge
+to main, and an earlier green run does not count for a new head: the
+orchestrator disarms the PR if a new head arrives before the merge, and arms it
+again only after that head's five builds are green. When every one of those
+conditions holds, no other PR is armed or about to merge, and GitHub refuses to
+arm auto-merge because the PR is already clean (every required check green,
+nothing pending), the orchestrator merges the release PR directly: a squash with
+the head SHA pinned (`expectedHeadSha`, or the merge API's `sha`). Otherwise,
+once those conditions hold, it is armed (and disarmed when a new head arrives).
+The PR is opened with `RELEASE_PLEASE_TOKEN`, a PAT, so CI runs on it. If CI did
+not run, the token is missing or expired.
 
 ## Follow the builds
 
@@ -103,7 +124,8 @@ gh release list --limit 20 --json tagName,isPrerelease --jq '[.[]|select(.isPrer
 3. Replace the target release's body:
    `gh release edit <target> --notes-file <file>`. Do this before you promote:
    `app-store.yml` reads "What's New" from the body when it runs.
-4. Promote it. The `released` event starts `app-store.yml`:
+4. Promote it (the owner's step, see above). The `released` event starts
+   `app-store.yml`:
 
 ```bash
 gh release edit <target> --prerelease=false --latest
@@ -120,7 +142,7 @@ gh run list --workflow app-store.yml --limit 3
 - App Store Connect adds required age rating questions from time to time. A
   submission failing with "You must provide a value for the attribute '<name>'"
   needs that key in `fastlane/metadata/age_rating.json`; rerun by hand afterwards
-  from `main` (`dry_run=false`), since the release is already promoted. A manual
+  from `main` (`dry_run=false`, the owner's step), since the release is already promoted. A manual
   run reads the listing and age rating from the branch it runs on, not the tag.
 - Submission needs the `ASC_*`, `REVIEW_CONTACT_*` and `REVIEW_DEMO_*` secrets. The
   demo server must be up for App Review to sign in.
@@ -130,7 +152,7 @@ To update the listing and notes without submitting, run the workflow by hand.
 
 ```bash
 gh workflow run app-store.yml -f tag=vX.Y.Z               # dry run
-gh workflow run app-store.yml -f tag=vX.Y.Z -f dry_run=false
+gh workflow run app-store.yml -f tag=vX.Y.Z -f dry_run=false   # the owner's step
 ```
 
 Listing text lives in `fastlane/metadata/`. Screenshots are uploaded separately

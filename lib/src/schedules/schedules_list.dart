@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
+
+import '../../l10n/l10n.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
@@ -55,7 +58,7 @@ class SchedulesList extends StatelessWidget {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (jobs.isEmpty) {
-      return RefreshIndicator(
+      return PlatformRefresh(
         onRefresh: controller.refresh,
         child: LayoutBuilder(
           builder: (context, box) => ListView(
@@ -91,7 +94,7 @@ class SchedulesList extends StatelessWidget {
       }
     }
 
-    return RefreshIndicator(
+    return PlatformRefresh(
       onRefresh: controller.refresh,
       child: GroupedListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -175,7 +178,7 @@ class JobTile extends StatelessWidget {
       title: job.title,
       subtitle: [
         if (job.scheduleWords.isNotEmpty) job.scheduleWords,
-        deliveryLabel(job.deliver),
+        deliveryLabel(context.l10n, job.deliver),
         if (showProfile && job.profile != null) job.profile!,
       ].join(' · '),
       caption: error || warning ? next : [status, ?next].join(' · '),

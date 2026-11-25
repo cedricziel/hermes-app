@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/server_care/widgets/server_attention_dot.dart';
 import 'package:hermes_app/src/server_care/widgets/server_restart_banner.dart';
@@ -49,7 +49,7 @@ void main() {
         _host(
           ServerStatusCard(
             tone: ServerStatusTone.warning,
-            title: '1 of 2 messaging channels are offline',
+            title: '1 of 2 messaging channels is offline',
             button: ServerStatusButton(
               label: 'Show logs',
               onPressed: () {},

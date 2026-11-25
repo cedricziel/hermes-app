@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart'
@@ -148,7 +149,13 @@ void main() {
     testWidgets('a new chat opens at the catalog folder of its profile', (
       tester,
     ) async {
+      // This models a server with no profile routes, so the chat names no
+      // profile and New chat starts at once. A server that answers
+      // /api/profiles/active but not /api/profiles is not a real one: with a
+      // profile the chat first asks which profile the new chat is for.
       server
+        ..on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404)
+        ..on('GET', '/api/profiles', {'detail': 'x'}, status: 404)
         ..on('GET', '/api/chat/workspaces', {
           'projects': [],
           'repos': [],
@@ -275,7 +282,10 @@ void main() {
       final view = menuLayout.singleWhere((s) => s.id == 'view');
       final entry = [for (final group in view.groups) ...group]
           .singleWhere((e) => e.command == MacCommand.showFiles);
-      expect(entry.label, 'Show Files');
+      expect(
+        entry.label(lookupAppLocalizations(const Locale('en'))),
+        'Show Files',
+      );
       final chord = entry.shortcut!;
       expect(chord.shift, isTrue);
       expect(chord.meta, isTrue);

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+
 import '../api/hermes_repositories.dart';
 import '../schedules/schedule_models.dart';
 import 'chat_hints.dart';
@@ -14,17 +17,24 @@ typedef SnapshotBuild = ({
   SourceFailures failures,
 });
 
-/// Which sources of a build failed, by slug (`profiles`, `chats`, `kanban`,
-/// `schedules`), split by why: [errored] threw or answered with an error,
+/// Which sources of a build failed, by slug (`launch_profile`, `profiles`,
+/// `chats`, `kanban`, `schedules`), split by why: [errored] threw or answered with an error,
 /// [timedOut] was still running when the build's budget ran out. A budget
 /// cut short is expected when the app goes to the background (the pause
 /// build has 800 ms before iOS suspends it), so only [errored] makes a build
-/// fail; a timed-out source just keeps its previous section.
+/// fail; a timed-out source just keeps its previous section. [errorTypes]
+/// holds `source:type` pairs for the errored ones, the type being a
+/// `DioExceptionType` name or an exception's runtime type, never a message.
 class SourceFailures {
-  const SourceFailures({this.errored = const {}, this.timedOut = const {}});
+  const SourceFailures({
+    this.errored = const {},
+    this.timedOut = const {},
+    this.errorTypes = const {},
+  });
 
   final Set<String> errored;
   final Set<String> timedOut;
+  final Set<String> errorTypes;
 
   bool get isEmpty => errored.isEmpty && timedOut.isEmpty;
 
@@ -41,6 +51,7 @@ class SourceFailures {
     'outcome': outcome,
     if (errored.isNotEmpty) 'sources_errored': _join(errored),
     if (timedOut.isNotEmpty) 'sources_timed_out': _join(timedOut),
+    if (errorTypes.isNotEmpty) 'sources_error_types': _join(errorTypes),
   };
 
   static String _join(Set<String> slugs) => (slugs.toList()..sort()).join(',');
@@ -50,17 +61,31 @@ class SourceFailures {
 /// since the snapshot must not carry what the user asked for.
 const kUnnamedJobLabel = 'Scheduled task';
 
-/// How one source answered: [value] when [ok], nothing when it failed or
-/// [timedOut].
+/// How one source answered: [value] when [ok], nothing when it failed (with
+/// the [errorType] of what it threw) or [timedOut].
 class _Read<T> {
-  const _Read.ok(this.value) : ok = true, timedOut = false;
-  const _Read.failed() : ok = false, timedOut = false, value = null;
-  const _Read.timedOut() : ok = false, timedOut = true, value = null;
+  const _Read.ok(this.value) : ok = true, timedOut = false, errorType = null;
+  const _Read.failed(this.errorType)
+    : ok = false,
+      timedOut = false,
+      value = null;
+  const _Read.timedOut()
+    : ok = false,
+      timedOut = true,
+      value = null,
+      errorType = null;
 
   final bool ok;
   final bool timedOut;
   final T? value;
+  final String? errorType;
 }
+
+/// What a failed source threw, as a span-safe name: a `DioExceptionType` name
+/// or the exception's runtime type, never its message.
+@visibleForTesting
+String sourceErrorType(Object error) =>
+    error is DioException ? error.type.name : '${error.runtimeType}';
 
 /// Reads what the [SurfaceSnapshot] holds. Each source on its own: one that
 /// fails or exhausts the shared [timeout] keeps its section from the previous
@@ -94,7 +119,17 @@ class SurfaceSnapshotBuilder {
     bool redact = false,
     Duration? budget,
   }) async {
-    final openProfile = hints?.profile ?? previous?.profile ?? kDefaultProfile;
+    // The open profile: the chat screen's hint, else the one kept, else the
+    // one the dashboard was launched with. When none is known (a server
+    // without profiles, or a launch profile not read yet) the reads use
+    // `default` but the snapshot stores none, so a reader falls back itself
+    // and a later build can still name the launch profile. A stored profile,
+    // `default` included, is never replaced: it is what the person had open.
+    final resolver = _repositories.profiles.resolver;
+    String? chooseOpenProfile() =>
+        hints?.profile ?? previous?.profile ?? resolver.launch;
+    var chosenProfile = chooseOpenProfile();
+    var openProfile = chosenProfile ?? kDefaultProfile;
     final now = _now();
     var profiles = previous?.profiles ?? const <String>[];
     final kept = previous?.recentChats ?? const <RecentChat>[];
@@ -104,9 +139,15 @@ class SurfaceSnapshotBuilder {
     var failed = 0;
     final errored = <String>{};
     final timedOut = <String>{};
+    final errorTypes = <String>{};
     void fail(String source, _Read<Object?> read) {
       failed++;
-      (read.timedOut ? timedOut : errored).add(source);
+      if (read.timedOut) {
+        timedOut.add(source);
+      } else {
+        errored.add(source);
+        errorTypes.add('$source:${read.errorType}');
+      }
     }
 
     if (refreshRemote) {
@@ -125,8 +166,23 @@ class SurfaceSnapshotBuilder {
       }
 
       try {
+        // Inside the shared budget: a slow lookup is a timed-out read, and a
+        // launch profile already known costs nothing. It runs beside the
+        // reads that do not need the open profile (the profile list, Kanban);
+        // only the reads that do wait for it.
+        Future<void> openResolved() async {
+          if (chosenProfile != null) return;
+          final lookup = await read(resolver.load);
+          // A fixed source name, never a profile name.
+          if (!lookup.ok) fail('launch_profile', lookup);
+          chosenProfile = chooseOpenProfile();
+          openProfile = chosenProfile ?? kDefaultProfile;
+        }
+
+        final opened = openResolved();
         Future<void> readChats() async {
           final names = await read(_profileNames);
+          await opened;
           if (names.ok) {
             profiles = names.value!;
             // The hints stand in for a request for the open profile's chats.
@@ -154,7 +210,7 @@ class SurfaceSnapshotBuilder {
         final (_, kanbanRead, schedulesRead) = await (
           readChats(),
           read(_kanban),
-          read(() => _schedules(now, openProfile)),
+          opened.then((_) => read(() => _schedules(now, openProfile))),
         ).wait;
         if (kanbanRead.ok) {
           kanban = kanbanRead.value;
@@ -214,7 +270,7 @@ class SurfaceSnapshotBuilder {
       updatedAt: now,
       revision: previous?.revision ?? 0,
       signedIn: signedIn,
-      profile: openProfile,
+      profile: chosenProfile,
       profiles: profiles,
       recentChats: chats,
       pending: open,
@@ -224,15 +280,19 @@ class SurfaceSnapshotBuilder {
     return (
       snapshot: redact ? snapshot.redacted() : snapshot,
       sourcesFailed: failed,
-      failures: SourceFailures(errored: errored, timedOut: timedOut),
+      failures: SourceFailures(
+        errored: errored,
+        timedOut: timedOut,
+        errorTypes: errorTypes,
+      ),
     );
   }
 
   Future<_Read<T>> _read<T>(Future<T> Function() source) async {
     try {
       return _Read.ok(await source());
-    } on Object {
-      return const _Read.failed();
+    } on Object catch (error) {
+      return _Read.failed(sourceErrorType(error));
     }
   }
 

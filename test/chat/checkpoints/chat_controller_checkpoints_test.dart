@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart'
     show WorkspaceMoveBlock;
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -165,6 +166,7 @@ void main() {
   late List<String> drafts;
 
   ChatController build({ValueListenable<bool>? activity}) => ChatController(
+    profileResolver: ProfileResolver.known('default'),
     repository: HermesChatRepository(server.client().raw),
     transport: source,
     attention: attention,
@@ -281,6 +283,7 @@ void main() {
       chat.dispose();
       final plain = FakeChatTransport();
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: plain,
         attention: attention,
@@ -336,7 +339,7 @@ void main() {
     test('a turn that ends re-reads the open list', () async {
       final (_, checkpoints) = await listed();
       expect(source.fake.count('list'), 1);
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await pumpEventQueue();
       source.sends.last
         ..emit(const ReplyCompleted('Answer'))
@@ -443,7 +446,7 @@ void main() {
       final (opened, checkpoints) = await listed();
       final context = chat.contextIn(opened)!;
       expect(checkpoints.restoreRefusal(), isNull);
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await pumpEventQueue();
       expect(opened.isReplying, isTrue);
       expect(checkpoints.restoreRefusal(), RestoreRefusal.replying);
@@ -533,7 +536,7 @@ void main() {
     test('a failed turn the restore removed is not put back by the re-read, '
         'and its prompt goes under the draft', () async {
       final (opened, checkpoints) = await listed();
-      chat.submit('Try the failing step', const []);
+      await chat.submit('Try the failing step', const []);
       await pumpEventQueue();
       source.sends.last
         ..emit(const ReplyCompleted('It broke', failed: true))
@@ -598,7 +601,7 @@ void main() {
           'after $name', () async {
         final (opened, checkpoints) = await listed();
         final context = chat.contextIn(opened)!;
-        chat.submit('Try the failing step', const []);
+        await chat.submit('Try the failing step', const []);
         await pumpEventQueue();
         source.sends.last
           ..emit(const ReplyCompleted('It broke', failed: true))
@@ -720,9 +723,9 @@ void main() {
     test('the 2 s settle wait of a queue ending during the hold defers to the '
         'release, which sends once', () async {
       final (opened, checkpoints) = await listed();
-      chat.submit('First', const []);
+      await chat.submit('First', const []);
       await pumpEventQueue();
-      chat.submit('Second', const []);
+      await chat.submit('Second', const []);
       await pumpEventQueue();
       final first = source.sends.last;
       first
@@ -750,9 +753,9 @@ void main() {
       'a settle wait that ends after no hold sends the queue as before',
       () async {
         final (opened, _) = await listed();
-        chat.submit('First', const []);
+        await chat.submit('First', const []);
         await pumpEventQueue();
-        chat.submit('Second', const []);
+        await chat.submit('Second', const []);
         await pumpEventQueue();
         source.sends.last
           ..emit(const ReplyCompleted('Done'))
@@ -771,7 +774,7 @@ void main() {
       source.fake.restoreGate = Completer<void>();
       final sends = source.sends.length;
       unawaited(checkpoints.confirmRestore(checkpoints.beginRestore(_hash)!));
-      chat.submit('Next step please', const []);
+      await chat.submit('Next step please', const []);
       await pumpEventQueue();
       expect(source.sends.length, sends);
       // The transport's ownership stream ends: everything owned is cleared.
@@ -952,7 +955,7 @@ void main() {
       final (_, checkpoints) = await listed();
       source.fake.restoreGate = Completer<void>();
       unawaited(checkpoints.confirmRestore(checkpoints.beginRestore(_hash)!));
-      chat.submit('Next step please', const []);
+      await chat.submit('Next step please', const []);
       await pumpEventQueue();
       final sends = source.sends.length;
       chat.dispose();
@@ -1048,7 +1051,7 @@ void main() {
       final opened = await open();
       source.own('stored-1');
       chat.contextIn(opened);
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await pumpEventQueue();
       final reply = opened.messages.last;
       source.sends.last.emit(const ContextCompacted(runtimeId: 'rt-1'));
@@ -1089,6 +1092,7 @@ void main() {
       chat.dispose();
       moves = [];
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: source,
         workspaces: HermesWorkspacesRepository(server.client().raw, (
@@ -1163,6 +1167,7 @@ void main() {
         chat.dispose();
         moves = [];
         chat = ChatController(
+          profileResolver: ProfileResolver.known('default'),
           repository: HermesChatRepository(server.client().raw),
           transport: source,
           workspaces: HermesWorkspacesRepository(server.client().raw, (
@@ -1292,6 +1297,7 @@ void main() {
         final answer = Completer<Map<String, Object?>>();
         chat.dispose();
         chat = ChatController(
+          profileResolver: ProfileResolver.known('default'),
           repository: HermesChatRepository(server.client().raw),
           transport: source,
           workspaces: HermesWorkspacesRepository(server.client().raw, (

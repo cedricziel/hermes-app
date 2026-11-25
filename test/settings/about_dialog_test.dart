@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/settings/about_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -23,6 +23,29 @@ void main() {
     expect(find.widgetWithText(GroupedRow, 'Version'), findsOneWidget);
     expect(find.text('0.1.31'), findsOneWidget);
     expect(find.text('Report a bug'), findsOneWidget);
+  });
+
+  testWidgets('opens the licenses through its row', (tester) async {
+    var opened = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppAboutDialog(version: '0.1.31', onLicenses: () => opened++),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('about-licenses')));
+    expect(opened, 1);
+    expect(find.text('Open source licenses'), findsOneWidget);
+  });
+
+  testWidgets('without a callback the row opens Flutter\'s license page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: AppAboutDialog(version: '0.1.31')),
+    );
+    await tester.tap(find.byKey(const Key('about-licenses')));
+    await tester.pumpAndSettle();
+    expect(find.byType(LicensePage), findsOneWidget);
   });
 
   testWidgets('reports a bug through the injected link opener', (tester) async {

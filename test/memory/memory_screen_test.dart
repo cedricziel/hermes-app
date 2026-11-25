@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/memory/memory_controller.dart';
 import 'package:hermes_app/src/memory/memory_repository.dart';
 import 'package:hermes_app/src/memory/memory_screen.dart';
@@ -26,7 +27,10 @@ void main() {
     final controller = MemoryController();
     addTearDown(controller.dispose);
     await tester.runAsync(() async {
-      controller.bind(MemoryRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
     });
     await tester.pumpWidget(
@@ -87,8 +91,14 @@ void main() {
       addTearDown(controller.dispose);
       addTearDown(settings.dispose);
       await tester.runAsync(() async {
-        controller.bind(MemoryRepository(server.client().raw), 'work');
-        settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+        controller.bind(
+          MemoryRepository(server.client().raw),
+          resolvedProfile('work'),
+        );
+        settings.bind(
+          MemorySettingsRepository(server.client().raw),
+          resolvedProfile('work'),
+        );
         await pumpEventQueue();
         await settings.whenIdle;
       });
@@ -130,8 +140,14 @@ void main() {
       addTearDown(controller.dispose);
       addTearDown(settings.dispose);
       await tester.runAsync(() async {
-        controller.bind(MemoryRepository(server.client().raw), 'work');
-        settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+        controller.bind(
+          MemoryRepository(server.client().raw),
+          resolvedProfile('work'),
+        );
+        settings.bind(
+          MemorySettingsRepository(server.client().raw),
+          resolvedProfile('work'),
+        );
         await pumpEventQueue();
         await settings.whenIdle;
       });
@@ -175,8 +191,14 @@ void main() {
     addTearDown(controller.dispose);
     addTearDown(settings.dispose);
     await tester.runAsync(() async {
-      controller.bind(MemoryRepository(server.client().raw), 'work');
-      settings.bind(MemorySettingsRepository(server.client().raw), 'work');
+      controller.bind(
+        MemoryRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
+      settings.bind(
+        MemorySettingsRepository(server.client().raw),
+        resolvedProfile('work'),
+      );
       await pumpEventQueue();
       await settings.whenIdle;
     });

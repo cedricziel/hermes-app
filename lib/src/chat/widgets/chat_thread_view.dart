@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
-import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart'
+    show Chat, ComposerHeightNotifier;
+import 'package:provider/provider.dart';
 
 import '../../bot_mode/bot_chat_context.dart';
 import '../../bot_mode/widgets/bot_chat_banner.dart';
@@ -26,7 +28,11 @@ import '../../voice/voice_message_recording.dart';
 import '../activity/widgets/needs_you_dock.dart'
     show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
+import 'chat_earlier_messages_failed_row.dart';
+import 'chat_history_state.dart';
 import 'message_actions.dart' show TurnActionStatus;
+import '../tool_value_budget.dart';
+import 'tool_call_expansion.dart';
 import '../reactions/reaction_state.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
@@ -96,9 +102,26 @@ class ChatThreadView extends StatelessWidget {
     this.sendHeld = false,
     this.draftHandedBack = false,
     this.onShowAgentDetails,
+    this.toolCallExpansion,
+    this.toolValueBudget,
     this.workingDirectoryRow,
     this.workspaceNotice,
+    this.historyStatus,
+    this.onRetryHistory,
+    this.earlierMessages,
   });
+
+  /// Set while a stored chat has no messages on screen because they are
+  /// loading or failed to load: the transcript then shows that instead of the
+  /// welcome view. Null for a chat that shows its messages or a new one.
+  final ChatHistoryStatus? historyStatus;
+
+  /// Reads the messages of a chat whose [historyStatus] is failed again.
+  final VoidCallback? onRetryHistory;
+
+  /// Set when the chat shows messages but its older ones failed to load: a
+  /// row with Retry then leads the transcript ([onRetryHistory] reads again).
+  final ChatEarlierMessagesStatus? earlierMessages;
 
   final ChatThread? thread;
 
@@ -210,6 +233,13 @@ class ChatThreadView extends StatelessWidget {
   /// card; none where the chat has no panel (the quick panel).
   final ValueChanged<String>? onShowAgentDetails;
 
+  /// Keeps the tool calls the reader opened beyond the rows that show them;
+  /// each row keeps its own when null.
+  final ToolCallExpansionStore? toolCallExpansion;
+
+  /// What the open tool cards of this chat may colour in all.
+  final ToolValueBudget? toolValueBudget;
+
   @override
   Widget build(BuildContext context) {
     final openThread = thread;
@@ -235,6 +265,26 @@ class ChatThreadView extends StatelessWidget {
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
           onShowAgentDetails: onShowAgentDetails,
+          topSliver: earlierMessages == null
+              ? null
+              : SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kChatGutter,
+                      0,
+                      kChatGutter,
+                      kChatTurnGap,
+                    ),
+                    child: ChatEarlierMessagesFailedRow(
+                      status: earlierMessages!,
+                      onRetry:
+                          earlierMessages == ChatEarlierMessagesStatus.failed
+                          ? onRetryHistory
+                          : null,
+                    ),
+                  ),
+                ),
+          toolCallExpansion: toolCallExpansion,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
@@ -264,13 +314,25 @@ class ChatThreadView extends StatelessWidget {
         );
     // copyWith takes a null builder as "none", so only the panel's case
     // replaces the welcome view.
-    final shown = welcome
+    final history = historyStatus;
+    final shown = history != null
+        ? builders.copyWith(
+            emptyChatListBuilder: (context) => ChatHistoryState(
+              key: ValueKey(history),
+              status: history,
+              onRetry: onRetryHistory,
+              bottomPadding:
+                  context.watch<ComposerHeightNotifier>().height +
+                  MediaQuery.paddingOf(context).bottom,
+            ),
+          )
+        : welcome
         ? builders
         : builders.copyWith(
             emptyChatListBuilder: (_) => const SizedBox.shrink(),
           );
 
-    return Column(
+    final column = Column(
       children: [
         if (header case final header?) ...[
           header,
@@ -320,5 +382,9 @@ class ChatThreadView extends StatelessWidget {
         ),
       ],
     );
+    final budget = toolValueBudget;
+    return budget == null
+        ? column
+        : ToolValueBudgetScope(budget: budget, child: column);
   }
 }

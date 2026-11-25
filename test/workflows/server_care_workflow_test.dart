@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -17,6 +17,7 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -27,6 +28,8 @@ import '../support/fake_hermes_server.dart';
 import '../support/find_app_icon.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart' show letSocketsIdle;
+import '../support/test_localizations.dart';
+import '../support/tooltip_finder.dart';
 
 /// Server care through the real shell: the account menu's Server entry with
 /// its attention dot (phone) or the sidebar row with its caption (Mac), the
@@ -105,9 +108,10 @@ void main() {
           auth,
           lock: lock,
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             debugShowCheckedModeBanner: false,
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(theme),
             home: const AppShell(),
@@ -146,7 +150,7 @@ void main() {
   /// Opens the Server screen from the account menu, as on a phone-less
   /// shell with a sidebar footer.
   Future<void> openServerFromAccount(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.textContaining('Server').first);
@@ -231,7 +235,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       // The drawer's account button carries the attention dot.
       await shots.capture(tester, 'drawer');
-      await tester.tap(find.byTooltip('Account'));
+      await tester.tap(find.tooltip('Account'));
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pump(const Duration(milliseconds: 600));
       await shots.capture(tester, 'account-menu');
@@ -283,7 +287,7 @@ void main() {
     await tester.tap(findAppIcon(AppIcons.menu).first);
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump(const Duration(milliseconds: 600));
     await tester.ensureVisible(find.textContaining('Server'));

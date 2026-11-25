@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -8,7 +8,7 @@ ScrollPhysics _physicsOf(WidgetTester tester) =>
 Future<void> _pump(WidgetTester tester, TargetPlatform platform) =>
     tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [for (var i = 0; i < 3; i++) Text('row $i')],

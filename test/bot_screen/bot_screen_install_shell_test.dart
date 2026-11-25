@@ -1,6 +1,7 @@
-import 'package:flutter/cupertino.dart' show CupertinoTextField;
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoTextField;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -18,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -101,13 +103,15 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
-          builder: lock == null
-              ? null
-              : (context, child) =>
-                    ChangeNotifierProvider<AppLockController>.value(
-                      value: lock,
-                      child: AppLockGate(child: child!),
-                    ),
+          builder: (context, child) {
+            final scoped = AppThemeScopes(child: child!);
+            return lock == null
+                ? scoped
+                : ChangeNotifierProvider<AppLockController>.value(
+                    value: lock,
+                    child: AppLockGate(child: scoped),
+                  );
+          },
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
@@ -126,7 +130,7 @@ void main() {
     BotScreenInstalls installs,
   ) async {
     await tester.runAsync(() async {
-      await installs.start('work', profileKey: _key);
+      await installs.start(resolvedProfile('work'), profileKey: _key);
       await Future<void>.delayed(const Duration(milliseconds: 30));
     });
     await tester.pump();
@@ -230,7 +234,7 @@ void main() {
     await settle(tester);
 
     expect(prompt, findsNothing);
-    expect(installs.stateFor('work'), isA<InstallEnded>());
+    expect(installs.stateFor(resolvedProfile('work')), isA<InstallEnded>());
   });
 
   testWidgets('a request for an install nobody started is refused and shows '
@@ -267,11 +271,11 @@ void main() {
   ) async {
     final installs = await pumpShell(tester);
     await startInstall(tester, installs);
-    expect(installs.stateFor('work'), isA<InstallRunning>());
+    expect(installs.stateFor(resolvedProfile('work')), isA<InstallRunning>());
 
     await openBoard(tester);
 
-    expect(installs.stateFor('work'), isA<InstallRunning>());
+    expect(installs.stateFor(resolvedProfile('work')), isA<InstallRunning>());
   });
 
   testWidgets('every platform builds the question', (tester) async {

@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "window_size.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -13,6 +14,52 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// The work area of the monitor the window will most likely open on: the
+// monitor under the pointer on X11; on Wayland the pointer position is unknown
+// before a window is mapped, so this is the monitor at the origin. Falls back
+// to the primary monitor. False when GDK reports none.
+static gboolean get_work_area(GtkWindow* window, GdkRectangle* work_area) {
+  GdkDisplay* display = gtk_widget_get_display(GTK_WIDGET(window));
+  GdkMonitor* monitor = nullptr;
+  GdkSeat* seat = gdk_display_get_default_seat(display);
+  GdkDevice* pointer = seat != nullptr ? gdk_seat_get_pointer(seat) : nullptr;
+  if (pointer != nullptr) {
+    gint x = 0, y = 0;
+    gdk_device_get_position(pointer, nullptr, &x, &y);
+    monitor = gdk_display_get_monitor_at_point(display, x, y);
+  }
+  if (monitor == nullptr) monitor = gdk_display_get_primary_monitor(display);
+  if (monitor == nullptr) return FALSE;
+  gdk_monitor_get_workarea(monitor, work_area);
+  return work_area->width > 0 && work_area->height > 0;
+}
+
+// GDK on X11 sets no _NET_WM_ICON for an icon over 262144 pixels, which rules
+// out the 512 px asset, so both paths hand GTK a pixbuf scaled to this size.
+static const int kWindowIconSize = 256;
+
+// Sets the window icon: the installed theme icon named like the .desktop
+// file's Icon= (the .deb, which ships only a 512 px entry), else the PNG
+// shipped in the bundle's data dir (the tar.gz, which installs no theme entry).
+static void set_window_icon(GtkWindow* window) {
+  GtkIconTheme* theme = gtk_icon_theme_get_default();
+  g_autoptr(GdkPixbuf) icon = nullptr;
+  if (gtk_icon_theme_has_icon(theme, APPLICATION_ID)) {
+    icon = gtk_icon_theme_load_icon(theme, APPLICATION_ID, kWindowIconSize,
+                                    GTK_ICON_LOOKUP_FORCE_SIZE, nullptr);
+  }
+  if (icon == nullptr) {
+    g_autofree gchar* exe = g_file_read_link("/proc/self/exe", nullptr);
+    if (exe == nullptr) return;
+    g_autofree gchar* dir = g_path_get_dirname(exe);
+    g_autofree gchar* file =
+        g_build_filename(dir, "data", "icons", APPLICATION_ID ".png", nullptr);
+    icon = gdk_pixbuf_new_from_file_at_size(file, kWindowIconSize,
+                                            kWindowIconSize, nullptr);
+  }
+  if (icon != nullptr) gtk_window_set_icon(window, icon);
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -52,7 +99,21 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Hermes");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // After both title paths, so the icon is set whichever one ran.
+  set_window_icon(window);
+
+  GdkGeometry min_size = {};
+  min_size.min_width = kMinWindowWidth;
+  min_size.min_height = kMinWindowHeight;
+  gtk_window_set_geometry_hints(window, nullptr, &min_size, GDK_HINT_MIN_SIZE);
+
+  WindowSize size = {kDefaultWindowWidth, kDefaultWindowHeight};
+  GdkRectangle work_area;
+  if (get_work_area(window, &work_area)) {
+    size = default_window_size(work_area.width, work_area.height);
+  }
+  gtk_window_set_default_size(window, size.width, size.height);
+  gtk_window_set_position(window, GTK_WIN_POS_CENTER);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
@@ -78,25 +139,29 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
-// Implements GApplication::local_command_line.
-static gboolean my_application_local_command_line(GApplication* application,
-                                                  gchar*** arguments,
-                                                  int* exit_status) {
+// Implements GApplication::command_line. The unique primary instance gets the
+// command line of every launch: its own, and the arguments of a later launch
+// (a `hermes://` link from the desktop), which exits once this returns. The
+// first one creates the window and passes its arguments to Dart (`main`, which
+// reads a launch link); a later one presents the window, and the app_links
+// plugin, hooked on the same signal, hands its link to Dart.
+static gint my_application_command_line(GApplication* application,
+                                        GApplicationCommandLine* command_line) {
   MyApplication* self = MY_APPLICATION(application);
-  // Strip out the first argument as it is the binary name.
-  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
-
-  g_autoptr(GError) error = nullptr;
-  if (!g_application_register(application, nullptr, &error)) {
-    g_warning("Failed to register: %s", error->message);
-    *exit_status = 1;
-    return TRUE;
+  GList* windows = gtk_application_get_windows(GTK_APPLICATION(application));
+  if (windows != nullptr) {
+    g_message("Hermes: a later launch reached the running instance");
+    gtk_window_present(GTK_WINDOW(windows->data));
+    return 0;
   }
-
+  gint argc = 0;
+  g_auto(GStrv) arguments =
+      g_application_command_line_get_arguments(command_line, &argc);
+  // Strip out the first argument as it is the binary name.
+  g_strfreev(self->dart_entrypoint_arguments);
+  self->dart_entrypoint_arguments = g_strdupv(arguments + 1);
   g_application_activate(application);
-  *exit_status = 0;
-
-  return TRUE;
+  return 0;
 }
 
 // Implements GApplication::startup.
@@ -126,8 +191,7 @@ static void my_application_dispose(GObject* object) {
 
 static void my_application_class_init(MyApplicationClass* klass) {
   G_APPLICATION_CLASS(klass)->activate = my_application_activate;
-  G_APPLICATION_CLASS(klass)->local_command_line =
-      my_application_local_command_line;
+  G_APPLICATION_CLASS(klass)->command_line = my_application_command_line;
   G_APPLICATION_CLASS(klass)->startup = my_application_startup;
   G_APPLICATION_CLASS(klass)->shutdown = my_application_shutdown;
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
@@ -144,5 +208,6 @@ MyApplication* my_application_new() {
 
   return MY_APPLICATION(g_object_new(my_application_get_type(),
                                      "application-id", APPLICATION_ID, "flags",
-                                     G_APPLICATION_NON_UNIQUE, nullptr));
+                                     G_APPLICATION_HANDLES_COMMAND_LINE,
+                                     nullptr));
 }

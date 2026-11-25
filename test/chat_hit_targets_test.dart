@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
@@ -12,7 +12,7 @@ Future<void> _pump(
   Widget child,
 ) => tester.pumpWidget(
   MaterialApp(
-    theme: buildHermesLightTheme().copyWith(platform: platform),
+    theme: buildHermesLightTheme(platform: platform),
     home: Scaffold(
       body: Align(
         alignment: Alignment.topLeft,
@@ -84,12 +84,10 @@ void main() {
     );
   });
 
-  for (final platform in [
-    TargetPlatform.android,
-    TargetPlatform.macOS,
-    TargetPlatform.linux,
-  ]) {
-    testWidgets('on $platform the sizes stay as they were', (tester) async {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+    testWidgets('on $platform the controls keep their compact desktop sizes', (
+      tester,
+    ) async {
       await _pump(
         tester,
         platform,
@@ -103,9 +101,32 @@ void main() {
         ),
       );
 
-      expect(_sizeOf(tester, _button('Copy')), const Size(40, 40));
+      expect(_sizeOf(tester, _button('Copy')), const Size(24, 24));
       expect(_sizeOf(tester, find.byType(ReasoningBlock)).height, lessThan(44));
       expect(_sizeOf(tester, find.byType(ListTile)).height, 36);
     });
   }
+
+  testWidgets(
+    'on Android the message actions are 48 and the headers keep their size',
+    (tester) async {
+      await _pump(
+        tester,
+        TargetPlatform.android,
+        Column(
+          children: [
+            MessageActions(text: 'hi', onRetry: () {}),
+            const ReasoningBlock(text: 'because'),
+            const ToolCallGroup(calls: single),
+          ],
+        ),
+      );
+
+      expect(_sizeOf(tester, _button('Copy')), const Size(48, 48));
+      // Only the message actions grow on Android; the reasoning toggle and
+      // the tool call header keep their compact sizes.
+      expect(_sizeOf(tester, find.byType(ReasoningBlock)).height, 27);
+      expect(_sizeOf(tester, find.byType(ListTile)).height, 36);
+    },
+  );
 }

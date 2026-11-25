@@ -1,10 +1,11 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/confirm_stop_agent.dart';
 
 import '../../widgetbook/host.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   testWidgets('a dialog follows an iOS caller theme under the root navigator', (
@@ -12,7 +13,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Theme(
           data: ThemeData(platform: TargetPlatform.iOS),

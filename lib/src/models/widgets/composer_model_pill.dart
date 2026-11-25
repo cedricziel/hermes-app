@@ -1,13 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../files/widgets/safe_path_text.dart';
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../widgets/anchored_popover.dart';
 import '../../widgets/composer_selector_chip.dart';
 import '../model_options_state.dart';
 import '../model_provider_option.dart';
 import 'model_picker.dart';
 
 /// The current chat model and the state of its profile's model discovery.
-class ComposerModelPill extends StatelessWidget {
+class ComposerModelPill extends StatefulWidget {
   const ComposerModelPill({
     super.key,
     required this.options,
@@ -17,6 +20,10 @@ class ComposerModelPill extends StatelessWidget {
     this.onUseDefault,
     this.onRetry,
     this.onSetup,
+    this.onPickerOpened,
+    this.pickerUpdates,
+    this.pickerOptions,
+    this.pickerChoice,
   });
 
   final ModelOptions? options;
@@ -27,8 +34,33 @@ class ComposerModelPill extends StatelessWidget {
   final VoidCallback? onRetry;
   final VoidCallback? onSetup;
 
+  /// Called as the picker opens, to read the options again.
+  final VoidCallback? onPickerOpened;
+
+  /// Tells an open picker that [pickerOptions] changed.
+  final Listenable? pickerUpdates;
+
+  /// The newest options, which an open picker redraws with.
+  final ModelOptions? Function()? pickerOptions;
+
+  /// The newest pick (null: none), which an open picker checks. Without it
+  /// the picker follows [choice] as it was when it opened.
+  final ModelChoice? Function()? pickerChoice;
+
+  /// The choice to show for [options]: a pick or the server's current
+  /// model, and only one the options list.
+  static ModelChoice? _shown(ModelChoice? choice, ModelOptions? options) {
+    final candidate = choice ?? options?.current;
+    return candidate != null && options?.model(candidate) != null
+        ? candidate
+        : null;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  State<ComposerModelPill> createState() => _ComposerModelPillState();
+
+  Widget _build(BuildContext context, PopoverHandle popover) {
+    final l10n = context.l10n;
     final options = this.options;
     final state =
         this.state ??
@@ -38,49 +70,85 @@ class ComposerModelPill extends StatelessWidget {
             ? ModelOptionsState.incomplete
             : ModelOptionsState.ready);
     final candidate = choice ?? options?.current;
-    final shown = candidate != null && options?.model(candidate) != null
-        ? candidate
-        : null;
+    final shown = _shown(choice, options);
     final model =
-        shown?.modelId ??
-        (onUseDefault == null ? 'Choose a model' : 'Profile default');
+        (shown == null ? null : safePathText(shown.modelId)) ??
+        (onUseDefault == null
+            ? l10n.modelsPillChoose
+            : l10n.modelsPillProfileDefault);
     final effort = shown?.effort;
     final label = switch (state) {
-      ModelOptionsState.loading => 'Loading models',
-      ModelOptionsState.incomplete => 'Set up a model',
-      ModelOptionsState.failed => 'Could not load models',
-      ModelOptionsState.unsupported => choice?.modelId ?? 'Profile default',
+      ModelOptionsState.loading => l10n.modelsPillLoading,
+      ModelOptionsState.incomplete => l10n.modelsPillSetUp,
+      ModelOptionsState.failed => l10n.modelsPillLoadFailed,
+      ModelOptionsState.unsupported =>
+        (choice == null ? null : safePathText(choice!.modelId)) ??
+            l10n.modelsPillProfileDefault,
       ModelOptionsState.ready =>
-        '$model${effort == null ? '' : ' · ${effortLabel(effort)}'}',
+        '$model${effort == null ? '' : ' · ${effortLabel(l10n, effort)}'}',
     };
     return ComposerSelectorChip(
       key: const Key('composer-model-pill'),
       label: label,
       semanticLabel: state == ModelOptionsState.unsupported
-          ? '$label. Model discovery is unavailable.'
+          ? l10n.modelsPillDiscoveryUnavailable(label)
           : (state == ModelOptionsState.loading ||
                     state == ModelOptionsState.failed) &&
                 candidate != null
-          ? '$label, selected model ${candidate.modelId}'
+          ? l10n.modelsPillSelectedModel(label, safePathText(candidate.modelId))
           : label,
       trailing: state == ModelOptionsState.ready
           ? const AppIcon(AppIcons.expandMore, size: 16)
           : null,
-      actionLabel: state == ModelOptionsState.failed ? 'Retry' : null,
-      actionSemanticLabel: 'Retry models',
+      actionLabel: state == ModelOptionsState.failed
+          ? l10n.modelsPillRetry
+          : null,
+      actionSemanticLabel: l10n.modelsPillRetryModels,
       onAction: state == ModelOptionsState.failed ? onRetry : null,
       onPressed: switch (state) {
-        ModelOptionsState.ready when options != null => () => showModelPicker(
-          context,
-          options: options,
-          selected: shown,
-          onChanged: onChanged,
-          onUseDefault: onUseDefault,
-        ),
+        ModelOptionsState.ready when options != null => () {
+          onPickerOpened?.call();
+          // The pill's own rectangle, read now: a desktop picker opens on it.
+          final box = context.findRenderObject();
+          final anchor = box is RenderBox && box.hasSize && box.attached
+              ? box.localToGlobal(Offset.zero) & box.size
+              : null;
+          showModelPicker(
+            context,
+            anchor: anchor,
+            popoverHandle: popover,
+            options: options,
+            selected: shown,
+            onChanged: onChanged,
+            onUseDefault: onUseDefault,
+            updates: pickerUpdates,
+            latest: pickerOptions,
+            latestSelected: pickerChoice == null
+                ? null
+                : () =>
+                      _shown(pickerChoice!(), pickerOptions?.call() ?? options),
+          );
+        },
         ModelOptionsState.incomplete ||
         ModelOptionsState.unsupported => onSetup,
         _ => null,
       },
     );
   }
+}
+
+class _ComposerModelPillState extends State<ComposerModelPill> {
+  final _popover = PopoverHandle();
+
+  @override
+  void dispose() {
+    // A popover open on a pill that leaves the tree has nothing to point at.
+    // Removed after the frame: a route cannot be removed mid-teardown.
+    final popover = _popover;
+    WidgetsBinding.instance.addPostFrameCallback((_) => popover.close());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget._build(context, _popover);
 }

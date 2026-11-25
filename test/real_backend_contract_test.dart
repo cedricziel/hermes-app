@@ -27,6 +27,7 @@ import 'package:hermes_app/src/memory/memory_proposals.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
 import 'package:hermes_app/src/memory/memory_usage.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/whatsapp/whatsapp_pairing.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -53,6 +54,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/profiles/soul/soul_repository.dart';
 import 'package:hermes_app/src/providers/provider_models.dart';
 import 'package:hermes_app/src/providers/provider_results.dart';
@@ -67,6 +69,9 @@ import 'package:hermes_app/src/server_care/doctor_report.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/server_status.dart';
 import 'package:hermes_app/src/server_care/server_care_repository.dart';
+import 'package:hermes_app/src/skills/curator/curator_result.dart';
+import 'package:hermes_app/src/skills/curator/curator_status.dart';
+import 'package:hermes_app/src/skills/curator/hermes_curator_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
@@ -156,6 +161,9 @@ import 'support/attachment_fixtures.dart';
 /// first-checkpoint checks. `HERMES_DEV_RECORD=<dir>` writes their raw answers
 /// to `recorded-on.json` or `recorded-off.json` there, for refreshing
 /// `test/fixtures/gateway/` after scrubbing.
+/// The skill curator tests pause and run it on a throwaway profile named
+/// `contract-check-curator-…` (one pass without a model, deleted after; a
+/// second run needs a fresh backend).
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -324,6 +332,167 @@ void main() {
     });
   }, skip: skip);
 
+  group('skill curator (throwaway profiles)', () {
+    // Pauses and runs the curator on profiles this group creates and deletes.
+    // A pass has no flags here: consolidation is off, so no model is called,
+    // and a profile with no skills has nothing to archive. Like the other
+    // throwaway-profile groups it needs a fresh backend for a second run.
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final profile = 'contract-check-curator-$stamp';
+    final gone = 'contract-check-curator-gone-$stamp';
+    late HermesCuratorRepository curator;
+
+    setUpAll(() async {
+      if (url == null) return;
+      for (final name in [profile, gone]) {
+        await client.raw.createProfileEndpointApiProfilesPost(
+          profileCreate: ProfileCreate(name: name, noSkills: true),
+        );
+      }
+      curator = HermesCuratorRepository(client);
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      DioException? firstError;
+      for (final name in [profile, gone]) {
+        try {
+          await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+            name: name,
+          );
+        } on DioException catch (error) {
+          // `gone` is already deleted when its test ran.
+          if (error.response?.statusCode != 404) firstError ??= error;
+        }
+      }
+      if (firstError != null) throw firstError;
+    });
+
+    T value<T>(CuratorResult<T> result) {
+      expect(result, isA<CuratorOk<T>>(), reason: '$result');
+      return (result as CuratorOk<T>).value;
+    }
+
+    test(
+      'the status has the seven fields and reads without an unknown',
+      () async {
+        final raw =
+            (await client.raw.getCuratorStatusApiCuratorGet(profile: profile))
+                    .data!
+                as Map;
+        expect(
+          raw.keys,
+          containsAll([
+            'enabled',
+            'paused',
+            'interval_hours',
+            'last_run_at',
+            'min_idle_hours',
+            'stale_after_days',
+            'archive_after_days',
+          ]),
+        );
+
+        final status = value(await curator.status(profile: profile));
+
+        expect(status.enabled, isTrue);
+        expect(status.paused, isFalse);
+        expect(status.intervalHours, greaterThan(0));
+        expect(status.lastRun, CuratorLastRun.never);
+        expect(status.minIdleHours, isNotNull);
+        expect(status.staleAfterDays, isNotNull);
+        expect(status.archiveAfterDays, isNotNull);
+      },
+    );
+
+    test('the config has the two switches the confirmation reads', () async {
+      final config =
+          (await client.raw.getConfigApiConfigGet(profile: profile)).data!
+              as Map;
+      final section = config['curator'] as Map;
+
+      expect(section['consolidate'], isA<bool>());
+      expect(section['prune_builtins'], isA<bool>());
+    });
+
+    test('pause and resume round trip, per profile', () async {
+      expect(value(await curator.setPaused(true, profile: profile)), isTrue);
+      expect(value(await curator.status(profile: profile)).paused, isTrue);
+      expect(
+        value(await curator.status(profile: 'default')).paused,
+        isFalse,
+        reason: 'another profile is untouched',
+      );
+
+      expect(value(await curator.setPaused(false, profile: profile)), isFalse);
+      expect(value(await curator.status(profile: profile)).paused, isFalse);
+    });
+
+    test('a profile that is gone is told from a missing route', () async {
+      // Deleted here, not in the tear-down: it is the profile Hermes no
+      // longer knows.
+      await client.raw.deleteProfileEndpointApiProfilesNameDelete(name: gone);
+
+      expect(await curator.status(profile: gone), isA<CuratorProfileGone>());
+      expect(
+        await curator.setPaused(true, profile: gone),
+        isA<CuratorProfileGone>(),
+      );
+      expect(await curator.run(profile: gone), isA<CuratorProfileGone>());
+      // Nothing was started by the last call.
+      expect(value(await curator.runStatus()).running, isFalse);
+    });
+
+    test(
+      'an invalid name is refused, and an unnamed run is not sent',
+      () async {
+        expect(
+          (await curator.status(profile: 'bad name') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        expect(
+          (await curator.run(profile: 'bad name') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        expect(
+          (await curator.run(profile: '') as CuratorFailed).kind,
+          CuratorFailure.refused,
+        );
+        // The unnamed run Hermes refuses with a 400 is not provoked here: it
+        // does so only while several profiles are served, and alone it would
+        // start a pass on the backend's own profile (the recorded answer is
+        // covered by a fixture).
+      },
+    );
+
+    test('a pass runs on the profile, paused or not, and is followed to its '
+        'end by the header and the exit code', () async {
+      value(await curator.setPaused(true, profile: profile));
+      value(await curator.run(profile: profile));
+
+      ActionStatus? done;
+      final deadline = DateTime.now().add(const Duration(minutes: 2));
+      while (DateTime.now().isBefore(deadline)) {
+        final status = value(await curator.runStatus());
+        if (!status.running && status.exitCode != null) {
+          done = status;
+          break;
+        }
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      value(await curator.setPaused(false, profile: profile));
+
+      expect(done, isNotNull, reason: 'the pass finished');
+      expect(done!.exitCode, 0, reason: done.lines.join('\n'));
+      expect(done.startHeader, startsWith('=== curator-run started '));
+      expect(done.lines, isNotEmpty);
+      expect(
+        value(await curator.status(profile: profile)).lastRun,
+        CuratorLastRun.at,
+      );
+    }, timeout: const Timeout(Duration(minutes: 3)));
+  }, skip: skip);
+
   group('voice', () {
     test('voice-config describes both directions', () async {
       final response = await client.raw
@@ -349,10 +518,18 @@ void main() {
         final config = await client.raw
             .getClientVoiceConfigApiAudioVoiceConfigGet();
         final usable = VoiceSupport.fromJson(config.data).textToSpeech;
+        // The default provider (Edge TTS) calls out to the internet. Without
+        // a route it takes about 15 s to fail, and under CPU load a stalled
+        // call outlasts the test's own 30 s limit, so the wait is bounded here
+        // and an unanswered provider is skipped like a failed one.
+        final cancel = CancelToken();
         try {
-          final response = await client.raw.speakTextApiAudioSpeakPost(
-            tTSSpeakRequest: TTSSpeakRequest(text: 'Hello.'),
-          );
+          final response = await client.raw
+              .speakTextApiAudioSpeakPost(
+                tTSSpeakRequest: TTSSpeakRequest(text: 'Hello.'),
+                cancelToken: cancel,
+              )
+              .timeout(const Duration(seconds: 20));
           final body = response.data! as Map;
           if (body['ok'] == true) {
             // The shape Read aloud and voice calls decode.
@@ -365,6 +542,10 @@ void main() {
         } on DioException catch (error) {
           expect(error.response?.statusCode, greaterThanOrEqualTo(400));
           if (usable) markTestSkipped('the TTS provider failed: $error');
+        } on TimeoutException {
+          cancel.cancel('no answer');
+          expect(usable, isTrue, reason: 'voice-config said it cannot speak');
+          markTestSkipped('the TTS provider did not answer within 20 s');
         }
       },
       skip: skip,
@@ -1284,7 +1465,7 @@ void main() {
       expect(raw['lease'], containsPair('holder', isIn(['agent', 'human'])));
       expect(raw['lease'], containsPair('epoch', isA<int>()));
 
-      final status = switch (await screen.status('default')) {
+      final status = switch (await screen.status(resolvedProfile('default'))) {
         BotScreenOk(:final value) => value,
         final other => fail('expected a status, got $other'),
       };
@@ -1301,7 +1482,9 @@ void main() {
       final raw = await rpc.request('display.thumbnail', {
         'profile': 'default',
       });
-      final frame = switch (await screen.thumbnail('default')) {
+      final frame = switch (await screen.thumbnail(
+        resolvedProfile('default'),
+      )) {
         BotScreenOk(:final value) => value,
         final other => fail('expected a frame result, got $other'),
       };
@@ -1480,16 +1663,23 @@ void main() {
       expect(body['home'], anyOf(isNull, isA<String>()));
       expect(body['scan_enabled'], isA<bool>());
 
-      value(await workspaces.catalog(profile: 'default'));
+      value(await workspaces.catalog(profile: resolvedProfile('default')));
       failedWith(
-        await workspaces.catalog(profile: 'contract-check-missing'),
+        await workspaces.catalog(
+          profile: resolvedProfile('contract-check-missing'),
+        ),
         WorkspacesFailure.unknownProfile,
       );
     }, skip: skip);
 
     test('fs/list lists the folders of a temp directory and reports a bad '
         'one in a 200 with error', () async {
-      final listing = value(await workspaces.listFolders(root.path));
+      final listing = value(
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          root.path,
+        ),
+      );
       expect(listing.folders.map((f) => f.name), ['inner']);
 
       final raw = (await client.raw.fsListApiFsListGet(
@@ -1498,11 +1688,17 @@ void main() {
       )).data!;
       expect((raw as Map)['error'], 'ENOENT');
       failedWith(
-        await workspaces.listFolders('${root.path}/missing'),
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          '${root.path}/missing',
+        ),
         WorkspacesFailure.notFound,
       );
       failedWith(
-        await workspaces.listFolders('${root.path}/note.txt'),
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          '${root.path}/note.txt',
+        ),
         WorkspacesFailure.notADirectory,
       );
     }, skip: skip);
@@ -1538,8 +1734,12 @@ void main() {
       expect(rows['linked']!['isDirectory'], isFalse, reason: 'the symlink');
       expect(rows['inner']!['path'], '${root.path}/inner');
 
-      final folders = value(await workspaces.listFolders(root.path)).folders
-          .map((f) => f.name);
+      final folders = value(
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          root.path,
+        ),
+      ).folders.map((f) => f.name);
       expect(folders, unorderedEquals(['inner', '.hiddendir']));
       // The link's own path lists its target: a file put there shows, with
       // the target's resolved path. It is no folder, so the folder listing
@@ -1556,10 +1756,20 @@ void main() {
         'inside.txt',
       ]);
       expect(
-        value(await workspaces.listFolders('${root.path}/linked')).folders,
+        value(
+          await workspaces.listFolders(
+            profile: resolvedProfile('default'),
+            '${root.path}/linked',
+          ),
+        ).folders,
         isEmpty,
       );
-      final typed = value(await workspaces.complete('${root.path}/lin'));
+      final typed = value(
+        await workspaces.complete(
+          profile: resolvedProfile('default'),
+          '${root.path}/lin',
+        ),
+      );
       expect(typed.folders.map((s) => s.text), ['${root.path}/linked/']);
     }, skip: skip);
 
@@ -1596,7 +1806,9 @@ void main() {
       ]);
       expect((row['folders'] as List).cast<Map>().first['is_primary'], isTrue);
 
-      final catalog = value(await workspaces.catalog(profile: 'default'));
+      final catalog = value(
+        await workspaces.catalog(profile: resolvedProfile('default')),
+      );
       final project = catalog.projects.singleWhere((p) => p.id == id);
       expect(project.folders.map((f) => f.path), [root.path, inner]);
       expect(project.folders.first.isPrimary, isTrue);
@@ -1612,7 +1824,12 @@ void main() {
     }, skip: skip);
 
     test('complete.path with an absolute word lists folders', () async {
-      final got = value(await workspaces.complete('${root.path}/in'));
+      final got = value(
+        await workspaces.complete(
+          profile: resolvedProfile('default'),
+          '${root.path}/in',
+        ),
+      );
       expect(got.folders.map((s) => s.text), ['${root.path}/inner/']);
     }, skip: skip);
 
@@ -1631,12 +1848,24 @@ void main() {
       final created = await create({'cwd': root.path, 'cwd_explicit': true});
       final stored = created['stored_session_id'] as String;
 
-      expect(value(await workspaces.moveWorkspace(stored, inner)).cwd, inner);
+      expect(
+        value(
+          await workspaces.moveWorkspace(
+            profile: resolvedProfile('default'),
+            stored,
+            inner,
+          ),
+        ).cwd,
+        inner,
+      );
       // A draft has no stored row until its first message (the server moves
       // it live: "A draft has no row yet; the live re-home still applies"),
       // so the stored chat reads as gone, not as a chat in the new folder.
       failedWith(
-        await workspaces.sessionFolder(stored),
+        await workspaces.sessionFolder(
+          profile: resolvedProfile('default'),
+          stored,
+        ),
         WorkspacesFailure.sessionGone,
       );
 
@@ -1651,18 +1880,26 @@ void main() {
         throwsA(isA<GatewayRpcException>().having((e) => e.code, 'code', 4017)),
       );
       failedWith(
-        await workspaces.moveWorkspace(stored, '${root.path}/missing'),
+        await workspaces.moveWorkspace(
+          profile: resolvedProfile('default'),
+          stored,
+          '${root.path}/missing',
+        ),
         WorkspacesFailure.notFound,
       );
       failedWith(
-        await workspaces.moveWorkspace('20200101_000000_ffffff', inner),
+        await workspaces.moveWorkspace(
+          profile: resolvedProfile('default'),
+          '20200101_000000_ffffff',
+          inner,
+        ),
         WorkspacesFailure.sessionGone,
       );
       failedWith(
         await workspaces.moveWorkspace(
           stored,
           inner,
-          profile: 'contract-check-missing',
+          profile: resolvedProfile('contract-check-missing'),
         ),
         WorkspacesFailure.unknownProfile,
       );
@@ -1684,7 +1921,13 @@ void main() {
       expect(rawMoved['cwd'], root.path);
       final rawRoot = rawMoved['git_repo_root']! as String;
       final rawBranch = rawMoved['branch']! as String;
-      final moved = value(await workspaces.moveWorkspace(stored, root.path));
+      final moved = value(
+        await workspaces.moveWorkspace(
+          profile: resolvedProfile('default'),
+          stored,
+          root.path,
+        ),
+      );
       if (ancestor == null) {
         expect(rawRoot, isEmpty);
         expect(rawBranch, isEmpty);
@@ -1709,7 +1952,10 @@ void main() {
       // The stored folder after a first message is read in the scripted-model
       // group below.
       failedWith(
-        await workspaces.sessionFolder(created['stored_session_id'] as String),
+        await workspaces.sessionFolder(
+          profile: resolvedProfile('default'),
+          created['stored_session_id'] as String,
+        ),
         WorkspacesFailure.sessionGone,
       );
     }, skip: skip);
@@ -1729,9 +1975,14 @@ void main() {
           contains('path is outside the managed read boundary'),
         );
       }
-      value(await workspaces.listFolders(base));
+      value(
+        await workspaces.listFolders(profile: resolvedProfile('default'), base),
+      );
       failedWith(
-        await workspaces.listFolders(outside),
+        await workspaces.listFolders(
+          profile: resolvedProfile('default'),
+          outside,
+        ),
         WorkspacesFailure.outsideBoundary,
       );
     }, skip: skip ?? (filesRoot == null ? 'set HERMES_DEV_FILES_ROOT' : null));
@@ -2324,6 +2575,54 @@ void main() {
     await expectLater(
       repository.telegramPairingStatus('no-such-pairing'),
       throwsA(isA<MessagingSetupRejected>()),
+    );
+  }, skip: skip);
+
+  // Start would spawn the Baileys bridge on the backend (it reaches
+  // WhatsApp's servers) and apply would save settings and restart the
+  // messaging gateway, so neither is called against a shared backend. Both
+  // probes below spawn nothing.
+  test('an unknown WhatsApp pairing is reported as gone, not as an old '
+      'server', () async {
+    final repository = HermesMessagingRepository(client.raw);
+
+    // A route-missing 404 also reads recordGone, so the detail tells the two
+    // apart: only this server answers "setup session was not found".
+    await expectLater(
+      repository.whatsAppPairingStatus(
+        const WhatsAppPairingId('no-such-pairing'),
+      ),
+      throwsA(
+        isA<WhatsAppPairingFailure>().having(
+          (e) => e.kind,
+          'kind',
+          WhatsAppPairingFailureKind.recordGone,
+        ),
+      ),
+    );
+    await expectLater(
+      client.raw
+          .getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet(
+            pairingId: 'no-such-pairing',
+          ),
+      throwsA(
+        isA<DioException>()
+            .having((e) => e.response?.statusCode, 'status', 404)
+            .having(
+              (e) => (e.response?.data as Map?)?['detail'],
+              'detail',
+              startsWith('WhatsApp setup session was not found'),
+            ),
+      ),
+    );
+  }, skip: skip);
+
+  test('cancelling an unknown WhatsApp pairing is accepted, and spawns '
+      'nothing', () async {
+    final repository = HermesMessagingRepository(client.raw);
+
+    await repository.cancelWhatsAppPairing(
+      const WhatsAppPairingId('no-such-pairing'),
     );
   }, skip: skip);
 
@@ -3521,7 +3820,7 @@ void main() {
 
     MemoryDecisions decisions() => MemoryDecisions(
       available: () => true,
-      run: (command) => session.run('default', command),
+      run: (command) => session.run(resolvedProfile('default'), command),
       surface: 'inbox',
     );
 
@@ -3569,7 +3868,9 @@ void main() {
       );
 
       final proposals = {
-        for (final p in (await repository.load('default')).memory.proposals)
+        for (final p in (await repository.load(
+          resolvedProfile('default'),
+        )).memory.proposals)
           p.id: p,
       };
 
@@ -3611,7 +3912,8 @@ void main() {
 
       expect(inbox.stateOf(id).phase, MemoryDecisionPhase.saved);
       expect(memoryFile.readAsStringSync(), startsWith('Prefers spaces'));
-      final listed = (await repository.load('default')).proposals;
+      final listed = (await repository.load(resolvedProfile('default')))
+          .proposals;
       expect(listed.map((p) => p.id), isNot(contains(id)));
     }, skip: skip);
 
@@ -3668,7 +3970,8 @@ void main() {
         expect(inbox.stateOf(id).text, startsWith('Entry changed'));
         expect(memoryFile.readAsStringSync(), startsWith('Prefers tabs in Go'));
         expect(
-          (await repository.load('default')).proposals.map((p) => p.id),
+          (await repository.load(resolvedProfile('default'))).proposals
+              .map((p) => p.id),
           contains(id),
         );
       },
@@ -3689,7 +3992,8 @@ void main() {
       expect(inbox.stateOf(id).phase, MemoryDecisionPhase.rejected);
       expect(userFile.readAsStringSync(), 'Likes tea, no sugar');
       expect(
-        (await repository.load('default')).proposals.map((p) => p.id),
+        (await repository.load(resolvedProfile('default'))).proposals
+            .map((p) => p.id),
         isNot(contains(id)),
       );
     }, skip: skip);
@@ -3700,7 +4004,8 @@ void main() {
         'target': 'user',
         'content': 'Runs on a Mac',
       }, summary: 'add to user profile: Runs on a Mac');
-      final listed = (await repository.load('default')).proposals
+      final listed = (await repository.load(resolvedProfile('default')))
+          .proposals
           .where((p) => p.id == first)
           .toList();
       final later = stage('memory', {
@@ -3717,7 +4022,8 @@ void main() {
       expect(inbox.stateOf(later).phase, MemoryDecisionPhase.idle);
       expect(userFile.readAsStringSync(), isNot(contains('chess')));
       expect(
-        (await repository.load('default')).proposals.map((p) => p.id),
+        (await repository.load(resolvedProfile('default'))).proposals
+            .map((p) => p.id),
         contains(later),
       );
     }, skip: skip);
@@ -3734,11 +4040,14 @@ void main() {
         origin: 'background_review',
       );
 
-      final snapshot = await repository.load('default');
+      final snapshot = await repository.load(resolvedProfile('default'));
       final skill = snapshot.skills.proposals.singleWhere((p) => p.id == id);
       expect(skill.skillName, 'contract-check');
       expect(skill.background, isTrue);
-      expect(await repository.diff('default', id), startsWith('---\nname:'));
+      expect(
+        await repository.diff(resolvedProfile('default'), id),
+        startsWith('---\nname:'),
+      );
 
       final inbox = decisions();
       addTearDown(inbox.dispose);
@@ -3750,7 +4059,7 @@ void main() {
       'a command the server does not know answers Unknown command',
       () async {
         expect(
-          await session.run('default', '/nosuch pending'),
+          await session.run(resolvedProfile('default'), '/nosuch pending'),
           startsWith('Unknown command'),
         );
       },
@@ -3761,8 +4070,8 @@ void main() {
       final before = (await HermesChatRepository(
         client.raw,
       ).loadThreads()).map((t) => t.id).toSet();
-      await repository.load('default');
-      await repository.load('default');
+      await repository.load(resolvedProfile('default'));
+      await repository.load(resolvedProfile('default'));
       final after = (await HermesChatRepository(
         client.raw,
       ).loadThreads()).map((t) => t.id).toSet();
@@ -3818,7 +4127,12 @@ void main() {
   group('tools (read only: nothing is switched, saved or installed)', () {
     late HermesToolsRepository tools;
 
-    setUp(() => tools = HermesToolsRepository(client.raw, profile: 'default'));
+    setUp(
+      () => tools = HermesToolsRepository(
+        client.raw,
+        profile: resolvedProfile('default'),
+      ),
+    );
 
     T value<T>(ToolsResult<T> result) {
       expect(result, isA<ToolsOk<T>>());
@@ -3943,8 +4257,10 @@ void main() {
 
     test('a profile that does not exist is told apart from a missing '
         'route', () async {
-      final gone = tools.forProfile(
-        'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
+      final gone = HermesToolsRoot(client.raw).forProfile(
+        resolvedProfile(
+          'contract-missing-${DateTime.now().millisecondsSinceEpoch}',
+        ),
       );
 
       expect(await gone.list(), isA<ToolsProfileGone<ToolsetList>>());
@@ -4408,7 +4724,10 @@ model:
 ''',
         ),
       );
-      tools = HermesToolsRepository(client.raw, profile: profile);
+      tools = HermesToolsRepository(
+        client.raw,
+        profile: resolvedProfile(profile),
+      );
     });
 
     tearDownAll(() async {
@@ -4630,7 +4949,10 @@ model:
     }
 
     setUp(() async {
-      files = HermesFilesRepository(client, profile: 'default');
+      files = HermesFilesRepository(
+        client,
+        profile: resolvedProfile('default'),
+      );
       cwd = value(await files.defaultCwd());
       // The page never leaves the start folder's repository; here the start
       // folder itself stands in, so the boundary is exercised on real rows.
@@ -4691,7 +5013,7 @@ model:
     test('a profile the server does not have is badRequest', () async {
       final other = HermesFilesRepository(
         client,
-        profile: 'contract-check-missing-profile',
+        profile: resolvedProfile('contract-check-missing-profile'),
       );
       final answer = await other.list(cwd);
       expect(answer, isA<FilesFailed<FsListing>>());
@@ -4778,7 +5100,7 @@ model:
       await File('${proj.path}/blob.bin')
           .writeAsBytes([for (var i = 0; i < 2000; i++) i % 256]);
       await File('${proj.path}/big.txt').writeAsString('line\n' * 150000);
-      files = HermesFilesRepository(client, profile: 'default')
+      files = HermesFilesRepository(client, profile: resolvedProfile('default'))
         ..highestFolder = at(dir.path);
       raw = Dio(
         BaseOptions(
@@ -4936,7 +5258,10 @@ model:
               .then((_) {}, onError: (Object _) {}),
         );
 
-        final any = HermesFilesRepository(client, profile: 'default');
+        final any = HermesFilesRepository(
+          client,
+          profile: resolvedProfile('default'),
+        );
         expect(kind(await any.readText(at(db))), FilesFailure.busy);
         final sink = File('${dir.path}/db').openWrite();
         final download = await any.download(at(db), sink: sink);
@@ -4959,7 +5284,10 @@ model:
     test('with the files root set, the start folder is outside it: its first '
         'list is the fixed-folder 403, git-root and default-cwd still answer, '
         'and a folder inside lists', () async {
-      final any = HermesFilesRepository(client, profile: 'default');
+      final any = HermesFilesRepository(
+        client,
+        profile: resolvedProfile('default'),
+      );
       final start = value(await any.defaultCwd());
       expect(start.isWithin(at(filesRoot!)), isFalse);
       expect(kind(await any.list(start)), FilesFailure.fixedFolder);
@@ -4984,11 +5312,14 @@ model:
       expect(invalid.statusCode, 400);
       expect((invalid.data as Map)['detail'], isA<String>());
 
-      final other = HermesFilesRepository(client, profile: '../bad name');
+      final other = HermesFilesRepository(
+        client,
+        profile: resolvedProfile('../bad name'),
+      );
       expect(kind(await other.list(at(proj.path))), FilesFailure.badRequest);
       final ghost = HermesFilesRepository(
         client,
-        profile: 'contract-check-missing-profile',
+        profile: resolvedProfile('contract-check-missing-profile'),
       );
       expect(kind(await ghost.defaultCwd()), FilesFailure.badRequest);
     });
@@ -5795,7 +6126,9 @@ approvals:
         // named profile that is its own folder, while fs/default-cwd (the
         // Files page's start for a chat without a stored folder) answers the
         // dashboard's launch folder: a gap noted in the change's design.
-        final catalog = await workspaces.catalog(profile: profile);
+        final catalog = await workspaces.catalog(
+          profile: resolvedProfile(profile),
+        );
         expect(
           catalog,
           isA<WorkspacesOk<WorkspaceCatalog>>(),
@@ -5803,7 +6136,10 @@ approvals:
         );
         final defaultCwd =
             (catalog as WorkspacesOk<WorkspaceCatalog>).value.defaultCwd;
-        final stored = await workspaces.sessionFolder(id, profile: profile);
+        final stored = await workspaces.sessionFolder(
+          id,
+          profile: resolvedProfile(profile),
+        );
         expect(stored, isA<WorkspacesOk<SessionFolder>>(), reason: '$stored');
         final folder = (stored as WorkspacesOk<SessionFolder>).value;
         expect(folder.cwd, isNotNull);
@@ -5826,10 +6162,13 @@ approvals:
         final moved = await workspaces.moveWorkspace(
           id,
           resolved,
-          profile: profile,
+          profile: resolvedProfile(profile),
         );
         expect(moved, isA<WorkspacesOk<MovedWorkspace>>(), reason: '$moved');
-        final after = await workspaces.sessionFolder(id, profile: profile);
+        final after = await workspaces.sessionFolder(
+          id,
+          profile: resolvedProfile(profile),
+        );
         expect(after, isA<WorkspacesOk<SessionFolder>>(), reason: '$after');
         expect((after as WorkspacesOk<SessionFolder>).value.cwd, resolved);
       },
@@ -7646,6 +7985,27 @@ $extra''',
 
         await send('Many reads a', thread);
         await send('Many reads b', thread);
+        // The reply stream ends on `message.complete`, a moment before Hermes
+        // clears the session's `running` flag, and a compress asked inside
+        // that gap is answered 4009 (`_manual_compress_turn` refuses while
+        // `session["running"]` is set). `session.active_list` reports that
+        // same flag as `working` or `idle`; wait until it lists the chat as
+        // `idle`. An unlisted chat or a failed call is not idle.
+        final settled = DateTime.now().add(const Duration(seconds: 30));
+        while (true) {
+          final listed = await tap.rpc.request('session.active_list', {});
+          String? seen;
+          for (final row in listed['sessions']! as List) {
+            if (row is Map && row['session_key'] == thread) {
+              seen = row['status'] as String?;
+            }
+          }
+          if (seen == 'idle') break;
+          if (DateTime.now().isAfter(settled)) {
+            fail('the chat was not listed as idle 30 s after its last reply');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
         final compressed = await transport.compressSession(
           thread,
           profile: 'default',

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../../theme/app_icons.dart';
@@ -12,6 +12,8 @@ class ActivityPageAction {
     required this.label,
     required this.icon,
     required this.onPressed,
+    this.tooltip,
+    this.busy = false,
     this.key,
   });
 
@@ -21,6 +23,12 @@ class ActivityPageAction {
 
   /// Null disables the button.
   final VoidCallback? onPressed;
+
+  /// Hover text when it differs from [label].
+  final String? tooltip;
+
+  /// Shows a spinner in place of the glyph while the action runs.
+  final bool busy;
   final Key? key;
 }
 
@@ -115,6 +123,8 @@ class ActivityPageScaffold extends StatelessWidget {
             NamedIconButton(
               key: action.key,
               label: action.label,
+              tooltip: action.tooltip,
+              busy: action.busy,
               icon: action.icon,
               onPressed: action.onPressed,
             ),

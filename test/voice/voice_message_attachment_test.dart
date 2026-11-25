@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
@@ -17,12 +17,15 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/voice/voice_playback.dart';
 import 'package:hermes_app/src/voice/voice_playback_scope.dart';
 import 'package:hermes_app/src/voice/widgets/voice_message_view.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import '../support/attachment_fixtures.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_voice_player.dart';
+import '../support/real_async.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -107,7 +110,8 @@ void main() {
           ChangeNotifierProvider.value(value: playback),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          builder: (_, child) => AppThemeScopes(child: child!),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: Align(alignment: Alignment.topLeft, child: child),
           ),
@@ -118,14 +122,19 @@ void main() {
 
   Future<void> tapAndWait(WidgetTester tester, String label) async {
     await tester.runAsync(() async {
-      await tester.tap(find.byTooltip(label));
-      for (
-        var i = 0;
-        i < 50 && (playback.loading || player.loaded.isEmpty);
-        i++
-      ) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
+      await tester.tap(find.tooltip(label));
+      // `toggle` raises `loading` synchronously and drops it when the
+      // download and the player calls are done, so this waits for the end of
+      // the action itself, not for a guess at how long it takes.
+      await waitForReal(() => !playback.loading, what: '"$label" to finish');
+    });
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapSave(WidgetTester tester) async {
+    await tester.runAsync(() async {
+      await tester.tap(find.tooltip('Save voice message'));
+      await waitForReal(() => actions.saved.isNotEmpty, what: 'the save');
     });
     await tester.pumpAndSettle();
   }
@@ -152,13 +161,7 @@ void main() {
       expect(playback.playing, isFalse);
       await tapAndWait(tester, 'Play voice message');
       expect(server.requestsTo('GET', '/api/files/download'), hasLength(1));
-      await tester.runAsync(() async {
-        await tester.tap(find.byTooltip('Save voice message'));
-        for (var i = 0; i < 50 && actions.saved.isEmpty; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 5));
-        }
-      });
-      await tester.pumpAndSettle();
+      await tapSave(tester);
       expect(actions.saved.single.name, 'voice.ogg');
       expect(actions.saved.single.bytes, bytes);
     },
@@ -208,13 +211,7 @@ void main() {
     );
     await tapAndWait(tester, 'Play voice message');
     expect(playback.playing, isTrue);
-    await tester.runAsync(() async {
-      await tester.tap(find.byTooltip('Save voice message'));
-      for (var i = 0; i < 50 && actions.saved.isEmpty; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 5));
-      }
-    });
-    await tester.pumpAndSettle();
+    await tapSave(tester);
     expect(actions.saved.single.bytes, bytes);
     expect(server.requestsTo('GET', '/api/files/download'), isEmpty);
     await tester.pumpWidget(const SizedBox());

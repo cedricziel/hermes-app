@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
@@ -7,6 +7,8 @@ import 'package:hermes_app/src/chat/activity/widgets/mac_toolbar_subtitle.dart';
 import 'package:hermes_app/src/chat/activity/widgets/working_indicator.dart';
 import 'package:hermes_app/src/chat/activity/working_summary.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../support/test_localizations.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -19,7 +21,7 @@ Future<void> _pump(
 }) => tester.pumpWidget(
   MaterialApp(
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: buildHermesLightTheme(platform: platform),
     builder: (context, child) => MediaQuery(

@@ -317,6 +317,10 @@ class _Delegate
       statuses.future;
 
   @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) =>
+      statuses.future;
+
+  @override
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,

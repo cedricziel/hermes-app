@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
-import '../hermes_skills_hub_repository.dart';
+import '../hub_scan.dart';
 
 class SkillSecurityScan extends StatelessWidget {
   const SkillSecurityScan({
@@ -118,7 +118,7 @@ class SkillScanFinding extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text('${finding.severity.toUpperCase()}  ${finding.description}'),
           if (where.isNotEmpty)

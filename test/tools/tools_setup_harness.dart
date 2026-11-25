@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
@@ -15,7 +16,9 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/test_localizations.dart';
 import 'tools_setup_world.dart';
+import '../support/tooltip_finder.dart';
 
 /// A phone's width and a tall window, so a long page builds all of its rows.
 const phone = Size(390, 3200);
@@ -37,7 +40,10 @@ class SetupHarness {
 
   HermesToolsRepository repositoryFor(String profile) =>
       repositoryOverride ??
-      HermesToolsRepository(world.server.client().raw, profile: profile);
+      HermesToolsRepository(
+        world.server.client().raw,
+        profile: resolvedProfile(profile),
+      );
 
   Future<void> pump({
     Size size = phone,
@@ -62,7 +68,7 @@ class SetupHarness {
         : buildHermesLightTheme(platform: platform);
     final app = MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: theme,
       home: const Scaffold(body: Text('home')),
@@ -171,7 +177,7 @@ class SetupHarness {
 
   /// Presses "Show key".
   Future<void> showKey() async {
-    await tester.tap(find.byTooltip('Show key'));
+    await tester.tap(find.tooltip('Show key'));
     await tester.pump();
   }
 

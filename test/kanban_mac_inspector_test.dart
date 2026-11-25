@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
@@ -21,6 +22,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/mac_commands_builder.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -69,6 +71,7 @@ void main() {
     Size size = const Size(1400, 900),
     TargetPlatform platform = TargetPlatform.macOS,
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -78,7 +81,7 @@ void main() {
         create: (_) => AuthController(),
         child: MaterialApp(
           theme: buildHermesLightTheme(platform: platform),
-          builder: macCommandsBuilder(commands),
+          builder: macCommandsBuilder(commands, desktopKeys: desktopKeys),
           home: KanbanScreen(
             repository: KanbanRepository(server.client()),
             connect: ({required since, board}) async =>
@@ -99,6 +102,51 @@ void main() {
       )
       .selected;
 
+  testWidgets('View > Reload reads the board again', (tester) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpBoard(tester, commands: commands);
+    final before = server.requestsTo('GET', '/api/plugins/kanban/board').length;
+
+    expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+    expect(commands.invoke(MacCommand.reload), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('GET', '/api/plugins/kanban/board').length,
+      before + 1,
+    );
+    expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
+  });
+
+  for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+    testWidgets('Ctrl+R and F5 read the board again on $platform', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpBoard(
+        tester,
+        platform: platform,
+        commands: commands,
+        desktopKeys: true,
+      );
+      int boards() =>
+          server.requestsTo('GET', '/api/plugins/kanban/board').length;
+      final before = boards();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+      expect(boards(), before + 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
+      expect(boards(), before + 2);
+    });
+  }
+
   testWidgets('the Mac toolbar names the board, the filter and the count', (
     tester,
   ) async {
@@ -106,8 +154,8 @@ void main() {
 
     expect(find.text('Kanban'), findsOneWidget);
     expect(find.text('Default · all profiles · 2 tasks'), findsOneWidget);
-    expect(find.byTooltip('New Task ⌘N'), findsOneWidget);
-    expect(find.byTooltip('Hide Inspector ⌥⌘I'), findsOneWidget);
+    expect(find.tooltip('New Task ⌘N'), findsOneWidget);
+    expect(find.tooltip('Hide Inspector ⌥⌘I'), findsOneWidget);
     expect(find.byType(FloatingActionButton), findsNothing);
     expect(find.byType(AppBar), findsNothing);
     expect(
@@ -124,7 +172,9 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Filter by profile'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('coder').last);
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<({String? profile})>, 'coder'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Default · coder · 1 task'), findsOneWidget);

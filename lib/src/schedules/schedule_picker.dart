@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_form.dart';
 import '../widgets/grouped_list.dart';
@@ -289,27 +290,37 @@ class _DayToggles extends StatelessWidget {
                 child: Semantics(
                   button: true,
                   toggled: on,
-                  child: Material(
-                    color: on ? scheme.primary : scheme.surfaceContainerHighest,
-                    shape: const StadiumBorder(),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => onChanged(
-                        on ? ({...days}..remove(day)) : {...days, day},
-                      ),
-                      child: SizedBox(
-                        height: mac ? 24 : 32,
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: ShrinkToFitText(
-                              label,
-                              style: TextStyle(
-                                fontSize: mac ? 11 : 13,
-                                fontWeight: on
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: on ? scheme.onPrimary : scheme.onSurface,
+                  // The ring is 2 px outside the pill, which nothing clips.
+                  child: FocusRing.outside(
+                    radius: mac ? 12 : 16,
+                    child: Material(
+                      color: on
+                          ? scheme.primary
+                          : scheme.surfaceContainerHighest,
+                      shape: const StadiumBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => onChanged(
+                          on ? ({...days}..remove(day)) : {...days, day},
+                        ),
+                        child: SizedBox(
+                          height: mac ? 24 : 32,
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                              ),
+                              child: ShrinkToFitText(
+                                label,
+                                style: TextStyle(
+                                  fontSize: mac ? 11 : 13,
+                                  fontWeight: on
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: on
+                                      ? scheme.onPrimary
+                                      : scheme.onSurface,
+                                ),
                               ),
                             ),
                           ),

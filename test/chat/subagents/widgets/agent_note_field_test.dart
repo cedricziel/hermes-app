@@ -1,10 +1,12 @@
-import 'package:flutter/cupertino.dart' show CupertinoTextField;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoTextField;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_note_field.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
+
+import '../../../support/test_localizations.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -24,7 +26,7 @@ Future<void> _pump(
     MaterialApp(
       theme: ThemeData(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
