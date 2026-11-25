@@ -360,6 +360,14 @@ void main() {
     expect(controller.baseUrl, _publicHttp);
     expect(controller.state, HermesConnectionState.signingIn);
   });
+
+  test('an unreadable accepted list asks, and still connects', () async {
+    SharedPreferencesAsyncPlatform.instance = _FailingListReads();
+    final controller = await bootstrapped(saved: _publicHttp);
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.unconfirmedCleartextServer, _publicHttp);
+  });
 }
 
 base class _FailingListWrites extends InMemorySharedPreferencesAsync {
@@ -371,4 +379,14 @@ base class _FailingListWrites extends InMemorySharedPreferencesAsync {
     List<String> value,
     SharedPreferencesOptions options,
   ) => throw StateError('disk full');
+}
+
+base class _FailingListReads extends InMemorySharedPreferencesAsync {
+  _FailingListReads() : super.empty();
+
+  @override
+  Future<List<String>?> getStringList(
+    String key,
+    SharedPreferencesOptions options,
+  ) => throw StateError('unreadable');
 }

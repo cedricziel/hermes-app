@@ -201,18 +201,28 @@ void main() {
     expect(auth.baseUrl, isNull);
   });
 
-  testWidgets('an answer given after the connection dropped changes nothing', (
-    tester,
-  ) async {
-    final auth = await pumpGate(tester, _publicHttp);
-    server.on('GET', '/api/status', {'detail': 'down'}, status: 503);
+  for (final answer in ['Keep http://', 'Use https://']) {
+    testWidgets('"$answer" after the connection dropped changes nothing', (
+      tester,
+    ) async {
+      final auth = await pumpGate(tester, _publicHttp);
+      server.on('GET', '/api/status', {'detail': 'down'}, status: 503);
 
-    await tester.runAsync(() => auth.connect(_publicHttp, automatic: true));
-    expect(auth.state, HermesConnectionState.connectionError);
-    await tester.tap(find.text('Use https://'));
-    await tester.pumpAndSettle();
+      await tester.runAsync(() => auth.connect(_publicHttp, automatic: true));
+      expect(auth.state, HermesConnectionState.connectionError);
+      await tester.tap(find.text(answer));
+      await tester.pumpAndSettle();
 
-    expect(auth.unconfirmedCleartextServer, _publicHttp);
-    expect(find.byType(SnackBar), findsNothing);
-  });
+      expect(auth.unconfirmedCleartextServer, _publicHttp);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        await tester.runAsync(
+          () => SharedPreferencesAsync().getStringList(
+            kAcceptedCleartextServersKey,
+          ),
+        ),
+        isNull,
+      );
+    });
+  }
 }

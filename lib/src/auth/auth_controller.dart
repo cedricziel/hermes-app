@@ -330,10 +330,12 @@ class AuthController extends ChangeNotifier {
     }
     _savedServerUrl = savedUrl;
     final saved = normalizeServerUrl(savedUrl);
-    if (saved != null &&
-        isCleartextToPublicHost(saved) &&
-        !(await _acceptedCleartext()).contains(saved)) {
-      _cleartextToConfirm = saved;
+    if (saved != null && isCleartextToPublicHost(saved)) {
+      // An unreadable list counts as "not accepted": ask, and connect anyway.
+      final accepted = await _acceptedCleartext().catchError(
+        (Object _) => const <String>[],
+      );
+      if (!accepted.contains(saved)) _cleartextToConfirm = saved;
     }
     await connect(savedUrl, restoring: true);
   }
