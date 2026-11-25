@@ -49,7 +49,7 @@ void main() {
         _host(
           ServerStatusCard(
             tone: ServerStatusTone.warning,
-            title: '1 of 2 messaging channels are offline',
+            title: '1 of 2 messaging channels is offline',
             button: ServerStatusButton(
               label: 'Show logs',
               onPressed: () {},

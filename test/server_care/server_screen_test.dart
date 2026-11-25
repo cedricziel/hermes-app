@@ -880,10 +880,7 @@ void main() {
         },
       });
       await pump(tester, size: const Size(360, 1600));
-      expect(
-        find.text('1 of 2 messaging channels are offline'),
-        findsOneWidget,
-      );
+      expect(find.text('1 of 2 messaging channels is offline'), findsOneWidget);
       expect(find.text('Running, some channels offline'), findsOneWidget);
       expect(find.text('1 of 2 connected'), findsOneWidget);
     });

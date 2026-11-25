@@ -9,6 +9,8 @@
 /// The `architecture-guards` skill says how to add a rule and prove it fails.
 library;
 
+import 'dart:io';
+
 import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -1051,6 +1053,63 @@ List<EnglishDefault> _allEnglishDefaults() => _englishDefaults ??= [
       ...englishDefaultsIn(file),
 ];
 
+/// `?? '...'` or `?? "..."` whose literal holds a letter: a null fallback that
+/// can be visible English. `arch.english-default-label` reads parameter
+/// defaults; this reads the expression form, which sits inside build methods.
+final _englishNullFallback = RegExp(
+  r"""\?\?\s*(?:'[^'\n]*[A-Za-z][^'\n]*'|"[^"\n]*[A-Za-z][^"\n]*")""",
+);
+
+/// The files `style.string` reads: those importing the widget layer.
+final _widgetLayerImport = RegExp(
+  r"""^import\s+['"]package:(?:flutter/(?:material|widgets|cupertino)|"""
+  r"""material_ui/material_ui|cupertino_ui/cupertino_ui)\.dart['"]""",
+  multiLine: true,
+);
+
+final _partOf = RegExp(
+  r"""^part\s+of\s+['"]([^'"]+)['"]\s*;""",
+  multiLine: true,
+);
+
+/// A `part of` file has no imports of its own: it belongs to the widget layer
+/// when the library file it names imports it.
+bool _importsWidgetLayer(SourceFile f) {
+  if (!f.path.startsWith('lib/src/')) return false;
+  if (_widgetLayerImport.hasMatch(f.raw)) return true;
+  final parent = _partOf.firstMatch(f.raw)?.group(1);
+  if (parent == null) return false;
+  final file = File(Uri.file(f.path).resolve(parent).toFilePath());
+  return file.existsSync() &&
+      _widgetLayerImport.hasMatch(file.readAsStringSync());
+}
+
+/// Files whose `?? 'literal'` is not visible text, with how many such hits
+/// each keeps and why (exact: the count shrinks with the code). Other hits of
+/// the same file are real labels and stay in `baseline/arch.yaml`.
+const _englishNullFallbackNotVisibleText = <String, ExactAllow>{
+  'lib/src/tools/widgets/readiness_row.dart': ExactAllow(
+    2,
+    "the platform name 'macOS', a proper noun the same in every language",
+  ),
+  'lib/src/chat/widgets/chat_header.dart': ExactAllow(
+    1,
+    "the product name 'Hermes'",
+  ),
+  'lib/src/chat/chat_screen_layout.dart': ExactAllow(
+    1,
+    "the product name 'Hermes'",
+  ),
+  'lib/src/chat/chat_screen_navigation.dart': ExactAllow(
+    1,
+    "the profile id 'default', sent to the server, not shown",
+  ),
+  'lib/src/widgets/hermes_code_block.dart': ExactAllow(
+    1,
+    "the font family 'JetBrainsMono'; the file's other two hits are labels",
+  ),
+};
+
 List<Hit> _englishDefaultHits() => [
   for (final f in _allEnglishDefaults())
     if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
@@ -1396,6 +1455,20 @@ final guardRules = <Rule>[
         'visible text goes on _englishDefaultNotVisibleText (path#parameter) '
         'with its reason.',
     hits: _englishDefaultHits,
+  ),
+  _guard(
+    name: 'english-null-fallback',
+    message:
+        'a `?? \'English text\'` in a widget file shows English in a German UI '
+        'when the value is null and the style score cannot see it: resolve '
+        'the fallback with context.l10n.<key> (a key in '
+        'lib/l10n/arb/app_en.arb and app_de.arb). A fallback that is not '
+        'visible text (an id, a header, a file name) goes on '
+        '_englishNullFallbackNotVisibleText (path, exact count) with its reason, or is '
+        'written as a named constant.',
+    pattern: _englishNullFallback,
+    where: _importsWidgetLayer,
+    exact: _englishNullFallbackNotVisibleText,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take

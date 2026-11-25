@@ -104,7 +104,7 @@ final _headlines =
       (
         'Channels offline',
         ServerStatusTone.warning,
-        '1 of 2 messaging channels are offline',
+        '1 of 2 messaging channels is offline',
         null,
         _showLogs,
       ),
