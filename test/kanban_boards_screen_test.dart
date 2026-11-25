@@ -95,7 +95,7 @@ void main() {
 
     expect(find.text('Default'), findsOneWidget);
     expect(find.text('default · 3 tasks'), findsOneWidget);
-    expect(find.text('ops · 1 tasks'), findsOneWidget);
+    expect(find.text('ops · 1 task'), findsOneWidget);
   });
 
   testWidgets('creates a board from its name', (tester) async {

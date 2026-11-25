@@ -3058,7 +3058,7 @@
   "@kanbanBoardsRenameTitle": {
     "description": "Title of the prompt that renames a Kanban board."
   },
-  "kanbanBoardsTaskCount": "{count, plural, other{{count} tasks}}",
+  "kanbanBoardsTaskCount": "{count, plural, =1{1 task} other{{count} tasks}}",
   "@kanbanBoardsTaskCount": {
     "description": "Task count in the subtitle of a board row, after the board slug.",
     "placeholders": {
@@ -3394,7 +3394,7 @@
   "@kanbanTaskDecomposed": {
     "description": "Snackbar after a task was decomposed into no subtasks."
   },
-  "kanbanTaskDecomposedInto": "{count, plural, other{Decomposed into {count} tasks}}",
+  "kanbanTaskDecomposedInto": "{count, plural, =1{Decomposed into 1 task} other{Decomposed into {count} tasks}}",
   "@kanbanTaskDecomposedInto": {
     "description": "Snackbar after a task was decomposed into subtasks. {count} is how many.",
     "placeholders": {
@@ -3553,7 +3553,7 @@
   "@kanbanTaskSpecified": {
     "description": "Snackbar after a task was specified into no subtasks."
   },
-  "kanbanTaskSpecifiedInto": "{count, plural, other{Specified into {count} tasks}}",
+  "kanbanTaskSpecifiedInto": "{count, plural, =1{Specified into 1 task} other{Specified into {count} tasks}}",
   "@kanbanTaskSpecifiedInto": {
     "description": "Snackbar after a task was specified into subtasks. {count} is how many.",
     "placeholders": {
