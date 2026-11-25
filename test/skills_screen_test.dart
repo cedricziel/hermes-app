@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skill_detail_screen.dart';
@@ -7,6 +8,7 @@ import 'package:hermes_app/src/skills/skills_screen.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/test_localizations.dart';
 import 'support/tooltip_finder.dart';
 
 /// The Skills pages against a fake dashboard, through the real generated
@@ -61,12 +63,16 @@ void main() {
     String? chatProfile = 'default',
     bool withProfiles = true,
     ValueChanged<String?>? onPopped,
+    Locale? locale,
   }) async {
     tester.view.physicalSize = const Size(800, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (_, child) => AppThemeScopes(child: child!),
         home: Builder(
           builder: (context) => Scaffold(
@@ -259,6 +265,88 @@ void main() {
 
       expect(tester.widget<Switch>(switchFinder).value, isTrue);
       expect(find.text('Could not change apple-notes'), findsOneWidget);
+    });
+  });
+
+  group('German', () {
+    const de = Locale('de');
+
+    testWidgets('the page chrome and filters are in German', (tester) async {
+      await pumpSkills(tester, locale: de);
+
+      expect(find.tooltip('Neuer Skill'), findsOneWidget);
+      expect(find.text('Skills durchsuchen'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await tester.pumpAndSettle();
+      for (final label in ['Alle', 'Aktiviert', 'Mitgeliefert']) {
+        expect(
+          find.widgetWithText(CheckedPopupMenuItem<VoidCallback>, label),
+          findsOneWidget,
+        );
+      }
+    });
+
+    testWidgets('a failing load says so and offers Retry in German', (
+      tester,
+    ) async {
+      server.on('GET', '/api/skills', {'detail': 'x'}, status: 500);
+      await pumpSkills(tester, locale: de);
+
+      expect(find.text('Skills konnten nicht geladen werden'), findsOneWidget);
+      expect(find.text('Erneut versuchen'), findsOneWidget);
+    });
+
+    testWidgets('the profile picker is named in German', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpSkills(tester, locale: de);
+
+      expect(
+        tester.getSemantics(find.text('default')),
+        isSemantics(
+          label: 'Profil\ndefault',
+          tooltip: '',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('an older server and an empty profile are told in German', (
+      tester,
+    ) async {
+      server.on('GET', '/api/skills', {'detail': 'Not Found'}, status: 404);
+      await pumpSkills(tester, locale: de);
+      expect(
+        find.text('Das verbundene Hermes unterstützt keine Skills.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an empty profile says so in German', (tester) async {
+      server.on('GET', '/api/skills', <Object?>[]);
+      await pumpSkills(tester, locale: de);
+
+      expect(find.text('Dieses Profil hat noch keine Skills.'), findsOneWidget);
+    });
+
+    testWidgets('a refused switch says so in German', (tester) async {
+      server.on('PUT', '/api/skills/toggle', {'detail': 'x'}, status: 500);
+      await pumpSkills(tester, locale: de);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('skill-apple-notes')),
+          matching: find.byType(Switch),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('apple-notes konnte nicht geändert werden'),
+        findsOneWidget,
+      );
     });
   });
 
