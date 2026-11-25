@@ -22,7 +22,7 @@ Each view SHALL be one `ToolBodyEntry` in `standardToolBodyEntries`, tried after
 
 ### Requirement: Code view
 
-For `read_file` and `write_file` the card SHALL show the path with its start elided, the language from the path's extension, the code with a line gutter that is not selectable, and a Copy action that copies the file's text without the gutter. It SHALL give the numbers the result carries, so a read at an offset starts at that line.
+For `read_file` and `write_file` the card SHALL show the path with its start elided, the language from the path's extension, the code with a line gutter that is not selectable, and a Copy action that copies the text Hermes returned without the gutter. It SHALL give the numbers the result carries, so a read at an offset starts at that line.
 
 #### Scenario: A read at an offset
 
@@ -31,12 +31,22 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 #### Scenario: Cut short
 
-- **WHEN** the result carries `truncated` and `next_offset`
-- **THEN** a warning note with an icon says where the read stopped and where the next one starts
+- **WHEN** the result carries `truncated` and no `truncated_by`
+- **THEN** a warning note with an icon says which lines were shown and where the next read starts, without mentioning a character limit
+
+#### Scenario: Cut by the size limit
+
+- **WHEN** the result carries `truncated_by` `bytes` and `next_offset`
+- **THEN** the note also says the server stopped at 100,000 characters
+
+#### Scenario: A long line
+
+- **WHEN** the result carries `truncated_lines`
+- **THEN** a note says some long lines were cut by Hermes, and Copy copies them as returned
 
 ### Requirement: Write outcome
 
-A `write_file` card SHALL show the content as sent, coloured as soon as the call runs, and a note for each outcome the result reports: bytes written, verified on disk, a lint error with its output, diagnostics, a warning. A refused write SHALL say "Not written." with the server's text and still show what was tried.
+A `write_file` card SHALL show the content as sent, coloured as soon as the call runs, and a note for each outcome the result reports: bytes written, verified on disk, a lint error with its output, diagnostics, a warning. It SHALL NOT report a created folder, which Hermes' `dirs_created` does not tell. A refused write SHALL say "Not written." with the server's text and still show what was tried.
 
 #### Scenario: Refused
 
