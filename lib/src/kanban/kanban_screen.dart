@@ -229,10 +229,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
     more: _controller.board == null
         ? null
         : MacToolbarMenu<String>(
-            label: 'More',
+            label: context.l10n.kanbanMenuMore,
             icon: AppIcons.more,
             onSelected: _onMore,
-            itemBuilder: (_) => _moreItems,
+            itemBuilder: _moreItems,
           ),
   );
 
@@ -246,18 +246,22 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 leading: ShellMenu.clearOfWindowControls(
                   context,
                   NamedIconButton(
-                    label: 'Cancel selection',
+                    label: context.l10n.kanbanSelectionCancel,
                     icon: AppIcons.close,
                     onPressed: _controller.stopSelecting,
                   ),
                 ),
-                title: Text('${_controller.selected.length} selected'),
+                title: Text(
+                  context.l10n.kanbanSelectionCount(
+                    _controller.selected.length,
+                  ),
+                ),
               )
             : _mac
             ? _macToolbar()
             : AppBar(
                 leading: ShellMenu.button(context),
-                title: const Text('Kanban'),
+                title: Text(context.l10n.kanbanTitle),
                 actions: [
                   if (_controller.boards.isNotEmpty)
                     KanbanBoardMenu(
@@ -351,15 +355,21 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   Widget _moreMenu() => AdaptivePopupMenuButton<String>(
     onSelected: _onMore,
-    itemBuilder: (_) => _moreItems,
+    itemBuilder: _moreItems,
   );
 
-  static const _moreItems = [
-    PopupMenuItem(value: 'select', child: Text('Select tasks')),
-    PopupMenuItem(value: 'dispatch', child: Text('Run dispatcher now')),
-    PopupMenuItem(value: 'workers', child: Text('Active workers…')),
-    PopupMenuItem(value: 'orchestration', child: Text('Orchestration…')),
-  ];
+  List<PopupMenuEntry<String>> _moreItems(BuildContext context) {
+    final l10n = context.l10n;
+    return [
+      PopupMenuItem(value: 'select', child: Text(l10n.kanbanMenuSelect)),
+      PopupMenuItem(value: 'dispatch', child: Text(l10n.kanbanMenuDispatch)),
+      PopupMenuItem(value: 'workers', child: Text(l10n.kanbanMenuWorkers)),
+      PopupMenuItem(
+        value: 'orchestration',
+        child: Text(l10n.kanbanMenuOrchestration),
+      ),
+    ];
+  }
 
   void _onMore(String value) {
     switch (value) {
@@ -394,8 +404,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
   Future<void> _dispatch() async {
     final ok = await runKanbanAction(context, _controller.dispatch);
     if (!ok || !mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Dispatcher nudged')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.kanbanMenuDispatched)));
     unawaited(_controller.refresh());
   }
 
@@ -426,8 +437,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${failures.length} of $count could not be changed: '
-          '${failures.first.error}',
+          context.l10n.kanbanBulkFailed(
+            failures.length,
+            count,
+            failures.first.error,
+          ),
         ),
       ),
     );
@@ -475,16 +489,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
       return StateMessage(
         icon: _controller.unavailable ? AppIcons.extensionOff : AppIcons.error,
         title: _controller.unavailable
-            ? 'Kanban isn’t available'
-            : 'Could not load the board',
+            ? context.l10n.kanbanUnavailableTitle
+            : context.l10n.kanbanBoardLoadFailed,
         detail: _controller.unavailable
-            ? 'The plugin was turned off on this server.'
+            ? context.l10n.kanbanUnavailableDetail
             : null,
         action: _controller.unavailable
             ? null
             : FilledButton(
                 onPressed: _controller.refresh,
-                child: const Text('Retry'),
+                child: Text(context.l10n.commonRetry),
               ),
       );
     }
@@ -542,9 +556,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   child: tasks.isEmpty
                       ? ListView(
                           key: PageStorageKey<String>(scope),
-                          children: const [
-                            SizedBox(height: 80),
-                            Center(child: Text('No tasks here')),
+                          children: [
+                            const SizedBox(height: 80),
+                            Center(child: Text(context.l10n.kanbanEmptyColumn)),
                           ],
                         )
                       : ListView.separated(
@@ -607,7 +621,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8, left: 4),
                     child: Text(
-                      '${kanbanStatusLabel(column.name)}  ${column.tasks.length}',
+                      '${kanbanStatusLabel(context.l10n, column.name)}  '
+                      '${column.tasks.length}',
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                   ),

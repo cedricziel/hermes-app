@@ -62,26 +62,27 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(kMacToolbarHeight);
 
-  String get _subtitle {
+  String _subtitle(AppLocalizations l10n) {
     final name = boards.where((b) => b.slug == board).firstOrNull?.name;
     return [
       ?name,
-      profile ?? 'all profiles',
-      taskCount == 1 ? '1 task' : '$taskCount tasks',
+      profile ?? l10n.kanbanMacSubtitleAllProfiles,
+      l10n.kanbanBoardsTaskCount(taskCount),
     ].join(' · ');
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return MacToolbar(
-      title: 'Kanban',
-      subtitle: _subtitle,
+      title: l10n.kanbanTitle,
+      subtitle: _subtitle(l10n),
       border: true,
       actions: [
         KanbanLiveDot(live: live),
         const SizedBox(width: 4),
         MacToolbarButton(
-          label: 'New Task',
+          label: l10n.macosMenuNewTask,
           shortcut: '⌘N',
           icon: AppIcons.add,
           onPressed: onNewTask,
@@ -96,7 +97,7 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
         ),
         if (profiles.isNotEmpty)
           MacToolbarMenu<({String? profile})>(
-            label: 'Filter by profile',
+            label: l10n.kanbanMacFilterByProfile,
             icon: AppIcons.filter,
             selected: profile != null,
             onSelected: (choice) => onProfileChanged(choice.profile),
@@ -104,7 +105,7 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
               CheckedPopupMenuItem(
                 value: (profile: null),
                 checked: profile == null,
-                child: const Text('All profiles'),
+                child: Text(l10n.kanbanMacAllProfiles),
               ),
               for (final p in profiles)
                 CheckedPopupMenuItem(
@@ -116,16 +117,18 @@ class KanbanMacToolbar extends StatelessWidget implements PreferredSizeWidget {
           ),
         if (boards.isNotEmpty)
           MacToolbarMenu<String>(
-            label: 'Switch board',
+            label: l10n.kanbanBoardSwitch,
             icon: AppIcons.boardMenu,
             onSelected: (slug) =>
                 slug.isEmpty ? onManageBoards() : onSelectBoard(slug),
-            itemBuilder: (_) => kanbanBoardMenuItems(boards, board),
+            itemBuilder: (_) => kanbanBoardMenuItems(l10n, boards, board),
           ),
         const MacToolbarSeparator(),
         MacToolbarButton(
           key: const Key('kanban-inspector-toggle'),
-          label: inspectorShown ? 'Hide Inspector' : 'Show Inspector',
+          label: inspectorShown
+              ? l10n.chatActivityInspectorHide
+              : l10n.chatActivityInspectorShow,
           shortcut: '⌥⌘I',
           icon: AppIcons.inspector,
           selected: inspectorShown,

@@ -88,8 +88,8 @@ const _germanPicks = [
   (
     'Verschieben',
     'Verschieben nach',
-    ['Review', 'Done'],
-    'Review',
+    ['Prüfung', 'Erledigt'],
+    'Prüfung',
     'move:review',
   ),
   ('Zuweisen', 'Zuweisen an', ['Niemand', 'coder'], 'Niemand', 'assign:'),
@@ -97,7 +97,7 @@ const _germanPicks = [
   (
     'Aufwand',
     'Denkaufwand',
-    ['Profilstandard', 'High'],
+    ['Profilstandard', 'Hoch'],
     'Profilstandard',
     'effort:',
   ),
@@ -117,6 +117,9 @@ void main() {
         );
         for (final option in options) {
           expect(find.text(option), findsOneWidget, reason: option);
+        }
+        for (final english in ['Review', 'Done', 'High']) {
+          expect(find.text(english), findsNothing, reason: english);
         }
         await tester.tap(find.text(row));
         await tester.pumpAndSettle();

@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_list.dart';
 import '../kanban_models.dart';
 
@@ -11,13 +12,14 @@ class KanbanWorkerLog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final result = log;
     final text = result == null
-        ? (failed ? 'Could not load the log.' : 'Loading…')
+        ? (failed ? l10n.kanbanLogLoadFailed : l10n.kanbanLogLoading)
         : !result.exists
-        ? 'No worker has run this task yet.'
+        ? l10n.kanbanLogNone
         : result.content.isEmpty
-        ? '(empty)'
+        ? l10n.kanbanLogEmpty
         : result.content;
     return GroupedSection(
       children: [
@@ -29,7 +31,7 @@ class KanbanWorkerLog extends StatelessWidget {
               reverse: true,
               child: SelectableText(
                 result?.truncated == true
-                    ? '… (earlier output cut)\n$text'
+                    ? '${l10n.kanbanLogCut}\n$text'
                     : text,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
               ),

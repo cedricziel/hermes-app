@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../kanban_models.dart';
 
 /// The row of status chips on a narrow screen. It brings the selected chip
@@ -54,7 +55,10 @@ class _KanbanStatusChipsState extends State<KanbanStatusChips> {
               padding: const EdgeInsets.only(right: 6),
               child: ChoiceChip(
                 key: c.name == widget.selected ? _selectedChip : null,
-                label: Text('${kanbanStatusLabel(c.name)} ${c.tasks.length}'),
+                label: Text(
+                  '${kanbanStatusLabel(context.l10n, c.name)} '
+                  '${c.tasks.length}',
+                ),
                 selected: c.name == widget.selected,
                 onSelected: (_) => widget.onSelected(c.name),
               ),

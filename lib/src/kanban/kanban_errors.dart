@@ -27,7 +27,7 @@ Future<bool> runKanbanAction(
     reportBug(e, stack, 'a Kanban action');
     if (context.mounted) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Something went wrong. Try again.')),
+        SnackBar(content: Text(context.l10n.kanbanSomethingWentWrong)),
       );
     }
   }

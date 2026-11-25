@@ -659,7 +659,7 @@ class _EffortControl extends StatelessWidget {
       for (final effort in efforts)
         _EffortSegment(
           key: Key('effort-$effort'),
-          label: effortLabel(effort),
+          label: effortLabel(context.l10n, effort),
           selected: effort == selected,
           onTap: () => onChanged(effort),
         ),
