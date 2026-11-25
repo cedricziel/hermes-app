@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../api/hermes_repositories.dart';
 import '../schedules/schedule_models.dart';
@@ -79,6 +80,12 @@ class _Read<T> {
   final T? value;
   final String? errorType;
 }
+
+/// What a failed source threw, as a span-safe name: a `DioExceptionType` name
+/// or the exception's runtime type, never its message.
+@visibleForTesting
+String sourceErrorType(Object error) =>
+    error is DioException ? error.type.name : '${error.runtimeType}';
 
 /// Reads what the [SurfaceSnapshot] holds. Each source on its own: one that
 /// fails or exhausts the shared [timeout] keeps its section from the previous
@@ -285,9 +292,7 @@ class SurfaceSnapshotBuilder {
     try {
       return _Read.ok(await source());
     } on Object catch (error) {
-      return _Read.failed(
-        error is DioException ? error.type.name : '${error.runtimeType}',
-      );
+      return _Read.failed(sourceErrorType(error));
     }
   }
 

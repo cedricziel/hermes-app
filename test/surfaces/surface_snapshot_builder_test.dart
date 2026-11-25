@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/surfaces/chat_hints.dart';
@@ -572,6 +573,20 @@ void main() {
         'sources_errored': 'profiles',
         'sources_error_types': 'profiles:badResponse',
       });
+    });
+
+    test('names a failure by its type, never its message', () {
+      expect(sourceErrorType(StateError('secret')), 'StateError');
+      expect(
+        sourceErrorType(
+          DioException(
+            requestOptions: RequestOptions(path: '/secret'),
+            type: DioExceptionType.receiveTimeout,
+            message: 'secret',
+          ),
+        ),
+        'receiveTimeout',
+      );
     });
 
     test('keeps the rows of a profile whose chats fail', () async {
