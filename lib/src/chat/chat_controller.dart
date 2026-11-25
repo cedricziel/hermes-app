@@ -1376,6 +1376,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           profile: profile,
         );
         if (!active || generation != _openGeneration) return;
+        // The user moved to another profile while this was read: the chat
+        // belongs to the profile left, and nothing here failed.
+        if (profile != _profile) return;
         if (thread == null) return _failOpen();
         thread.branchParentId ??= branchParent;
         _threads.insert(0, thread);
