@@ -73,7 +73,7 @@ For `browser_navigate` and `web_extract` the card SHALL show a card per page wit
 
 ### Requirement: Image gallery loading
 
-An image whose source is a server path SHALL load through the media store. An image whose source is an address SHALL load only after the user taps it, only over `https`, within 10 MB and 15 seconds, and SHALL otherwise show its alt text, size and host. Rendering a gallery SHALL make no request to any host.
+An image whose source is a server path SHALL load through the media store. An image whose source is an address SHALL load only after the user taps it, only over `https`, within 10 MB and 15 seconds, and SHALL otherwise show its alt text, size and host. A loaded remote image SHALL be held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app. Rendering a gallery SHALL make no request to any host.
 
 #### Scenario: Not yet loaded
 

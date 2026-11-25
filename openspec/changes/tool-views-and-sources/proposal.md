@@ -28,7 +28,7 @@ An opened tool card shows a view of its own for four tools (terminal, web search
 
 ## Security and privacy impact
 
-The views show text and addresses the server sent. The one new network path is a remote image the user taps to load (`https` only, size and time bounded, no credentials sent, nothing stored beyond the session cache that `MediaStore` already clears on sign-out and App Lock). Page and file text is untrusted: every string passes `wellFormedText` and the hidden-character rule of `tool_hidden_chars.dart`. A link opens only for `http` and `https` and never with embedded credentials. No server address, token or message text reaches a breadcrumb, span or log.
+The views show text and addresses the server sent. The one new network path is a remote image the user taps to load (`https` only, size and time bounded, no credentials sent, held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app; a server screenshot goes through `MediaStore` like any `MEDIA:` file, which clears on sign-out; App Lock's `clearFileDownloads` leaves chat attachments alone, so the screenshot is unchanged by this change). Page and file text is untrusted: every string passes `wellFormedText` and the hidden-character rule of `tool_hidden_chars.dart`. A link opens only for `http` and `https` and never with embedded credentials. No server address, token or message text reaches a breadcrumb, span or log.
 
 ## Observability
 
