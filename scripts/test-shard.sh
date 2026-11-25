@@ -11,6 +11,7 @@
 # processes (default 6), one after the other, split with `--total-shards`.
 # Every part runs even after one failed. `coverage/lcov.info` and a
 # `--file-reporter json:<path>` report end up holding all parts.
+# With `--name` or `--plain-name` the file runs in one process instead.
 set -euo pipefail
 
 if [ $# -lt 2 ] || [ "$2" -lt 2 ] || [ "$1" -ge "$2" ]; then
@@ -26,17 +27,43 @@ catalog=test/widgetbook_test.dart
 
 if [ "$index" -eq 0 ]; then
   parts=${CATALOG_PARTS:-6}
+  case "$parts" in
+    '' | 0* | *[!0-9]*)
+      echo "CATALOG_PARTS must be a whole number of 1 or more, got '$parts'" >&2
+      exit 64
+      ;;
+  esac
+
   coverage=0
   report=""
   previous=""
+  filtered=0
+  unsupported=""
   for arg in "$@"; do
     case "$arg" in
       --coverage) coverage=1 ;;
       --file-reporter=json:*) report=${arg#--file-reporter=json:} ;;
-      json:*) [ "$previous" = --file-reporter ] && report=${arg#json:} ;;
+      json:*) if [ "$previous" = --file-reporter ]; then report=${arg#json:}; fi ;;
+      --name | --name=* | --plain-name | --plain-name=*) filtered=1 ;;
+      --coverage-path | --coverage-path=* | --branch-coverage | --merge-coverage)
+        unsupported=${arg%%=*}
+        ;;
     esac
     previous=$arg
   done
+
+  # A run narrowed to some names is small, and most parts of a split would
+  # select no test, which `flutter test` reports as a failure. One process,
+  # and its exit code: a name that matches nothing still fails.
+  if [ "$filtered" -eq 1 ]; then
+    exec flutter test "$@" "$catalog"
+  fi
+
+  # Each part writes `coverage/lcov.info`; only that file is carried over.
+  if [ -n "$unsupported" ]; then
+    echo "$unsupported is not supported with the catalog parts; use --coverage" >&2
+    exit 64
+  fi
 
   status=0
   lcovs=()

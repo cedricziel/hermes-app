@@ -35,6 +35,7 @@ if [ -n "$report" ]; then
   } > "$report"
 fi
 [ "$part" = "${FAIL_PART:-none}" ] && exit 1
+[ -n "${EXIT_WITH:-}" ] && exit "$EXIT_WITH"
 exit 0
 """
 
@@ -122,6 +123,49 @@ class TestShardTest(unittest.TestCase):
         self.assertIn("case of part 1", summary)
         self.assertIn("boom in part 1", summary)
         self.assertNotIn("case of part 2\n  boom", summary)
+
+    def test_a_part_count_that_is_not_a_positive_number_fails_before_any_test(self):
+        for parts in ("0", "-1", "abc", "1.5", "06"):
+            with self.subTest(parts=parts):
+                proc = self.shard("0", "4", CATALOG_PARTS=parts)
+
+                self.assertEqual(proc.returncode, 64)
+                self.assertIn("CATALOG_PARTS", proc.stderr)
+                self.assertFalse(os.path.exists(self.calls))
+
+    def test_a_run_narrowed_by_name_is_one_process(self):
+        for flag in (("--name", "^Handoff "), ("--plain-name=Handoff",)):
+            with self.subTest(flag=flag):
+                if os.path.exists(self.calls):
+                    os.remove(self.calls)
+                proc = self.shard("0", "4", *flag)
+
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                self.assertEqual(
+                    self.read("calls.txt").splitlines(),
+                    ["test %s test/widgetbook_test.dart" % " ".join(flag)],
+                )
+
+    def test_a_run_narrowed_by_name_keeps_the_exit_code(self):
+        # What `flutter test` does when the name matches no test.
+        proc = self.shard("0", "4", "--plain-name", "no such case", EXIT_WITH="79")
+
+        self.assertEqual(proc.returncode, 79)
+        self.assertEqual(len(self.read("calls.txt").splitlines()), 1)
+
+    def test_coverage_options_the_parts_cannot_carry_over_are_refused(self):
+        for flags in (
+            ("--coverage", "--coverage-path", "out/lcov.info"),
+            ("--coverage", "--coverage-path=out/lcov.info"),
+            ("--coverage", "--branch-coverage"),
+            ("--coverage", "--merge-coverage"),
+        ):
+            with self.subTest(flags=flags):
+                proc = self.shard("0", "4", *flags)
+
+                self.assertEqual(proc.returncode, 64)
+                self.assertIn("not supported with the catalog parts", proc.stderr)
+                self.assertFalse(os.path.exists(self.calls))
 
     def test_the_other_shards_run_once_without_the_catalog(self):
         proc = self.shard("1", "3")
