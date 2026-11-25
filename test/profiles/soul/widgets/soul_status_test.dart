@@ -17,25 +17,33 @@ void main() {
       );
     });
 
-    testWidgets('the earlier text has a warning icon and the sentence', (
-      tester,
-    ) async {
-      await pumpSoul(
-        tester,
-        const SoulStatusLine(kind: SoulStatusKind.earlierText),
-        platform: TargetPlatform.android,
-      );
-      expect(
-        find.text(
-          'The server still has the earlier text. Your text is still here.',
-        ),
-        findsOneWidget,
-      );
-      expect(
-        tester.widget<Icon>(find.byType(Icon)).icon,
-        AppIcons.warning.material,
-      );
-    });
+    testWidgets(
+      'the earlier text has an info icon, normal text colour and the sentence',
+      (tester) async {
+        await pumpSoul(
+          tester,
+          const SoulStatusLine(kind: SoulStatusKind.earlierText),
+          platform: TargetPlatform.android,
+        );
+        expect(
+          find.text(
+            'The server still has the earlier text. Your text is still here.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<Icon>(find.byType(Icon)).icon,
+          AppIcons.info.material,
+        );
+        final scheme = Theme.of(tester.element(find.byType(Icon))).colorScheme;
+        final text = tester.widget<Text>(
+          find.text(
+            'The server still has the earlier text. Your text is still here.',
+          ),
+        );
+        expect(text.style?.color, scheme.onSurface);
+      },
+    );
 
     testWidgets('saving shows a spinner and the word', (tester) async {
       await pumpSoul(tester, const SoulStatusLine(kind: SoulStatusKind.saving));
