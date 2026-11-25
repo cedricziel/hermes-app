@@ -502,8 +502,7 @@ void main() {
       expect(row('s2'), findsOneWidget);
       expect(
         find.text(
-          'Could not delete this chat: Hermes is still working in it. '
-          'Try again when it is done.',
+          'Hermes is still working in this chat. Try again when it is done.',
         ),
         findsOneWidget,
       );

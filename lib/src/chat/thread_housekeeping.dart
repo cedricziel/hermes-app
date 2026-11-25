@@ -19,6 +19,7 @@ class ThreadHousekeeping {
     required this.profile,
     required this.changed,
     required this.report,
+    this.reportBusy,
     required this.removed,
     required this.history,
     this.canWork,
@@ -34,6 +35,9 @@ class ThreadHousekeeping {
   final String? Function() profile;
   final VoidCallback changed;
   final ValueChanged<String> report;
+
+  /// Says that Hermes refused an action because it still works in the chat.
+  final VoidCallback? reportBusy;
   final bool Function()? canWork;
   final Future<void> Function()? Function(ChatThread)? prepareDelete;
 
@@ -150,7 +154,7 @@ class ThreadHousekeeping {
         thread
           ..title = previous.title
           ..named = previous.named;
-        report(_failure('Could not rename this chat', error));
+        _fail('Could not rename this chat', error);
       }
     });
   }
@@ -167,11 +171,9 @@ class ThreadHousekeeping {
           if (!current()) return;
           thread.pinned = !pinned;
           _sort();
-          report(
-            _failure(
-              pinned ? 'Could not pin this chat' : 'Could not unpin this chat',
-              error,
-            ),
+          _fail(
+            pinned ? 'Could not pin this chat' : 'Could not unpin this chat',
+            error,
           );
         }
       });
@@ -210,7 +212,7 @@ class ThreadHousekeeping {
       await call(profile);
     } on Object catch (error) {
       if (!current()) return;
-      report(_failure(failure, error));
+      _fail(failure, error);
       return;
     }
     if (cleanup != null) {
@@ -290,21 +292,24 @@ class ThreadHousekeeping {
   }
 
   /// A refusal the dashboard explains (a title already taken, say) carries
-  /// that explanation along. A 409 is Hermes guarding a session its turn is
-  /// still writing to; it passes once the turn ends, so the user is told to
-  /// wait, and nothing asks again.
+  /// that explanation along.
   static String _failure(String what, Object error) {
-    if (error is DioException) {
-      switch (error.response?.statusCode) {
-        case 400:
-          if (error.response?.data case {'detail': final String detail}) {
-            return '$what: $detail';
-          }
-        case 409:
-          return '$what: Hermes is still working in it. '
-              'Try again when it is done.';
+    if (error is DioException && error.response?.statusCode == 400) {
+      if (error.response?.data case {'detail': final String detail}) {
+        return '$what: $detail';
       }
     }
     return what;
+  }
+
+  /// Reports a failed rename, pin, archive or delete. A 409 is Hermes
+  /// guarding a session its running turn still writes to: it passes once the
+  /// turn ends, so [reportBusy] tells the user to wait, and nothing asks
+  /// again.
+  void _fail(String what, Object error) {
+    if (error is DioException && error.response?.statusCode == 409) {
+      if (reportBusy case final busy?) return busy();
+    }
+    report(_failure(what, error));
   }
 }

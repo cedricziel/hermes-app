@@ -52,6 +52,7 @@
   "chatNewMessageTitle": "Neue Nachricht",
   "chatNoticeStopCommand": "Hermes hat das als Stopp-Befehl verstanden. Es wurde nichts gesendet.",
   "chatNoticeStopCommandElsewhere": "Hermes hat eine Nachricht in einem anderen Chat als Stopp-Befehl verstanden. Es wurde nichts gesendet; der Text steht dort wieder im Nachrichtenfeld.",
+  "chatNoticeThreadBusy": "Hermes arbeitet noch in diesem Chat. Versuche es erneut, wenn es fertig ist.",
   "chatReplyFailedGeneric": "Etwas ist schiefgegangen. Sende die Nachricht erneut.",
   "chatReplyFailedMayStillRun": "Etwas ist schiefgegangen. Hermes arbeitet möglicherweise noch daran.",
   "chatReplyFailedProfileUnavailable": "Dieses Profil ist nicht mehr verfügbar. Wähle ein anderes.",

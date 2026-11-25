@@ -985,6 +985,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
       ChatSendNotice.stopCommandElsewhere =>
         context.l10n.chatNoticeStopCommandElsewhere,
+      ChatSendNotice.threadBusy => context.l10n.chatNoticeThreadBusy,
     });
   }
 

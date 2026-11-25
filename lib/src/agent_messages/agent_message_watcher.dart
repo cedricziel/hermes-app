@@ -145,9 +145,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
   int _postEpoch = 0;
   Timer? _timer;
 
-  /// Closes the requests of the look in flight when it is made stale, so that
-  /// nothing outlives the app's time in front to time out later.
-  var _reads = CancelToken();
+  /// The token of the look in flight: made stale, it closes that look's
+  /// requests, so nothing outlives the app's time in front to time out later.
+  /// Each look has its own, so a finished look's reads are not kept alive.
+  CancelToken? _reads;
 
   /// The user's choice, whether or not it has loaded yet: only a change of
   /// it starts from a new record, not the load itself.
@@ -213,7 +214,8 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     if (!_current(_epoch)) return Future.value();
     if (_inflight case final pending?) return pending;
     late final Future<void> pending;
-    pending = _look(_epoch, _reads).whenComplete(() {
+    final reads = _reads = CancelToken();
+    pending = _look(_epoch, reads).whenComplete(() {
       if (identical(_inflight, pending)) _inflight = null;
     });
     return _inflight = pending;
@@ -239,8 +241,8 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     _epoch++;
     if (posts) _postEpoch++;
     _inflight = null;
-    _reads.cancel('look made stale');
-    _reads = CancelToken();
+    _reads?.cancel('look made stale');
+    _reads = null;
   }
 
   Future<void> _look(int epoch, CancelToken stop) async {

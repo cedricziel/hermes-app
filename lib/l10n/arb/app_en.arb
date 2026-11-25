@@ -157,6 +157,10 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatNoticeThreadBusy": "Hermes is still working in this chat. Try again when it is done.",
+  "@chatNoticeThreadBusy": {
+    "description": "Notice when Hermes refused to rename, pin, archive or delete a chat (HTTP 409) because its turn is still writing to it. Nothing was changed; the same action works once the turn ends."
+  },
   "chatReplyFailedGeneric": "Something went wrong. Try sending it again.",
   "@chatReplyFailedGeneric": {
     "description": "Error line under a reply that failed when the server gave no explanation of its own and the server does not have the turn any more. Tells the person to send the prompt again. Wraps at any text size."
