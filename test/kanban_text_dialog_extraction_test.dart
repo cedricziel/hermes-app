@@ -1,10 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/generated/app_localizations_de.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_text_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
@@ -58,6 +60,27 @@ String _action(WidgetTester tester, Finder within, String label) {
   return '${node.label}|button=${data.flagsCollection.isButton}'
       '|tap=${data.hasAction(SemanticsAction.tap)}'
       '|enabled=${action.onPressed != null}|default=${action.isDefault}';
+}
+
+/// German with its OK relabelled, so a confirm label that is not read from
+/// the localizations shows. The real German OK is the English one.
+class _MarkedGerman extends AppLocalizationsDe {
+  @override
+  String get widgetsOk => 'Passt';
+}
+
+class _MarkedGermanDelegate extends LocalizationsDelegate<AppLocalizations> {
+  const _MarkedGermanDelegate();
+
+  @override
+  bool isSupported(Locale locale) => locale.languageCode == 'de';
+
+  @override
+  Future<AppLocalizations> load(Locale locale) async => _MarkedGerman();
+
+  @override
+  bool shouldReload(covariant LocalizationsDelegate<AppLocalizations> old) =>
+      false;
 }
 
 void main() {
@@ -198,6 +221,31 @@ void main() {
 
       expect(find.widgetWithText(AppDialogAction, 'Abbrechen'), findsOneWidget);
       expect(find.text('Cancel'), findsNothing);
+    });
+
+    testWidgets('with no confirm label the button reads the localized OK', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: const [
+            _MarkedGermanDelegate(),
+            ...kTestLocalizationsDelegates,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('de'),
+          builder: (_, child) => AppThemeScopes(child: child!),
+          theme: buildHermesLightTheme(),
+          home: const Scaffold(
+            body: KanbanTextDialog(title: 'Titel', multiline: false),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AppDialogAction, 'Passt'), findsOneWidget);
+      expect(find.widgetWithText(AppDialogAction, 'Abbrechen'), findsOneWidget);
+      expect(find.text('OK'), findsNothing);
     });
 
     testWidgets('rename starts from the current name and trims the answer', (
