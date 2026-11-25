@@ -381,7 +381,7 @@ class ThreadSidebar extends StatelessWidget {
   List<ThreadSearchHit> _markBranches(List<ThreadSearchHit> hits) {
     final branches = {
       for (final thread in threads)
-        if (thread.branchParentId != null) thread.id,
+        if (thread.isBranch) thread.id,
     };
     if (branches.isEmpty) return hits;
     return [
@@ -490,7 +490,7 @@ class ThreadSidebar extends StatelessWidget {
                 busy: busy.contains(thread.id) || thread.isReplying,
                 onTap: () => onSelect(thread.id),
                 housekeeping: thread.remote ? housekeeping : null,
-                branch: thread.branchParentId != null,
+                branch: thread.isBranch,
               );
             },
           ),
@@ -851,7 +851,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         busy: widget.busy.contains(thread.id) || thread.isReplying,
         onTap: () => widget.onSelect(thread.id),
         housekeeping: thread.remote ? widget.housekeeping : null,
-        branch: thread.branchParentId != null,
+        branch: thread.isBranch,
       );
     }
     final housekeeping = thread.remote ? widget.housekeeping : null;
@@ -874,7 +874,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       selected: thread.id == widget.selectedId,
       busy: widget.busy.contains(thread.id) || thread.isReplying,
       relativeTime: relativeTime(thread.updatedAt),
-      branch: thread.branchParentId != null,
+      branch: thread.isBranch,
       onTap: () => widget.onSelect(thread.id),
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
       menuItems: (context) => macThreadMenuItems(

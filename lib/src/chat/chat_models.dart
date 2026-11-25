@@ -808,6 +808,9 @@ class ChatThread {
   /// started as a sub-agent has none. The parent may be gone.
   String? branchParentId;
 
+  /// Whether this chat was branched from another.
+  bool get isBranch => branchParentId != null;
+
   /// The folder picked for this chat before it exists, kept in memory and
   /// dropped once the chat is created. Never stored.
   WorkspaceChoice? workspaceChoice;
