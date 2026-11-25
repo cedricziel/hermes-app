@@ -20,13 +20,14 @@ import 'approval_card.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
 import 'tool_call_bodies.dart';
 import 'tool_arguments_view.dart';
+import 'tool_body_registry.dart';
 import 'tool_value_view.dart';
 
 /// A compact summary of a tool the agent ran — assistant-ui surfaces tool
 /// calls as their own inline card rather than mixing them into the message
 /// prose, so the reasoning stays scannable. Tapping it opens what the tool was
 /// given and what it returned, in the tool's own view when it has one
-/// ([toolCallBody]).
+/// ([registry]).
 ///
 /// The header shows how long the call has been running, ticking once a
 /// second, and how long it took once done. An [approval] that holds the call
@@ -40,6 +41,7 @@ class ToolCallCard extends StatelessWidget {
     this.onAnswerApproval,
     this.initiallyOpen = false,
     this.onOpenChanged,
+    this.registry = standardToolBodyRegistry,
   });
 
   final ToolCall call;
@@ -50,6 +52,9 @@ class ToolCallCard extends StatelessWidget {
 
   /// Starts with the details showing, as the catalog does to show them.
   final bool initiallyOpen;
+
+  /// The views the card tries before the generic input and result.
+  final ToolBodyRegistry registry;
   final ApprovalRequest? approval;
 
   /// Sends the answer to [approval]; without one its buttons are disabled.
@@ -77,7 +82,7 @@ class ToolCallCard extends StatelessWidget {
       ],
       if (call.outputRisk != null)
         _Section(call: call, kind: _SectionKind.outputRisk),
-      ...switch (toolCallBody(call)) {
+      ...switch (registry.bodyFor(call)) {
         final Widget body => [
           body,
           if (call.name == 'terminal' &&
