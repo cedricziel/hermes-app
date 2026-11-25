@@ -400,6 +400,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                               SidebarAction(
                                 icon: AppIcons.memory,
                                 label: memoryEntryLabel(
+                                  context.l10n,
                                   _memoryWaiting?.waiting,
                                 ),
                                 onTap: _openMemory,

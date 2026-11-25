@@ -277,7 +277,7 @@ class ThreadSidebar extends StatelessWidget {
                   if (onOpenMemory != null)
                     (
                       AppIcons.memory,
-                      memoryEntryLabel(memoryWaiting),
+                      memoryEntryLabel(context.l10n, memoryWaiting),
                       onOpenMemory!,
                     ),
                   if (onOpenSoul != null)

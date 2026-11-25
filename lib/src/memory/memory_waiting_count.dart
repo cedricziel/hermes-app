@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../l10n/l10n.dart';
 import '../profiles/profile_resolver.dart';
 import 'memory_proposals_repository.dart';
 
 /// "Memory · 2 waiting" when changes wait, plain "Memory" otherwise.
-String memoryEntryLabel(int? waiting) =>
-    waiting != null && waiting > 0 ? 'Memory · $waiting waiting' : 'Memory';
+String memoryEntryLabel(AppLocalizations l10n, int? waiting) =>
+    waiting != null && waiting > 0
+    ? l10n.memoryEntryWaiting(waiting)
+    : l10n.memoryTitle;
 
 /// How many changes wait in one profile, for the Memory entries of the
 /// sidebar and the Profiles page. A read that fails leaves no count, and the
