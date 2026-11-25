@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/messaging/widgets/qr_code_card.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
 
+import '../../../support/recorded_accessibility.dart';
 import 'whatsapp_widget_host.dart';
 
 /// The tile's pixels at one pixel per point.
@@ -48,6 +49,39 @@ Widget _tile(GlobalKey key, String payload, {double size = kQrTileSize}) =>
     );
 
 void main() {
+  testWidgets(
+    'a screen reader is sent to the code once it is drawn, with no text',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      final heard = RecordedAccessibility(tester);
+      await pumpWa(
+        tester,
+        const QrCodeTile(visibility: QrCodeVisibility.needsTap),
+      );
+      expect(heard.focusEvents, 0);
+
+      await pumpWa(
+        tester,
+        const QrCodeTile(visibility: QrCodeVisibility.hidden),
+      );
+      expect(heard.focusEvents, 0);
+
+      // A tile that draws the code is a new one after the tap on a handset.
+      await tester.pumpWidget(const SizedBox());
+      await pumpWa(
+        tester,
+        const QrCodeTile(
+          visibility: QrCodeVisibility.shown,
+          payload: waPayload,
+        ),
+      );
+      await tester.pump();
+      expect(heard.focusEvents, 1);
+      expect(heard.text, isNot(contains('DEMO-NOT-A-REAL-QR')));
+      handle.dispose();
+    },
+  );
+
   for (final dark in [false, true]) {
     for (final payload in [
       waPayload,

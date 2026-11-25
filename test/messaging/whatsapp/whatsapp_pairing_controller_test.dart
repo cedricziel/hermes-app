@@ -937,6 +937,22 @@ void main() {
       });
     });
 
+    test('Check can be pressed again after it found WhatsApp enabled', () {
+      fakeAsync((async) {
+        applyReply = down;
+        linked(async);
+        finish(async);
+        unawaited(controller.check());
+        settle(async);
+        expect(controller.applyStatus, WhatsAppApplyStatus.checkEnabled);
+        expect(controller.canCheck, isTrue);
+        unawaited(controller.check());
+        settle(async);
+        expect(count('GET', _platformsPath), 2);
+        expect(applies(), 1);
+      });
+    });
+
     test('Check finding it not enabled offers Start again, not Finish', () {
       fakeAsync((async) {
         applyReply = down;

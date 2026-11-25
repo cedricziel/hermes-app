@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -6,6 +8,7 @@ import '../chat/invalidation/change_invalidation_binding.dart';
 import '../chat/invalidation/change_signal.dart';
 
 import '../api/hermes_repositories.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
@@ -13,6 +16,14 @@ import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'hermes_messaging_repository.dart';
 import 'messaging_setup_screen.dart';
+import '../server_care/gateway_restart.dart';
+import '../server_care/hermes_update_run.dart';
+import '../server_care/server_care_controller.dart';
+import '../server_care/server_check_controller.dart';
+import '../server_care/server_screen.dart';
+import 'whatsapp/whatsapp_pairing_telemetry.dart';
+import 'whatsapp_pairing_screen.dart';
+import 'widgets/whatsapp_saved_banner.dart';
 import '../chat/gateway_connection_transport.dart';
 import 'widgets/messaging_platform_row.dart';
 import '../telemetry/report_bug.dart';
@@ -37,6 +48,10 @@ class _MessagingScreenState extends State<MessagingScreen> {
   bool _failed = false;
   ChangeInvalidationBinding? _changes;
   int _generation = 0, _mutations = 0;
+
+  /// What Finish saved on the WhatsApp screen, until the banner is closed.
+  WhatsAppSavedOutcome? _whatsAppSaved;
+  WhatsAppPairingTelemetry? _standaloneTelemetry;
   bool get _refreshing =>
       _loading ||
       (_changes?.controller.loading(InvalidationResource.platforms) ?? false);
@@ -95,6 +110,41 @@ class _MessagingScreenState extends State<MessagingScreen> {
     super.dispose();
   }
 
+  /// One telemetry per connection (the signed-in repositories), so the
+  /// old-server event is logged once per connection. Without a connection
+  /// (a screen built bare) it is one per screen.
+  WhatsAppPairingTelemetry _whatsAppTelemetry() {
+    final connection = HermesRepositories.maybeOf(context);
+    if (connection == null) {
+      return _standaloneTelemetry ??= WhatsAppPairingTelemetry();
+    }
+    Breadcrumbs crumbs;
+    try {
+      crumbs = context.read<Breadcrumbs>();
+    } on ProviderNotFoundException {
+      crumbs = Breadcrumbs.none;
+    }
+    return WhatsAppPairingTelemetry.forConnection(
+      connection,
+      connection.telemetry,
+      crumbs,
+    );
+  }
+
+  /// "Open Server" is offered where the Server screen's controllers exist.
+  bool _serverScreenOffered() {
+    try {
+      context
+        ..read<ServerCareController>()
+        ..read<GatewayRestart>()
+        ..read<HermesUpdateRun>()
+        ..read<ServerCheckController>();
+      return true;
+    } on ProviderNotFoundException {
+      return false;
+    }
+  }
+
   Future<void> _load() async {
     final generation = ++_generation;
     final owner = _changes?.ownerPeriod;
@@ -150,17 +200,23 @@ class _MessagingScreenState extends State<MessagingScreen> {
   Future<void> _setUp(HermesMessagingPlatform platform) async {
     _changes?.sync(active: false);
     try {
-      final saved = await Navigator.push<bool>(
+      final saved = await Navigator.push<Object>(
         context,
         MaterialPageRoute(
           builder: (_) => MessagingSetupScreen(
             platform: platform,
             repository: _repository,
             changeSource: widget.changeSource,
+            whatsAppTelemetry: _whatsAppTelemetry(),
           ),
         ),
       );
-      if (saved == true && mounted) await _load();
+      if (saved is WhatsAppSavedOutcome && mounted) {
+        setState(() => _whatsAppSaved = saved);
+      }
+      if ((saved == true || saved is WhatsAppSavedOutcome) && mounted) {
+        await _load();
+      }
     } finally {
       if (mounted) _changes?.sync(active: true);
     }
@@ -196,8 +252,22 @@ class _MessagingScreenState extends State<MessagingScreen> {
         action: FilledButton(onPressed: _load, child: const Text('Retry')),
       );
     }
+    final saved = _whatsAppSaved;
     return GroupedListView(
       children: [
+        if (saved != null) ...[
+          const SizedBox(height: 8),
+          WhatsAppSavedBanner(
+            kind: saved.kind,
+            restartError: saved.restartError,
+            onOpenServer: _serverScreenOffered()
+                ? () =>
+                      unawaited(showServerScreen(context, source: 'messaging'))
+                : null,
+            onClose: () => setState(() => _whatsAppSaved = null),
+          ),
+          const SizedBox(height: 12),
+        ],
         GroupedSection(
           dividerIndent: GroupedMetrics.of(context).indentAfterTile,
           footer: _intro,

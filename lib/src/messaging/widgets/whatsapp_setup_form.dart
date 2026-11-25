@@ -9,6 +9,7 @@ import '../../widgets/grouped_choice_row.dart';
 import '../../widgets/grouped_form.dart';
 import '../../widgets/grouped_list.dart';
 import '../whatsapp/whatsapp_pairing.dart';
+import 'focus_on_appear.dart';
 import 'pairing_buttons.dart';
 import 'pairing_end.dart';
 
@@ -93,7 +94,11 @@ class WhatsAppSetupForm extends StatelessWidget {
         if (problem != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: _problemBanner(context, problem!),
+            // A screen reader starts at the banner, once per kind of problem.
+            child: FocusOnAppear(
+              key: ValueKey(problem),
+              child: _problemBanner(context, problem!),
+            ),
           ),
         RadioGroup<WhatsAppMode>(
           groupValue: mode,

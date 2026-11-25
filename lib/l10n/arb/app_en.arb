@@ -4418,6 +4418,17 @@
       "value": {"type": "String", "example": "sk-…1234"}
     }
   },
+  "messagingSetupNothingToSetUp": "Nothing to set up for this messaging platform.",
+  "@messagingSetupNothingToSetUp": {
+    "description": "Shown in a messaging platform's setup form when the server lists no settings for it."
+  },
+  "messagingSetupTitle": "Set up {platform}",
+  "@messagingSetupTitle": {
+    "description": "Title of a messaging platform's setup form, and the back label of the screen that opens from it. The platform is its product name, such as WhatsApp.",
+    "placeholders": {
+      "platform": {"type": "String", "example": "WhatsApp"}
+    }
+  },
   "messagingSetupValueHidden": "hidden",
   "@messagingSetupValueHidden": {
     "description": "Stands for a saved credential's value that the server keeps hidden, inside the Set (…) helper line."
@@ -4670,6 +4681,10 @@
   "messagingWhatsappOpenServer": "Open Server",
   "@messagingWhatsappOpenServer": {
       "description": "Banner button that opens the Server screen."
+  },
+  "messagingWhatsappOrEnterYourself": "Or enter the details yourself.",
+  "@messagingWhatsappOrEnterYourself": {
+      "description": "Line under the Link WhatsApp button in the WhatsApp setup form, before the fields the user can fill in by hand. Product name WhatsApp is not in it."
   },
   "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
   "@messagingWhatsappPausedDetail": {
