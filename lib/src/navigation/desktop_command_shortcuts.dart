@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../macos/mac_commands.dart';
 import '../macos/menu_layout.dart';
 import 'keyboard_shortcuts.dart';
+import 'modal_route_observer.dart';
 
 class _CommandIntent extends Intent {
   const _CommandIntent(this.command, this.chord);
@@ -59,10 +60,22 @@ bool _sameChord(SingleActivator a, SingleActivator b) =>
 ///
 /// A chord with no enabled handler is not taken, so the key goes on to
 /// whatever has focus. Neither is a chord that text editing binds (Alt+Left,
-/// Alt+Right, Alt+Up) while a text field has focus: the caret keeps it. Nothing here is bound on other platforms: a Mac's menu
-/// bar and an iPad's menus bind their own chords.
+/// Alt+Right, Alt+Up) while a text field has focus: the caret keeps it. Nor is any chord while [isModalBlocking] holds (a dialog,
+/// sheet or popup menu is open, on the root navigator or a nested one): these
+/// shortcuts sit above the `Navigator`, and would run Back or New chat on the
+/// screen behind it. The dialog's own keys (Escape, Enter, Tab) are no chord of
+/// the menus and stay as they were. Nothing here is bound on other platforms:
+/// a Mac's menu bar and an iPad's menus bind their own chords.
 class DesktopCommandShortcuts extends StatelessWidget {
-  const DesktopCommandShortcuts({super.key, required this.child});
+  const DesktopCommandShortcuts({
+    super.key,
+    this.modalRoutes,
+    required this.child,
+  });
+
+  /// The app's single [ModalRouteObserver], for modal routes on the root
+  /// navigator; nested ones are read from the focus ([isModalBlocking]).
+  final ModalRouteObserver? modalRoutes;
 
   final Widget child;
 
@@ -75,7 +88,7 @@ class DesktopCommandShortcuts extends StatelessWidget {
     return Shortcuts(
       shortcuts: _bindings,
       child: Actions(
-        actions: {_CommandIntent: _CommandAction(registry)},
+        actions: {_CommandIntent: _CommandAction(registry, modalRoutes)},
         child: child,
       ),
     );
@@ -83,12 +96,14 @@ class DesktopCommandShortcuts extends StatelessWidget {
 }
 
 class _CommandAction extends Action<_CommandIntent> {
-  _CommandAction(this.registry);
+  _CommandAction(this.registry, this.modalRoutes);
 
   final MacCommandRegistry registry;
+  final ModalRouteObserver? modalRoutes;
 
   @override
   bool isEnabled(_CommandIntent intent) =>
+      !isModalBlocking(modalRoutes) &&
       (registry.handlerFor(intent.command)?.enabled ?? false) &&
       !textEditingChords().any((chord) => _sameChord(chord, intent.chord));
 

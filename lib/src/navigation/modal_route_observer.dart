@@ -48,3 +48,19 @@ class ModalRouteObserver extends NavigatorObserver with ChangeNotifier {
     super.dispose();
   }
 }
+
+/// Whether a modal route (any [PopupRoute]: dialog, sheet, popup menu) is in
+/// front of the screen the keyboard works on.
+///
+/// [observer] covers the app's root navigator. A sheet or menu pushed on a
+/// nested navigator (the narrow chat layout, the activity panel; both open
+/// them with `useRootNavigator: false`) never reaches the root observer, so
+/// the route that holds primary focus is read as well: a modal route takes
+/// focus into itself when it opens. Read live, so it needs no listener. With
+/// no focus, or focus outside any route, only [observer] speaks.
+bool isModalBlocking(ModalRouteObserver? observer, {FocusNode? focus}) {
+  if (observer?.modalOpen ?? false) return true;
+  final context = (focus ?? FocusManager.instance.primaryFocus)?.context;
+  if (context == null || !context.mounted) return false;
+  return ModalRoute.of(context) is PopupRoute;
+}
