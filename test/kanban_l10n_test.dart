@@ -775,58 +775,79 @@ void main() {
       expect(find.tooltip('Reconnecting…'), findsNothing);
     });
 
-    for (final (locale, action, option, expected) in [
+    // The plugin refuses some of the three selected tasks; the snackbar names
+    // how many and the first reason.
+    for (final (name, locale, action, option, refused, expected) in [
       (
+        'a partly failed bulk move says so in de',
         const Locale('de'),
         'Verschieben',
         'Prüfung',
+        {'t2': 'task is running'},
         '1 von 3 konnte nicht geändert werden: task is running',
       ),
       (
+        'a partly failed bulk move says so in en',
         const Locale('en'),
         'Move',
         'Review',
+        {'t2': 'task is running'},
         '1 of 3 could not be changed: task is running',
       ),
+      (
+        'a bulk move that fails for several tasks counts them in de',
+        const Locale('de'),
+        'Verschieben',
+        'Prüfung',
+        {'t2': 'task is running', 't3': 'task is blocked'},
+        '2 von 3 konnten nicht geändert werden: task is running',
+      ),
+      (
+        'a bulk move that fails for several tasks counts them in en',
+        const Locale('en'),
+        'Move',
+        'Review',
+        {'t2': 'task is running', 't3': 'task is blocked'},
+        '2 of 3 could not be changed: task is running',
+      ),
     ]) {
-      testWidgets(
-        'a partly failed bulk move says so in ${locale.languageCode}',
-        (tester) async {
-          server
-            ..on(
-              'GET',
-              '/api/plugins/kanban/board',
-              kanbanBoardBody([
-                for (final n in [1, 2, 3])
-                  kanbanTaskRow(
-                    id: 't$n',
-                    title: 'Task number $n',
-                    status: 'running',
-                    progress: {'done': 1, 'total': 2},
-                  ),
-              ]),
-            )
-            ..on('POST', '/api/plugins/kanban/tasks/bulk', {
-              'results': [
-                {'id': 't1', 'ok': true},
-                {'id': 't2', 'ok': false, 'error': 'task is running'},
-                {'id': 't3', 'ok': true},
-              ],
-            });
-          await pump(tester, locale: locale);
-          await tester.longPress(find.text('Task number 1'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('Task number 2'));
-          await tester.tap(find.text('Task number 3'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text(action));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text(option));
-          await tester.pumpAndSettle();
+      testWidgets(name, (tester) async {
+        server
+          ..on(
+            'GET',
+            '/api/plugins/kanban/board',
+            kanbanBoardBody([
+              for (final n in [1, 2, 3])
+                kanbanTaskRow(
+                  id: 't$n',
+                  title: 'Task number $n',
+                  status: 'running',
+                  progress: {'done': 1, 'total': 2},
+                ),
+            ]),
+          )
+          ..on('POST', '/api/plugins/kanban/tasks/bulk', {
+            'results': [
+              for (final n in [1, 2, 3])
+                if (refused['t$n'] case final error?)
+                  {'id': 't$n', 'ok': false, 'error': error}
+                else
+                  {'id': 't$n', 'ok': true},
+            ],
+          });
+        await pump(tester, locale: locale);
+        await tester.longPress(find.text('Task number 1'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Task number 2'));
+        await tester.tap(find.text('Task number 3'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(action));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(option));
+        await tester.pumpAndSettle();
 
-          expect(find.text(expected), findsOneWidget);
-        },
-      );
+        expect(find.text(expected), findsOneWidget);
+      });
     }
   });
 
