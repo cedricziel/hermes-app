@@ -39,6 +39,11 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 - **WHEN** the result has `truncated_by` `bytes` and a `next_offset`
 - **THEN** the note also says the server stopped at its size limit
 
+#### Scenario: A repeated read
+
+- **WHEN** the result is the dedup stub with `content_returned` false
+- **THEN** the card shows the path and a note that Hermes did not read the file again
+
 #### Scenario: A file with Windows line endings
 
 - **WHEN** every row ends with a carriage return
@@ -56,7 +61,7 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 #### Scenario: Masked secrets
 
-- **WHEN** the content holds the prefix `«redacted`, as `«redacted:ghp_…»` or `«redacted-secret»`
+- **WHEN** the content holds the prefix `«redacted`, as `«redacted:ghp_…»` or `«redacted-secret»`, or `[REDACTED PRIVATE KEY]`
 - **THEN** a note says Hermes may have hidden passwords or keys in this text, and Copy copies it as returned
 
 #### Scenario: A long line
@@ -163,7 +168,7 @@ A result that is a list of flat rows, or a map whose one large value is such a l
 
 #### Scenario: A line that is not a row
 
-- **WHEN** a `matches_text` block has a line that is neither a path nor a `  <line>: <content>` row
+- **WHEN** a `matches_text` block has a line that is neither a path line (non-empty, no leading space) nor a row of two spaces, a line number, a colon and the content
 - **THEN** the card shows its generic input and result
 
 #### Scenario: A tool with a view that declined
