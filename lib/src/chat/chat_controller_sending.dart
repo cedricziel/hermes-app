@@ -115,7 +115,8 @@ extension _ChatControllerSending on ChatController {
     _interrupts.remove(thread);
     _generations[thread] = ++_generationSeq;
     undo.bumped = _generations[thread];
-    final placeholder = _addPlaceholder(thread);
+    final placeholder = _addPlaceholder(thread)
+      ..regenerated = _regenerating.remove(thread);
     thread.updatedAt = undo.stamped = DateTime.now();
     notifyListeners();
     if (!_currentActivity(epoch)) return false;
@@ -160,7 +161,7 @@ extension _ChatControllerSending on ChatController {
     // The queue waited for the session to settle after the turn before. This
     // one decides when it may go on.
     _settleTimers.remove(thread)?.cancel();
-    return _insertReply(thread)..regenerated = _regenerating.remove(thread);
+    return _insertReply(thread);
   }
 
   /// Adds a thinking assistant message to [thread], at the end or, with

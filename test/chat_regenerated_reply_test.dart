@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_chat_core/flutter_chat_core.dart' show TextMessage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -18,6 +21,7 @@ void main() {
   late AttentionNotifier attention;
   late ChatController chat;
   late ChatThread thread;
+  late ValueNotifier<bool> activity;
   String? prefilled;
 
   setUp(() {
@@ -27,7 +31,9 @@ void main() {
       settings: null,
       onOpen: (_) {},
     );
+    activity = ValueNotifier(true);
     chat = ChatController(
+      activity: activity,
       transport: transport,
       attention: attention,
       report: (_) {},
@@ -125,5 +131,36 @@ void main() {
     await answerLast('Another answer');
 
     expect([for (final m in replies()) m.regenerated], [false, false]);
+  });
+
+  test('a Retry that went stale during its undo marks nothing', () async {
+    await firstTurn();
+    transport.undoGate = Completer<void>();
+
+    final retry = chat.retry(thread);
+    activity.value = false;
+    activity.value = true;
+    await pumpEventQueue();
+    transport.undoGate!.complete();
+    await retry;
+    await pumpEventQueue();
+    await chat.submit('Something else', const []);
+    await answerLast('Unrelated answer');
+
+    expect([for (final m in replies()) m.regenerated], everyElement(isFalse));
+  });
+
+  test('a turn another client starts after an Edit is not marked', () async {
+    await firstTurn();
+    await chat.editLastPrompt(thread);
+
+    transport.followUpStreams['s1']!
+      ..emit(const ReplyStarted())
+      ..emit(const ReplyDelta('From elsewhere'))
+      ..emit(const ReplyCompleted('From elsewhere'));
+    await pumpEventQueue();
+
+    expect(replies().single.content, 'From elsewhere');
+    expect(replies().single.regenerated, isFalse);
   });
 }

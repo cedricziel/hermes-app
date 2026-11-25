@@ -310,9 +310,7 @@ extension _ChatControllerCommands on ChatController {
   ) async {
     if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
       try {
-        if (await _undoLastTurn(thread, TurnAction.retry)) {
-          _regenerating.add(thread);
-        }
+        await _undoLastTurn(thread, TurnAction.retry);
       } on Object catch (error) {
         if (_currentActivity(epoch) &&
             _sessionActionCurrent(thread, generation)) {
@@ -360,7 +358,6 @@ extension _ChatControllerCommands on ChatController {
       report("This Hermes server can't edit prompts. Update Hermes to edit.");
       return;
     }
-    _regenerating.add(thread);
     onPrefill?.call(prompt);
   }
 
@@ -557,6 +554,9 @@ extension _ChatControllerCommands on ChatController {
         _sessionStates[thread]?.reclaimedReason != null) {
       return true;
     }
+    // The server dropped the turn and so did this chat: the next reply the
+    // user sends here replaces it.
+    _regenerating.add(thread);
     notifyListeners();
     return true;
   }
