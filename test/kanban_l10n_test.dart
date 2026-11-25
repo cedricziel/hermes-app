@@ -9,6 +9,7 @@ import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_board_menu.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_log_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
@@ -345,6 +346,20 @@ void main() {
       }
     }
 
+    testWidgets('the estimate row shows its result in German', (tester) async {
+      server.on('POST', '/api/plugins/kanban/tasks/t1/estimate', {
+        'ok': true,
+        'est_tokens': 13400,
+        'complexity': 'M',
+      });
+      await pump(tester);
+      await tester.tap(find.text('Schätzen'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('etwa 13k Token · mittel'), findsOneWidget);
+      expect(find.text('about 13k tokens · medium'), findsNothing);
+    });
+
     testWidgets('the prompts and questions are German', (tester) async {
       await pump(tester);
 
@@ -511,6 +526,7 @@ void main() {
       WidgetTester tester, {
       Size size = const Size(400, 800),
       TargetPlatform platform = TargetPlatform.android,
+      Locale locale = const Locale('de'),
     }) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1.0;
@@ -519,7 +535,7 @@ void main() {
         ChangeNotifierProvider<AuthController>(
           create: (_) => AuthController(),
           child: MaterialApp(
-            locale: const Locale('de'),
+            locale: locale,
             localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: platform),
@@ -713,10 +729,105 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Alle Profile'), findsOneWidget);
       expect(find.text('All profiles'), findsNothing);
-      await tester.tap(find.text('coder').last);
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<({String? profile})>, 'coder'),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Default · coder · 1 Aufgabe'), findsOneWidget);
+      expect(find.tooltip('Informationen ausblenden ⌥⌘I'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('kanban-inspector-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.tooltip('Informationen einblenden ⌥⌘I'), findsOneWidget);
+      expect(find.tooltip('Show Inspector ⌥⌘I'), findsNothing);
     });
+
+    testWidgets('the tenant filter and the iOS search field are German', (
+      tester,
+    ) async {
+      server.on(
+        'GET',
+        '/api/plugins/kanban/board',
+        kanbanBoardBody(
+          [kanbanTaskRow(id: 't_todo', title: 'Write docs', status: 'todo')],
+          tenants: ['acme'],
+        ),
+      );
+      await pump(tester, platform: TargetPlatform.iOS);
+
+      expect(find.text('Alle Mandanten'), findsOneWidget);
+      expect(find.text('All tenants'), findsNothing);
+      expect(find.text('Aufgaben suchen'), findsOneWidget);
+      expect(find.text('Search tasks'), findsNothing);
+
+      await tester.tap(find.text('Alle Mandanten'));
+      await tester.pumpAndSettle();
+      expect(find.text('Alle Mandanten'), findsNWidgets(2));
+    });
+
+    testWidgets('a lost event stream is named in German', (tester) async {
+      await tester.pumpWidget(
+        _german(const Scaffold(body: KanbanLiveDot(live: false))),
+      );
+      expect(
+        find.tooltip('Verbindung wird wiederhergestellt…'),
+        findsOneWidget,
+      );
+      expect(find.tooltip('Reconnecting…'), findsNothing);
+    });
+
+    for (final (locale, action, option, expected) in [
+      (
+        const Locale('de'),
+        'Verschieben',
+        'Prüfung',
+        '1 von 3 konnte nicht geändert werden: task is running',
+      ),
+      (
+        const Locale('en'),
+        'Move',
+        'Review',
+        '1 of 3 could not be changed: task is running',
+      ),
+    ]) {
+      testWidgets(
+        'a partly failed bulk move says so in ${locale.languageCode}',
+        (tester) async {
+          server
+            ..on(
+              'GET',
+              '/api/plugins/kanban/board',
+              kanbanBoardBody([
+                for (final n in [1, 2, 3])
+                  kanbanTaskRow(
+                    id: 't$n',
+                    title: 'Task number $n',
+                    status: 'running',
+                    progress: {'done': 1, 'total': 2},
+                  ),
+              ]),
+            )
+            ..on('POST', '/api/plugins/kanban/tasks/bulk', {
+              'results': [
+                {'id': 't1', 'ok': true},
+                {'id': 't2', 'ok': false, 'error': 'task is running'},
+                {'id': 't3', 'ok': true},
+              ],
+            });
+          await pump(tester, locale: locale);
+          await tester.longPress(find.text('Task number 1'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Task number 2'));
+          await tester.tap(find.text('Task number 3'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(action));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text(option));
+          await tester.pumpAndSettle();
+
+          expect(find.text(expected), findsOneWidget);
+        },
+      );
+    }
   });
 
   group('the task log', () {
