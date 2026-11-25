@@ -25,6 +25,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/protected_catalog_auth.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/test_localizations.dart';
 
 // Invented text: screenshots are published.
 const _profile = 'work';
@@ -149,7 +150,7 @@ void main() {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(
               dark
@@ -434,7 +435,7 @@ void main() {
               lock: lock,
               MaterialApp(
                 debugShowCheckedModeBanner: false,
-                localizationsDelegates: AppLocalizations.localizationsDelegates,
+                localizationsDelegates: kTestLocalizationsDelegates,
                 supportedLocales: AppLocalizations.supportedLocales,
                 theme: withScreenshotFont(
                   buildHermesLightTheme(platform: platform),

@@ -358,15 +358,25 @@ extension _ChatScreenNavigation on _ChatScreenState {
   }
 
   /// Personality (SOUL.md) of the chat's profile. The page is bound to that
-  /// name; a chat on the server's default profile names none, so it is
-  /// `default`, the home the server falls back to.
+  /// name; a chat that names none works in the server's launch profile, as
+  /// every other profile-bound page does, and nothing opens while that is not
+  /// known.
   Future<void> _openSoul() async {
     _closeDrawerIfNarrow();
-    await openSoul(
-      context,
-      profile: _chat.profile ?? kDefaultProfile,
-      from: SoulOpenedFrom.sidebar,
-    );
+    final resolver = _chat.profileResolver;
+    var profile = resolver?.resolve(_chat.profile);
+    if (profile == null && resolver != null) {
+      // Not read yet, or the read failed earlier: ask once more.
+      try {
+        await resolver.load();
+      } on Object {
+        // Left unresolved: nothing is opened.
+      }
+      if (!mounted) return;
+      profile = resolver.resolve(_chat.profile);
+    }
+    if (profile == null) return;
+    await openSoul(context, profile: profile, from: SoulOpenedFrom.sidebar);
   }
 
   void _openPlugins() {

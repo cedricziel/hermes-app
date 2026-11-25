@@ -339,18 +339,11 @@ class _SoulScreenState extends State<SoulScreen> {
     },
   );
 
-  /// At the largest text the iOS back label and a bar Save leave the title
-  /// no room, so Save goes under the editor with Revert, as on a wide window.
-  bool _saveBelow(BuildContext context) =>
-      platformChromeOf(context) == PlatformChrome.ios &&
-      MediaQuery.textScalerOf(context).scale(14) / 14 >= 1.5;
-
   Widget _scaffold(BuildContext context) {
     final l10n = context.l10n;
     final c = _controller;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     final wide = mac || isWideLayout(context);
-    final below = wide || _saveBelow(context);
     return SettingsScaffold(
       title: l10n.profilesSoulTitle,
       subtitle: widget.profile,
@@ -359,7 +352,7 @@ class _SoulScreenState extends State<SoulScreen> {
       // while a lock covers it), so the bar does not shift when the text
       // arrives. The pages with no editor to save from (a failed read,
       // offline, a gone profile, an old server) have none.
-      formAction: below || !(c.showsEditor || _showsLoading)
+      formAction: wide || !(c.showsEditor || _showsLoading)
           ? null
           : SoulSaveActions.barAction(
               context,
@@ -369,7 +362,7 @@ class _SoulScreenState extends State<SoulScreen> {
               busy: c.busy && c.showsEditor,
               onSave: _save,
             ),
-      body: _body(context, wide: below),
+      body: _body(context, wide: wide),
     );
   }
 

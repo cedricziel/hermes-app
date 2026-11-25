@@ -10,6 +10,8 @@ import 'package:hermes_app/src/profiles/soul/widgets/soul_page_layout.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_save_actions.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../../support/test_localizations.dart';
+
 Widget _app(
   Widget body, {
   bool dark = false,
@@ -17,7 +19,7 @@ Widget _app(
   double scale = 1,
 }) => MaterialApp(
   theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   locale: locale,
   builder: (context, child) => MediaQuery(

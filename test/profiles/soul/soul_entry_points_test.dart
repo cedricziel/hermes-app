@@ -21,6 +21,7 @@ import '../../support/fake_device_authenticator.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/protected_catalog_auth.dart';
 import '../../support/pump_chat.dart';
+import '../../support/test_localizations.dart';
 import 'soul_fixtures.dart';
 
 /// Where Personality is offered: a sidebar row after Memory (the More section
@@ -118,44 +119,50 @@ void main() {
       expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
     });
 
-    testWidgets('a chat with no profile opens default, not the active one', (
-      tester,
-    ) async {
-      // A server without the active-profile route leaves the chat on no
-      // profile at all; the active profile (`work`) is not consulted.
-      server = FakeHermesServer()
-        ..on(
-          'GET',
-          '/api/profiles',
-          profileListBody([
-            profileRow(name: 'default', isDefault: true),
-            profileRow(name: 'work'),
-          ]),
-        )
-        ..on('GET', '/api/sessions', sessionListBody([]))
-        ..on('GET', '/api/skills', <Object?>[])
-        ..on('GET', '/api/profiles/default/soul', {
-          'content': 'You are the default.',
-          'exists': true,
-        })
-        ..on('GET', '/api/profiles/work/soul', {
-          'content': 'You are Quill.',
-          'exists': true,
-        });
-      await pumpChat(tester);
-      await openSidebarMore(tester);
+    testWidgets(
+      'a chat with no profile opens the launch profile, not the sticky one',
+      (tester) async {
+        // The dashboard was launched with `default`; the sticky active profile
+        // (`work`) is not consulted.
+        server = FakeHermesServer()
+          ..on(
+            'GET',
+            '/api/profiles',
+            profileListBody([
+              profileRow(name: 'default', isDefault: true),
+              profileRow(name: 'work'),
+            ]),
+          )
+          ..on(
+            'GET',
+            '/api/profiles/active',
+            activeProfileBody(active: 'work', current: 'default'),
+          )
+          ..on('GET', '/api/sessions', sessionListBody([]))
+          ..on('GET', '/api/skills', <Object?>[])
+          ..on('GET', '/api/profiles/default/soul', {
+            'content': 'You are the default.',
+            'exists': true,
+          })
+          ..on('GET', '/api/profiles/work/soul', {
+            'content': 'You are Quill.',
+            'exists': true,
+          });
+        await pumpChat(tester);
+        await openSidebarMore(tester);
 
-      await tester.tap(inSidebar(find.text('Personality')));
-      await tester.pumpAndSettle();
+        await tester.tap(inSidebar(find.text('Personality')));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(SoulScreen), findsOneWidget);
-      expect(
-        server.requestsTo('GET', '/api/profiles/default/soul'),
-        hasLength(1),
-      );
-      expect(server.requestsTo('GET', '/api/profiles/work/soul'), isEmpty);
-      expect(find.text('You are the default.'), findsOneWidget);
-    });
+        expect(find.byType(SoulScreen), findsOneWidget);
+        expect(
+          server.requestsTo('GET', '/api/profiles/default/soul'),
+          hasLength(1),
+        );
+        expect(server.requestsTo('GET', '/api/profiles/work/soul'), isEmpty);
+        expect(find.text('You are the default.'), findsOneWidget);
+      },
+    );
 
     testWidgets('is not offered without a dashboard connection', (
       tester,
@@ -284,7 +291,7 @@ void main() {
             auth,
             lock: lock,
             MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: kTestLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
               home: const AppShell(),

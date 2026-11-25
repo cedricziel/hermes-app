@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -176,6 +177,10 @@ void main() {
         await animate(tester);
         if (name == 'desktop') {
           await tester.tap(find.byKey(const Key('settings-back')));
+        } else if (platform == TargetPlatform.iOS) {
+          // flutter_test's pageBack looks for the Flutter barrel's back button,
+          // not cupertino_ui's.
+          await tester.tap(find.byType(CupertinoNavigationBarBackButton));
         } else {
           await tester.pageBack();
         }

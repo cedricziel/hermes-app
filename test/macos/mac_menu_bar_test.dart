@@ -550,6 +550,7 @@ void main() {
         'In neuem Fenster öffnen',
         '-',
         'Fenster schließen',
+        'Sichern',
       ]);
       expect(channel.labels('Bearbeiten'), [
         'Widerrufen',

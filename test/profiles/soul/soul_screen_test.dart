@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,7 @@ import '../../support/find_app_icon.dart';
 import '../../support/mac_commands_builder.dart';
 import '../../support/recorded_events.dart';
 import '../../support/recording_tracer.dart';
+import '../../support/test_localizations.dart';
 import 'soul_fixtures.dart';
 
 /// Puts the platform override back before the framework checks that no debug
@@ -190,7 +192,7 @@ void main() {
         child: MaterialApp(
           navigatorObservers: [pushed],
           builder: macCommandsBuilder(commands),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
           home: Builder(
@@ -634,7 +636,7 @@ void main() {
     ) async {
       await pump(tester, platform: TargetPlatform.iOS);
       await type(tester, 'You are Mara.');
-      await tester.pageBack();
+      await tester.tap(find.byType(CupertinoNavigationBarBackButton));
       await tester.pumpAndSettle();
       expect(find.text('Keep editing'), findsOneWidget);
       expect(find.text('Discard'), findsOneWidget);
@@ -654,7 +656,7 @@ void main() {
           ],
           child: MaterialApp(
             navigatorKey: root,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Navigator(
               key: nested,
@@ -837,7 +839,7 @@ void main() {
   });
 
   group('at the largest text', () {
-    pageTest('iOS keeps the title and the profile name, Save goes below', (
+    pageTest('iOS keeps the title, the profile name and Save in the bar', (
       tester,
     ) async {
       tester.platformDispatcher.textScaleFactorTestValue = 2.0;
@@ -849,8 +851,13 @@ void main() {
         expect(rect.width, greaterThan(40), reason: 'room for the title');
         expect(rect.right, lessThanOrEqualTo(400));
       }
-      expect(phoneSave(), findsNothing, reason: 'not in the bar');
-      expect(wideSave(), findsOneWidget);
+      expect(phoneSave(), findsOneWidget, reason: 'Save stays in the bar');
+      expect(
+        tester.getRect(phoneSave()).right,
+        lessThanOrEqualTo(400),
+        reason: 'on screen',
+      );
+      expect(wideSave(), findsNothing);
       expect(tester.takeException(), isNull);
     });
 
