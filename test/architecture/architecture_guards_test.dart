@@ -597,26 +597,42 @@ List<Hit> prefsReadHitsIn(SourceFile file) {
   ];
 }
 
-/// Files whose reads throw on purpose, and who catches.
+/// Files with unhandled reads that throw on purpose, how many, and who
+/// catches. Exact: a file above its count reports all its reads, so a new
+/// unchecked read there fails.
 const _prefsReadThrows = {
-  'lib/src/agent_messages/agent_message_record.dart':
-      'writeIfCurrent throws when the record cannot be read, so a look '
-      'announces nothing rather than the same message again',
-  'lib/src/background/background_check_status.dart':
-      '_identity is read by methods that catch everything: status '
-      'persistence never affects authentication or refresh work',
-  'lib/src/background/background_refresh.dart':
-      'persist throws when it cannot read, so a write never replaces marks '
-      'it could not see; its callers catch',
-  'lib/src/background/headless_hermes.dart':
-      'the saved server address is read inside withHeadlessHermes, which '
-      'ends an unreadable store as a failed run and signs nobody out',
+  'lib/src/agent_messages/agent_message_record.dart': ExactAllow(
+    1,
+    'writeIfCurrent throws when the record cannot be read, so a look '
+    'announces nothing rather than the same message again',
+  ),
+  'lib/src/background/background_check_status.dart': ExactAllow(
+    1,
+    '_identity is read by methods that catch everything: status '
+    'persistence never affects authentication or refresh work',
+  ),
+  'lib/src/background/background_refresh.dart': ExactAllow(
+    1,
+    'persist throws when it cannot read, so a write never replaces marks '
+    'it could not see; its callers catch',
+  ),
+  'lib/src/background/headless_hermes.dart': ExactAllow(
+    1,
+    'the saved server address is read inside withHeadlessHermes, which '
+    'ends an unreadable store as a failed run and signs nobody out',
+  ),
 };
 
-List<Hit> _prefsReadsUnhandled() => [
-  for (final file in dartFiles('lib'))
-    if (!isAllowed(file.path, _prefsReadThrows.keys)) ...prefsReadHitsIn(file),
-];
+List<Hit> _prefsReadsUnhandled() {
+  final hits = <Hit>[];
+  for (final file in dartFiles('lib')) {
+    final found = prefsReadHitsIn(file);
+    if (found.length > (_prefsReadThrows[file.path]?.count ?? 0)) {
+      hits.addAll(found);
+    }
+  }
+  return hits;
+}
 
 List<Hit> _errorInterpolation() => [
   for (final file in dartFiles('lib')) ...errorInterpolationHits(file),

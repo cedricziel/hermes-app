@@ -657,6 +657,36 @@ void main() {
     );
 
     test(
+      'is reported and acted on once while the store stays unreadable',
+      () async {
+        await settings.setEnabled(false);
+        index.items['chat'] = const [
+          SpotlightItem(
+            domain: 'chat',
+            id: 'default/a',
+            title: 'Trip plan',
+            text: '',
+            url: 'hermes://chat?profile=default&id=a',
+          ),
+        ];
+        SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+        prefs = SharedPreferencesAsync();
+        indexer.dispose();
+        indexer = newIndexer();
+
+        final reported = await reportedErrors(() async {
+          await indexer.start();
+          await settle();
+          await record(snapshot([chat('b', 'Groceries')]));
+          await record(snapshot([chat('c', 'Taxes')]));
+        });
+
+        expect(reported, hasLength(1));
+        expect(index.calls, ['deleteAll']);
+      },
+    );
+
+    test(
       'is saved after chats are indexed when it could not be read',
       () async {
         final unreadable = UnreadablePrefs();
