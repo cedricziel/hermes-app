@@ -67,15 +67,18 @@ void main() {
   }
 
   var epoch = 0;
+  var ended = false;
 
   void fake(void Function(FakeAsync async) body, {double draw = 0.999999}) =>
       fakeAsync((async) {
         mints = 0;
         epoch = 0;
+        ended = false;
         failure = null;
         gate = TicketMintGate(
           random: _FixedRandom(draw),
           sessionEpoch: () => epoch,
+          sessionEnded: () => ended,
         );
         body(async);
       });
@@ -245,19 +248,15 @@ void main() {
   });
 
   group('a wait never outlives its session', () {
-    test('a refusal that ended the session (its 401 bumped the epoch) leaves '
-        'no wait, so the next sign-in mints at once', () {
+    test('a refusal that ended the session leaves no wait, so the next '
+        'sign-in mints at once', () {
       fake((async) {
         failure = _answered(401);
-        // The HTTP client ends the session while the mint is answered.
-        final ending = gate.run(() async {
-          mints++;
-          epoch++;
-          throw failure!;
-        });
-        unawaited(ending.then<void>((_) {}, onError: (Object _) {}));
+        ended = true;
+        unawaited(mint());
         async.flushMicrotasks();
 
+        ended = false;
         failure = null;
         unawaited(mint());
         async.flushMicrotasks();
@@ -266,35 +265,24 @@ void main() {
       });
     });
 
-    test('a refusal that lands after a newer mint began under the new epoch '
-        'sets no wait', () {
+    test('a refusal that renewed the credential during the request still '
+        'starts a wait, which lasts under the new one', () {
       fake((async) {
-        final late = Completer<void>();
-        // Began under epoch 0, still waiting for its answer.
-        unawaited(
-          gate
-              .run(() async {
-                mints++;
-                await late.future;
-                throw failure!;
-              })
-              .then<void>((_) {}, onError: (Object _) {}),
-        );
-        async.flushMicrotasks();
-
-        epoch++;
-        failure = null;
-        unawaited(mint());
-        async.flushMicrotasks();
-
         failure = _answered(401);
-        late.complete();
+        // A window's client is handed a new header while its request is
+        // retried: the 401 is the server's answer to the new one.
+        final refused = gate.run(() async {
+          mints++;
+          epoch++;
+          throw failure!;
+        });
+        unawaited(refused.then<void>((_) {}, onError: (Object _) {}));
         async.flushMicrotasks();
-        failure = null;
+
         unawaited(mint());
         async.flushMicrotasks();
 
-        expect(mints, 3);
+        expect(mints, 1);
       });
     });
 

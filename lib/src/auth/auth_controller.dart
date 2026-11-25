@@ -834,6 +834,7 @@ class AuthController extends ChangeNotifier {
       // The token changes with a refresh, and is gone when the session ends:
       // either ends a wait the ticket gate began under the earlier one.
       sessionEpoch: () => _session?.accessToken,
+      sessionEnded: () => _session == null,
     );
   }
 
