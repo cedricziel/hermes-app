@@ -479,6 +479,37 @@ void main() {
       expect(applies(), 0);
     });
 
+    testWidgets('on a focused Cancel setup leaves, sending one cancel', (
+      tester,
+    ) async {
+      await open(tester, size: computer);
+      await waitForCode(tester);
+      Focus.of(tester.element(find.text('Cancel setup'))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(opened, isFalse);
+      expect(cancels(), 1);
+    });
+
+    testWidgets('on a focused mode row does not start', (tester) async {
+      await open(tester, size: computer);
+      Focus.of(tester.element(find.text('Self-chat'))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+      expect(starts(), 0);
+    });
+
+    testWidgets('on a focused Start still starts once', (tester) async {
+      await open(tester, size: computer);
+      Focus.of(tester.element(find.text('Start').first)).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+      expect(starts(), 1);
+    });
+
     testWidgets(
       'does not press Cancel setup or anything else while the code waits',
       (tester) async {

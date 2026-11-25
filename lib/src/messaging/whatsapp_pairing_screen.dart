@@ -113,6 +113,7 @@ class WhatsAppPairingScreen extends StatefulWidget {
 class _WhatsAppPairingScreenState extends State<WhatsAppPairingScreen>
     with WidgetsBindingObserver {
   final _numbers = TextEditingController();
+  final _screenFocus = FocusNode(debugLabel: 'WhatsApp pairing screen');
   WhatsAppPairingController? _controller;
   AppLockController? _lock;
   Timer? _tick;
@@ -171,6 +172,7 @@ class _WhatsAppPairingScreenState extends State<WhatsAppPairingScreen>
       ?..removeListener(_changed)
       ..dispose();
     _numbers.dispose();
+    _screenFocus.dispose();
     super.dispose();
   }
 
@@ -320,8 +322,14 @@ class _WhatsAppPairingScreenState extends State<WhatsAppPairingScreen>
                 _PressPrimaryIntent(),
           },
           child: Actions(
-            actions: {_PressPrimaryIntent: _PressPrimaryAction(_pressPrimary)},
+            actions: {
+              _PressPrimaryIntent: _PressPrimaryAction(
+                _pressPrimary,
+                () => _screenFocus.hasPrimaryFocus,
+              ),
+            },
             child: Focus(
+              focusNode: _screenFocus,
               autofocus: true,
               child: ContentColumn(
                 child: WhatsAppPairingView(
@@ -400,19 +408,17 @@ class _PressPrimaryIntent extends Intent {
   const _PressPrimaryIntent();
 }
 
-/// Return presses the filled button, unless a field or another button has the
-/// focus: a field keeps its own Return, and a focused button is pressed by
-/// its own handler, which sits below this one.
+/// Return presses the filled button only while the screen's own focus node
+/// holds the focus: a field keeps its Return, and a focused button or row is
+/// pressed by its own handler.
 class _PressPrimaryAction extends Action<_PressPrimaryIntent> {
-  _PressPrimaryAction(this._press);
+  _PressPrimaryAction(this._press, this._screenHasFocus);
 
   final VoidCallback _press;
+  final bool Function() _screenHasFocus;
 
   @override
-  bool isEnabled(_PressPrimaryIntent intent) =>
-      FocusManager.instance.primaryFocus?.context
-          ?.findAncestorWidgetOfExactType<EditableText>() ==
-      null;
+  bool isEnabled(_PressPrimaryIntent intent) => _screenHasFocus();
 
   @override
   Object? invoke(_PressPrimaryIntent intent) {
