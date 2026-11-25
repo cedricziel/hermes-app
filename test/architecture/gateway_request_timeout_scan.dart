@@ -71,16 +71,45 @@ bool _containsRequest(AstNode node, {required bool inGatewayDir}) {
   return visitor.found;
 }
 
-/// Local variables of one body: name to initializer.
+/// A local variable: its initializer and the block it is visible in.
+typedef _Declaration = ({int offset, Expression init, AstNode scope});
+
+/// Local variables of one member, by name.
 class _Declarations extends RecursiveAstVisitor<void> {
-  final byName = <String, List<Expression>>{};
+  final byName = <String, List<_Declaration>>{};
 
   @override
   void visitVariableDeclaration(VariableDeclaration node) {
     final init = node.initializer;
-    if (init != null) (byName[node.name.lexeme] ??= []).add(init);
+    final scope = node.thisOrAncestorMatching(
+      (n) => n is Block || n is FunctionBody || n is ForStatement,
+    );
+    if (init != null && scope != null) {
+      (byName[node.name.lexeme] ??= []).add((
+        offset: node.offset,
+        init: init,
+        scope: scope,
+      ));
+    }
     super.visitVariableDeclaration(node);
   }
+}
+
+/// The initializer of the declaration of [name] that [use] sees: the closest
+/// one before it whose block holds it.
+Expression? _visibleInitializer(
+  Map<String, List<_Declaration>> byName,
+  String name,
+  AstNode use,
+) {
+  _Declaration? best;
+  for (final d in byName[name] ?? const <_Declaration>[]) {
+    final holdsUse = d.scope.offset <= use.offset && use.end <= d.scope.end;
+    if (holdsUse && d.offset < use.offset) {
+      if (best == null || d.offset > best.offset) best = d;
+    }
+  }
+  return best?.init;
 }
 
 class _Timeouts extends RecursiveAstVisitor<void> {
@@ -119,9 +148,13 @@ List<Hit> gatewayRequestTimeoutHitsIn(SourceFile file) {
       if (member != null) {
         final declarations = _Declarations();
         member.accept(declarations);
-        flagged = (declarations.byName[target.name] ?? const []).any(
-          (init) => _containsRequest(init, inGatewayDir: inGatewayDir),
+        final init = _visibleInitializer(
+          declarations.byName,
+          target.name,
+          call,
         );
+        flagged =
+            init != null && _containsRequest(init, inGatewayDir: inGatewayDir);
       }
     }
     if (flagged) {

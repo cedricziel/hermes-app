@@ -1931,6 +1931,44 @@ void main() {
       }
     });
 
+    test('a same-named local of another block is not followed', () {
+      expect(
+        hits(
+          'f() async {\n'
+          "  { final pending = client.request('session.resume', {}); "
+          'await pending; }\n'
+          '  { final pending = other(); await pending.timeout(t); }\n'
+          '}',
+        ),
+        0,
+      );
+      expect(
+        hits(
+          'f() async {\n'
+          '  { final pending = other(); await pending; }\n'
+          "  { final pending = client.request('session.resume', {}); "
+          'await pending.timeout(t); }\n'
+          '}',
+        ),
+        1,
+      );
+    });
+
+    test('a local shadowed in a closed inner block is not the one used '
+        'after it', () {
+      expect(
+        hits(
+          'f() async {\n'
+          '  final pending = other();\n'
+          "  { final pending = client.request('session.resume', {}); "
+          'await pending; }\n'
+          '  await pending.timeout(t);\n'
+          '}',
+        ),
+        0,
+      );
+    });
+
     test('a variable of another member is not followed', () {
       expect(
         hits(
