@@ -40,6 +40,7 @@ import 'package:hermes_app/src/schedules/schedule_actions.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/screens/widgets/connection_summary.dart';
+import 'package:hermes_app/src/settings/widgets/mac_account_footer.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/skill_job.dart';
 import 'package:hermes_app/src/skills/skill_job_sheet.dart';
@@ -454,6 +455,23 @@ void main() {
           ),
         ),
       );
+      expect(find.text('Nicht verbunden'), findsOneWidget);
+      expect(find.text('Not connected'), findsNothing);
+    });
+
+    testWidgets('the Mac account footer with no server', (tester) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      await tester.pumpWidget(
+        ChangeNotifierProvider(
+          create: (_) => AuthController(),
+          child: _de(
+            const Scaffold(body: SizedBox(width: 300, child: AccountFooter())),
+            platform: TargetPlatform.macOS,
+          ),
+        ),
+      );
+      expect(find.byType(MacAccountFooter), findsOneWidget);
       expect(find.text('Nicht verbunden'), findsOneWidget);
       expect(find.text('Not connected'), findsNothing);
     });

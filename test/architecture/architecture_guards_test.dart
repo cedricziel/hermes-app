@@ -1120,8 +1120,8 @@ const _englishNullFallbackNotVisibleText = <String, ExactAllow>{
   ),
   'lib/src/voice/voice_call_screen.dart': ExactAllow(
     1,
-    'a line of the English setup prompt that is sent to the agent (setupPrompt), '
-    'never drawn',
+    'part of the English setup prompt (setupPrompt) that is sent to the agent '
+    'as a chat message: the prompt is English as a whole, not UI text',
   ),
 };
 
