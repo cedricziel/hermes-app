@@ -61,6 +61,28 @@ class RecordCallRecorder implements CallRecorder {
   }
 }
 
+/// The one SoLoud start outside a call, for `soloud_quit_probe.dart` (debug
+/// builds on macOS with `HERMES_SOLOUD_QUIT_PROBE=1`, never a real launch): it
+/// starts the engine as a call does, plays the shortest silent buffer and
+/// returns one fixed word: `played`, `no audio device` (a machine without a
+/// playback device, the library is loaded all the same) or `failed: <type>`.
+/// [onInitialised] runs once the engine is up. It lives here so this file
+/// stays the only importer of `flutter_soloud`.
+Future<String> playSoloudQuitProbe({VoidCallback? onInitialised}) async {
+  final player = SoLoudCallPlayer();
+  try {
+    await player.init();
+    onInitialised?.call();
+    await player.play(Uint8List(3200), 16000);
+    await Future<void>.delayed(const Duration(seconds: 1));
+    return 'played';
+  } on soloud.SoLoudNoPlaybackDevicesFoundCppException {
+    return 'no audio device';
+  } on Object catch (error) {
+    return 'failed: ${error.runtimeType}';
+  }
+}
+
 /// Plays the call's PCM with SoLoud: one buffer stream per run of audio at one
 /// rate, fed as it arrives and played from a short lead-in, so a reply starts
 /// before it has all been generated. The engine is started on the first use
