@@ -202,6 +202,9 @@ class FakeGateway {
   /// Whether `session.undo` fails in the branch `session.branch` made.
   bool branchUndoFails = false;
 
+  /// The stored id a branch answers as its `parent`; null leaves the key out.
+  String? branchParent = 'stored-2';
+
   /// Attach calls that fail, by `<method> <file name>`: the JSON-RPC error
   /// code and message to answer with.
   final attachFailures = <String, (int, String)>{};
@@ -420,7 +423,7 @@ class FakeGateway {
             'session_id': 'rt-branch',
             'stored_session_id': 'stored-branch',
             'title': 'Run failure #2',
-            'parent': params['session_id'],
+            'parent': ?branchParent,
             'message_count': 4,
             if (request['method'] == 'session.branch_whole')
               'messages_omitted': true

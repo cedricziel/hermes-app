@@ -1248,10 +1248,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Opens the chat [target] names. With [fetchMissing] one the loaded
   /// threads do not hold is fetched, on its own profile. A [prompt] goes to
   /// the composer once the chat is open, and is dropped when it cannot be.
+  /// A [branchParent] is the parent of a chat that was just branched; it
+  /// stands until the next list read, which brings the server's own marker,
+  /// and a row that names one wins over it. A chat opened while the list is
+  /// loading takes the list's marker instead.
   void open(
     NotificationTarget target, {
     required bool fetchMissing,
     String? prompt,
+    String? branchParent,
   }) {
     if (!active) return;
     final epoch = _activityEpoch;
@@ -1271,6 +1276,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _pendingTapPrompt = prompt;
     } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
+      _threads.firstWhere((t) => t.id == target.threadId).branchParentId ??=
+          branchParent;
       select(target.threadId);
       if (!_currentActivity(epoch)) return;
       onOpened?.call();
@@ -1282,6 +1289,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         target,
         generation: generation,
         prompt: prompt,
+        branchParent: branchParent,
       ).whenComplete(() => _finishOpening(requested));
     } else {
       _failOpen();
@@ -1295,6 +1303,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     NotificationTarget target, {
     int? generation,
     String? prompt,
+    String? branchParent,
   }) async {
     if (!active) return;
     final epoch = _activityEpoch;
@@ -1314,6 +1323,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         );
         if (!active || generation != _openGeneration) return;
         if (thread == null) return _failOpen();
+        thread.branchParentId ??= branchParent;
         _threads.insert(0, thread);
         _bound.add(thread);
         _unloaded.add(thread.id);

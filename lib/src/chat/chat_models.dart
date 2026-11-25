@@ -778,6 +778,7 @@ class ChatThread {
     this.folderPath,
     this.workingDirectory,
     this.branch,
+    this.branchParentId,
     this.remote = false,
     this.named = false,
     this.unread = false,
@@ -801,6 +802,11 @@ class ChatThread {
 
   /// The git branch stored with the chat (`git_branch`), when known.
   String? branch;
+
+  /// The stored id of the chat this one was branched from (the `_branched_from`
+  /// marker), when it is one. A chat Hermes continued after compression or
+  /// started as a sub-agent has none. The parent may be gone.
+  String? branchParentId;
 
   /// The folder picked for this chat before it exists, kept in memory and
   /// dropped once the chat is created. Never stored.

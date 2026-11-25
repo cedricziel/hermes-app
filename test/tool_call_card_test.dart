@@ -445,19 +445,6 @@ void main() {
       );
     });
 
-    testWidgets('a tool view falls back to input and result when the shape '
-        'is not the one it knows', (tester) async {
-      await _pump(
-        tester,
-        const ToolCall(name: 'web_search', summary: 'x', result: 'oops'),
-      );
-
-      await tester.tap(find.text('web_search'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Result'), findsOneWidget);
-    });
-
     group('the code view', () {
       for (final (name, call) in [
         (

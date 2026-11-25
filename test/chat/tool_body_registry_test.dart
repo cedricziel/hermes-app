@@ -25,6 +25,17 @@ Widget _host(Widget child) => MaterialApp(
 
 void main() {
   group('ToolBodyRegistry', () {
+    late void Function(FlutterErrorDetails)? previous;
+    late List<FlutterErrorDetails> reported;
+
+    setUp(() {
+      previous = FlutterError.onError;
+      reported = [];
+      FlutterError.onError = reported.add;
+    });
+
+    tearDown(() => FlutterError.onError = previous);
+
     test('a new entry adds a body for its tool with no other edit', () {
       final registry = ToolBodyRegistry([
         ...standardToolBodyEntries,
@@ -116,6 +127,45 @@ void main() {
           ]).bodyFor(_call('sql_query')),
           isNull,
         );
+      },
+    );
+
+    test('a builder that throws a bug falls back and is reported once '
+        'under a fixed name', () {
+      final registry = ToolBodyRegistry([
+        ToolBodyEntry(
+          names: {'sql_query'},
+          build: (_) => throw StateError('secret-arg-value'),
+        ),
+      ]);
+
+      final body = registry.bodyFor(
+        const ToolCall(
+          name: 'sql_query',
+          summary: 'secret-summary',
+          args: {'q': 'secret-arg-value'},
+        ),
+      );
+
+      expect(body, isNull);
+      expect(reported, hasLength(1));
+      expect(reported.single.context.toString(), 'a tool body');
+      expect(reported.single.library, 'hermes_app');
+    });
+
+    test(
+      'a builder that throws a malformed-result exception is not reported',
+      () {
+        final registry = ToolBodyRegistry([
+          ToolBodyEntry(
+            names: {'sql_query'},
+            build: (_) => throw const FormatException('malformed'),
+          ),
+        ]);
+
+        registry.bodyFor(_call('sql_query'));
+
+        expect(reported, isEmpty);
       },
     );
 
