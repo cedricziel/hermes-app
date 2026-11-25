@@ -202,6 +202,9 @@ extension _ChatScreenLayout on _ChatScreenState {
             editable: true,
             branchable: true,
             workingDirectoryRow: BoundWorkingDirectoryRow(chat: chat),
+            branchNotice: selected == null
+                ? null
+                : BoundBranchNotice(chat: chat, thread: selected),
             workspaceNotice: selected == null
                 ? null
                 : BoundFolderMismatchNotice(chat: chat, thread: selected),

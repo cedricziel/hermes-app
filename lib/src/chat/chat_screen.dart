@@ -129,6 +129,7 @@ import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
 import '../telemetry/report_bug.dart';
+import 'bound_branch_notice.dart';
 import 'chat_controller.dart';
 import 'queue_storage/queue_persistence.dart';
 import 'chat_models.dart';

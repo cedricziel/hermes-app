@@ -26,6 +26,7 @@ enum MacCommand {
   toggleInspector,
   showFiles,
   find,
+  openParentChat,
   pinThread,
   renameThread,
   changeFolder,

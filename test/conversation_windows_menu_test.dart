@@ -71,6 +71,9 @@ void main() {
                 MacCommand.showMainWindow: MacCommandHandler(
                   () => mainCommands.add('main'),
                 ),
+                MacCommand.openParentChat: MacCommandHandler(
+                  () => mainCommands.add('parent'),
+                ),
               },
               child: const ConversationWindowsMenu(child: SizedBox()),
             ),
@@ -220,6 +223,21 @@ void main() {
 
     expect(registry.handlerFor(MacCommand.openInNewWindow)?.enabled, isFalse);
   });
+
+  testWidgets('Open Parent Chat is off while a conversation window is key', (
+    tester,
+  ) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'A');
+    expect(registry.handlerFor(MacCommand.openParentChat)?.enabled, isTrue);
+
+    await focus(tester, 'w0');
+
+    expect(registry.handlerFor(MacCommand.openParentChat)?.enabled, isFalse);
+    expect(registry.invoke(MacCommand.openParentChat), isFalse);
+    expect(mainCommands, isEmpty);
+  });
+
   testWidgets('Compress Conversation… is off while a conversation window is '
       'key', (tester) async {
     await pump(tester);

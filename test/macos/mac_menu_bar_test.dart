@@ -142,6 +142,7 @@ void main() {
     ]);
     expect(channel.labels('Chat'), [
       'Find…',
+      'Open Parent Chat',
       '-',
       'Pin',
       'Rename…',

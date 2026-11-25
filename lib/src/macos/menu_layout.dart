@@ -245,6 +245,12 @@ final menuLayout = <MenuSection>[
         shortcut: metaActivator(LogicalKeyboardKey.keyF),
         desktopShortcuts: [ctrlActivator(LogicalKeyboardKey.keyF)],
       ),
+      // No chord: the menu owns the chord space and the row is the way in.
+      MenuEntry(
+        MacCommand.openParentChat,
+        (l10n) => l10n.macosMenuOpenParentChat,
+        platforms: _macOnly,
+      ),
     ],
     [
       MenuEntry(

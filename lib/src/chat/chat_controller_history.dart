@@ -102,6 +102,9 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       profile ??= await _activeProfile();
       if (!active || generation != _loadGeneration) return;
+      // A read of a branch's original that lands while another profile's list
+      // is out would open a chat of the profile being left.
+      if (profile != previousProfile) _branchParent.dropReads();
       _failedListProfile = profile;
       final first = await repository!.loadThreadPage(profile: profile);
       if (!active || generation != _loadGeneration) return;
@@ -271,6 +274,7 @@ extension _ChatControllerHistory on ChatController {
         _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
+        _branchParent.clear();
         search?.clear();
         _stopHandBacks.clear();
       }
