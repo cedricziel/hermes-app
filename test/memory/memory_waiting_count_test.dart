@@ -74,6 +74,77 @@ void main() {
     expect(count.waiting, 0);
   });
 
+  test('triggers that overlap share one read of the profile', () async {
+    final gate = Completer<String>();
+    transport.script['/memory pending'] = gate;
+    final first = count.refresh(resolvedProfile('work'));
+    final second = count.refresh(resolvedProfile('work'));
+    now = now.add(const Duration(minutes: 6));
+    final third = count.refreshIfStale(resolvedProfile('work'));
+    gate.complete(_two);
+    await Future.wait([first, second, third]);
+    expect(count.waiting, 2);
+    expect(
+      transport.slashRuns.where((c) => c == '/memory pending'),
+      hasLength(1),
+    );
+    expect(
+      transport.slashRuns.where((c) => c == '/skills pending'),
+      hasLength(1),
+    );
+  });
+
+  test(
+    'a read that must see the latest decisions replaces one in flight',
+    () async {
+      final stale = Completer<String>();
+      transport.script['/memory pending'] = stale;
+      final first = count.refresh(resolvedProfile('work'));
+      transport.script['/memory pending'] = noPendingMemory;
+      await count.refresh(resolvedProfile('work'), supersede: true);
+      stale.complete(_two);
+      await first;
+      expect(count.waiting, 0);
+      expect(
+        transport.slashRuns.where((c) => c == '/memory pending'),
+        hasLength(2),
+      );
+    },
+  );
+
+  test(
+    'a replaced read that ends first leaves its successor joinable',
+    () async {
+      final stale = Completer<String>();
+      final newer = Completer<String>();
+      transport.script['/memory pending'] = stale;
+      final first = count.refresh(resolvedProfile('work'));
+      transport.script['/memory pending'] = newer;
+      final second = count.refresh(resolvedProfile('work'), supersede: true);
+      stale.complete(_two);
+      await first;
+
+      final third = count.refresh(resolvedProfile('work'));
+      newer.complete(noPendingMemory);
+      await Future.wait([second, third]);
+
+      expect(count.waiting, 0);
+      expect(
+        transport.slashRuns.where((c) => c == '/memory pending'),
+        hasLength(2),
+      );
+    },
+  );
+
+  test('a read asked for after the last one ended is made', () async {
+    await count.refresh(resolvedProfile('work'));
+    await count.refresh(resolvedProfile('work'));
+    expect(
+      transport.slashRuns.where((c) => c == '/memory pending'),
+      hasLength(2),
+    );
+  });
+
   test('on resume it reads at most every five minutes', () async {
     await count.refreshIfStale(resolvedProfile('work'));
     await count.refreshIfStale(resolvedProfile('work'));

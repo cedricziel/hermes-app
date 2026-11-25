@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -133,5 +135,29 @@ void main() {
     expect(reads(), greaterThan(inboxReads));
     await openSidebarMore(tester);
     expect(inSidebar('Memory'), findsOneWidget);
+  });
+
+  testWidgets('leaving Memory counts again even while an earlier read is out', (
+    tester,
+  ) async {
+    // The read made when the chat opened has not been answered when the user
+    // goes into Memory and decides there.
+    final early = Completer<String>();
+    transport.script['/memory pending'] = early;
+    await pumpChat(tester);
+    transport.script['/memory pending'] = noPendingMemory;
+    await openSidebarMore(tester);
+
+    await tester.tap(inSidebar('Memory'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MemoryDestination), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    early.complete(_two);
+    await tester.pumpAndSettle();
+
+    await openSidebarMore(tester);
+    expect(inSidebar('Memory'), findsOneWidget);
+    expect(inSidebar('Memory · 2 waiting'), findsNothing);
   });
 }

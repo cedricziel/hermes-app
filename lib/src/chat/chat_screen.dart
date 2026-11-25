@@ -812,13 +812,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Counts the changes waiting in the chat's profile, or the launch profile
   /// when the chat has none of its own. With neither known (the shell reads
   /// the launch profile at connect) nothing is asked and no count shows.
-  Future<void> _refreshMemoryWaiting({bool ifStale = false}) async {
+  Future<void> _refreshMemoryWaiting({
+    bool ifStale = false,
+    bool supersede = false,
+  }) async {
     final waiting = _memoryWaiting;
     if (waiting == null) return;
     final profile = _chat.profileResolver?.resolve(_chat.profile);
     await (ifStale
         ? waiting.refreshIfStale(profile)
-        : waiting.refresh(profile));
+        : waiting.refresh(profile, supersede: supersede));
   }
 
   void _launchProfileKnown() => unawaited(_refreshMemoryWaiting());
