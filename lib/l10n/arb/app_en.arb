@@ -2971,6 +2971,104 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanArchive": "Archive",
+  "@kanbanArchive": {
+    "description": "Menu item and button that archives a Kanban board or task, and the confirm button of the question that asks first."
+  },
+  "kanbanBoardsArchiveTitle": "Archive “{name}”?",
+  "@kanbanBoardsArchiveTitle": {
+    "description": "Title of the confirmation before a Kanban board is archived. {name} is the board name.",
+    "placeholders": {
+      "name": {"type": "String", "example": "Ops"}
+    }
+  },
+  "kanbanBoardsCount": "{count, plural, =1{1 board} other{{count} boards}}",
+  "@kanbanBoardsCount": {
+    "description": "Subtitle of the boards page: how many boards there are.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanBoardsCreate": "Create",
+  "@kanbanBoardsCreate": {
+    "description": "Confirm button of the prompt that names a new Kanban board."
+  },
+  "kanbanBoardsCurrent": "Current",
+  "@kanbanBoardsCurrent": {
+    "description": "Value on the boards list row of the board that is open now; keep it short."
+  },
+  "kanbanBoardsDeleteTitle": "Delete “{name}” for good?",
+  "@kanbanBoardsDeleteTitle": {
+    "description": "Title of the confirmation before a Kanban board is deleted for good. {name} is the board name.",
+    "placeholders": {
+      "name": {"type": "String", "example": "Ops"}
+    }
+  },
+  "kanbanBoardsExportMenu": "Export…",
+  "@kanbanBoardsExportMenu": {
+    "description": "Menu item on a board row that opens the export dialog; the ellipsis says more input follows."
+  },
+  "kanbanBoardsExportedClose": "Close",
+  "@kanbanBoardsExportedClose": {
+    "description": "Button that closes the dialog saying a board was exported."
+  },
+  "kanbanBoardsExportedLocation": "The archive is on the server, at:",
+  "@kanbanBoardsExportedLocation": {
+    "description": "Line above the server path of an exported board archive; the path follows on the next line."
+  },
+  "kanbanBoardsExportedSize": "{kilobytes} KB",
+  "@kanbanBoardsExportedSize": {
+    "description": "Size of an exported board archive in kilobytes. {kilobytes} is already formatted with one decimal for the locale.",
+    "placeholders": {
+      "kilobytes": {"type": "String", "example": "12.5"}
+    }
+  },
+  "kanbanBoardsExportedTitle": "Board exported",
+  "@kanbanBoardsExportedTitle": {
+    "description": "Title of the dialog that says a Kanban board was exported to an archive on the server."
+  },
+  "kanbanBoardsImportRenamed": "That name was taken, so the board is {board}.",
+  "@kanbanBoardsImportRenamed": {
+    "description": "Snackbar after an import when the server renamed the board because its name was taken. {board} is the new board name.",
+    "placeholders": {
+      "board": {"type": "String", "example": "ops-2"}
+    }
+  },
+  "kanbanBoardsNameHint": "Name",
+  "@kanbanBoardsNameHint": {
+    "description": "Placeholder of the field that names a new Kanban board."
+  },
+  "kanbanBoardsNameInvalid": "Use letters or numbers in the board name.",
+  "@kanbanBoardsNameInvalid": {
+    "description": "Snackbar when the typed board name has no letter or number the server could use for its short name."
+  },
+  "kanbanBoardsNew": "New board",
+  "@kanbanBoardsNew": {
+    "description": "Title of the prompt that names a new Kanban board, and the label of the boards page button that opens it."
+  },
+  "kanbanBoardsPreviousTitle": "Kanban",
+  "@kanbanBoardsPreviousTitle": {
+    "description": "Back label on the boards page; the product name."
+  },
+  "kanbanBoardsRename": "Rename",
+  "@kanbanBoardsRename": {
+    "description": "Menu item on a board row, and confirm button of the prompt that renames the board."
+  },
+  "kanbanBoardsRenameTitle": "Rename board",
+  "@kanbanBoardsRenameTitle": {
+    "description": "Title of the prompt that renames a Kanban board."
+  },
+  "kanbanBoardsTaskCount": "{count, plural, =1{1 task} other{{count} tasks}}",
+  "@kanbanBoardsTaskCount": {
+    "description": "Task count in the subtitle of a board row, after the board slug.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanBoardsTitle": "Boards",
+  "@kanbanBoardsTitle": {
+    "description": "Title of the page that lists the Kanban boards."
+  },
   "kanbanBulkActionArchive": "Archive",
   "@kanbanBulkActionArchive": {
     "description": "Button in the Kanban selection bar: archive the selected tasks."
@@ -3010,7 +3108,7 @@
   },
   "kanbanBulkEffortDefault": "Profile default",
   "@kanbanBulkEffortDefault": {
-    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile."
+    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile. Also the value of the task panel's Model row when the task sets no model."
   },
   "kanbanBulkEffortTitle": "Reasoning effort",
   "@kanbanBulkEffortTitle": {
@@ -3040,6 +3138,10 @@
   "kanbanBulkPriorityTitle": "Priority",
   "@kanbanBulkPriorityTitle": {
     "description": "Title of the Priority picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel."
+  },
+  "kanbanDelete": "Delete",
+  "@kanbanDelete": {
+    "description": "Menu item and button that deletes a Kanban board or task for good, and the confirm button of the question that asks first."
   },
   "kanbanEditTaskDescriptionLabel": "Description",
   "@kanbanEditTaskDescriptionLabel": {
@@ -3233,6 +3335,131 @@
   "@kanbanSaveAction": {
     "description": "Button that saves the Kanban dialog that is open (edit task, orchestration)."
   },
+  "kanbanTaskActions": "Actions",
+  "@kanbanTaskActions": {
+    "description": "Header of the group of status buttons in the task panel."
+  },
+  "kanbanTaskAdd": "Add",
+  "@kanbanTaskAdd": {
+    "description": "Row that adds a dependency to a task, and confirm button of the prompt for its task id."
+  },
+  "kanbanTaskArchiveTitle": "Archive this task?",
+  "@kanbanTaskArchiveTitle": {
+    "description": "Title of the confirmation before the open task is archived."
+  },
+  "kanbanTaskAssignee": "Assignee",
+  "@kanbanTaskAssignee": {
+    "description": "Label of the row that shows who a task is assigned to."
+  },
+  "kanbanTaskAttachFile": "Attach file",
+  "@kanbanTaskAttachFile": {
+    "description": "Row in the task panel that picks a file to attach to the task."
+  },
+  "kanbanTaskAttachments": "Attachments",
+  "@kanbanTaskAttachments": {
+    "description": "Header of the task panel group that lists the task’s attachments."
+  },
+  "kanbanTaskBlock": "Block",
+  "@kanbanTaskBlock": {
+    "description": "Row and confirm button that marks a task as blocked."
+  },
+  "kanbanTaskBlockedTitle": "Why is it blocked?",
+  "@kanbanTaskBlockedTitle": {
+    "description": "Title of the prompt for the reason a task is blocked."
+  },
+  "kanbanTaskComment": "Comment",
+  "@kanbanTaskComment": {
+    "description": "Label of the field that takes a new comment on a task."
+  },
+  "kanbanTaskCommentHint": "Add a comment…",
+  "@kanbanTaskCommentHint": {
+    "description": "Placeholder of the comment field in the task panel."
+  },
+  "kanbanTaskComments": "Comments ({count})",
+  "@kanbanTaskComments": {
+    "description": "Header of the task panel group that lists the comments. {count} is how many there are.",
+    "placeholders": {
+      "count": {"type": "int", "example": "2"}
+    }
+  },
+  "kanbanTaskComplete": "Complete",
+  "@kanbanTaskComplete": {
+    "description": "Row and confirm button that marks a task as done."
+  },
+  "kanbanTaskDecompose": "Decompose",
+  "@kanbanTaskDecompose": {
+    "description": "Row that splits a triage task into subtasks."
+  },
+  "kanbanTaskDecomposed": "Decomposed",
+  "@kanbanTaskDecomposed": {
+    "description": "Snackbar after a task was decomposed into no subtasks."
+  },
+  "kanbanTaskDecomposedInto": "{count, plural, =1{Decomposed into 1 task} other{Decomposed into {count} tasks}}",
+  "@kanbanTaskDecomposedInto": {
+    "description": "Snackbar after a task was decomposed into subtasks. {count} is how many.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanTaskDeleteTitle": "Delete this task for good?",
+  "@kanbanTaskDeleteTitle": {
+    "description": "Title of the confirmation before the open task is deleted for good."
+  },
+  "kanbanTaskDependsOn": "Depends on",
+  "@kanbanTaskDependsOn": {
+    "description": "Header of the task panel group that lists the tasks this one depends on, and title of the prompt that adds one."
+  },
+  "kanbanTaskDependsOnHint": "Task id, e.g. t_1a2b",
+  "@kanbanTaskDependsOnHint": {
+    "description": "Placeholder of the field that takes the id of a task to depend on; keep the example id."
+  },
+  "kanbanTaskEdit": "Edit",
+  "@kanbanTaskEdit": {
+    "description": "Accessibility label and tooltip of the button that edits the open task."
+  },
+  "kanbanTaskEstimate": "Estimate",
+  "@kanbanTaskEstimate": {
+    "description": "Row that asks the server to estimate the work of a task."
+  },
+  "kanbanTaskHistory": "History",
+  "@kanbanTaskHistory": {
+    "description": "Title of the expandable list of a task’s events."
+  },
+  "kanbanTaskLoadFailed": "Could not load the task",
+  "@kanbanTaskLoadFailed": {
+    "description": "Message in the task panel when the task failed to load."
+  },
+  "kanbanTaskModel": "Model",
+  "@kanbanTaskModel": {
+    "description": "Header of the task panel group that shows the task’s model, and title of the prompt that sets it."
+  },
+  "kanbanTaskModelHint": "Empty to clear the model",
+  "@kanbanTaskModelHint": {
+    "description": "Placeholder of the field that takes a model name for a task."
+  },
+  "kanbanTaskMoveTo": "Move to…",
+  "@kanbanTaskMoveTo": {
+    "description": "Label of the menu row that moves a task to another status."
+  },
+  "kanbanTaskNeedsAttention": "Needs attention",
+  "@kanbanTaskNeedsAttention": {
+    "description": "Header of the task panel group that lists problems the server found with a task."
+  },
+  "kanbanTaskNotify": "Notify",
+  "@kanbanTaskNotify": {
+    "description": "Header of the task panel group where the task’s updates can be posted to messaging channels."
+  },
+  "kanbanTaskOptional": "Optional",
+  "@kanbanTaskOptional": {
+    "description": "Placeholder of a field that may stay empty."
+  },
+  "kanbanTaskPostUpdates": "Post updates to {name}",
+  "@kanbanTaskPostUpdates": {
+    "description": "Switch row: post this task’s updates to a messaging channel. {name} is the channel name.",
+    "placeholders": {
+      "name": {"type": "String", "example": "Home"}
+    }
+  },
   "kanbanTaskPriorityLevel": "P{priority}",
   "@kanbanTaskPriorityLevel": {
     "description": "Option in the task panel's Priority picker: priority level 1 to 3, P for priority; keep it short.",
@@ -3240,9 +3467,141 @@
       "priority": {"type": "int", "example": "2"}
     }
   },
+  "kanbanTaskReclaim": "Reclaim",
+  "@kanbanTaskReclaim": {
+    "description": "Row and confirm button that releases a worker’s claim on a running task."
+  },
+  "kanbanTaskReclaimTitle": "Release the worker’s claim on this task?",
+  "@kanbanTaskReclaimTitle": {
+    "description": "Title of the confirmation before a running task is reclaimed from its worker."
+  },
+  "kanbanTaskRemove": "Remove",
+  "@kanbanTaskRemove": {
+    "description": "Confirm button of the question that removes an attachment."
+  },
+  "kanbanTaskRemoveAttachment": "Remove attachment",
+  "@kanbanTaskRemoveAttachment": {
+    "description": "Tooltip of the button that removes an attachment from a task."
+  },
+  "kanbanTaskRemoveAttachmentLabel": "Remove {filename}",
+  "@kanbanTaskRemoveAttachmentLabel": {
+    "description": "Accessibility label of the button that removes an attachment. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskRemoveAttachmentTitle": "Remove {filename}?",
+  "@kanbanTaskRemoveAttachmentTitle": {
+    "description": "Title of the confirmation before an attachment is removed. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskRemoveDependency": "Remove dependency {id}",
+  "@kanbanTaskRemoveDependency": {
+    "description": "Accessibility label of the button that removes a dependency. {id} is the task id.",
+    "placeholders": {
+      "id": {"type": "String", "example": "t_1a2b"}
+    }
+  },
+  "kanbanTaskResult": "Result",
+  "@kanbanTaskResult": {
+    "description": "Header of the text group with a task’s result, and title of the prompt that asks for it when completing the task."
+  },
+  "kanbanTaskResultHint": "Optional — what came out of it",
+  "@kanbanTaskResultHint": {
+    "description": "Placeholder of the field that takes a task’s result when it is completed."
+  },
+  "kanbanTaskRunRunning": "running",
+  "@kanbanTaskRunRunning": {
+    "description": "Status word in a run line of the task panel: the run is active; lower case, it follows a profile name."
+  },
+  "kanbanTaskRunWorker": "worker",
+  "@kanbanTaskRunWorker": {
+    "description": "Word in a run line of the task panel when the run has no profile name; lower case."
+  },
+  "kanbanTaskRuns": "Runs ({count})",
+  "@kanbanTaskRuns": {
+    "description": "Title of the expandable list of a task’s worker runs. {count} is how many.",
+    "placeholders": {
+      "count": {"type": "int", "example": "2"}
+    }
+  },
+  "kanbanTaskSaveAttachment": "Save attachment",
+  "@kanbanTaskSaveAttachment": {
+    "description": "Tooltip of the button that saves an attachment to this device."
+  },
+  "kanbanTaskSaveAttachmentLabel": "Save {filename}",
+  "@kanbanTaskSaveAttachmentLabel": {
+    "description": "Accessibility label of the button that saves an attachment. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskSaved": "Saved {filename}",
+  "@kanbanTaskSaved": {
+    "description": "Snackbar after an attachment was saved. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskSend": "Send",
+  "@kanbanTaskSend": {
+    "description": "Row that sends the typed comment on a task."
+  },
+  "kanbanTaskSpecified": "Specified",
+  "@kanbanTaskSpecified": {
+    "description": "Snackbar after a task was specified into no subtasks."
+  },
+  "kanbanTaskSpecifiedInto": "{count, plural, =1{Specified into 1 task} other{Specified into {count} tasks}}",
+  "@kanbanTaskSpecifiedInto": {
+    "description": "Snackbar after a task was specified into subtasks. {count} is how many.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanTaskSpecify": "Specify",
+  "@kanbanTaskSpecify": {
+    "description": "Row that asks the server to write a specification for a triage task."
+  },
+  "kanbanTaskSubtasks": "Subtasks",
+  "@kanbanTaskSubtasks": {
+    "description": "Header of the task panel group that lists a task’s subtasks."
+  },
+  "kanbanTaskTenant": "Tenant",
+  "@kanbanTaskTenant": {
+    "description": "Label of the row that shows a task’s tenant."
+  },
+  "kanbanTaskTerminateTitle": "Terminate this run?",
+  "@kanbanTaskTerminateTitle": {
+    "description": "Title of the confirmation before a worker run is stopped from the task panel."
+  },
+  "kanbanTaskTriageFailed": "That did not work out.",
+  "@kanbanTaskTriageFailed": {
+    "description": "Snackbar when the server could not decompose or specify a task and gave no reason."
+  },
+  "kanbanTaskUnassigned": "Unassigned",
+  "@kanbanTaskUnassigned": {
+    "description": "Value of the Assignee row when nobody is assigned."
+  },
+  "kanbanTaskWorkerLog": "Worker log",
+  "@kanbanTaskWorkerLog": {
+    "description": "Row that opens the log of a task’s worker."
+  },
   "kanbanWorkersEmpty": "No workers are running",
   "@kanbanWorkersEmpty": {
     "description": "Message on the workers page when no task has a worker running."
+  },
+  "kanbanWorkersHeartbeat": "heartbeat {when}",
+  "@kanbanWorkersHeartbeat": {
+    "description": "Caption of a worker row: when the worker last reported. {when} is a relative time such as 5m ago.",
+    "placeholders": {
+      "when": {"type": "String", "example": "5m ago"}
+    }
+  },
+  "kanbanWorkersInspect": "Inspect process",
+  "@kanbanWorkersInspect": {
+    "description": "Menu item on a worker row that shows details of its process."
   },
   "kanbanWorkersLoadFailed": "Could not load the workers",
   "@kanbanWorkersLoadFailed": {
@@ -3259,6 +3618,13 @@
       "reason": {"type": "String", "example": "Could not load the workers"}
     }
   },
+  "kanbanWorkersRunNumber": "run #{run}",
+  "@kanbanWorkersRunNumber": {
+    "description": "Part of the subtitle of a worker row: the run number.",
+    "placeholders": {
+      "run": {"type": "int", "example": "7"}
+    }
+  },
   "kanbanWorkersRunning": "{count} running",
   "@kanbanWorkersRunning": {
     "description": "Subtitle of the workers page: how many workers are running.",
@@ -3266,9 +3632,16 @@
       "count": {"type": "int", "example": "3"}
     }
   },
+  "kanbanWorkersStarted": "started {when}",
+  "@kanbanWorkersStarted": {
+    "description": "Caption of a worker row: when the run started. {when} is a relative time such as 5m ago.",
+    "placeholders": {
+      "when": {"type": "String", "example": "5m ago"}
+    }
+  },
   "kanbanWorkersTerminate": "Terminate",
   "@kanbanWorkersTerminate": {
-    "description": "Confirm button of the question that stops a worker run."
+    "description": "Confirm button of the question that stops a worker run, and the button on a run line of the task panel that stops it."
   },
   "kanbanWorkersTerminateTitle": "Terminate run #{run}?",
   "@kanbanWorkersTerminateTitle": {

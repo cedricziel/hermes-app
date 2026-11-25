@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../chat/widgets/relative_time.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
@@ -34,29 +35,40 @@ class KanbanBoardRow extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) => _MenuRow(
-    title: board.name,
-    subtitle: '${board.slug} · ${board.total} tasks',
-    value: current ? 'Current' : null,
-    onTap: onOpen,
-    actions: [
-      RowAction(label: 'Rename', icon: AppIcons.edit, onPressed: onRename),
-      RowAction(label: 'Export…', icon: AppIcons.share, onPressed: onExport),
-      if (removable) ...[
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return _MenuRow(
+      title: board.name,
+      subtitle: '${board.slug} · ${l10n.kanbanBoardsTaskCount(board.total)}',
+      value: current ? l10n.kanbanBoardsCurrent : null,
+      onTap: onOpen,
+      actions: [
         RowAction(
-          label: 'Archive',
-          icon: AppIcons.archive,
-          onPressed: onArchive,
+          label: l10n.kanbanBoardsRename,
+          icon: AppIcons.edit,
+          onPressed: onRename,
         ),
         RowAction(
-          label: 'Delete',
-          icon: AppIcons.delete,
-          destructive: true,
-          onPressed: onDelete,
+          label: l10n.kanbanBoardsExportMenu,
+          icon: AppIcons.share,
+          onPressed: onExport,
         ),
+        if (removable) ...[
+          RowAction(
+            label: l10n.kanbanArchive,
+            icon: AppIcons.archive,
+            onPressed: onArchive,
+          ),
+          RowAction(
+            label: l10n.kanbanDelete,
+            icon: AppIcons.delete,
+            destructive: true,
+            onPressed: onDelete,
+          ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 /// A running worker: its task, the run and the profile running it, when it
@@ -78,23 +90,30 @@ class KanbanWorkerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final w = worker;
+    final l10n = context.l10n;
     final times = [
-      if (w.startedAt case final at?) 'started ${relativeTime(at)}',
-      if (w.lastHeartbeatAt case final at?) 'heartbeat ${relativeTime(at)}',
+      if (w.startedAt case final at?)
+        l10n.kanbanWorkersStarted(relativeTimeLabel(l10n, at)),
+      if (w.lastHeartbeatAt case final at?)
+        l10n.kanbanWorkersHeartbeat(relativeTimeLabel(l10n, at)),
     ];
     return _MenuRow(
       title: w.taskTitle,
-      subtitle: [w.taskId, 'run #${w.runId}', ?w.profile].join(' · '),
+      subtitle: [
+        w.taskId,
+        l10n.kanbanWorkersRunNumber(w.runId),
+        ?w.profile,
+      ].join(' · '),
       caption: times.isEmpty ? null : times.join(' · '),
       onTap: onOpen,
       actions: [
         RowAction(
-          label: 'Inspect process',
+          label: l10n.kanbanWorkersInspect,
           icon: AppIcons.info,
           onPressed: onInspect,
         ),
         RowAction(
-          label: 'Terminate',
+          label: l10n.kanbanWorkersTerminate,
           icon: AppIcons.stop,
           destructive: true,
           onPressed: onTerminate,

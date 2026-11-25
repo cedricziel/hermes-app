@@ -159,17 +159,17 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     if (status == 'blocked') {
       reason = await askKanbanText(
         context,
-        title: 'Why is it blocked?',
-        hint: 'Optional',
-        confirm: 'Block',
+        title: context.l10n.kanbanTaskBlockedTitle,
+        hint: context.l10n.kanbanTaskOptional,
+        confirm: context.l10n.kanbanTaskBlock,
       );
       if (reason == null) return;
     } else if (status == 'done') {
       result = await askKanbanText(
         context,
-        title: 'Result',
-        hint: 'Optional — what came out of it',
-        confirm: 'Complete',
+        title: context.l10n.kanbanTaskResult,
+        hint: context.l10n.kanbanTaskResultHint,
+        confirm: context.l10n.kanbanTaskComplete,
         multiline: true,
       );
       if (result == null) return;
@@ -179,10 +179,12 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _triage(
-    Future<KanbanTriageOutcome> Function() run,
-    String done,
-  ) async {
+    Future<KanbanTriageOutcome> Function() run, {
+    required String done,
+    required String Function(int count) doneInto,
+  }) async {
     final messenger = ScaffoldMessenger.of(context);
+    final failed = context.l10n.kanbanTaskTriageFailed;
     KanbanTriageOutcome? outcome;
     final ok = await _run(() async => outcome = await run());
     if (!ok) return;
@@ -193,8 +195,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
           result.ok
               ? (result.childIds.isEmpty
                     ? done
-                    : '$done into ${result.childIds.length} tasks')
-              : result.reason ?? 'That did not work out.',
+                    : doneInto(result.childIds.length))
+              : result.reason ?? failed,
         ),
       ),
     );
@@ -217,10 +219,13 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
 
   Future<void> _download(KanbanAttachment a) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     var saved = false;
     final ok = await _run(() async => saved = await _task.download(a));
     if (ok && saved) {
-      messenger.showSnackBar(SnackBar(content: Text('Saved ${a.filename}')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.kanbanTaskSaved(a.filename))),
+      );
     }
   }
 
@@ -289,10 +294,10 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     if (options.providers.isEmpty) {
       final name = await askKanbanText(
         context,
-        title: 'Model',
-        hint: 'Empty to clear the model',
+        title: context.l10n.kanbanTaskModel,
+        hint: context.l10n.kanbanTaskModelHint,
         initial: task.modelOverride,
-        confirm: 'Save',
+        confirm: context.l10n.kanbanSaveAction,
       );
       if (name != null && mounted) await _run(() => _task.setModelName(name));
       return;
@@ -325,9 +330,9 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   Future<void> _addParent() async {
     final id = await askKanbanText(
       context,
-      title: 'Depends on',
-      hint: 'Task id, e.g. t_1a2b',
-      confirm: 'Add',
+      title: context.l10n.kanbanTaskDependsOn,
+      hint: context.l10n.kanbanTaskDependsOnHint,
+      confirm: context.l10n.kanbanTaskAdd,
     );
     if (id == null || id.isEmpty || !mounted) return;
     await _run(() => _task.addParent(id));
@@ -350,11 +355,11 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
                     ? Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('Could not load the task'),
+                          Text(context.l10n.kanbanTaskLoadFailed),
                           const SizedBox(height: 8),
                           FilledButton(
                             onPressed: _task.retry,
-                            child: const Text('Retry'),
+                            child: Text(context.l10n.commonRetry),
                           ),
                         ],
                       )
@@ -380,11 +385,19 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             task: task,
             estimate: _task.estimate,
             estimating: _task.estimating,
-            onDecompose: () => _triage(_task.decompose, 'Decomposed'),
-            onSpecify: () => _triage(_task.specify, 'Specified'),
+            onDecompose: () => _triage(
+              _task.decompose,
+              done: context.l10n.kanbanTaskDecomposed,
+              doneInto: context.l10n.kanbanTaskDecomposedInto,
+            ),
+            onSpecify: () => _triage(
+              _task.specify,
+              done: context.l10n.kanbanTaskSpecified,
+              doneInto: context.l10n.kanbanTaskSpecifiedInto,
+            ),
             onReclaim: () => _confirmThen(
-              'Release the worker’s claim on this task?',
-              'Reclaim',
+              context.l10n.kanbanTaskReclaimTitle,
+              context.l10n.kanbanTaskReclaim,
               _task.reclaim,
             ),
             onComplete: () => _moveTo('done'),
@@ -421,8 +434,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
                 ? (a) => _quickLook(a, QuickLookTrigger.key, toggle: true)
                 : null,
             onRemove: (a) => _confirmThen(
-              'Remove ${a.filename}?',
-              'Remove',
+              context.l10n.kanbanTaskRemoveAttachmentTitle(a.filename),
+              context.l10n.kanbanTaskRemove,
               () => _task.removeAttachment(a),
             ),
           ),
@@ -431,8 +444,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             events: detail.events,
             taskRunning: task.status == 'running',
             onTerminate: (run) => _confirmThen(
-              'Terminate this run?',
-              'Terminate',
+              context.l10n.kanbanTaskTerminateTitle,
+              context.l10n.kanbanWorkersTerminate,
               () => _task.terminateRun(run),
             ),
             onShowLog: _showLog,
@@ -440,14 +453,14 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
           const Divider(),
           KanbanTaskFooter(
             onArchive: () => _confirmThen(
-              'Archive this task?',
-              'Archive',
+              context.l10n.kanbanTaskArchiveTitle,
+              context.l10n.kanbanArchive,
               _task.archive,
               close: true,
             ),
             onDelete: () => _confirmThen(
-              'Delete this task for good?',
-              'Delete',
+              context.l10n.kanbanTaskDeleteTitle,
+              context.l10n.kanbanDelete,
               _task.delete,
               close: true,
             ),
