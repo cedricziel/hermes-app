@@ -47,6 +47,22 @@ enum HermesConnectionState {
 /// The shared-preferences key the connected server's address is saved under.
 const kSavedServerUrlKey = 'hermes.server_base_url';
 
+/// The shared-preferences key of the public `http://` addresses the user
+/// chose to keep, a list of normalized addresses. It holds no secret.
+const kAcceptedCleartextServersKey = 'hermes.cleartext_accepted_servers';
+
+/// How [AuthController.useHttpsForCleartextServer] ended.
+enum HttpsSwitch {
+  /// The https address answered and the app connected to it.
+  switched,
+
+  /// Nothing usable answered there; the saved connection stays.
+  unavailable,
+
+  /// The question was gone by then (another server, disposal): nothing done.
+  superseded,
+}
+
 const _unexpectedResponseMessage = 'Unexpected response from the server';
 
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
@@ -108,8 +124,14 @@ class AuthController extends ChangeNotifier {
   StreamSubscription<void>? _networkChanges;
 
   HermesConnectionState _state = HermesConnectionState.initializing;
+
+  /// How often [_state] was set, to tell that it moved in between.
+  int _stateChanges = 0;
   String? _baseUrl;
   String? _savedServerUrl;
+
+  /// The saved public `http://` address nobody has accepted yet.
+  String? _cleartextToConfirm;
   int _connectGeneration = 0;
   Future<void>? _savedServerWrites;
   HermesStatus? _status;
@@ -221,6 +243,85 @@ class AuthController extends ChangeNotifier {
   /// [HermesConnectionState.ready].
   HermesApiClient? get api => _api;
 
+  /// The saved `http://` address of a public host that the user never
+  /// accepted (saved before the app asked), or null. The app shows the
+  /// question once and answers with [keepCleartextServer] or
+  /// [useHttpsForCleartextServer]; the connection works meanwhile, and work
+  /// without a screen never asks.
+  String? get unconfirmedCleartextServer => _cleartextToConfirm;
+
+  /// Remembers the user's choice to keep the saved `http://` address, so the
+  /// question is not asked again for it.
+  Future<void> keepCleartextServer() async {
+    final address = _cleartextToConfirm;
+    if (address != null) await _acceptCleartext(address);
+  }
+
+  /// Reconnects to the `https://` form of the saved `http://` address, once
+  /// that answers there. When it does not, the saved connection stays as it
+  /// is and the question is dropped until the next launch. The session the `http://` address issued is not
+  /// served to the https address (the sign-in is asked again).
+  Future<HttpsSwitch> useHttpsForCleartextServer() async {
+    final address = _cleartextToConfirm;
+    if (address == null) return HttpsSwitch.superseded;
+    final https = httpsAddressOf(address);
+    final changes = _stateChanges;
+    var answers = true;
+    try {
+      final probe = await HermesApiClient(
+        _plainDio(
+          https,
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+        ),
+      ).probeStatus();
+      final redirected = probe.redirectedTo;
+      // An https address that sends the app back to cleartext is no answer.
+      answers =
+          redirected == null ||
+          !redirectsToUnacceptedCleartext(https, redirected);
+    } on Object {
+      answers = false;
+    }
+    // A sign-in or connect that started, even one that has finished, must
+    // not be overrun.
+    if (_disposed ||
+        _cleartextToConfirm != address ||
+        _stateChanges != changes) {
+      return HttpsSwitch.superseded;
+    }
+    _cleartextToConfirm = null;
+    if (!answers) {
+      notifyListeners();
+      return HttpsSwitch.unavailable;
+    }
+    await connect(https);
+    return HttpsSwitch.switched;
+  }
+
+  Future<List<String>> _acceptedCleartext() async =>
+      await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
+
+  /// Remembers [address] as accepted. A failed write only means the question
+  /// comes back next launch, so it never fails the caller.
+  Future<void> _acceptCleartext(String address) async {
+    try {
+      final accepted = await _acceptedCleartext();
+      if (!accepted.contains(address)) {
+        await _prefs.setStringList(kAcceptedCleartextServersKey, [
+          ...accepted,
+          address,
+        ]);
+      }
+    } on Object {
+      // Asked again next launch.
+    }
+    if (_cleartextToConfirm == address) {
+      _cleartextToConfirm = null;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   Future<void> bootstrap() async {
     if (_devServerUrl.isNotEmpty) {
       await connect(_devServerUrl, remember: false, restoring: true);
@@ -232,6 +333,14 @@ class AuthController extends ChangeNotifier {
       return;
     }
     _savedServerUrl = savedUrl;
+    final saved = normalizeServerUrl(savedUrl);
+    if (saved != null && isCleartextToPublicHost(saved)) {
+      // An unreadable list counts as "not accepted": ask, and connect anyway.
+      final accepted = await _acceptedCleartext().catchError(
+        (Object _) => const <String>[],
+      );
+      if (!accepted.contains(saved)) _cleartextToConfirm = saved;
+    }
     await connect(savedUrl, restoring: true);
   }
 
@@ -270,6 +379,7 @@ class AuthController extends ChangeNotifier {
       _setState(HermesConnectionState.connectionError);
       return;
     }
+    if (_cleartextToConfirm != typed) _cleartextToConfirm = null;
     var normalized = typed;
 
     _errorMessage = null;
@@ -299,6 +409,11 @@ class AuthController extends ChangeNotifier {
         return;
       }
       normalized = redirected ?? normalized;
+      if (allowCleartext && remember && isCleartextToPublicHost(typed)) {
+        // Recorded once the address answered, not for a refused or failed one.
+        await _acceptCleartext(typed);
+      }
+      if (!isCleartextToPublicHost(normalized)) _cleartextToConfirm = null;
     } on DioException catch (e) {
       if (stale()) return;
       _failConnect(
@@ -635,6 +750,7 @@ class AuthController extends ChangeNotifier {
     _ignoreStoredSession = true;
     if (removeServer) {
       _savedServerUrl = null;
+      _cleartextToConfirm = null;
     }
     final departure = _finishDeparture(removeServer, generation);
     _departureInFlight = departure;
@@ -1232,6 +1348,7 @@ class AuthController extends ChangeNotifier {
   void _setState(HermesConnectionState next) {
     if (_disposed) return;
     _state = next;
+    _stateChanges++;
     _events('auth.state', {'state': next.name});
     notifyListeners();
   }

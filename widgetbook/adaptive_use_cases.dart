@@ -63,6 +63,15 @@ WidgetbookNode adaptiveNode() => WidgetbookFolder(
       ),
     ),
     WidgetbookComponent(
+      name: 'confirmSavedCleartextServer',
+      useCases: _everywhere(
+        (_) => openOnShow(
+          (context) =>
+              confirmSavedCleartextServer(context, host: 'hermes.example.com'),
+        ),
+      ),
+    ),
+    WidgetbookComponent(
       name: 'showAdaptiveSheet',
       useCases: _everywhere(
         (_) => openOnShow(

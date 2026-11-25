@@ -52,6 +52,7 @@
   "chatNewMessageTitle": "Neue Nachricht",
   "chatNoticeStopCommand": "Hermes hat das als Stopp-Befehl verstanden. Es wurde nichts gesendet.",
   "chatNoticeStopCommandElsewhere": "Hermes hat eine Nachricht in einem anderen Chat als Stopp-Befehl verstanden. Es wurde nichts gesendet; der Text steht dort wieder im Nachrichtenfeld.",
+  "chatNoticeThreadBusy": "Hermes arbeitet noch in diesem Chat. Versuche es erneut, wenn es fertig ist.",
   "chatReplyFailedGeneric": "Etwas ist schiefgegangen. Sende die Nachricht erneut.",
   "chatReplyFailedMayStillRun": "Etwas ist schiefgegangen. Hermes arbeitet möglicherweise noch daran.",
   "chatReplyFailedProfileUnavailable": "Dieses Profil ist nicht mehr verfügbar. Wähle ein anderes.",
@@ -1435,6 +1436,12 @@
   "schedulesRunRequested": "Ausführung angefordert",
 
   "@@x-area-screens": "",
+  "screensCleartextCheckingHttps": "Prüfe {host} über https://…",
+  "screensCleartextHttpsUnavailable": "{host} antwortet nicht über https://. Hermes verwendet vorerst weiter http:// und fragt beim nächsten Mal erneut.",
+  "screensCleartextKeepAction": "http:// beibehalten",
+  "screensCleartextSavedBody": "{host} liegt weder in deinem lokalen Netzwerk noch in einem VPN, und Hermes sendet dein Passwort, deine Anmelde-Tokens und deine Chats per http:// unverschlüsselt dorthin. Jeder auf dem Weg kann sie mitlesen.\n\nWechsle zur https://-Adresse, falls der Server eine hat.",
+  "screensCleartextSavedTitle": "http:// weiter verwenden?",
+  "screensCleartextUseHttpsAction": "https:// verwenden",
   "screensConnectionVersionUnknown": "unbekannt",
   "screensRefreshAction": "Aktualisieren",
 

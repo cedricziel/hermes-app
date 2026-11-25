@@ -157,6 +157,10 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatNoticeThreadBusy": "Hermes is still working in this chat. Try again when it is done.",
+  "@chatNoticeThreadBusy": {
+    "description": "Notice when Hermes refused to rename, pin, archive or delete a chat (HTTP 409) because its turn is still writing to it. Nothing was changed; the same action works once the turn ends."
+  },
   "chatReplyFailedGeneric": "Something went wrong. Try sending it again.",
   "@chatReplyFailedGeneric": {
     "description": "Error line under a reply that failed when the server gave no explanation of its own and the server does not have the turn any more. Tells the person to send the prompt again. Wraps at any text size."
@@ -6848,6 +6852,48 @@
   },
 
   "@@x-area-screens": "",
+  "screensCleartextCheckingHttps": "Checking {host} over https://…",
+  "@screensCleartextCheckingHttps": {
+    "description": "Snackbar while an already saved unencrypted server is tried over https:// after the user chose https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextHttpsUnavailable": "{host} doesn't answer over https://. Hermes keeps using http:// for now and will ask again next time.",
+  "@screensCleartextHttpsUnavailable": {
+    "description": "Snackbar after choosing https:// for an already saved unencrypted server that does not answer over https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextKeepAction": "Keep http://",
+  "@screensCleartextKeepAction": {
+    "description": "Action of the alert about an already saved unencrypted server that keeps using http://."
+  },
+  "screensCleartextSavedBody": "{host} is not on your local network or a VPN, and Hermes has been sending your password, sign-in tokens and chats to it over http://, unencrypted. Anyone on the way can read them.\n\nSwitch to its https:// address if the server has one.",
+  "@screensCleartextSavedBody": {
+    "description": "Body of the alert about an already saved server that is reached over http:// across the internet.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextSavedTitle": "Keep using http://?",
+  "@screensCleartextSavedTitle": {
+    "description": "Title of the alert about an already saved server that is reached over http:// across the internet."
+  },
+  "screensCleartextUseHttpsAction": "Use https://",
+  "@screensCleartextUseHttpsAction": {
+    "description": "Action of the alert about an already saved unencrypted server that reconnects to its https:// address; the default answer."
+  },
   "screensConnectionVersionUnknown": "unknown",
   "@screensConnectionVersionUnknown": {
     "description": "Value of the Agent version row of the Connection page when the server reports no version."
