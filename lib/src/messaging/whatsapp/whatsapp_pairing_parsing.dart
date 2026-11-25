@@ -137,9 +137,13 @@ WhatsAppApplyResult whatsAppApplyResultFrom(Object? data) {
   final body = data is Map ? data : const {};
   final started = body['restart_started'] == true;
   final needs = body['needs_restart'];
+  final error = body['restart_error'];
   return WhatsAppApplyResult(
     confirmed: body['ok'] == true,
     restartStarted: started,
     needsRestart: needs is bool ? needs : !started,
+    restartError: error is String && error.isNotEmpty
+        ? WhatsAppServerText(error)
+        : null,
   );
 }

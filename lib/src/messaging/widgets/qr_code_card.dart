@@ -203,6 +203,18 @@ class _QrCodeTileState extends State<QrCodeTile> {
   void initState() {
     super.initState();
     _encode();
+    // The code has just been drawn (after the "Show QR code" tap, or at once
+    // on a tablet or computer): a screen reader starts at it. The event
+    // carries no text and only Android and iOS act on it.
+    if (_matrix != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.findRenderObject()?.sendSemanticsEvent(
+            const FocusSemanticEvent(),
+          );
+        }
+      });
+    }
   }
 
   @override

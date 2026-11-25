@@ -1,6 +1,6 @@
-import 'dart:math';
-
 import 'gateway_rpc_client.dart';
+
+export '../../network/retry_delay.dart' show reconnectDelay;
 
 /// Tracks, per runtime session, the highest event `seq` already delivered, so
 /// a replay after a reconnect and the live frames that overlap it never hand
@@ -136,20 +136,6 @@ final class Deliver extends ReplayDecision {
 /// reply from `inflight` or from the stored messages.
 final class Refetch extends ReplayDecision {
   const Refetch();
-}
-
-/// The delay before reconnect attempt [attempt] (from 0). The bound doubles
-/// from [base] up to [cap], and the actual delay is drawn uniformly below it,
-/// so clients that dropped together do not reconnect in lockstep.
-Duration reconnectDelay(
-  int attempt,
-  Random random, {
-  Duration base = const Duration(milliseconds: 300),
-  Duration cap = const Duration(seconds: 15),
-}) {
-  final grown = base.inMicroseconds * pow(2, attempt).toDouble();
-  final bound = min(cap.inMicroseconds.toDouble(), grown);
-  return Duration(microseconds: (random.nextDouble() * bound).floor());
 }
 
 /// How long a prompt may go without its turn starting before a stale

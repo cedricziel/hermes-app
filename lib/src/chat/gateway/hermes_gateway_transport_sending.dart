@@ -74,7 +74,7 @@ extension _Sending on HermesGatewayTransport {
             'code': code,
           },
           ProfileUnavailableException() => {'cause': 'profile'},
-          TimeoutException() => {'cause': 'timeout'},
+          TimeoutException() || GatewayRequestTimeout() => {'cause': 'timeout'},
           _ => {'cause': 'other', 'error_type': '${error.runtimeType}'},
         },
       });
