@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoLocalizations;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -24,13 +25,20 @@ Iterable<(String, WidgetbookUseCase)> _useCases(
 
 /// The link that opens [useCase] in the catalog with [theme] and [viewport]
 /// picked in the addons panel and the side panels hidden.
-String _link(WidgetbookUseCase useCase, String theme, ViewportData viewport) {
+String _link(
+  WidgetbookUseCase useCase,
+  String theme,
+  ViewportData viewport, {
+  String? locale,
+}) {
   return Uri(
     path: '/',
     queryParameters: {
       'path': useCase.path,
       'theme': FieldCodec.encodeQueryGroup({'name': theme}),
       'viewport': FieldCodec.encodeQueryGroup({'name': viewport.name}),
+      if (locale != null)
+        'locale': FieldCodec.encodeQueryGroup({'name': locale}),
       'preview': 'true',
     },
   ).toString();
@@ -85,6 +93,30 @@ void main() {
       }
     }
   }
+
+  // A dialog opened with `rootNavigator: true` is built under the outermost
+  // navigator, outside the workbench and its addons.
+  testWidgets('the root navigator has the picked theme and locale', (
+    tester,
+  ) async {
+    final (_, useCase) = _useCases(directories).first;
+    await tester.pumpWidget(
+      HermesWidgetbook(
+        initialRoute: _link(useCase, 'Dark', desktop, locale: 'de'),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+
+    final root = tester.element(find.byType(Navigator).first);
+    expect(Localizations.localeOf(root), const Locale('de'));
+    expect(Theme.of(root).brightness, Brightness.dark);
+    expect(MaterialLocalizations.of(root).okButtonLabel, 'OK');
+    expect(CupertinoLocalizations.of(root).pasteButtonLabel, 'Einsetzen');
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 10));
+  });
 
   test('the catalog lists at least one use case', () {
     expect(_useCases(directories), isNotEmpty);

@@ -34,36 +34,43 @@ final _themeAddon = ThemeAddon<ThemeData>(
   ),
 );
 
-/// The theme picked in the addons panel.
-ThemeData _pickedTheme(WidgetbookState state) => _themeAddon
-    .valueFromQueryGroup(
-      FieldCodec.decodeQueryGroup(state.queryParams[_themeAddon.groupName]),
-    )
-    .data;
+final _localeAddon = LocalizationAddon(
+  locales: AppLocalizations.supportedLocales,
+  localizationsDelegates: _delegates,
+  initialLocale: const Locale('en'),
+);
+
+/// What [addon] is set to in the addons panel.
+T _picked<T>(WidgetbookState state, WidgetbookAddon<T> addon) =>
+    addon.valueFromQueryGroup(
+      FieldCodec.decodeQueryGroup(state.queryParams[addon.groupName]),
+    );
 
 /// The app every use case is built in. `Widgetbook.material`'s default builds
 /// Flutter's `MaterialApp` and `Material`, which `material_ui` widgets do not
-/// see: a `ListTile` or `TextField` then throws "No Material widget found".
+/// see: a `ListTile` or `TextField` then throws "No Material widget found",
+/// and a snack bar finds no `ScaffoldMessenger`.
 Widget _appBuilder(BuildContext context, Widget child) => MaterialApp(
   debugShowCheckedModeBanner: false,
-  theme: _pickedTheme(WidgetbookState.of(context)),
+  theme: _picked(WidgetbookState.of(context), _themeAddon).data,
   localizationsDelegates: _delegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: child,
 );
 
 /// Tells [HermesWidgetbook], which is above Widgetbook's state, the theme
-/// that is picked.
-class _PickedTheme extends WidgetbookIntegration {
-  _PickedTheme(this.onPicked);
+/// and the locale that are picked.
+class _Picked extends WidgetbookIntegration {
+  _Picked(this.onPicked);
 
-  final ValueChanged<ThemeData> onPicked;
-
-  @override
-  void onInit(WidgetbookState state) => onPicked(_pickedTheme(state));
+  final void Function(ThemeData theme, Locale locale) onPicked;
 
   @override
-  void onChange(WidgetbookState state) => onPicked(_pickedTheme(state));
+  void onInit(WidgetbookState state) => onChange(state);
+
+  @override
+  void onChange(WidgetbookState state) =>
+      onPicked(_picked(state, _themeAddon).data, _picked(state, _localeAddon));
 }
 
 class HermesWidgetbook extends StatefulWidget {
@@ -78,51 +85,69 @@ class HermesWidgetbook extends StatefulWidget {
 }
 
 class _HermesWidgetbookState extends State<HermesWidgetbook> {
-  late final _picked = _PickedTheme(_onPicked);
+  late final _integration = _Picked(_onPicked);
   var _theme = themes.values.first;
+  var _locale = const Locale('en');
 
   // Widgetbook reports from inside its own build, so the change waits for
   // the frame to end.
-  void _onPicked(ThemeData theme) {
+  void _onPicked(ThemeData theme, Locale locale) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !identical(theme, _theme)) setState(() => _theme = theme);
+      if (!mounted || (identical(theme, _theme) && locale == _locale)) return;
+      setState(() {
+        _theme = theme;
+        _locale = locale;
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final catalog = Widgetbook.material(
+      initialRoute: widget.initialRoute,
+      home: const Center(child: Text(catalogHomeText)),
+      directories: directories,
+      appBuilder: _appBuilder,
+      integrations: [_integration],
+      addons: [
+        _themeAddon,
+        _localeAddon,
+        BuilderAddon(
+          name: 'App theme scopes',
+          builder: (context, child) => AppThemeScopes(child: child),
+        ),
+        TextScaleAddon(min: 1, max: 3),
+        ViewportAddon([phone, desktop]),
+      ],
+    );
     // A dialog or sheet that asks for the root navigator leaves the workbench
     // and its [_appBuilder] app. Widgetbook's own app is Flutter's
     // `MaterialApp`, where a `material_ui` or `cupertino_ui` dialog finds no
-    // localizations, so this app is around it and the root navigator is this
-    // one's. Such a route covers the whole window and is in the system
-    // language, not the Locale addon's.
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: _theme,
-      localizationsDelegates: _delegates,
-      supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => AppThemeScopes(child: child!),
-      home: Widgetbook.material(
-        initialRoute: widget.initialRoute,
-        home: const Center(child: Text(catalogHomeText)),
-        directories: directories,
-        appBuilder: _appBuilder,
-        integrations: [_picked],
-        addons: [
-          _themeAddon,
-          LocalizationAddon(
-            locales: AppLocalizations.supportedLocales,
-            localizationsDelegates: _delegates,
-            initialLocale: const Locale('en'),
+    // localizations, so the root navigator is this one, with what such a
+    // route needs around it. Such a route covers the whole window.
+    //
+    // A bare `Navigator`, not a second app: an app's navigator reports its
+    // routes to the browser and takes the address bar's, which are
+    // Widgetbook's to handle.
+    return Localizations(
+      locale: _locale,
+      delegates: _delegates,
+      child: Theme(
+        data: _theme,
+        child: Shortcuts(
+          shortcuts: WidgetsApp.defaultShortcuts,
+          child: DefaultTextEditingShortcuts(
+            child: Actions(
+              actions: WidgetsApp.defaultActions,
+              child: AppThemeScopes(
+                child: Navigator(
+                  onGenerateRoute: (_) =>
+                      PageRouteBuilder<void>(pageBuilder: (_, _, _) => catalog),
+                ),
+              ),
+            ),
           ),
-          BuilderAddon(
-            name: 'App theme scopes',
-            builder: (context, child) => AppThemeScopes(child: child),
-          ),
-          TextScaleAddon(min: 1, max: 3),
-          ViewportAddon([phone, desktop]),
-        ],
+        ),
       ),
     );
   }

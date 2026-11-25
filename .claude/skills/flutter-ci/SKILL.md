@@ -22,7 +22,10 @@ the job summary. Read that step first.
 `scripts/test-shard.sh <index> 4` reproduces the file partition. CI's split and
 a local one match only when run on the same tree, since adding or removing a
 test file moves the rest. Shard 0 is the
-catalog; the other files are sorted and distributed round-robin. Adding a test
+catalog, run in `CATALOG_PARTS` processes (default 6) one after the other,
+because one process for the whole file runs out of memory; its coverage file
+and failure report hold all parts. The other files are sorted and distributed
+round-robin. Adding a test
 file can move existing tests between shards. Start with the failing file before
 running a full shard.
 
