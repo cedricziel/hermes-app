@@ -654,14 +654,22 @@ class _Review:
         a Range base: nothing makes the next reviewer re-check its findings,
         so a clean B..D after a rejected A..B would accept D with A..B's
         findings unread. After a rejected round the next clean review starts
-        at the last accepted commit or the base branch. `commit` is a strict
+        at the last accepted commit or the base branch. The same holds for a
+        commit with a rejected block next to a clean one. `commit` is a strict
         ancestor of the commit being decided, so this terminates."""
         if commit in self._covered:
             return self._covered[commit]
         self._covered[commit] = False
         found = self.git.is_ancestor(commit, self.base_tip) or not self.accepted(commit)
+        # A commit with ANY non-clean plain or Merge-review block is never a
+        # base, whatever clean block also names it (the rule `_decide` applies:
+        # a block that asks for changes outweighs a clean one).
+        rejected = any(
+            b.head == commit and b.verdict != "clean"
+            for b in self.plain + self.merge_blocks
+        )
         for block in self.plain:
-            if found:
+            if found or rejected:
                 break
             m = (
                 block.head == commit

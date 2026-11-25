@@ -978,6 +978,21 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(s4, bad + blk(s2, self.rev) + blk(s4, s3))
         self.assertIn(f"starts at {s3}", out[0])
 
+    def test_commit_with_a_rejected_and_a_clean_block_is_no_range_base(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        bad = blk(self.rev, self.root, verdict="changes-requested")
+        good = blk(self.rev, self.root)
+        for both in (bad + good, good + bad):
+            # B alone as head is refused ...
+            self.assertTrue(self.review(self.rev, both))
+            # ... so it is no base for B..D either.
+            out = self.review(s2, both + blk(s2, self.rev))
+            self.assertTrue(out, both)
+            self.assertIn(f"starts at {self.rev}", out[0])
+            # base..D clean still passes.
+            self.assertEqual(self.review(s2, both + blk(s2, self.root)), [])
+
     def test_changes_requested_block_is_no_base_even_with_its_own_base_read(self):
         self.r.sync_origin()
         s2 = self.r.commit("pr2.txt")

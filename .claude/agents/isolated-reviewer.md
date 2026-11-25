@@ -109,8 +109,8 @@ after them:
   for a first review the fork point, `git merge-base <base branch tip> <head>`.
   A Range may start at the head of an earlier CLEAN review of this branch if
   that review's own Range is valid, or at any commit the check already
-  accepts, a merge included. A review that asked for changes is never a
-  base: nothing re-checks its findings unless you do, so a re-review after a
+  accepts, a merge included. A commit with any review that asked for changes is
+  never a base, even if a clean block also names it: nothing re-checks its findings unless you do, so a re-review after a
   rejected round reviews, and names as its Range, everything since the last
   clean review or the base branch (check the earlier findings are fixed as
   part of it). Never `<head>^`.

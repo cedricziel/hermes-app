@@ -131,7 +131,7 @@ branch needs it listing everything the merge brings in. A new non-merge commit
 after the reviewed head always needs a review of its own. A review's `Range:`
 may start at the base branch or at a commit with a clean recorded review (so
 each push is reviewed for its new commits); a review that asked for changes
-is never a Range base, so after a rejected round the next review reads, and
+is never a Range base (a commit with any rejected block, even beside a clean one, is none either), so after a rejected round the next review reads, and
 names as its Range, everything since the last clean review or the base.
 
 Authors may add fix notes to `## Review`, but never write or change a
