@@ -484,10 +484,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// front, App Lock is not covering it (unless [ignoringLock], for a menu item
   /// that is built while locked and must not wait for a rebuild when it lifts;
   /// the tap itself still checks) and no read is running or has found the
-  /// original gone.
+  /// original gone, and no list read is out (a read of another profile's list
+  /// would take the open with it).
   bool canOpenBranchParent(ChatThread thread, {bool ignoringLock = false}) =>
       active &&
       (ignoringLock || !(appLock?.locked ?? false)) &&
+      !_loadingThreads &&
       selectedId == thread.id &&
       switch (branchParentStatusOf(thread)) {
         BranchParentStatus.resting || BranchParentStatus.unreachable => true,

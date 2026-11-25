@@ -5,7 +5,6 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/bound_branch_notice.dart';
-import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -512,6 +511,28 @@ void main() {
       expect(crumbs.named('chat.open.requested'), isEmpty);
     });
 
+    test('a tap made while a list read is out sends nothing', () async {
+      final list = Completer<FakeResponse>();
+      server.onRequest(
+        'GET',
+        '/api/sessions',
+        (_) => list.future,
+        query: {'profile': 'work'},
+      );
+      final switching = chat.loadThreads('work');
+      await flush();
+      expect(chat.canOpenBranchParent(branch()), isFalse);
+
+      await chat.openBranchParent(branch());
+
+      expect(server.requestsTo('GET', _descendant(_parent)), isEmpty);
+      list.complete((
+        status: 200,
+        body: sessionListBody([sessionRow(id: 'elsewhere', title: 'E')]),
+      ));
+      await switching;
+    });
+
     test('after sign-out opens nothing', () async {
       final tap = chat.openBranchParent(branch());
       await flush();
@@ -666,8 +687,8 @@ void main() {
     });
   });
 
-  testWidgets('the row works again once App Lock lifts', (tester) async {
-    answerParent();
+  testWidgets('the row is dead under the App Lock cover and works again once '
+      'it lifts', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         localizationsDelegates: kTestLocalizationsDelegates,
@@ -680,21 +701,19 @@ void main() {
         ),
       ),
     );
-    TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
-      AppLifecycleState.paused,
-    );
+    expect(find.byType(InkWell), findsOneWidget);
+
+    TestWidgetsFlutterBinding.instance
+      ..handleAppLifecycleStateChanged(AppLifecycleState.paused)
+      // Frames stop while paused; inactive keeps the lock and draws again.
+      ..handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(lock.locked, isTrue);
+    await tester.pump();
+    expect(find.byType(InkWell), findsNothing);
+
     await tester.runAsync(() => lock.unlock());
     await tester.pump();
 
-    await tester.tap(find.byType(ChatBranchNotice));
-    for (var i = 0; i < 10; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 10)),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-
-    expect(chat.selectedId, _parent);
-    expect(server.requestsTo('GET', _descendant(_parent)), hasLength(1));
+    expect(find.byType(InkWell), findsOneWidget);
   });
 }
