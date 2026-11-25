@@ -17,6 +17,7 @@ import 'package:hermes_app/src/surfaces/surface_snapshot_builder.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/accessibility_announcements.dart';
 import '../support/cron_fixtures.dart';
 import '../support/fake_chat_transport.dart';
 import '../support/fake_device_authenticator.dart';
@@ -461,6 +462,38 @@ void main() {
       expect(outcome(), isNull);
     });
 
+    test('a dropped answer does not end a newer tap\'s read', () async {
+      final answers = <Completer<FakeResponse>>[];
+      server.onRequest('GET', _descendant(_parent), (_) {
+        answers.add(Completer<FakeResponse>());
+        return answers.last.future;
+      });
+      final first = chat.openBranchParent(branch());
+      await flush();
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      await flush();
+      await lock.unlock();
+      final second = chat.openBranchParent(branch());
+      await flush();
+      expect(chat.branchParentStatusOf(branch()), BranchParentStatus.opening);
+
+      answers.first.complete((status: 200, body: _answer(_parent, _parent)));
+      await first;
+      await flush();
+
+      expect(outcome(), 'dropped');
+      expect(chat.branchParentStatusOf(branch()), BranchParentStatus.opening);
+      await chat.openBranchParent(branch());
+      expect(answers, hasLength(2));
+
+      answers.last.complete((status: 200, body: _answer(_parent, _parent)));
+      await second;
+      await flush();
+      expect(chat.selectedId, _parent);
+    });
+
     test('after a profile switch opens nothing', () async {
       server.on(
         'GET',
@@ -715,5 +748,35 @@ void main() {
     await tester.pump();
 
     expect(find.byType(InkWell), findsOneWidget);
+  });
+
+  testWidgets('a row mounted for a chat whose original already failed says '
+      'nothing', (tester) async {
+    final said = captureAnnouncements(tester);
+    server.on('GET', _descendant(_parent), {
+      'detail': 'Session not found',
+    }, status: 404);
+    await tester.runAsync(() async {
+      await chat.openBranchParent(branch());
+      await flush();
+    });
+    expect(chat.branchParentStatusOf(branch()), BranchParentStatus.deleted);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: BoundBranchNotice(chat: chat, thread: branch()),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('The original chat was deleted.'), findsOneWidget);
+    expect(said, isEmpty);
   });
 }
