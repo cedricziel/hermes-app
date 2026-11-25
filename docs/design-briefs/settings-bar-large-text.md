@@ -45,7 +45,8 @@ ellipsis. One shared button (`CollapsedBarIconButton`, built on
 
 - Catalog, "Settings pages / SettingsScaffold": use cases "Form action at
   1x text", "Form action at 2x text" and "Form action at 3x text", on each
-  platform, both themes, phone and desktop width.
+  platform, both themes, phone and desktop width; and "Form with Cancel at
+  2x text" and "Form with Cancel at 3x text", the collapsed Cancel icon.
 - Catalog, "Adaptive bars": the detail bar with back and tabs.
 - Tests: `test/widgets/settings_scaffold_text_size_test.dart` (320 pt, 3x,
   iOS and Android, LTR and RTL, English and German),

@@ -37,6 +37,15 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
               child: const _Pushed(_FormPage()),
             ),
           ),
+        for (final scale in const [2.0, 3.0])
+          ...onEachPlatform(
+            'Form with Cancel at ${scale.toInt()}x text',
+            (context) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: const _Pushed(_FormPage(cancel: true)),
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(
@@ -636,11 +645,14 @@ class _LoadingPage extends StatelessWidget {
 
 /// A form with a long title and a Save, which stays in the bar at any size.
 class _FormPage extends StatelessWidget {
-  const _FormPage();
+  const _FormPage({this.cancel = false});
+
+  final bool cancel;
 
   @override
   Widget build(BuildContext context) => SettingsScaffold(
     title: 'Personality and character of the agent',
+    cancel: cancel,
     formAction: SettingsFormAction(label: 'Save', onPressed: () {}),
     body: const Center(child: Text('Form')),
   );
