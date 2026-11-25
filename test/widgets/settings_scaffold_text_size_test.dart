@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/platform_chrome.dart';
 import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 
@@ -81,8 +82,11 @@ void main() {
             final rect = tester.getRect(save);
             expect(rect.left, greaterThanOrEqualTo(0));
             expect(rect.right, lessThanOrEqualTo(320));
-            expect(rect.height, greaterThanOrEqualTo(44));
-            expect(rect.width, greaterThanOrEqualTo(44));
+            final least = platform == TargetPlatform.android
+                ? kMaterialMinTapTarget
+                : kAppleMinTapTarget;
+            expect(rect.height, greaterThanOrEqualTo(least));
+            expect(rect.width, greaterThanOrEqualTo(least));
             expect(find.text(label), findsOneWidget);
             final labelRect = tester.getRect(find.text(label));
             expect(labelRect.left, greaterThanOrEqualTo(0));
