@@ -6,6 +6,7 @@ import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
+import 'branch_glyph.dart';
 import 'relative_time.dart';
 import 'sidebar_row.dart';
 
@@ -175,15 +176,21 @@ class _HitRow extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (hit.branch) const BranchGlyph(),
               Expanded(
-                child: Text(
-                  hit.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: scheme.onSurface,
+                child: branchTitled(
+                  context,
+                  branch: hit.branch,
+                  title: hit.title,
+                  child: Text(
+                    hit.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: scheme.onSurface,
+                    ),
                   ),
                 ),
               ),
