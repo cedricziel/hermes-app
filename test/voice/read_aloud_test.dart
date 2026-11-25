@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart' show CancelToken;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +20,7 @@ import 'package:hermes_app/src/voice/read_aloud.dart';
 import 'package:hermes_app/src/voice/synthesized_speech.dart';
 import 'package:hermes_app/src/voice/voice_audio_focus.dart';
 import 'package:hermes_app/src/voice/voice_playback.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import '../support/attachment_fixtures.dart';
@@ -27,6 +28,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_voice_player.dart';
 import '../support/real_async.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   group('speakableText', () {
@@ -209,6 +211,7 @@ void main() {
             ChangeNotifierProvider.value(value: playback),
           ],
           child: MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(),
             home: Scaffold(
               body: ReadAloudActions(
@@ -227,7 +230,7 @@ void main() {
 
       Future<void> tapAndWait(WidgetTester tester, String label) async {
         await tester.runAsync(() async {
-          await tester.tap(find.byTooltip(label));
+          await tester.tap(find.tooltip(label));
           // One real turn first: Stop reading pauses and seeks without
           // raising `loading`, so there is nothing else to wait for.
           await Future<void>.delayed(const Duration(milliseconds: 2));
@@ -241,10 +244,10 @@ void main() {
 
       testWidgets('is hidden without text to speech or words', (tester) async {
         await pump(tester, readAloud: null);
-        expect(find.byTooltip('Read aloud'), findsNothing);
-        expect(find.byTooltip('Copy'), findsOneWidget);
+        expect(find.tooltip('Read aloud'), findsNothing);
+        expect(find.tooltip('Copy'), findsOneWidget);
         await pump(tester, readAloud: readAloud(), text: '---');
-        expect(find.byTooltip('Read aloud'), findsNothing);
+        expect(find.tooltip('Read aloud'), findsNothing);
       });
 
       testWidgets('plays the reply, shows it, and stops', (tester) async {
@@ -254,12 +257,12 @@ void main() {
         expect(spoken, ['The build passed.']);
         expect(player.loaded.single, endsWith('.ogg'));
         expect(player.playing, isTrue);
-        expect(find.byTooltip('Stop reading'), findsOneWidget);
+        expect(find.tooltip('Stop reading'), findsOneWidget);
 
         await tapAndWait(tester, 'Stop reading');
         expect(player.playing, isFalse);
         expect(player.seeks.last, Duration.zero);
-        expect(find.byTooltip('Read aloud'), findsOneWidget);
+        expect(find.tooltip('Read aloud'), findsOneWidget);
 
         // Starting again plays the same audio from the start.
         await tapAndWait(tester, 'Read aloud');
@@ -278,7 +281,7 @@ void main() {
           find.text("Couldn't read this reply aloud. Try again."),
           findsOneWidget,
         );
-        expect(find.byTooltip('Read aloud'), findsOneWidget);
+        expect(find.tooltip('Read aloud'), findsOneWidget);
       });
 
       testWidgets('is disabled during a voice call', (tester) async {
@@ -288,7 +291,7 @@ void main() {
         await pump(tester, readAloud: readAloud());
         final button = tester.widget<IconButton>(
           find.descendant(
-            of: find.byTooltip('Read aloud'),
+            of: find.tooltip('Read aloud'),
             matching: find.byType(IconButton),
           ),
         );
@@ -318,6 +321,7 @@ void main() {
             synthesize: (_, _) => throw UnimplementedError(),
           ),
           child: MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(),
             home: Scaffold(
               body: Chat(
@@ -332,7 +336,7 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 500));
-      expect(find.byTooltip('Read aloud'), findsOneWidget);
+      expect(find.tooltip('Read aloud'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
     });

@@ -1,13 +1,15 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../media/quick_look.dart';
+import '../../widgets/focusable_tap.dart';
 import '../../widgets/named_icon_button.dart';
 import '../attachments/attachment_file_actions.dart';
 import '../chat_models.dart';
@@ -55,6 +57,7 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
   Uint8List? _fetched;
   MediaFailure? _failure;
   var _loading = false;
+  final _focus = FocusNode(debugLabel: 'AttachmentThumbnail');
 
   ChatAttachment get _attachment => widget.attachment;
 
@@ -76,6 +79,12 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
   }
 
   @override
@@ -147,15 +156,26 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
     );
     return quickLookTarget(
       onOpen: open,
+      // On a Mac the target is the control (select, double-click, Space), so
+      // there is no second tab stop. Elsewhere Enter and Space open it, with
+      // the ring 2 px outside the picture's own corners; the focus wraps the
+      // semantics so the button, its label and the focus share one node.
       child: mac
           ? thumbnail
-          : Semantics(
-              button: true,
-              image: true,
-              label: _attachment.name,
-              onTap: open,
-              excludeSemantics: true,
-              child: thumbnail,
+          : FocusRing.outside(
+              radius: kHermesRadius,
+              child: FocusableTap(
+                focusNode: _focus,
+                onActivate: open,
+                child: Semantics(
+                  button: true,
+                  image: true,
+                  label: _attachment.name,
+                  onTap: open,
+                  excludeSemantics: true,
+                  child: thumbnail,
+                ),
+              ),
             ),
     );
   }
@@ -165,7 +185,11 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
     if (platformChromeOf(context) == PlatformChrome.ios &&
         store != null &&
         !busy) {
-      FocusManager.instance.primaryFocus?.unfocus();
+      // Whatever else has the focus (the composer) lets go before the native
+      // panel; the thumbnail keeps it, so the keyboard returns to it.
+      if (!_focus.hasPrimaryFocus) {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
       final current = store.beginPreview();
       final route = ModalRoute.of(context);
       useFile(
@@ -391,49 +415,60 @@ class AttachmentCardFrame extends StatelessWidget {
       ),
       child: Material(
         type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppIcon(
-                  attachment.kind == AttachmentKind.image
-                      ? AppIcons.image
-                      : AppIcons.file,
-                  size: 20,
-                  color: scheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        attachment.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, height: 1.3),
-                      ),
-                      if (subtitle != null)
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.3,
-                            color: noticeIsError
-                                ? scheme.error
-                                : context.hermesColors.subtleText,
-                          ),
-                        ),
-                    ],
+        // Nothing clips the card; only a tappable one is focusable (a Mac
+        // card opens by double click, a failed download retries on a tap).
+        // The Save button draws its own ring, so the card's follows only the
+        // card's own focus.
+        child: FocusRing.outside(
+          radius: kHermesRadius,
+          ownFocus: true,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIcon(
+                    attachment.kind == AttachmentKind.image
+                        ? AppIcons.image
+                        : AppIcons.file,
+                    size: 20,
+                    color: scheme.primary,
                   ),
-                ),
-                if (trailing != null) ...[const SizedBox(width: 6), trailing!],
-              ],
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          attachment.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14, height: 1.3),
+                        ),
+                        if (subtitle != null)
+                          Text(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.3,
+                              color: noticeIsError
+                                  ? scheme.error
+                                  : context.hermesColors.subtleText,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 6),
+                    trailing!,
+                  ],
+                ],
+              ),
             ),
           ),
         ),

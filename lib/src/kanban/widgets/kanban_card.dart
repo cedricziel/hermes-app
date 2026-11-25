@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/busy_bar.dart';
 import '../kanban_models.dart';
@@ -44,65 +46,72 @@ class KanbanCard extends StatelessWidget {
           width: selected ? 2 : 1,
         ),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(kHermesRadius),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Stack(
-          fit: StackFit.passthrough,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.id,
-                    style: small?.copyWith(fontFamily: 'monospace'),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    task.title,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+      // Inside the card's border, clear of the selected one's 2 px by 2 px.
+      child: FocusRing(
+        radius: selected ? 10 : 11,
+        inset: selected ? 4 : 3,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(kHermesRadius),
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.id,
+                      style: small?.copyWith(fontFamily: 'monospace'),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (task.assignee != null)
-                        _Meta(AppIcons.person, task.assignee!, small),
-                      if (task.priority > 0)
-                        _Tag('P${task.priority}', theme.colorScheme.error),
-                      if (task.tenant != null) _Tag(task.tenant!, null),
-                      if (task.commentCount > 0)
-                        _Meta(AppIcons.chat, '${task.commentCount}', small),
-                      if (task.progressTotal > 0)
-                        _Meta(
-                          AppIcons.tree,
-                          '${task.progressDone}/${task.progressTotal}',
-                          small,
-                        ),
-                      if (task.warningCount > 0)
-                        _Meta(
-                          AppIcons.warningRounded,
-                          '${task.warningCount}',
-                          small?.copyWith(color: context.hermesColors.warning),
-                        ),
+                    const SizedBox(height: 2),
+                    Text(
+                      task.title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (task.assignee != null)
+                          _Meta(AppIcons.person, task.assignee!, small),
+                        if (task.priority > 0)
+                          _Tag('P${task.priority}', theme.colorScheme.error),
+                        if (task.tenant != null) _Tag(task.tenant!, null),
+                        if (task.commentCount > 0)
+                          _Meta(AppIcons.chat, '${task.commentCount}', small),
+                        if (task.progressTotal > 0)
+                          _Meta(
+                            AppIcons.tree,
+                            '${task.progressDone}/${task.progressTotal}',
+                            small,
+                          ),
+                        if (task.warningCount > 0)
+                          _Meta(
+                            AppIcons.warningRounded,
+                            '${task.warningCount}',
+                            small?.copyWith(
+                              color: context.hermesColors.warning,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (task.status == 'running') ...[
+                      const SizedBox(height: 10),
+                      _WorkingBar(task: task),
                     ],
-                  ),
-                  if (task.status == 'running') ...[
-                    const SizedBox(height: 10),
-                    _WorkingBar(task: task),
                   ],
-                ],
+                ),
               ),
-            ),
-            if (handle != null) Positioned(top: 0, right: 0, child: handle!),
-          ],
+              if (handle != null) Positioned(top: 0, right: 0, child: handle!),
+            ],
+          ),
         ),
       ),
     );
@@ -119,9 +128,9 @@ class _WorkingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'In progress',
+    label: context.l10n.kanbanCardInProgress,
     value: task.progressTotal > 0
-        ? '${task.progressDone} of ${task.progressTotal} done'
+        ? context.l10n.kanbanCardProgress(task.progressDone, task.progressTotal)
         : null,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(2),

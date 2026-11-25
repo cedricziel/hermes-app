@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
@@ -48,6 +48,7 @@ class LogLevelMenuButton extends StatelessWidget {
         label: l10n.serverCareLogLevelMenuLabel(value.label(l10n)),
         child: AdaptivePopupMenuButton<LogLevelFilter>(
           tooltip: '',
+          focusRadius: 999,
           position: PopupMenuPosition.under,
           onSelected: onChanged,
           itemBuilder: (context) => [

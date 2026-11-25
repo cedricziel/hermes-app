@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
@@ -283,6 +283,65 @@ void main() {
     tearDown(() => watcher.dispose());
 
     Future<void> look() => watcher.check();
+
+    group('which profile a job names', () {
+      Future<List<String>> titlesAfterRun(
+        WidgetTester tester,
+        Object? activeAnswer, {
+        int status = 200,
+      }) async {
+        late List<String> titles;
+        await tester.runAsync(() async {
+          server.on(
+            'GET',
+            '/api/profiles/active',
+            activeAnswer,
+            status: status,
+          );
+          jobs([
+            ran('2026-09-20T08:00:00+00:00'),
+            ran('2026-09-20T08:00:00+00:00', id: 'away', profile: 'home'),
+          ]);
+          watcher.available = true;
+          await look();
+          jobs([
+            ran('2026-09-21T08:00:00+00:00'),
+            ran('2026-09-21T08:00:00+00:00', id: 'away', profile: 'home'),
+          ]);
+          await look();
+          titles = [for (final alert in service.shown) alert.title];
+        });
+        return titles;
+      }
+
+      testWidgets('the launch profile is the one the user is on, not the '
+          'sticky default', (tester) async {
+        final titles = await titlesAfterRun(tester, {
+          'active': 'home',
+          'current': 'work',
+        });
+
+        expect(titles, ['Morning brief', 'Morning brief (home)']);
+      });
+
+      testWidgets('an older server with no current uses its active profile', (
+        tester,
+      ) async {
+        final titles = await titlesAfterRun(tester, {'active': 'work'});
+
+        expect(titles, ['Morning brief', 'Morning brief (home)']);
+      });
+
+      testWidgets('with no launch profile known no job names one', (
+        tester,
+      ) async {
+        final titles = await titlesAfterRun(tester, {
+          'detail': 'x',
+        }, status: 404);
+
+        expect(titles, ['Morning brief', 'Morning brief']);
+      });
+    });
 
     testWidgets('pause fences held jobs before mute and baseline writes', (
       tester,

@@ -12,7 +12,7 @@ from contextlib import redirect_stdout
 from unittest import mock
 
 import pr_policy
-from pr_policy import check, corrupted_lines, review_recorded
+from pr_policy import catalog_first, check, corrupted_lines, review_recorded
 
 SHA = "a" * 40
 OLD = "b" * 40
@@ -125,6 +125,59 @@ class BodyTest(unittest.TestCase):
         b = body(proof="```\n## Review\n```\nok")
         self.assertEqual(run(b=b), [])
 
+
+class CommentInCodeTest(unittest.TestCase):
+    """`<!--` inside inline code or a fence is literal text on GitHub: it must
+    not hide the rest of the body."""
+
+    def bodies(self):
+        yield body(proof="An unclosed `<!--` now hides the rest.")
+        yield body(proof="Use ``<!--`` and `<!-- x`.")
+        yield body(proof="```html\n<!-- never closed\n```\nDone.")
+        yield body(proof="~~~\n<!--\n~~~\nDone.")
+
+    def test_check_keeps_every_section(self):
+        for b in self.bodies():
+            self.assertEqual(run(b=b), [], b)
+
+    def test_review_stays_recorded(self):
+        for b in self.bodies():
+            self.assertEqual(review_recorded(b, SHA), [], b)
+
+    def test_mid_line_unclosed_opener_is_plain_text(self):
+        for proof in [
+            "Typing <!-- in the composer no longer opens a comment.",
+            "A lone ` backtick, then <!-- an opener.",
+        ]:
+            b = body(proof=proof)
+            self.assertEqual(run(b=b), [], proof)
+            self.assertEqual(review_recorded(b, SHA), [], proof)
+
+    def test_line_start_unclosed_opener_hides_the_rest(self):
+        for opener in ("<!-- note", "   <!-- note"):
+            b = body(proof="Done.\n" + opener)
+            self.assertTrue(any("missing" in f for f in run(b=b)), opener)
+            self.assertTrue(review_recorded(b, SHA), opener)
+
+    def test_mid_line_opener_closed_later_is_a_comment(self):
+        b = body(proof="Done <!-- note\nstill hidden -->\nVisible.")
+        self.assertEqual(run(b=b), [])
+        self.assertNotIn("hidden", pr_policy._strip_comments(b))
+
+    def test_fence_inside_a_comment_does_not_hide_the_hatch(self):
+        proof = "<!--\n```\n-->"
+        line = "Catalog-first: not applicable, a pure helper with no states"
+        review = (
+            f"Reviewer: isolated-reviewer Head: {SHA} Verdict: clean\nFindings: 0\n"
+            f"<!--\n{line}\nRevert-the-fix: not applicable\nProof reproduced: yes\n"
+        )
+        out, note = catalog_first([added(WIDGET, CLASS)], body(proof=proof, review=review), SHA)
+        self.assertEqual(len(out), 1)
+        self.assertIsNone(note)
+
+    def test_prose_comment_still_unclosed_to_the_end(self):
+        b = body(proof="Done.\n<!-- note")
+        self.assertTrue(any("missing" in f for f in run(b=b)))
 
 class FixTest(unittest.TestCase):
     def test_fix_without_question_fails(self):
@@ -1537,6 +1590,310 @@ class GitReviewMainTest(unittest.TestCase):
         )
         self.assertEqual(code, 1)
         self.assertIn("base branch 'main' is not in the checkout", out)
+
+
+WIDGET = "lib/src/chat/widgets/chip_row.dart"
+CLASS = "class ChipRow extends StatelessWidget {"
+
+
+def added(path, *lines):
+    return {
+        "filename": path,
+        "status": "added",
+        "patch": f"@@ -0,0 +1,{len(lines)} @@\n" + "\n".join("+" + x for x in lines),
+    }
+
+
+def catalog(path, *lines, status="modified"):
+    return {
+        "filename": path,
+        "status": status,
+        "patch": "@@ -1,1 +1,2 @@\n ctx\n" + "\n".join("+" + x for x in lines),
+    }
+
+
+def hatch_body(
+    reason="a pure helper with no states to show",
+    head=SHA,
+    verdict="clean",
+    where="block",
+):
+    """A ## Review block as the reviewer emits it, with the hatch line at
+    `where`: in the block (the default), or somewhere an author could put it."""
+    line = f"Catalog-first: not applicable, {reason}"
+    top = f"Reviewer: isolated-reviewer Head: {head} Verdict: {verdict}\nFindings: 0\n"
+    tail = "Revert-the-fix: not applicable\nProof reproduced: yes\n"
+    rv = {
+        "block": top + line + "\n" + tail,
+        "fenced": top + "```\n" + line + "\n```\n" + tail,
+        "tilde": top + "~~~\n" + line + "\n~~~\n" + tail,
+        "comment": top + f"<!--\n{line}\n-->\n" + tail,
+        "unclosed": top + f"<!--\n{line}\n" + tail,
+        "after_proof": top + tail + line + "\n",
+        "before_reviewer": line + "\n" + top + tail,
+        "blank_line": top + tail + "\n" + line + "\n",
+    }
+    if where in rv:
+        return body(review=rv[where])
+    return body(review=top + tail, extra=line)  # in ## Proof
+
+
+class CatalogFirstTest(unittest.TestCase):
+    """The check reads the PR's file list and patches only. Commit order is not
+    checked: squash merges erase it and merges of main corrupt it."""
+
+    def run_cf(self, files, b=None, head=SHA):
+        return catalog_first(files, body() if b is None else b, head)
+
+    def test_no_widget_file_no_trigger(self):
+        files = [
+            added("lib/src/chat/chip_row.dart", CLASS),
+            added("lib/widgets/a.dart", CLASS),
+            catalog("lib/src/x.dart", "a"),
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_private_class_or_function_only_no_trigger(self):
+        files = [
+            added(
+                WIDGET,
+                "class _Hidden extends StatelessWidget {",
+                "Widget buildRow() => const SizedBox();",
+                "class Model {}",
+                "class _S extends State<Foo> {",
+                "class ChipRowState extends State<ChipRow> {",
+            )
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_modified_widget_file_no_trigger(self):
+        self.assertEqual(self.run_cf([catalog(WIDGET, CLASS)]), ([], None))
+
+    def test_nested_dir_triggers(self):
+        out, _ = self.run_cf([added("lib/src/a/widgets/b/c.dart", CLASS)])
+        self.assertEqual(len(out), 1)
+
+    def test_pass_when_widgetbook_names_class(self):
+        files = [
+            added(WIDGET, CLASS),
+            catalog(
+                "widgetbook/use_cases/chip_row.dart",
+                "ChipRow(items: x),",
+                status="added",
+            ),
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_pass_with_generics_and_multiline_decl(self):
+        files = [
+            added(WIDGET, "class Picker<T extends Object> extends StatefulWidget {"),
+            added(
+                "lib/src/a/widgets/b.dart",
+                "class Wrapped",
+                "    extends StatelessWidget {",
+            ),
+            catalog("widgetbook/a.dart", "Picker<String>(), Wrapped()"),
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_pass_when_one_of_several_classes_named(self):
+        files = [
+            added(WIDGET, CLASS, "class Other extends StatelessWidget {"),
+            catalog("widgetbook/a.dart", "Other()"),
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_miss_without_widgetbook_change(self):
+        out, note = self.run_cf([added(WIDGET, CLASS)])
+        self.assertEqual(len(out), 1)
+        self.assertIn("ChipRow", out[0])
+        self.assertIn(WIDGET, out[0])
+        self.assertIn("component-catalog", out[0])
+        self.assertIn("Catalog-first: not applicable", out[0])
+        self.assertIsNone(note)
+
+    def test_miss_when_widgetbook_names_another_class(self):
+        files = [
+            added(WIDGET, CLASS),
+            catalog("widgetbook/a.dart", "ChipRowExtra(), MyChipRow()"),
+        ]
+        out, _ = self.run_cf(files)
+        self.assertEqual(len(out), 1)
+        self.assertIn("ChipRow", out[0])
+
+    def test_miss_when_name_only_in_removed_or_context_line(self):
+        f = {
+            "filename": "widgetbook/a.dart",
+            "status": "modified",
+            "patch": "@@ -1,2 +1,1 @@ ChipRow\n ChipRow()\n-ChipRow()\n+Other()",
+        }
+        self.assertEqual(len(self.run_cf([added(WIDGET, CLASS), f])[0]), 1)
+
+    def test_failure_names_every_class_and_file(self):
+        files = [
+            added(WIDGET, CLASS),
+            added("lib/src/a/widgets/b.dart", "class Beta extends StatefulWidget {"),
+        ]
+        out, _ = self.run_cf(files)
+        for s in ("ChipRow", "Beta", WIDGET, "lib/src/a/widgets/b.dart"):
+            self.assertIn(s, out[0])
+
+    def test_patchless_added_file_counts_as_triggering(self):
+        out, _ = self.run_cf([{"filename": WIDGET, "status": "added"}])
+        self.assertEqual(len(out), 1)
+        self.assertIn(WIDGET, out[0])
+        self.assertIn("could not be read", out[0])
+
+    def test_hatch_accepted(self):
+        out, note = self.run_cf([added(WIDGET, CLASS)], hatch_body())
+        self.assertEqual(out, [])
+        self.assertIn("a pure helper with no states to show", note)
+
+    def test_hatch_rejected_placeholders(self):
+        for reason in [
+            "<reason>",
+            "n/a",
+            "tbd",
+            "TODO",
+            "...",
+            "..........",
+            "!!!!!!!!!!!!",
+            "<reason> <reason>",
+            "n/a n/a n/a",
+        ]:
+            out, note = self.run_cf([added(WIDGET, CLASS)], hatch_body(reason))
+            self.assertEqual(len(out), 1, reason)
+            self.assertIsNone(note)
+
+    def test_hatch_rejected_short_reason(self):
+        out, _ = self.run_cf([added(WIDGET, CLASS)], hatch_body("too short"))
+        self.assertEqual(len(out), 1)
+        out, _ = self.run_cf([added(WIDGET, CLASS)], hatch_body("ten chars!!"))
+        self.assertEqual(out, [])
+
+    def test_hatch_rejected_outside_review_section(self):
+        out, _ = self.run_cf([added(WIDGET, CLASS)], hatch_body(where="proof"))
+        self.assertEqual(len(out), 1)
+
+    def test_hatch_rejected_inside_fence(self):
+        out, _ = self.run_cf([added(WIDGET, CLASS)], hatch_body(where="fenced"))
+        self.assertEqual(len(out), 1)
+
+    def test_hatch_rejected_review_for_other_head(self):
+        out, _ = self.run_cf([added(WIDGET, CLASS)], hatch_body(head=OLD))
+        self.assertEqual(len(out), 1)
+
+    def test_hatch_rejected_verdict_not_clean(self):
+        out, _ = self.run_cf(
+            [added(WIDGET, CLASS)], hatch_body(verdict="changes-requested")
+        )
+        self.assertEqual(len(out), 1)
+
+    def test_hatch_without_trigger_is_not_noted(self):
+        self.assertEqual(self.run_cf([], hatch_body()), ([], None))
+
+
+    def test_hatch_rejected_comment_and_tilde_fence(self):
+        for where in ("comment", "unclosed", "tilde"):
+            out, note = self.run_cf([added(WIDGET, CLASS)], hatch_body(where=where))
+            self.assertEqual(len(out), 1, where)
+            self.assertIsNone(note)
+
+    def test_hatch_rejected_outside_the_reviewer_block(self):
+        for where in ("after_proof", "before_reviewer", "blank_line"):
+            out, note = self.run_cf([added(WIDGET, CLASS)], hatch_body(where=where))
+            self.assertEqual(len(out), 1, where)
+            self.assertIsNone(note)
+
+    def test_hatch_window_without_proof_line_ends_at_blank_line(self):
+        head = f"Reviewer: isolated-reviewer Head: {SHA} Verdict: clean\n"
+        line = "Catalog-first: not applicable, shown through the Row use case\n"
+        files = [added(WIDGET, CLASS)]
+        out, note = self.run_cf(files, body(review=head + "Findings: 0\n" + line))
+        self.assertEqual((out, bool(note)), ([], True))
+        out, _ = self.run_cf(files, body(review=head + "Findings: 0\n\n" + line))
+        self.assertEqual(len(out), 1)
+
+    def test_unclosed_comment_strips_to_the_end(self):
+        self.assertEqual(pr_policy._strip_comments("a\n<!-- x\ny"), "a\n")
+        self.assertEqual(pr_policy._strip_comments("a <!-- x --> b"), "a  b")
+
+    def test_block_commented_widget_does_not_trigger(self):
+        files = [
+            added(
+                WIDGET,
+                "/*",
+                "class Old extends StatelessWidget {",
+                "}",
+                "*/",
+                "class Plain {}",
+            )
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_declaration_after_a_block_comment_still_triggers(self):
+        files = [
+            added(WIDGET, "/* the row", "   of chips */", "class Real", "    extends StatelessWidget {")
+        ]
+        out, _ = self.run_cf(files)
+        self.assertEqual(len(out), 1)
+        self.assertIn("Real", out[0])
+
+    def test_renamed_or_removed_widget_file_no_trigger(self):
+        for status in ("renamed", "removed"):
+            f = added(WIDGET, CLASS)
+            f["status"] = status
+            self.assertEqual(self.run_cf([f]), ([], None), status)
+
+    def test_other_base_class_no_trigger(self):
+        files = [
+            added(
+                WIDGET,
+                "class A extends ConsumerWidget {",
+                "class B extends InheritedWidget {",
+                "class C extends StatelessWidgetMixin {",
+            )
+        ]
+        self.assertEqual(self.run_cf(files), ([], None))
+
+    def test_non_dart_widgetbook_file_does_not_count(self):
+        files = [added(WIDGET, CLASS), catalog("widgetbook/NOTES.md", "ChipRow")]
+        self.assertEqual(len(self.run_cf(files)[0]), 1)
+
+    def test_fetch_only_for_patchless_dart_files_once_triggered(self):
+        calls = []
+
+        def fetch(f):
+            calls.append(f["filename"])
+            return None
+
+        bare = lambda name, **kw: {"filename": name, "status": "modified", **kw}
+        catalog_files = [
+            bare("widgetbook/a.dart"),
+            bare("widgetbook/b.dart", status="renamed", changes=0),
+            bare("widgetbook/c.dart", status="removed"),
+            bare("widgetbook/d.png"),
+            bare("widgetbook/e.dart", status="renamed", changes=3),
+        ]
+        # no trigger, a pass from patches in hand, and a hatch fetch nothing
+        for files, b in [
+            (catalog_files, None),
+            ([added(WIDGET, CLASS), catalog("widgetbook/z.dart", "ChipRow")] + catalog_files, None),
+            ([added(WIDGET, CLASS)] + catalog_files, hatch_body()),
+        ]:
+            catalog_first(files, body() if b is None else b, SHA, fetch)
+        self.assertEqual(calls, [])
+        out, _ = catalog_first([added(WIDGET, CLASS)] + catalog_files, body(), SHA, fetch)
+        self.assertEqual(calls, ["widgetbook/a.dart", "widgetbook/e.dart"])
+        self.assertEqual(len(out), 1)
+
+    def test_fetched_patch_can_name_the_class(self):
+        files = [added(WIDGET, CLASS), {"filename": "widgetbook/a.dart", "status": "modified"}]
+        patch = "@@ -1 +1,2 @@\n ctx\n+ChipRow()"
+        out, _ = catalog_first(files, body(), SHA, lambda f: patch)
+        self.assertEqual(out, [])
+
+
 class MainTest(unittest.TestCase):
     """Runs main() against a saved event JSON and a fake file listing."""
 
@@ -1703,6 +2060,83 @@ class MainTest(unittest.TestCase):
         }
         self.assertEqual(self.run_main("policy", self.event(title="x", head=fork))[0], 1)
         self.assertEqual(self.run_main("review", self.event(body="", head=fork))[0], 1)
+
+    def test_policy_catalog_first_fails_and_hatch_passes(self):
+        files = [added(WIDGET, CLASS)]
+        code, out, _ = self.run_main("policy", self.event(), files)
+        self.assertEqual(code, 1)
+        self.assertIn("::error::", out)
+        self.assertIn("ChipRow", out)
+        code, out, _ = self.run_main("policy", self.event(body=hatch_body()), files)
+        self.assertEqual(code, 0)
+        self.assertIn("a pure helper with no states to show", out)
+
+    def test_policy_catalog_first_patchless_widget_read_from_blob(self):
+        files = [{"filename": WIDGET, "status": "added"}]
+        blobs = {(WIDGET, SHA): "class Big extends StatelessWidget {\n}\n"}
+        code, out, _ = self.run_main("policy", self.event(), files, blobs)
+        self.assertEqual(code, 1)
+        self.assertIn("Big", out)
+        files = [{"filename": WIDGET, "status": "added"}]  # fill_patches mutates
+        blobs = {(WIDGET, SHA): "class _Big extends StatelessWidget {\n}\n"}
+        self.assertEqual(self.run_main("policy", self.event(), files, blobs)[0], 0)
+
+    def test_policy_catalog_first_patchless_unfetchable_triggers(self):
+        files = [{"filename": WIDGET, "status": "added"}]
+        code, out, _ = self.run_main("policy", self.event(), files)
+        self.assertEqual(code, 1)
+        self.assertIn("could not be read", out)
+
+    def test_policy_catalog_first_adds_no_calls_when_patches_present(self):
+        files = [added(WIDGET, CLASS), catalog("widgetbook/a.dart", "ChipRow()")]
+        code, _, calls = self.run_main("policy", self.event(), files)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(calls), 2)
+
+    def test_policy_catalog_first_unfetchable_widget_says_unread_not_large(self):
+        files = [{"filename": WIDGET, "status": "added"}]
+        out = self.run_main("policy", self.event(), files)[1]
+        self.assertNotIn("too large", out)
+
+    def test_policy_catalog_file_without_patch_read_from_blob(self):
+        files = [
+            added(WIDGET, CLASS),
+            {"filename": "widgetbook/a.dart", "status": "modified"},
+        ]
+        blobs = {
+            ("widgetbook/a.dart", MERGE_BASE): "A()\n",
+            ("widgetbook/a.dart", SHA): "A()\nChipRow()\n",
+        }
+        self.assertEqual(self.run_main("policy", self.event(), files, blobs)[0], 0)
+
+    def test_policy_catalog_file_unfetchable_is_not_a_failure_of_its_own(self):
+        files = [
+            added(WIDGET, CLASS),
+            {"filename": "widgetbook/a.dart", "status": "modified"},
+        ]
+        code, out, _ = self.run_main("policy", self.event(), files)
+        self.assertEqual(code, 1)
+        self.assertIn("ChipRow", out)
+        self.assertNotIn("too large", out)
+
+    def test_policy_pure_rename_of_catalog_file_makes_no_calls(self):
+        files = [
+            added(WIDGET, CLASS),
+            {"filename": "widgetbook/b.dart", "status": "renamed", "changes": 0,
+             "previous_filename": "widgetbook/a.dart"},
+        ]
+        code, _, calls = self.run_main("policy", self.event(), files)
+        self.assertEqual(code, 1)
+        self.assertEqual(len(calls), 2)
+
+    def test_policy_renamed_catalog_files_without_a_widget_cost_nothing(self):
+        files = [
+            {"filename": f"widgetbook/{n}.dart", "status": "renamed", "changes": 0,
+             "previous_filename": f"widgetbook/old_{n}.dart"}
+            for n in "ab"
+        ]
+        code, out, calls = self.run_main("policy", self.event(), files)
+        self.assertEqual((code, out.strip(), len(calls)), (0, "ok", 2))
 
     def test_unknown_mode(self):
         self.assertEqual(self.run_main("nope", self.event())[0], 2)

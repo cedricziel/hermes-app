@@ -4,7 +4,7 @@
   "@@x-area-common": "",
   "commonOff": "Off",
   "@commonOff": {
-    "description": "A setting or slot that is switched off."
+    "description": "A setting or slot that is switched off; also a choice that turns a feature off, such as the review interval of the Memory settings."
   },
   "commonOn": "On",
   "@commonOn": {
@@ -82,8 +82,59 @@
   "@@x-area-background": "",
 
   "@@x-area-bot_mode": "",
+  "botModeCreateModelServerDefault": "Use server default",
+  "@botModeCreateModelServerDefault": {
+    "description": "Value of the Default model row of the new bot form while no model is picked."
+  },
+  "botModeCreateNameFooter": "Name is the permanent profile identifier.",
+  "@botModeCreateNameFooter": {
+    "description": "Footer under the Name field of the new bot form when the name has no error."
+  },
+  "botModeEditModelChoose": "Choose default model",
+  "@botModeEditModelChoose": {
+    "description": "Value of the Default model row of the bot edit form while the bot has no model set."
+  },
+  "botModeGroupApprovalWaiting": "This member is waiting for your approval.",
+  "@botModeGroupApprovalWaiting": {
+    "description": "Description of an approval card for a group member whose request came with no description."
+  },
+  "botModeGroupPendingKind": "Pending {kind}",
+  "@botModeGroupPendingKind": {
+    "description": "Line of a group member's pending request that has no reason. The kind is the server's own word for the request and is shown as it came.",
+    "placeholders": {
+      "kind": {"type": "String", "example": "approval"}
+    }
+  },
+  "botModeGroupThreadLabel": "Discussion thread",
+  "@botModeGroupThreadLabel": {
+    "description": "Small label on a group message that belongs to a discussion thread, when the thread has no name of its own."
+  },
+  "botModeGroupsFooter": "Bots in a group work on a task together on the server. A group has 2–6 bots, fixed when it is created.",
+  "@botModeGroupsFooter": {
+    "description": "Footer of the Groups section on the bot roster when the server gives no reason that groups are unavailable."
+  },
+  "botModeRosterConfirmModelCost": "This model may cost more. Use it as the default?",
+  "@botModeRosterConfirmModelCost": {
+    "description": "Body of the Confirm model change dialog of a bot when the server sends no wording of its own."
+  },
 
   "@@x-area-bot_screen": "",
+  "botScreenLostToAgent": "Hermes took control back.",
+  "@botScreenLostToAgent": {
+    "description": "Notice over the Bot Screen viewer after this device lost control of the screen because Hermes took it back."
+  },
+  "botScreenLostToOther": "Someone else took control.",
+  "@botScreenLostToOther": {
+    "description": "Notice over the Bot Screen viewer after this device lost control of the screen to someone other than Hermes."
+  },
+  "botScreenSudoHostFallback": "your server",
+  "@botScreenSudoHostFallback": {
+    "description": "Stands for the server's address in the sudo password question when the address cannot be read."
+  },
+  "botScreenViewerTitleFallback": "Bot screen",
+  "@botScreenViewerTitleFallback": {
+    "description": "Second line of the Bot Screen viewer header when the screen has no control state to name."
+  },
 
   "@@x-area-chat": "",
   "chatComposerHoldHandedBack": "Your last message is back in the box.",
@@ -94,6 +145,10 @@
   "@chatComposerHoldRestoring": {
     "description": "Line above the message box while files are restored from a checkpoint; Send is off until it finishes, typing is not."
   },
+  "chatNewMessageTitle": "New message",
+  "@chatNewMessageTitle": {
+    "description": "Title in the phone chat bar of a chat that has no title yet."
+  },
   "chatNoticeStopCommand": "Hermes took that as a stop command. Nothing was sent.",
   "@chatNoticeStopCommand": {
     "description": "Notice in the chat when a typed or queued message was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The text goes back into the message box."
@@ -102,6 +157,26 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatReplyFailedGeneric": "Something went wrong. Try sending it again.",
+  "@chatReplyFailedGeneric": {
+    "description": "Error line under a reply that failed when the server gave no explanation of its own and the server does not have the turn any more. Tells the person to send the prompt again. Wraps at any text size."
+  },
+  "chatReplyFailedMayStillRun": "Something went wrong. Hermes may still be working on this.",
+  "@chatReplyFailedMayStillRun": {
+    "description": "Error line under a reply that failed because the connection to Hermes broke, when the server may still be running the turn. Does not tell the person to send the prompt again, as Hermes would refuse it or run it twice. Wraps at any text size."
+  },
+  "chatReplyFailedProfileUnavailable": "That profile is no longer available. Pick another one.",
+  "@chatReplyFailedProfileUnavailable": {
+    "description": "Error line under a reply that could not be sent because the profile it was written for no longer exists on the server. A profile is a separate Hermes setup with its own chats."
+  },
+  "chatReplyInterruptedGone": "This reply is no longer on the server.",
+  "@chatReplyInterruptedGone": {
+    "description": "Note under a reply that was settled because the server answered that it no longer has the turn or its session (and did not restart). Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyInterruptedRestarted": "Hermes restarted. This reply was interrupted.",
+  "@chatReplyInterruptedRestarted": {
+    "description": "Note under a reply that was settled because Hermes restarted while it was being written and did not bring the turn back. Not an error and no instruction to try again. Announced once to screen readers. Wraps at any text size."
+  },
   "chatReplyReconnectIdle": "Couldn't reconnect. Hermes may still be working on this. Trying again when you come back.",
   "@chatReplyReconnectIdle": {
     "description": "Note under a reply whose connection was lost and could not be won back after many tries. Nothing is being tried any more; the reply is picked up again when the app comes to the front or the chat is opened. Wraps at any text size."
@@ -109,6 +184,10 @@
   "chatReplyReconnecting": "Connection lost. Reconnecting…",
   "@chatReplyReconnecting": {
     "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
+  "@chatReplyUnconfirmed": {
+    "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or unreadable for as long as the app is willing to ask). Nothing was resent. Announced once to screen readers. Wraps at any text size."
   },
   "chatScrollToLatest": "Scroll to latest message",
   "@chatScrollToLatest": {
@@ -226,6 +305,28 @@
   "@chatStatusCompressing": {
     "description": "Status line under the agent’s thinking row while the conversation is being compressed."
   },
+  "chatTurnBusy": "Hermes is still working on this. Try again when it is done.",
+  "@chatTurnBusy": {
+    "description": "Said under the last reply when Hermes answered Try again, Edit prompt or Branch in new chat with \"busy\" because its turn is still running. True, not an error of the app: nothing was changed and nothing was sent. Wraps at any text size."
+  },
+  "chatTurnHeld": "Hermes may still be working on this.",
+  "@chatTurnHeld": {
+    "description": "One line under the actions of the last reply, whose Try again, Edit prompt and Branch in new chat are dimmed because the connection broke and the server may still be running the turn. Says why they are off; they come back by themselves once Hermes reports the turn is over. Announced once to screen readers. Wraps at any text size."
+  },
+  "chatTurnRejected": "{action, select, retry{Hermes couldn't try again.} edit{Hermes couldn't edit the prompt.} branch{Hermes couldn't branch the chat.} other{Hermes couldn't do that.}}",
+  "@chatTurnRejected": {
+    "description": "Said under the last reply when Hermes refused to take the turn back or to branch the chat, for a reason other than being busy. The refusal text itself is not shown.",
+    "placeholders": {
+      "action": {"type": "String", "example": "retry"}
+    }
+  },
+  "chatTurnUnreachable": "{action, select, retry{Couldn't reach Hermes to try again. Check your connection.} edit{Couldn't reach Hermes to edit the prompt. Check your connection.} branch{Couldn't reach Hermes to branch the chat. Check your connection.} other{Couldn't reach Hermes. Check your connection.}}",
+  "@chatTurnUnreachable": {
+    "description": "Said under the last reply when taking the turn back or branching the chat could not reach Hermes at all.",
+    "placeholders": {
+      "action": {"type": "String", "example": "retry"}
+    }
+  },
 
   "@@x-area-chat/activity": "",
   "chatActivityButtonHide": "Hide activity",
@@ -256,7 +357,7 @@
   },
   "chatActivityInspectorHide": "Hide Inspector",
   "@chatActivityInspectorHide": {
-    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording."
+    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording. Also the label of the Kanban Mac toolbar’s inspector button while the inspector is open."
   },
   "chatActivityInspectorHideWaiting": "{count, plural, =1{Hide Inspector, 1 needs you} other{Hide Inspector, {count} need you}}",
   "@chatActivityInspectorHideWaiting": {
@@ -269,7 +370,7 @@
   },
   "chatActivityInspectorShow": "Show Inspector",
   "@chatActivityInspectorShow": {
-    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording."
+    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording. Also the label of the Kanban Mac toolbar’s inspector button while the inspector is closed."
   },
   "chatActivityInspectorShowWaiting": "{count, plural, =1{Show Inspector, 1 needs you} other{Show Inspector, {count} need you}}",
   "@chatActivityInspectorShowWaiting": {
@@ -394,7 +495,7 @@
       }
     }
   },
-  "chatActivityLineReferencesCounterLabel": "{done} of {total} models answered",
+  "chatActivityLineReferencesCounterLabel": "{done} of {total, plural, =1{1 model} other{{total} models}} answered",
   "@chatActivityLineReferencesCounterLabel": {
     "description": "Spoken form of the models counter on the activity line.",
     "placeholders": {
@@ -1654,6 +1755,10 @@
   "@@x-area-chat/media": "",
 
   "@@x-area-chat/memory": "",
+  "chatMemoryReviewFallback": "Background review",
+  "@chatMemoryReviewFallback": {
+    "description": "Second line of the Memory & review card when no review has a summary yet."
+  },
 
   "@@x-area-chat/queue_storage": "",
 
@@ -2058,6 +2163,10 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsApprovalAnswered": "Answered",
+  "@chatWidgetsApprovalAnswered": {
+    "description": "Note on an approval card that was answered, when the answer is not one the app knows."
+  },
   "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
   "@chatWidgetsHistoryEarlierFailedTitle": {
     "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
@@ -2081,6 +2190,45 @@
   "chatWidgetsHistoryLoading": "Loading chat",
   "@chatWidgetsHistoryLoading": {
     "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
+  },
+  "chatWidgetsMacToolbarMore": "More",
+  "@chatWidgetsMacToolbarMore": {
+    "description": "Accessibility label and tooltip of the \"…\" button in the Mac chat toolbar that opens the overflow menu."
+  },
+  "chatWidgetsMacToolbarNewChat": "New Chat",
+  "@chatWidgetsMacToolbarNewChat": {
+    "description": "Mac chat toolbar button that starts a new chat; macOS title case."
+  },
+  "chatWidgetsMacToolbarSearch": "Search",
+  "@chatWidgetsMacToolbarSearch": {
+    "description": "Mac chat toolbar button that opens the search of the open chat; the short form of Find."
+  },
+  "chatWidgetsMoaFinished": "Finished",
+  "@chatWidgetsMoaFinished": {
+    "description": "Shown in the advisor progress card title once the advisors are done."
+  },
+  "chatWidgetsMoaPhaseAdvisors": "Advisors",
+  "@chatWidgetsMoaPhaseAdvisors": {
+    "description": "Phase shown in the advisor progress card while the advisors answer, when the server reports no phase name."
+  },
+  "chatWidgetsMoaPhaseAggregating": "Aggregating",
+  "@chatWidgetsMoaPhaseAggregating": {
+    "description": "Phase shown in the advisor progress card while the aggregator combines the advisors' answers."
+  },
+  "chatWidgetsMoaProgressTitle": "Advisor progress · {phase}",
+  "@chatWidgetsMoaProgressTitle": {
+    "description": "Title of the advisor progress card: the phase, or Finished, after the dot.",
+    "placeholders": {
+      "phase": {"type": "String", "example": "Finished"}
+    }
+  },
+  "chatWidgetsNewChat": "New chat",
+  "@chatWidgetsNewChat": {
+    "description": "Name and hover text of the buttons that start a new chat."
+  },
+  "chatWidgetsNewMessage": "New message",
+  "@chatWidgetsNewMessage": {
+    "description": "Name and hover text of the button that starts a new chat on the messenger-style chat list."
   },
   "chatWidgetsProgramConfirmCancel": "Cancel",
   "@chatWidgetsProgramConfirmCancel": {
@@ -2179,6 +2327,221 @@
   "chatWidgetsProgramStopButton": "Stop program",
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
+  },
+  "chatWidgetsReasoningThinking": "Thinking…",
+  "@chatWidgetsReasoningThinking": {
+    "description": "Label of the reasoning block while the agent thinks and has named no activity yet."
+  },
+  "chatWidgetsSessionStatusUnavailable": "Unavailable",
+  "@chatWidgetsSessionStatusUnavailable": {
+    "description": "Status of the goal, loop or heartbeat in the session status summary when the server reports none."
+  },
+  "chatWidgetsThreadListRefreshFailedDetail": "Pull down to try again.",
+  "@chatWidgetsThreadListRefreshFailedDetail": {
+    "description": "Detail under the title of the notice above the chat list after a pull to refresh failed; the list stays as it was and nothing is retried on its own."
+  },
+  "chatWidgetsThreadListRefreshFailedTitle": "Couldn't refresh your chats.",
+  "@chatWidgetsThreadListRefreshFailedTitle": {
+    "description": "Title of the notice above the chat list when reading the first page of chats again, by pulling the list down, failed."
+  },
+  "chatWidgetsThreadListRefreshing": "Refreshing chats",
+  "@chatWidgetsThreadListRefreshing": {
+    "description": "Screen reader announcement of the spinner shown while the chat list is read again after a pull to refresh."
+  },
+  "chatWidgetsThreadMenuArchive": "Archive",
+  "@chatWidgetsThreadMenuArchive": {
+    "description": "A chat row's Archive action, shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadMenuBranch": "Branch in New Chat",
+  "@chatWidgetsThreadMenuBranch": {
+    "description": "Item in the Mac chat menu that copies the chat into a new chat and opens it. Title case on purpose, like the Mac menu bar."
+  },
+  "chatWidgetsThreadMenuCancel": "Cancel",
+  "@chatWidgetsThreadMenuCancel": {
+    "description": "Cancel button of the iPhone chat row action sheet, of the alerts that ask before deleting a chat or retiring a Bot Chat, and of the rename chat dialog."
+  },
+  "chatWidgetsThreadMenuCopied": "Transcript copied",
+  "@chatWidgetsThreadMenuCopied": {
+    "description": "Snackbar after the chat's transcript was copied to the clipboard."
+  },
+  "chatWidgetsThreadMenuCopyFailed": "Could not copy the transcript",
+  "@chatWidgetsThreadMenuCopyFailed": {
+    "description": "Snackbar when the chat's transcript could not be read to copy it."
+  },
+  "chatWidgetsThreadMenuCopyTranscript": "Copy transcript",
+  "@chatWidgetsThreadMenuCopyTranscript": {
+    "description": "Row of the chat actions menu in the chat header that copies the whole conversation as text."
+  },
+  "chatWidgetsThreadMenuDelete": "Delete",
+  "@chatWidgetsThreadMenuDelete": {
+    "description": "A chat row's Delete action, shown in the iPad popover menu (red), the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms; also the red button of the alert that confirms deleting."
+  },
+  "chatWidgetsThreadMenuDeleteMessage": "\"{title}\" and its messages will be deleted for good.",
+  "@chatWidgetsThreadMenuDeleteMessage": {
+    "description": "Text of the alert that asks before deleting a chat from its row menu.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsThreadMenuDeleteTitle": "Delete this chat?",
+  "@chatWidgetsThreadMenuDeleteTitle": {
+    "description": "Title of the alert that asks before deleting a chat from its row menu."
+  },
+  "chatWidgetsThreadMenuExportJson": "Export chat as JSON…",
+  "@chatWidgetsThreadMenuExportJson": {
+    "description": "Row of the chat actions menu in the chat header that saves the conversation as a JSON file, after a confirmation."
+  },
+  "chatWidgetsThreadMenuLabel": "Chat actions for {title}",
+  "@chatWidgetsThreadMenuLabel": {
+    "description": "Name of a chat's actions: spoken when the iPad popover menu opens, the long-press hint of the chat row on an iPad, and the name of the chat actions button on the other platforms.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsThreadMenuPin": "Pin",
+  "@chatWidgetsThreadMenuPin": {
+    "description": "A chat row's Pin action, shown in the iPad popover menu, the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadMenuRename": "Rename",
+  "@chatWidgetsThreadMenuRename": {
+    "description": "A chat row's Rename action, shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadMenuRenameTitle": "Rename chat",
+  "@chatWidgetsThreadMenuRenameTitle": {
+    "description": "Title of the dialog that asks for a new name of a chat."
+  },
+  "chatWidgetsThreadMenuRetire": "Retire Bot Chat…",
+  "@chatWidgetsThreadMenuRetire": {
+    "description": "A Bot Chat row's action that archives the canonical conversation, in place of Archive: shown in the iPad popover menu, the iPhone action sheet, the VoiceOver actions of the row and the chat actions menu; it opens a confirmation."
+  },
+  "chatWidgetsThreadMenuRetireConfirmButton": "Retire Bot Chat",
+  "@chatWidgetsThreadMenuRetireConfirmButton": {
+    "description": "Confirm button of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuRetireConfirmMessage": "This archives the canonical conversation. The next time you open this bot, a new Bot Chat is created after the server confirms retirement.",
+  "@chatWidgetsThreadMenuRetireConfirmMessage": {
+    "description": "Text of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuRetireConfirmTitle": "Retire this Bot Chat?",
+  "@chatWidgetsThreadMenuRetireConfirmTitle": {
+    "description": "Title of the alert that asks before retiring a Bot Chat."
+  },
+  "chatWidgetsThreadMenuSave": "Save",
+  "@chatWidgetsThreadMenuSave": {
+    "description": "Button in the rename chat dialog that keeps the new name."
+  },
+  "chatWidgetsThreadMenuTooltip": "Chat actions",
+  "@chatWidgetsThreadMenuTooltip": {
+    "description": "Hover text of the button that opens a chat's actions menu on the iPhone, Android and desktop."
+  },
+  "chatWidgetsThreadMenuUnpin": "Unpin",
+  "@chatWidgetsThreadMenuUnpin": {
+    "description": "A pinned chat row's action that takes it off the top of the list, shown in the iPad popover menu, the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadSidebarNotConnected": "Not connected",
+  "@chatWidgetsThreadSidebarNotConnected": {
+    "description": "Name on the account tile at the bottom of the thread sidebar when there is no user and no server address."
+  },
+  "chatWidgetsToolArgumentsTitle": "Input",
+  "@chatWidgetsToolArgumentsTitle": {
+    "description": "Label above the arguments Hermes passed to a tool, in an expanded tool call."
+  },
+  "chatWidgetsToolValueCopied": "Copied",
+  "@chatWidgetsToolValueCopied": {
+    "description": "Shown for two seconds on the Copy button of a tool call's input or result after it was copied, and announced to screen readers."
+  },
+  "chatWidgetsToolValueCopyError": "Copy error",
+  "@chatWidgetsToolValueCopyError": {
+    "description": "Accessible name of the button that copies a tool call's error text exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyInput": "Copy input",
+  "@chatWidgetsToolValueCopyInput": {
+    "description": "Accessible name of the button that copies a tool call's input exactly as it was sent."
+  },
+  "chatWidgetsToolValueCopyResult": "Copy result",
+  "@chatWidgetsToolValueCopyResult": {
+    "description": "Accessible name of the button that copies a tool call's result exactly as it was sent."
+  },
+  "chatWidgetsToolValueHiddenChar": "hidden character {code}",
+  "@chatWidgetsToolValueHiddenChar": {
+    "description": "What a screen reader says for a boxed escape in a tool call's text, a character that hides or reorders text. {code} is its code point, such as U+202E.",
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsToolValueItems": "{count, plural, =1{1 item} other{{count} items}}",
+  "@chatWidgetsToolValueItems": {
+    "description": "Summary of a JSON array in the tree view of a tool call's input or result. {count} is how many entries it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueKeys": "{count, plural, =1{1 key} other{{count} keys}}",
+  "@chatWidgetsToolValueKeys": {
+    "description": "Summary of a JSON object in the tree view of a tool call's input or result. {count} is how many keys it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsToolValueLineBreak": "line break",
+  "@chatWidgetsToolValueLineBreak": {
+    "description": "What a screen reader says for the boxed line break inside a string of the tree view of a tool call's JSON."
+  },
+  "chatWidgetsToolValueNoticeColourBudget": "Not coloured while many long texts are open. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeColourBudget": {
+    "description": "Muted line between the label row and the body of a tool call's text that is not coloured because the open tool calls of this chat have used up the colouring they share; it is shown as plain text."
+  },
+  "chatWidgetsToolValueNoticeTooDeepForTree": "Too deeply nested for the tree view.",
+  "@chatWidgetsToolValueNoticeTooDeepForTree": {
+    "description": "Muted line between the label row and the body of a tool call's JSON that is nested too deep for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongForTree": "Too long for the tree view.",
+  "@chatWidgetsToolValueNoticeTooLongForTree": {
+    "description": "Muted line between the label row and the body of a tool call's JSON that is too long for the tree view; it is shown as coloured text only."
+  },
+  "chatWidgetsToolValueNoticeTooLongToColour": "Too long to colour. Shown as plain text.",
+  "@chatWidgetsToolValueNoticeTooLongToColour": {
+    "description": "Muted line between the label row and the body of a tool call's text that is too long to be coloured; it is shown as plain text."
+  },
+  "chatWidgetsToolValueShowErrorAs": "Show error as",
+  "@chatWidgetsToolValueShowErrorAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's error."
+  },
+  "chatWidgetsToolValueShowInputAs": "Show input as",
+  "@chatWidgetsToolValueShowInputAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's input."
+  },
+  "chatWidgetsToolValueShowResultAs": "Show result as",
+  "@chatWidgetsToolValueShowResultAs": {
+    "description": "Accessible name of the group of the view switch of a tool call's result."
+  },
+  "chatWidgetsToolValueTagJson": "JSON",
+  "@chatWidgetsToolValueTagJson": {
+    "description": "Muted tag beside the label of a tool call's input or result that is JSON."
+  },
+  "chatWidgetsToolValueTagPython": "Python",
+  "@chatWidgetsToolValueTagPython": {
+    "description": "Muted tag beside the label of a tool call's input or result that is Python code."
+  },
+  "chatWidgetsToolValueViewText": "Text",
+  "@chatWidgetsToolValueViewText": {
+    "description": "Option of the view switch that shows a tool call's JSON as the text it was sent as."
+  },
+  "chatWidgetsToolValueViewTree": "Tree",
+  "@chatWidgetsToolValueViewTree": {
+    "description": "Option of the view switch that shows a tool call's JSON as a collapsible tree."
   },
 
   "@@x-area-core": "",
@@ -2671,9 +3034,941 @@
   "@@x-area-intents": "",
 
   "@@x-area-kanban": "",
+  "kanbanArchive": "Archive",
+  "@kanbanArchive": {
+    "description": "Menu item and button that archives a Kanban board or task, and the confirm button of the question that asks first."
+  },
+  "kanbanBoardLive": "Live",
+  "@kanbanBoardLive": {
+    "description": "Tooltip of the dot in the Kanban app bar when the board’s event stream is connected."
+  },
+  "kanbanBoardLoadFailed": "Could not load the board",
+  "@kanbanBoardLoadFailed": {
+    "description": "Title of the message that replaces the Kanban board when loading it failed."
+  },
+  "kanbanBoardManage": "Manage boards…",
+  "@kanbanBoardManage": {
+    "description": "Last item of the board switcher menu; opens the page that lists, creates and renames boards."
+  },
+  "kanbanBoardReconnecting": "Reconnecting…",
+  "@kanbanBoardReconnecting": {
+    "description": "Tooltip of the dot in the Kanban app bar while the board’s event stream is not connected."
+  },
+  "kanbanBoardSwitch": "Switch board",
+  "@kanbanBoardSwitch": {
+    "description": "Accessibility label and tooltip of the button that opens the board switcher menu, in the app bar and the Mac toolbar."
+  },
+  "kanbanBoardsArchiveTitle": "Archive “{name}”?",
+  "@kanbanBoardsArchiveTitle": {
+    "description": "Title of the confirmation before a Kanban board is archived. {name} is the board name.",
+    "placeholders": {
+      "name": {"type": "String", "example": "Ops"}
+    }
+  },
+  "kanbanBoardsCount": "{count, plural, =1{1 board} other{{count} boards}}",
+  "@kanbanBoardsCount": {
+    "description": "Subtitle of the boards page: how many boards there are.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanBoardsCreate": "Create",
+  "@kanbanBoardsCreate": {
+    "description": "Confirm button of the prompt that names a new Kanban board. Also the Create button of the new task form."
+  },
+  "kanbanBoardsCurrent": "Current",
+  "@kanbanBoardsCurrent": {
+    "description": "Value on the boards list row of the board that is open now; keep it short."
+  },
+  "kanbanBoardsDeleteTitle": "Delete “{name}” for good?",
+  "@kanbanBoardsDeleteTitle": {
+    "description": "Title of the confirmation before a Kanban board is deleted for good. {name} is the board name.",
+    "placeholders": {
+      "name": {"type": "String", "example": "Ops"}
+    }
+  },
+  "kanbanBoardsExportMenu": "Export…",
+  "@kanbanBoardsExportMenu": {
+    "description": "Menu item on a board row that opens the export dialog; the ellipsis says more input follows."
+  },
+  "kanbanBoardsExportedClose": "Close",
+  "@kanbanBoardsExportedClose": {
+    "description": "Button that closes the dialog saying a board was exported."
+  },
+  "kanbanBoardsExportedLocation": "The archive is on the server, at:",
+  "@kanbanBoardsExportedLocation": {
+    "description": "Line above the server path of an exported board archive; the path follows on the next line."
+  },
+  "kanbanBoardsExportedSize": "{kilobytes} KB",
+  "@kanbanBoardsExportedSize": {
+    "description": "Size of an exported board archive in kilobytes. {kilobytes} is already formatted with one decimal for the locale.",
+    "placeholders": {
+      "kilobytes": {"type": "String", "example": "12.5"}
+    }
+  },
+  "kanbanBoardsExportedTitle": "Board exported",
+  "@kanbanBoardsExportedTitle": {
+    "description": "Title of the dialog that says a Kanban board was exported to an archive on the server."
+  },
+  "kanbanBoardsImportRenamed": "That name was taken, so the board is {board}.",
+  "@kanbanBoardsImportRenamed": {
+    "description": "Snackbar after an import when the server renamed the board because its name was taken. {board} is the new board name.",
+    "placeholders": {
+      "board": {"type": "String", "example": "ops-2"}
+    }
+  },
+  "kanbanBoardsNameHint": "Name",
+  "@kanbanBoardsNameHint": {
+    "description": "Placeholder of the field that names a new Kanban board."
+  },
+  "kanbanBoardsNameInvalid": "Use letters or numbers in the board name.",
+  "@kanbanBoardsNameInvalid": {
+    "description": "Snackbar when the typed board name has no letter or number the server could use for its short name."
+  },
+  "kanbanBoardsNew": "New board",
+  "@kanbanBoardsNew": {
+    "description": "Title of the prompt that names a new Kanban board, and the label of the boards page button that opens it."
+  },
+  "kanbanBoardsPreviousTitle": "Kanban",
+  "@kanbanBoardsPreviousTitle": {
+    "description": "Back label on the boards page; the product name."
+  },
+  "kanbanBoardsRename": "Rename",
+  "@kanbanBoardsRename": {
+    "description": "Menu item on a board row, and confirm button of the prompt that renames the board."
+  },
+  "kanbanBoardsRenameTitle": "Rename board",
+  "@kanbanBoardsRenameTitle": {
+    "description": "Title of the prompt that renames a Kanban board."
+  },
+  "kanbanBoardsTaskCount": "{count, plural, =1{1 task} other{{count} tasks}}",
+  "@kanbanBoardsTaskCount": {
+    "description": "Task count in the subtitle of a board row, after the board slug. Also the count in the Mac toolbar’s subtitle.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanBoardsTitle": "Boards",
+  "@kanbanBoardsTitle": {
+    "description": "Title of the page that lists the Kanban boards."
+  },
+  "kanbanBulkActionArchive": "Archive",
+  "@kanbanBulkActionArchive": {
+    "description": "Button in the Kanban selection bar: archive the selected tasks."
+  },
+  "kanbanBulkActionAssign": "Assign",
+  "@kanbanBulkActionAssign": {
+    "description": "Button in the Kanban selection bar: assign the selected tasks to someone."
+  },
+  "kanbanBulkActionEffort": "Effort",
+  "@kanbanBulkActionEffort": {
+    "description": "Button in the Kanban selection bar: set the reasoning effort of the selected tasks."
+  },
+  "kanbanBulkActionMove": "Move",
+  "@kanbanBulkActionMove": {
+    "description": "Button in the Kanban selection bar: move the selected tasks to another status."
+  },
+  "kanbanBulkActionPriority": "Priority",
+  "@kanbanBulkActionPriority": {
+    "description": "Button in the Kanban selection bar: set the priority of the selected tasks."
+  },
+  "kanbanBulkArchiveConfirm": "Archive",
+  "@kanbanBulkArchiveConfirm": {
+    "description": "Confirm button of the dialog that asks before archiving the selected Kanban tasks."
+  },
+  "kanbanBulkArchiveTitle": "{count, plural, =1{Archive 1 task?} other{Archive {count} tasks?}}",
+  "@kanbanBulkArchiveTitle": {
+    "description": "Title of the dialog that asks before archiving the selected Kanban tasks. {count} is how many are selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanBulkAssignTitle": "Assign to",
+  "@kanbanBulkAssignTitle": {
+    "description": "Title of the Assign picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel."
+  },
+  "kanbanBulkEffortDefault": "Profile default",
+  "@kanbanBulkEffortDefault": {
+    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile. Also the value of the task panel's Model row when the task sets no model. Also the value of the model row on the new task form when no model is picked."
+  },
+  "kanbanBulkEffortTitle": "Reasoning effort",
+  "@kanbanBulkEffortTitle": {
+    "description": "Title of the picker that sets the reasoning effort of the selected Kanban tasks."
+  },
+  "kanbanBulkFailed": "{failed, plural, =1{1 of {total} could not be changed: {error}} other{{failed} of {total} could not be changed: {error}}}",
+  "@kanbanBulkFailed": {
+    "description": "Snackbar after a change to the selected Kanban tasks reached only some of them. {failed} is how many it did not reach, {total} how many were selected, {error} the reason the plugin gave for the first one.",
+    "placeholders": {
+      "failed": {"type": "int", "example": "2"},
+      "total": {"type": "int", "example": "5"},
+      "error": {"type": "String", "example": "task is running"}
+    }
+  },
+  "kanbanBulkMoveTitle": "Move to",
+  "@kanbanBulkMoveTitle": {
+    "description": "Title of the picker that moves the selected Kanban tasks to a status."
+  },
+  "kanbanBulkNobody": "Nobody",
+  "@kanbanBulkNobody": {
+    "description": "Option in the Assign picker, in the bulk bar and in the task panel: clear the assignee."
+  },
+  "kanbanBulkPickerFooter": "{count, plural, =1{Applies to the selected task.} other{Applies to the {count} selected tasks.}}",
+  "@kanbanBulkPickerFooter": {
+    "description": "Note under the choices of a bulk action in Kanban selection mode (Move to, Assign to, Priority, Reasoning effort). {count} is how many tasks are selected.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "kanbanBulkPriorityNormal": "Normal",
+  "@kanbanBulkPriorityNormal": {
+    "description": "Option in the Priority picker, in the bulk bar and in the task panel: priority zero, no urgency. Also the first option of the priority picker on the new task form."
+  },
+  "kanbanBulkPriorityTitle": "Priority",
+  "@kanbanBulkPriorityTitle": {
+    "description": "Title of the Priority picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel. Also the header of the priority section on the new task form."
+  },
+  "kanbanCardDragHint": "Drag to move",
+  "@kanbanCardDragHint": {
+    "description": "Tooltip of the handle that drags a task card to another status on a phone."
+  },
+  "kanbanCardInProgress": "In progress",
+  "@kanbanCardInProgress": {
+    "description": "Accessibility label of the thin progress bar on a running task card."
+  },
+  "kanbanCardProgress": "{done} of {total} done",
+  "@kanbanCardProgress": {
+    "description": "Accessibility value of the progress bar on a running task card: how many of its subtasks are done. {done} and {total} are counts.",
+    "placeholders": {
+      "done": {"type": "int", "example": "2"},
+      "total": {"type": "int", "example": "5"}
+    }
+  },
+  "kanbanCreateAssigneeAuto": "Auto (triage picks)",
+  "@kanbanCreateAssigneeAuto": {
+    "description": "Option of the assignee menu on the new task form: leave the assignee to the triage step."
+  },
+  "kanbanCreateAssignment": "Assignment",
+  "@kanbanCreateAssignment": {
+    "description": "Header of the new task form section that holds the assignee and the model."
+  },
+  "kanbanCreateEstimate": "Estimate the work",
+  "@kanbanCreateEstimate": {
+    "description": "Row on the new task form that asks the plugin for a rough size of the task; it shows the result below."
+  },
+  "kanbanCreateModelFooter": "Leave the model empty for the profile default.",
+  "@kanbanCreateModelFooter": {
+    "description": "Footer under the free-text model field of the new task form, shown when the plugin lists no models."
+  },
+  "kanbanCreateStartAs": "Start as",
+  "@kanbanCreateStartAs": {
+    "description": "Header of the new task form section that picks the status a new task starts in (triage or to-do)."
+  },
+  "kanbanDelete": "Delete",
+  "@kanbanDelete": {
+    "description": "Menu item and button that deletes a Kanban board or task for good, and the confirm button of the question that asks first."
+  },
+  "kanbanEditTaskDescriptionLabel": "Description",
+  "@kanbanEditTaskDescriptionLabel": {
+    "description": "Label of the description field, and the header above it, in the dialog that edits a Kanban task. Also the label of the description field on the new task form."
+  },
+  "kanbanEditTaskTitle": "Edit task",
+  "@kanbanEditTaskTitle": {
+    "description": "Title of the dialog that edits a Kanban task's title and description."
+  },
+  "kanbanEditTaskTitleLabel": "Title",
+  "@kanbanEditTaskTitleLabel": {
+    "description": "Label of the task title field in the dialog that edits a Kanban task. Also the label of the title field on the new task form."
+  },
+  "kanbanEmptyColumn": "No tasks here",
+  "@kanbanEmptyColumn": {
+    "description": "Message in the phone board’s list when the chosen status holds no tasks."
+  },
+  "kanbanEstimateKiloTokens": "about {thousands}k tokens",
+  "@kanbanEstimateKiloTokens": {
+    "description": "Size of a task estimate of a thousand tokens or more, rounded; the k stands for thousand. {thousands} is the rounded count in thousands.",
+    "placeholders": {
+      "thousands": {"type": "int", "example": "13"}
+    }
+  },
+  "kanbanEstimateLarge": "large",
+  "@kanbanEstimateLarge": {
+    "description": "Complexity read of a task estimate: large (the plugin’s L)."
+  },
+  "kanbanEstimateMedium": "medium",
+  "@kanbanEstimateMedium": {
+    "description": "Complexity read of a task estimate: medium (the plugin’s M)."
+  },
+  "kanbanEstimateNone": "No estimate available.",
+  "@kanbanEstimateNone": {
+    "description": "Shown under the estimate row of the new task form when the plugin gave no size and no reason."
+  },
+  "kanbanEstimateSmall": "small",
+  "@kanbanEstimateSmall": {
+    "description": "Complexity read of a task estimate: small (the plugin’s S)."
+  },
+  "kanbanEstimateTokens": "{count, plural, =1{about 1 token} other{about {count} tokens}}",
+  "@kanbanEstimateTokens": {
+    "description": "Size of a task estimate below a thousand tokens. {count} is the estimated number of tokens.",
+    "placeholders": {
+      "count": {"type": "int", "example": "640"}
+    }
+  },
+  "kanbanExportAction": "Export",
+  "@kanbanExportAction": {
+    "description": "Button that starts exporting a Kanban board to an archive on the server."
+  },
+  "kanbanExportAttachments": "Include attachments",
+  "@kanbanExportAttachments": {
+    "description": "Switch in the board export dialog: put the tasks' attachments in the archive."
+  },
+  "kanbanExportFooter": "The archive is written on the server, not on this device. Empty uses the server’s export folder.",
+  "@kanbanExportFooter": {
+    "description": "Note under the server path field in the board export dialog. The server's export folder is a default location the server chooses."
+  },
+  "kanbanExportLogs": "Include worker logs",
+  "@kanbanExportLogs": {
+    "description": "Switch in the board export dialog: put the logs of the workers that ran tasks in the archive."
+  },
+  "kanbanExportPathHint": "Use export folder",
+  "@kanbanExportPathHint": {
+    "description": "Placeholder of the server path field in the board export dialog while it is empty; the server's own export folder is used then."
+  },
+  "kanbanExportPathLabel": "Server path",
+  "@kanbanExportPathLabel": {
+    "description": "Label of the field for where on the server the board archive is written."
+  },
+  "kanbanExportTitle": "Export {name}",
+  "@kanbanExportTitle": {
+    "description": "Title of the dialog that exports one Kanban board.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "Ops"
+      }
+    }
+  },
+  "kanbanImportAction": "Import",
+  "@kanbanImportAction": {
+    "description": "Button that imports a Kanban board from an archive on the server."
+  },
+  "kanbanImportArchiveLabel": "Archive path",
+  "@kanbanImportArchiveLabel": {
+    "description": "Label of the field for the path of a board archive that is already on the server."
+  },
+  "kanbanImportFooter": "The archive must already be on the server.",
+  "@kanbanImportFooter": {
+    "description": "Note under the archive path field in the board import dialog."
+  },
+  "kanbanImportOpenAfter": "Open it afterwards",
+  "@kanbanImportOpenAfter": {
+    "description": "Switch in the board import dialog: show the imported board when the import is done."
+  },
+  "kanbanImportSlugHint": "Optional",
+  "@kanbanImportSlugHint": {
+    "description": "Placeholder of the new board slug field in the board import dialog; the field may stay empty."
+  },
+  "kanbanImportSlugLabel": "New board slug",
+  "@kanbanImportSlugLabel": {
+    "description": "Label of the field for the short id (slug) the imported board gets. Keep the word slug."
+  },
+  "kanbanImportTitle": "Import a board",
+  "@kanbanImportTitle": {
+    "description": "Title of the dialog that imports a Kanban board from a server-side archive."
+  },
+  "kanbanInspectClose": "Close",
+  "@kanbanInspectClose": {
+    "description": "Button that closes the dialog showing a Kanban worker's process details. Also the Close button of the task log dialog."
+  },
+  "kanbanInspectGone": "The process is not running.",
+  "@kanbanInspectGone": {
+    "description": "Body of the worker inspection dialog when the run's process is gone and the server gave no note."
+  },
+  "kanbanInspectGoneNote": "The process is not running: {note}.",
+  "@kanbanInspectGoneNote": {
+    "description": "Body of the worker inspection dialog when the run's process is gone; the note is the server's explanation, shown as it came.",
+    "placeholders": {
+      "note": {
+        "type": "String",
+        "example": "exited with code 1"
+      }
+    }
+  },
+  "kanbanInspectMemory": "Memory: {megabytes} MB",
+  "@kanbanInspectMemory": {
+    "description": "Line in the worker inspection dialog: memory the process uses, in megabytes.",
+    "placeholders": {
+      "megabytes": {
+        "type": "String",
+        "example": "128"
+      }
+    }
+  },
+  "kanbanInspectProcess": "Process {pid}",
+  "@kanbanInspectProcess": {
+    "description": "Line in the worker inspection dialog: the operating-system process id of the worker.",
+    "placeholders": {
+      "pid": {
+        "type": "int",
+        "example": "4321"
+      }
+    }
+  },
+  "kanbanInspectStatus": "Status: {status}",
+  "@kanbanInspectStatus": {
+    "description": "Line in the worker inspection dialog: the process status as the server reports it.",
+    "placeholders": {
+      "status": {
+        "type": "String",
+        "example": "sleeping"
+      }
+    }
+  },
+  "kanbanInspectThreads": "Threads: {count}",
+  "@kanbanInspectThreads": {
+    "description": "Line in the worker inspection dialog: number of threads the process runs.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "kanbanInspectTitle": "Run #{runId}",
+  "@kanbanInspectTitle": {
+    "description": "Title of the dialog that shows the process details of a Kanban worker's run.",
+    "placeholders": {
+      "runId": {
+        "type": "int",
+        "example": "42"
+      }
+    }
+  },
+  "kanbanInspectorEmptyDetail": "Click a card to see its details here.",
+  "@kanbanInspectorEmptyDetail": {
+    "description": "Second line of the Mac inspector placeholder, shown while no task card is picked."
+  },
+  "kanbanInspectorEmptyTitle": "No task selected",
+  "@kanbanInspectorEmptyTitle": {
+    "description": "Title of the Mac inspector placeholder, shown while no task card is picked."
+  },
+  "kanbanLogCut": "… (earlier output cut)",
+  "@kanbanLogCut": {
+    "description": "First line of a worker log whose beginning the server left out; keep the leading ellipsis."
+  },
+  "kanbanLogEmpty": "(empty)",
+  "@kanbanLogEmpty": {
+    "description": "Shown in place of a task’s worker log when the log file exists but holds nothing."
+  },
+  "kanbanLogLoadFailed": "Could not load the log.",
+  "@kanbanLogLoadFailed": {
+    "description": "Shown in place of a task’s worker log when reading it failed."
+  },
+  "kanbanLogLoading": "Loading…",
+  "@kanbanLogLoading": {
+    "description": "Shown in place of a task’s worker log while it loads."
+  },
+  "kanbanLogNone": "No worker has run this task yet.",
+  "@kanbanLogNone": {
+    "description": "Shown in place of a task’s worker log when the task has no log because no worker ran it."
+  },
+  "kanbanLogTitle": "Log · {taskId}",
+  "@kanbanLogTitle": {
+    "description": "Title of the dialog that shows the tail of a task’s worker log. {taskId} is the task id; keep the dot.",
+    "placeholders": {
+      "taskId": {"type": "String", "example": "t_1a2b"}
+    }
+  },
+  "kanbanMacAllProfiles": "All profiles",
+  "@kanbanMacAllProfiles": {
+    "description": "Menu item in the Mac toolbar’s profile filter that shows the tasks of every profile."
+  },
+  "kanbanMacFilterByProfile": "Filter by profile",
+  "@kanbanMacFilterByProfile": {
+    "description": "Accessibility label and tooltip of the Mac toolbar button that narrows the board to one profile."
+  },
+  "kanbanMacSubtitleAllProfiles": "all profiles",
+  "@kanbanMacSubtitleAllProfiles": {
+    "description": "Part of the Mac toolbar’s subtitle (board · profile · task count) when no profile filter is on; lower case."
+  },
+  "kanbanMenuDispatch": "Run dispatcher now",
+  "@kanbanMenuDispatch": {
+    "description": "Item of the Kanban more menu that asks the server’s dispatcher to look for work at once."
+  },
+  "kanbanMenuDispatched": "Dispatcher nudged",
+  "@kanbanMenuDispatched": {
+    "description": "Snackbar after the dispatcher was asked to look for work."
+  },
+  "kanbanMenuMore": "More",
+  "@kanbanMenuMore": {
+    "description": "Accessibility label and tooltip of the Kanban button that opens the menu of less common board actions."
+  },
+  "kanbanMenuOrchestration": "Orchestration…",
+  "@kanbanMenuOrchestration": {
+    "description": "Item of the Kanban more menu that opens the orchestration settings; the ellipsis means a dialog follows."
+  },
+  "kanbanMenuSelect": "Select tasks",
+  "@kanbanMenuSelect": {
+    "description": "Item of the Kanban more menu that starts picking several tasks to change at once."
+  },
+  "kanbanMenuWorkers": "Active workers…",
+  "@kanbanMenuWorkers": {
+    "description": "Item of the Kanban more menu that opens the page of running workers; the ellipsis means a page follows."
+  },
+  "kanbanNewTaskAction": "New task",
+  "@kanbanNewTaskAction": {
+    "description": "Label of the floating button on the board that opens the new task form. Also the title of the new task form."
+  },
+  "kanbanOrchestrationActiveProfile": "Active profile ({profile})",
+  "@kanbanOrchestrationActiveProfile": {
+    "description": "Choice in the orchestration dialog's profile pickers that means the server's currently active profile, followed by its name.",
+    "placeholders": {
+      "profile": {
+        "type": "String",
+        "example": "default"
+      }
+    }
+  },
+  "kanbanOrchestrationAutoDecompose": "Auto-decompose triage tasks",
+  "@kanbanOrchestrationAutoDecompose": {
+    "description": "Switch in the orchestration dialog: let the orchestrator split tasks in the triage column into subtasks by itself."
+  },
+  "kanbanOrchestrationAutoDecomposeCaption": "Off: decompose by hand",
+  "@kanbanOrchestrationAutoDecomposeCaption": {
+    "description": "Caption under the auto-decompose switch saying what the off position means."
+  },
+  "kanbanOrchestrationAutoPromote": "Promote children when ready",
+  "@kanbanOrchestrationAutoPromote": {
+    "description": "Switch in the orchestration dialog: move subtasks forward once what they wait for is done."
+  },
+  "kanbanOrchestrationDefaultAssignee": "Default assignee",
+  "@kanbanOrchestrationDefaultAssignee": {
+    "description": "Label of the picker for the profile that new Kanban tasks go to when nobody is named."
+  },
+  "kanbanOrchestrationLoadFailed": "Could not load the settings",
+  "@kanbanOrchestrationLoadFailed": {
+    "description": "Shown in the orchestration dialog when its settings could not be read from the server."
+  },
+  "kanbanOrchestrationOrchestrator": "Orchestrator profile",
+  "@kanbanOrchestrationOrchestrator": {
+    "description": "Label of the picker for the profile that plans and splits Kanban work."
+  },
+  "kanbanOrchestrationTitle": "Orchestration",
+  "@kanbanOrchestrationTitle": {
+    "description": "Title of the dialog that edits how Kanban tasks are split up and picked up."
+  },
   "kanbanRefreshAction": "Refresh",
   "@kanbanRefreshAction": {
     "description": "Name of the Refresh button on the board and the workers page; reads the list again."
+  },
+  "kanbanSaveAction": "Save",
+  "@kanbanSaveAction": {
+    "description": "Button that saves the Kanban dialog that is open (edit task, orchestration)."
+  },
+  "kanbanSelectionCancel": "Cancel selection",
+  "@kanbanSelectionCancel": {
+    "description": "Accessibility label and tooltip of the app bar button that leaves the pick-several-tasks mode."
+  },
+  "kanbanSelectionCount": "{count, plural, =1{1 selected} other{{count} selected}}",
+  "@kanbanSelectionCount": {
+    "description": "App bar title while picking tasks: how many are picked.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanSomethingWentWrong": "Something went wrong. Try again.",
+  "@kanbanSomethingWentWrong": {
+    "description": "Snackbar when a Kanban change failed for a reason the plugin did not name."
+  },
+  "kanbanStatusArchived": "Archived",
+  "@kanbanStatusArchived": {
+    "description": "Name of the Kanban status for archived tasks, shown only while the Archived filter is on: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusBlocked": "Blocked",
+  "@kanbanStatusBlocked": {
+    "description": "Name of the Kanban status for blocked tasks, waiting on something: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusDone": "Done",
+  "@kanbanStatusDone": {
+    "description": "Name of the Kanban status for finished tasks: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusReady": "Ready",
+  "@kanbanStatusReady": {
+    "description": "Name of the Kanban status for tasks ready for a worker to pick up: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusReview": "Review",
+  "@kanbanStatusReview": {
+    "description": "Name of the Kanban status for tasks waiting for a review: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusRunning": "Running",
+  "@kanbanStatusRunning": {
+    "description": "Name of the Kanban status for tasks a worker is running now: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusScheduled": "Scheduled",
+  "@kanbanStatusScheduled": {
+    "description": "Name of the Kanban status for tasks set to start later: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusTodo": "Todo",
+  "@kanbanStatusTodo": {
+    "description": "Name of the Kanban status for tasks that are planned but not started: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusTriage": "Triage",
+  "@kanbanStatusTriage": {
+    "description": "Name of the Kanban status for new tasks that still need to be specified or assigned: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanTaskActions": "Actions",
+  "@kanbanTaskActions": {
+    "description": "Header of the group of status buttons in the task panel."
+  },
+  "kanbanTaskAdd": "Add",
+  "@kanbanTaskAdd": {
+    "description": "Row that adds a dependency to a task, and confirm button of the prompt for its task id."
+  },
+  "kanbanTaskArchiveTitle": "Archive this task?",
+  "@kanbanTaskArchiveTitle": {
+    "description": "Title of the confirmation before the open task is archived."
+  },
+  "kanbanTaskAssignee": "Assignee",
+  "@kanbanTaskAssignee": {
+    "description": "Label of the row that shows who a task is assigned to. Also the title of the assignee menu on the new task form."
+  },
+  "kanbanTaskAttachFile": "Attach file",
+  "@kanbanTaskAttachFile": {
+    "description": "Row in the task panel that picks a file to attach to the task."
+  },
+  "kanbanTaskAttachments": "Attachments",
+  "@kanbanTaskAttachments": {
+    "description": "Header of the task panel group that lists the task’s attachments."
+  },
+  "kanbanTaskBlock": "Block",
+  "@kanbanTaskBlock": {
+    "description": "Row and confirm button that marks a task as blocked."
+  },
+  "kanbanTaskBlockedTitle": "Why is it blocked?",
+  "@kanbanTaskBlockedTitle": {
+    "description": "Title of the prompt for the reason a task is blocked."
+  },
+  "kanbanTaskComment": "Comment",
+  "@kanbanTaskComment": {
+    "description": "Label of the field that takes a new comment on a task."
+  },
+  "kanbanTaskCommentHint": "Add a comment…",
+  "@kanbanTaskCommentHint": {
+    "description": "Placeholder of the comment field in the task panel."
+  },
+  "kanbanTaskComments": "Comments ({count})",
+  "@kanbanTaskComments": {
+    "description": "Header of the task panel group that lists the comments. {count} is how many there are.",
+    "placeholders": {
+      "count": {"type": "int", "example": "2"}
+    }
+  },
+  "kanbanTaskComplete": "Complete",
+  "@kanbanTaskComplete": {
+    "description": "Row and confirm button that marks a task as done."
+  },
+  "kanbanTaskDecompose": "Decompose",
+  "@kanbanTaskDecompose": {
+    "description": "Row that splits a triage task into subtasks."
+  },
+  "kanbanTaskDecomposed": "Decomposed",
+  "@kanbanTaskDecomposed": {
+    "description": "Snackbar after a task was decomposed into no subtasks."
+  },
+  "kanbanTaskDecomposedInto": "{count, plural, =1{Decomposed into 1 task} other{Decomposed into {count} tasks}}",
+  "@kanbanTaskDecomposedInto": {
+    "description": "Snackbar after a task was decomposed into subtasks. {count} is how many.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanTaskDeleteTitle": "Delete this task for good?",
+  "@kanbanTaskDeleteTitle": {
+    "description": "Title of the confirmation before the open task is deleted for good."
+  },
+  "kanbanTaskDependsOn": "Depends on",
+  "@kanbanTaskDependsOn": {
+    "description": "Header of the task panel group that lists the tasks this one depends on, and title of the prompt that adds one."
+  },
+  "kanbanTaskDependsOnHint": "Task id, e.g. t_1a2b",
+  "@kanbanTaskDependsOnHint": {
+    "description": "Placeholder of the field that takes the id of a task to depend on; keep the example id."
+  },
+  "kanbanTaskEdit": "Edit",
+  "@kanbanTaskEdit": {
+    "description": "Accessibility label and tooltip of the button that edits the open task."
+  },
+  "kanbanTaskEstimate": "Estimate",
+  "@kanbanTaskEstimate": {
+    "description": "Row that asks the server to estimate the work of a task."
+  },
+  "kanbanTaskHistory": "History",
+  "@kanbanTaskHistory": {
+    "description": "Title of the expandable list of a task’s events."
+  },
+  "kanbanTaskLoadFailed": "Could not load the task",
+  "@kanbanTaskLoadFailed": {
+    "description": "Message in the task panel when the task failed to load."
+  },
+  "kanbanTaskModel": "Model",
+  "@kanbanTaskModel": {
+    "description": "Header of the task panel group that shows the task’s model, and title of the prompt that sets it. Also the title of the model row and field on the new task form."
+  },
+  "kanbanTaskModelHint": "Empty to clear the model",
+  "@kanbanTaskModelHint": {
+    "description": "Placeholder of the field that takes a model name for a task."
+  },
+  "kanbanTaskMoveTo": "Move to…",
+  "@kanbanTaskMoveTo": {
+    "description": "Label of the menu row that moves a task to another status."
+  },
+  "kanbanTaskNeedsAttention": "Needs attention",
+  "@kanbanTaskNeedsAttention": {
+    "description": "Header of the task panel group that lists problems the server found with a task."
+  },
+  "kanbanTaskNotify": "Notify",
+  "@kanbanTaskNotify": {
+    "description": "Header of the task panel group where the task’s updates can be posted to messaging channels."
+  },
+  "kanbanTaskOptional": "Optional",
+  "@kanbanTaskOptional": {
+    "description": "Placeholder of a field that may stay empty."
+  },
+  "kanbanTaskPostUpdates": "Post updates to {name}",
+  "@kanbanTaskPostUpdates": {
+    "description": "Switch row: post this task’s updates to a messaging channel. {name} is the channel name.",
+    "placeholders": {
+      "name": {"type": "String", "example": "Home"}
+    }
+  },
+  "kanbanTaskPriorityLevel": "P{priority}",
+  "@kanbanTaskPriorityLevel": {
+    "description": "Option in the task panel's Priority picker: priority level 1 to 3, P for priority; keep it short. Also the segment labels of the priority section on the new task form.",
+    "placeholders": {
+      "priority": {"type": "int", "example": "2"}
+    }
+  },
+  "kanbanTaskReclaim": "Reclaim",
+  "@kanbanTaskReclaim": {
+    "description": "Row and confirm button that releases a worker’s claim on a running task."
+  },
+  "kanbanTaskReclaimTitle": "Release the worker’s claim on this task?",
+  "@kanbanTaskReclaimTitle": {
+    "description": "Title of the confirmation before a running task is reclaimed from its worker."
+  },
+  "kanbanTaskRemove": "Remove",
+  "@kanbanTaskRemove": {
+    "description": "Confirm button of the question that removes an attachment."
+  },
+  "kanbanTaskRemoveAttachment": "Remove attachment",
+  "@kanbanTaskRemoveAttachment": {
+    "description": "Tooltip of the button that removes an attachment from a task."
+  },
+  "kanbanTaskRemoveAttachmentLabel": "Remove {filename}",
+  "@kanbanTaskRemoveAttachmentLabel": {
+    "description": "Accessibility label of the button that removes an attachment. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskRemoveAttachmentTitle": "Remove {filename}?",
+  "@kanbanTaskRemoveAttachmentTitle": {
+    "description": "Title of the confirmation before an attachment is removed. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskRemoveDependency": "Remove dependency {id}",
+  "@kanbanTaskRemoveDependency": {
+    "description": "Accessibility label of the button that removes a dependency. {id} is the task id.",
+    "placeholders": {
+      "id": {"type": "String", "example": "t_1a2b"}
+    }
+  },
+  "kanbanTaskResult": "Result",
+  "@kanbanTaskResult": {
+    "description": "Header of the text group with a task’s result, and title of the prompt that asks for it when completing the task."
+  },
+  "kanbanTaskResultHint": "Optional — what came out of it",
+  "@kanbanTaskResultHint": {
+    "description": "Placeholder of the field that takes a task’s result when it is completed."
+  },
+  "kanbanTaskRunRunning": "running",
+  "@kanbanTaskRunRunning": {
+    "description": "Status word in a run line of the task panel: the run is active; lower case, it follows a profile name."
+  },
+  "kanbanTaskRunWorker": "worker",
+  "@kanbanTaskRunWorker": {
+    "description": "Word in a run line of the task panel when the run has no profile name; lower case."
+  },
+  "kanbanTaskRuns": "Runs ({count})",
+  "@kanbanTaskRuns": {
+    "description": "Title of the expandable list of a task’s worker runs. {count} is how many.",
+    "placeholders": {
+      "count": {"type": "int", "example": "2"}
+    }
+  },
+  "kanbanTaskSaveAttachment": "Save attachment",
+  "@kanbanTaskSaveAttachment": {
+    "description": "Tooltip of the button that saves an attachment to this device."
+  },
+  "kanbanTaskSaveAttachmentLabel": "Save {filename}",
+  "@kanbanTaskSaveAttachmentLabel": {
+    "description": "Accessibility label of the button that saves an attachment. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskSaved": "Saved {filename}",
+  "@kanbanTaskSaved": {
+    "description": "Snackbar after an attachment was saved. {filename} is the file name.",
+    "placeholders": {
+      "filename": {"type": "String", "example": "report.pdf"}
+    }
+  },
+  "kanbanTaskSend": "Send",
+  "@kanbanTaskSend": {
+    "description": "Row that sends the typed comment on a task."
+  },
+  "kanbanTaskSpecified": "Specified",
+  "@kanbanTaskSpecified": {
+    "description": "Snackbar after a task was specified into no subtasks."
+  },
+  "kanbanTaskSpecifiedInto": "{count, plural, =1{Specified into 1 task} other{Specified into {count} tasks}}",
+  "@kanbanTaskSpecifiedInto": {
+    "description": "Snackbar after a task was specified into subtasks. {count} is how many.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanTaskSpecify": "Specify",
+  "@kanbanTaskSpecify": {
+    "description": "Row that asks the server to write a specification for a triage task."
+  },
+  "kanbanTaskSubtasks": "Subtasks",
+  "@kanbanTaskSubtasks": {
+    "description": "Header of the task panel group that lists a task’s subtasks."
+  },
+  "kanbanTaskTenant": "Tenant",
+  "@kanbanTaskTenant": {
+    "description": "Label of the row that shows a task’s tenant."
+  },
+  "kanbanTaskTerminateTitle": "Terminate this run?",
+  "@kanbanTaskTerminateTitle": {
+    "description": "Title of the confirmation before a worker run is stopped from the task panel."
+  },
+  "kanbanTaskTriageFailed": "That did not work out.",
+  "@kanbanTaskTriageFailed": {
+    "description": "Snackbar when the server could not decompose or specify a task and gave no reason."
+  },
+  "kanbanTaskUnassigned": "Unassigned",
+  "@kanbanTaskUnassigned": {
+    "description": "Value of the Assignee row when nobody is assigned."
+  },
+  "kanbanTaskWorkerLog": "Worker log",
+  "@kanbanTaskWorkerLog": {
+    "description": "Row that opens the log of a task’s worker."
+  },
+  "kanbanTitle": "Kanban",
+  "@kanbanTitle": {
+    "description": "Title of the Kanban page; the product name stays."
+  },
+  "kanbanToolbarAllAssignees": "All assignees",
+  "@kanbanToolbarAllAssignees": {
+    "description": "Filter chip and its first menu item that show tasks of every assignee."
+  },
+  "kanbanToolbarAllTenants": "All tenants",
+  "@kanbanToolbarAllTenants": {
+    "description": "Filter chip and its first menu item that show tasks of every tenant."
+  },
+  "kanbanToolbarArchived": "Archived",
+  "@kanbanToolbarArchived": {
+    "description": "Filter chip that adds archived tasks to the board."
+  },
+  "kanbanToolbarRefreshFailed": "Could not refresh. Showing the last board.",
+  "@kanbanToolbarRefreshFailed": {
+    "description": "Banner above the board when reading it again failed and the older data stays on screen."
+  },
+  "kanbanToolbarSearch": "Search tasks",
+  "@kanbanToolbarSearch": {
+    "description": "Placeholder of the search field over the Kanban board."
+  },
+  "kanbanUnavailableDetail": "The plugin was turned off on this server.",
+  "@kanbanUnavailableDetail": {
+    "description": "Second line of the message that replaces the Kanban board when the server has the plugin switched off."
+  },
+  "kanbanUnavailableTitle": "Kanban isn’t available",
+  "@kanbanUnavailableTitle": {
+    "description": "Title of the message that replaces the Kanban board when the server has the plugin switched off."
+  },
+  "kanbanWorkersEmpty": "No workers are running",
+  "@kanbanWorkersEmpty": {
+    "description": "Message on the workers page when no task has a worker running."
+  },
+  "kanbanWorkersHeartbeat": "heartbeat {when}",
+  "@kanbanWorkersHeartbeat": {
+    "description": "Caption of a worker row: when the worker last reported. {when} is a relative time such as 5m ago.",
+    "placeholders": {
+      "when": {"type": "String", "example": "5m ago"}
+    }
+  },
+  "kanbanWorkersInspect": "Inspect process",
+  "@kanbanWorkersInspect": {
+    "description": "Menu item on a worker row that shows details of its process."
+  },
+  "kanbanWorkersLoadFailed": "Could not load the workers",
+  "@kanbanWorkersLoadFailed": {
+    "description": "Message on the workers page when loading failed and the server gave no reason."
+  },
+  "kanbanWorkersPreviousTitle": "Kanban",
+  "@kanbanWorkersPreviousTitle": {
+    "description": "Back label of the workers page on the Mac; names the page it returns to."
+  },
+  "kanbanWorkersRefreshFailed": "Could not refresh: {reason}",
+  "@kanbanWorkersRefreshFailed": {
+    "description": "Snackbar when reading the workers again failed while the old list stays on screen. {reason} is the server's message or a short sentence.",
+    "placeholders": {
+      "reason": {"type": "String", "example": "Could not load the workers"}
+    }
+  },
+  "kanbanWorkersRunNumber": "run #{run}",
+  "@kanbanWorkersRunNumber": {
+    "description": "Part of the subtitle of a worker row: the run number.",
+    "placeholders": {
+      "run": {"type": "int", "example": "7"}
+    }
+  },
+  "kanbanWorkersRunning": "{count} running",
+  "@kanbanWorkersRunning": {
+    "description": "Subtitle of the workers page: how many workers are running.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanWorkersStarted": "started {when}",
+  "@kanbanWorkersStarted": {
+    "description": "Caption of a worker row: when the run started. {when} is a relative time such as 5m ago.",
+    "placeholders": {
+      "when": {"type": "String", "example": "5m ago"}
+    }
+  },
+  "kanbanWorkersTerminate": "Terminate",
+  "@kanbanWorkersTerminate": {
+    "description": "Confirm button of the question that stops a worker run, and the button on a run line of the task panel that stops it."
+  },
+  "kanbanWorkersTerminateTitle": "Terminate run #{run}?",
+  "@kanbanWorkersTerminateTitle": {
+    "description": "Title of the confirmation before a worker run is stopped. {run} is the run number.",
+    "placeholders": {
+      "run": {"type": "int", "example": "7"}
+    }
+  },
+  "kanbanWorkersTitle": "Active workers",
+  "@kanbanWorkersTitle": {
+    "description": "Title of the page that lists the workers running tasks now."
   },
 
   "@@x-area-live_activities": "",
@@ -2683,8 +3978,175 @@
   "@macosCompressConversation": {
     "description": "Mac menu bar, Chat menu item: asks to summarize the open chat's earlier messages to free up context; opens a confirmation. Title case, keep it short."
   },
+  "macosMenuAbout": "About Hermes",
+  "@macosMenuAbout": {
+    "description": "Hermes menu: opens the About dialog."
+  },
+  "macosMenuArchive": "Archive",
+  "@macosMenuArchive": {
+    "description": "Chat menu, and the Mac chat row and conversation window menus: archives the chat."
+  },
+  "macosMenuBack": "Back",
+  "@macosMenuBack": {
+    "description": "View menu: leaves the settings page in front."
+  },
+  "macosMenuChangeFolder": "Change Folder…",
+  "@macosMenuChangeFolder": {
+    "description": "Chat menu, and the Mac chat row and conversation window menus: moves the chat to another working folder; opens a picker."
+  },
+  "macosMenuChat": "Chat",
+  "@macosMenuChat": {
+    "description": "Title of the Chat menu in the menu bar."
+  },
+  "macosMenuCloseWindow": "Close Window",
+  "@macosMenuCloseWindow": {
+    "description": "File menu: closes the window in front."
+  },
+  "macosMenuConnectionDetails": "Connection Details",
+  "@macosMenuConnectionDetails": {
+    "description": "Hermes menu: opens the connection page."
+  },
+  "macosMenuCopy": "Copy",
+  "@macosMenuCopy": {
+    "description": "Edit menu: copies the selection."
+  },
+  "macosMenuCopyTranscript": "Copy Transcript",
+  "@macosMenuCopyTranscript": {
+    "description": "Chat menu, and the Mac chat row and conversation window menus: copies the chat as text."
+  },
+  "macosMenuCut": "Cut",
+  "@macosMenuCut": {
+    "description": "Edit menu: cuts the selection."
+  },
+  "macosMenuDelete": "Delete…",
+  "@macosMenuDelete": {
+    "description": "Chat menu, and the Mac chat row and conversation window menus: deletes the chat after a confirmation."
+  },
+  "macosMenuEdit": "Edit",
+  "@macosMenuEdit": {
+    "description": "Title of the Edit menu in the menu bar."
+  },
+  "macosMenuEnclosingFolder": "Enclosing Folder",
+  "@macosMenuEnclosingFolder": {
+    "description": "View menu: goes up one folder on the Files page."
+  },
+  "macosMenuExportChat": "Export Chat as JSON…",
+  "@macosMenuExportChat": {
+    "description": "Chat menu, and the Mac chat row and conversation window menus: saves the chat as a JSON file; a dialog follows."
+  },
+  "macosMenuFile": "File",
+  "@macosMenuFile": {
+    "description": "Title of the File menu in the menu bar; the system name."
+  },
+  "macosMenuFind": "Find…",
+  "@macosMenuFind": {
+    "description": "Chat menu: focuses the chat search field."
+  },
+  "macosMenuForward": "Forward",
+  "@macosMenuForward": {
+    "description": "View menu: goes forward in the navigation history."
+  },
+  "macosMenuHelp": "Help",
+  "@macosMenuHelp": {
+    "description": "Title of the Help menu in the menu bar; the system name."
+  },
+  "macosMenuHermesHelp": "Hermes Help",
+  "@macosMenuHermesHelp": {
+    "description": "Help menu: opens the help page in the browser."
+  },
+  "macosMenuHideSidebar": "Hide Sidebar",
+  "@macosMenuHideSidebar": {
+    "description": "View menu while the chat list is shown: hides it."
+  },
+  "macosMenuNewChat": "New Chat",
+  "@macosMenuNewChat": {
+    "description": "File menu: starts a new chat."
+  },
+  "macosMenuNewSchedule": "New Schedule",
+  "@macosMenuNewSchedule": {
+    "description": "File menu while the Schedules page is in front: starts a new scheduled task."
+  },
+  "macosMenuNewTask": "New Task",
+  "@macosMenuNewTask": {
+    "description": "File menu while the Kanban board is in front: starts a new task. Also the label of the Kanban Mac toolbar’s New Task button."
+  },
+  "macosMenuNextChange": "Next Change",
+  "@macosMenuNextChange": {
+    "description": "View menu: shows the next changed file."
+  },
+  "macosMenuOpenInNewWindow": "Open in New Window",
+  "@macosMenuOpenInNewWindow": {
+    "description": "File menu, and the Mac chat row menu: opens the chat in a window of its own."
+  },
+  "macosMenuPaste": "Paste",
+  "@macosMenuPaste": {
+    "description": "Edit menu: pastes the clipboard."
+  },
+  "macosMenuPin": "Pin",
+  "@macosMenuPin": {
+    "description": "Chat menu, and the Mac chat row menu: pins the chat to the top of the list."
+  },
+  "macosMenuPreviousChange": "Previous Change",
+  "@macosMenuPreviousChange": {
+    "description": "View menu: shows the previous changed file."
+  },
+  "macosMenuRedo": "Redo",
+  "@macosMenuRedo": {
+    "description": "Edit menu: redoes the last undone edit."
+  },
+  "macosMenuReload": "Reload",
+  "@macosMenuReload": {
+    "description": "View menu: reads the page in front again."
+  },
+  "macosMenuRename": "Rename…",
+  "@macosMenuRename": {
+    "description": "Chat menu, and the Mac chat row and conversation window menus: renames the chat."
+  },
+  "macosMenuSelectAll": "Select All",
+  "@macosMenuSelectAll": {
+    "description": "Edit menu: selects all text in the focused field."
+  },
+  "macosMenuSettings": "Settings…",
+  "@macosMenuSettings": {
+    "description": "Hermes menu: opens Settings."
+  },
+  "macosMenuShowFiles": "Show Files",
+  "@macosMenuShowFiles": {
+    "description": "View menu: opens the Files page of the chat."
+  },
+  "macosMenuShowSidebar": "Show Sidebar",
+  "@macosMenuShowSidebar": {
+    "description": "View menu while the chat list is hidden: shows it."
+  },
+  "macosMenuSignOut": "Sign Out…",
+  "@macosMenuSignOut": {
+    "description": "Hermes menu: signs out after a confirmation."
+  },
+  "macosMenuUndo": "Undo",
+  "@macosMenuUndo": {
+    "description": "Edit menu: undoes the last edit."
+  },
+  "macosMenuUnpin": "Unpin",
+  "@macosMenuUnpin": {
+    "description": "Chat menu, and the Mac chat row menu, while the chat is pinned: removes the pin."
+  },
+  "macosMenuView": "View",
+  "@macosMenuView": {
+    "description": "Title of the View menu in the menu bar; the system name."
+  },
+  "macosMenuWindow": "Window",
+  "@macosMenuWindow": {
+    "description": "Title of the Window menu in the menu bar; the system name."
+  },
 
   "@@x-area-mcp": "",
+  "mcpSignInStartFailed": "Could not start signing in to {server}",
+  "@mcpSignInStartFailed": {
+    "description": "Failure note of the MCP sign-in screen when the server gave no reason. The server is the MCP server's name.",
+    "placeholders": {
+      "server": {"type": "String", "example": "github"}
+    }
+  },
 
   "@@x-area-memory": "",
   "memoryAllMemories": "All memories",
@@ -2732,6 +4194,21 @@
         "type": "String"
       }
     }
+  },
+  "memoryLearningIntervalEvery": "{turns, plural, =1{After every message} other{After every {turns} messages}}",
+  "@memoryLearningIntervalEvery": {
+    "description": "Value of the Review chats row of the Memory settings, and one of its choices: Hermes reviews the chat for things to remember after this many messages. 0 is shown as Off.",
+    "placeholders": {
+      "turns": {"type": "int", "example": "10"}
+    }
+  },
+  "memoryLearningReportDetailed": "With details",
+  "@memoryLearningReportDetailed": {
+    "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in a longer note. Keep it short."
+  },
+  "memoryLearningReportShort": "Short note",
+  "@memoryLearningReportShort": {
+    "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in one short line. Keep it short."
   },
   "memoryLeaveDiscard": "Discard and leave",
   "@memoryLeaveDiscard": {
@@ -2818,8 +4295,63 @@
   },
 
   "@@x-area-messaging": "",
+  "messagingSetUp": "Set up",
+  "@messagingSetUp": {
+    "description": "Button at the end of a messaging platform row that has no credentials yet, on Android, Windows and Linux. Opens the platform's setup."
+  },
+  "messagingSetUpMac": "Set Up…",
+  "@messagingSetUpMac": {
+    "description": "Same button on a Mac, where a button that opens a form ends in an ellipsis."
+  },
+  "messagingSetUpValue": "Set Up",
+  "@messagingSetUpValue": {
+    "description": "The muted value at the end of the same row on iOS, in place of a button."
+  },
+  "messagingSetupHelperSet": "Set ({value}). Leave blank to keep it.",
+  "@messagingSetupHelperSet": {
+    "description": "Helper under a messaging setup field that already has a value. The value is the server's redacted form or the word for hidden.",
+    "placeholders": {
+      "value": {"type": "String", "example": "sk-…1234"}
+    }
+  },
+  "messagingSetupValueHidden": "hidden",
+  "@messagingSetupValueHidden": {
+    "description": "Stands for a saved credential's value that the server keeps hidden, inside the Set (…) helper line."
+  },
 
   "@@x-area-models": "",
+  "modelsEffortHigh": "High",
+  "@modelsEffortHigh": {
+    "description": "Name of the reasoning effort level high, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortLow": "Low",
+  "@modelsEffortLow": {
+    "description": "Name of the reasoning effort level low, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortMax": "Max",
+  "@modelsEffortMax": {
+    "description": "Name of the reasoning effort level the maximum, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortMedium": "Medium",
+  "@modelsEffortMedium": {
+    "description": "Name of the reasoning effort level medium, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortMinimal": "Minimal",
+  "@modelsEffortMinimal": {
+    "description": "Name of the reasoning effort level minimal, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortNone": "Off",
+  "@modelsEffortNone": {
+    "description": "Name of the reasoning effort level thinking switched off, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortUltra": "Ultra",
+  "@modelsEffortUltra": {
+    "description": "Name of the reasoning effort level the highest the server offers, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortXhigh": "Extra High",
+  "@modelsEffortXhigh": {
+    "description": "Name of the reasoning effort level one step above high, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
   "modelsPickerDefaultUses": "Uses {model}",
   "@modelsPickerDefaultUses": {
     "description": "Subtitle of the model picker's default row: the model a chat without an explicit pick uses. {model} is the server's model id.",
@@ -2924,10 +4456,74 @@
   },
 
   "@@x-area-navigation": "",
+  "navigationChordTooltip": "{label} ({chord})",
+  "@navigationChordTooltip": {
+    "description": "Hover text of a button whose command has a keyboard shortcut on Windows and Linux, such as New chat (Ctrl+N).",
+    "placeholders": {
+      "label": {"type": "String", "example": "New chat"},
+      "chord": {"type": "String", "example": "Ctrl+N"}
+    }
+  },
+  "navigationFocusMenuBar": "Menu bar",
+  "@navigationFocusMenuBar": {
+    "description": "Name of the command on the Keyboard shortcuts page whose key, F10, moves the keyboard into the menu bar of Windows and Linux."
+  },
+  "navigationKeyAlt": "Alt",
+  "@navigationKeyAlt": {
+    "description": "The Alt key, as written on a keyboard shortcut."
+  },
+  "navigationKeyBackspace": "Backspace",
+  "@navigationKeyBackspace": {
+    "description": "The Backspace key, as written on a keyboard shortcut."
+  },
+  "navigationKeyCtrl": "Ctrl",
+  "@navigationKeyCtrl": {
+    "description": "The Control key, as written on a keyboard shortcut."
+  },
+  "navigationKeyDown": "Down",
+  "@navigationKeyDown": {
+    "description": "The Down arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyLeft": "Left",
+  "@navigationKeyLeft": {
+    "description": "The Left arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyRight": "Right",
+  "@navigationKeyRight": {
+    "description": "The Right arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyShift": "Shift",
+  "@navigationKeyShift": {
+    "description": "The Shift key, as written on a keyboard shortcut."
+  },
+  "navigationKeyUp": "Up",
+  "@navigationKeyUp": {
+    "description": "The Up arrow key, as written on a keyboard shortcut."
+  },
+  "navigationKeyWin": "Win",
+  "@navigationKeyWin": {
+    "description": "The Windows key, as written on a keyboard shortcut."
+  },
+  "navigationKeyboardShortcutsOr": "or",
+  "@navigationKeyboardShortcutsOr": {
+    "description": "Between two key combinations that do the same, such as Ctrl+R or F5."
+  },
+  "navigationKeyboardShortcutsTitle": "Keyboard shortcuts",
+  "@navigationKeyboardShortcutsTitle": {
+    "description": "Title of the page that lists the keyboard shortcuts, and of the Settings row that opens it."
+  },
 
   "@@x-area-network": "",
 
   "@@x-area-notifications": "",
+  "notificationsDeniedWarning": "Turn on notifications for Hermes in system settings.",
+  "@notificationsDeniedWarning": {
+    "description": "Warning under the Notify me switch after the system refused notifications; the Open settings button sits under it. Keep it to two lines."
+  },
+  "notificationsOpenSettings": "Open settings",
+  "@notificationsOpenSettings": {
+    "description": "Button under the Notify me switch's warning after the system refused notifications; opens the app's notification settings in the system."
+  },
   "notificationsReplyFootnote": "On iPhone, iPad and Mac you can reply to a finished reply from its notification. Not while App Lock is on.",
   "@notificationsReplyFootnote": {
     "description": "Last sentence of the footer under the Notify me switch, shown on iOS and macOS: a finished reply's notification has a Reply button, and it is not offered while App Lock is on."
@@ -2936,12 +4532,105 @@
   "@@x-area-platform_hint": "",
 
   "@@x-area-plugins": "",
+  "pluginsInstall": "Install",
+  "@pluginsInstall": {
+    "description": "Button on a plugin catalog row that installs the plugin on the server."
+  },
+  "pluginsInstallFailed": "Could not install this plugin",
+  "@pluginsInstallFailed": {
+    "description": "Snackbar line after an install the server refused without giving a reason."
+  },
+  "pluginsInstallMissingEnvTitle": "Set these on the server",
+  "@pluginsInstallMissingEnvTitle": {
+    "description": "Title of the dialog after an install that lists environment variables the plugin needs and the server lacks."
+  },
+  "pluginsInstallStillRunning": "The server is still installing. Pull the list down in a moment to check.",
+  "@pluginsInstallStillRunning": {
+    "description": "Snackbar line when the install request got no answer in time; the server may still be installing. Pull down refers to pull-to-refresh on the plugin list."
+  },
+  "pluginsInstalled": "Installed",
+  "@pluginsInstalled": {
+    "description": "Snackbar line after a plugin install succeeded and the server gave no plugin name."
+  },
+  "pluginsInstalledNamed": "Installed {pluginName}",
+  "@pluginsInstalledNamed": {
+    "description": "Snackbar line after a plugin install succeeded, naming the plugin.",
+    "placeholders": {
+      "pluginName": {"type": "String", "example": "hermes-snapcompact"}
+    }
+  },
+  "pluginsProvidersSaveFailed": "Could not save provider settings",
+  "@pluginsProvidersSaveFailed": {
+    "description": "Snackbar after Save on the plugin providers tab failed and the server gave no reason."
+  },
   "pluginsRefreshAction": "Refresh",
   "@pluginsRefreshAction": {
     "description": "Name of the Mac toolbar button that reads the open Plugins tab again."
   },
+  "pluginsUpdateFailed": "Could not update this plugin",
+  "@pluginsUpdateFailed": {
+    "description": "Snack bar when the server refused a change to a plugin and gave no reason."
+  },
 
   "@@x-area-profiles": "",
+  "profilesRecipientChoose": "Choose a recipient",
+  "@profilesRecipientChoose": {
+    "description": "Label of the recipient chip in the composer when no profile is picked yet."
+  },
+  "profilesRecipientFallbackName": "Recipient",
+  "@profilesRecipientFallbackName": {
+    "description": "Name used in the unavailable label when the chosen profile has no name to show."
+  },
+  "profilesRecipientLoadFailed": "Could not load recipients",
+  "@profilesRecipientLoadFailed": {
+    "description": "Label of the recipient chip when the profiles could not be loaded."
+  },
+  "profilesRecipientLoadFailedMessage": "Could not load recipients.",
+  "@profilesRecipientLoadFailedMessage": {
+    "description": "Sentence in the recipient list when the profiles could not be loaded."
+  },
+  "profilesRecipientLoading": "Loading recipients",
+  "@profilesRecipientLoading": {
+    "description": "Shown in the recipient chip and list while the profiles load."
+  },
+  "profilesRecipientNone": "No profiles available",
+  "@profilesRecipientNone": {
+    "description": "Shown in the recipient chip and list when the server has no profile to message."
+  },
+  "profilesRecipientRetryRecipients": "Retry recipients",
+  "@profilesRecipientRetryRecipients": {
+    "description": "Accessibility label of the Retry action beside the recipient chip."
+  },
+  "profilesRecipientSelectedLabel": "{label}, selected recipient {recipient}",
+  "@profilesRecipientSelectedLabel": {
+    "description": "Accessibility label of the recipient chip while loading or failed, keeping the chosen profile named. {label} is the chip text, {recipient} the profile.",
+    "placeholders": {
+      "label": {"type": "String", "example": "Loading recipients"},
+      "recipient": {"type": "String", "example": "Research"}
+    }
+  },
+  "profilesRecipientSetUp": "Set up profiles",
+  "@profilesRecipientSetUp": {
+    "description": "Action that opens the profile setup when there is no profile to message."
+  },
+  "profilesRecipientTitle": "New message",
+  "@profilesRecipientTitle": {
+    "description": "Title of the sheet that lists the profiles to start a chat with."
+  },
+  "profilesRecipientTo": "To: {recipient}",
+  "@profilesRecipientTo": {
+    "description": "Label of the recipient chip with a profile chosen. {recipient} is the profile name.",
+    "placeholders": {
+      "recipient": {"type": "String", "example": "Research"}
+    }
+  },
+  "profilesRecipientUnavailable": "{recipient} unavailable",
+  "@profilesRecipientUnavailable": {
+    "description": "Label of the recipient chip when the chosen profile cannot be reached. {recipient} is the profile name.",
+    "placeholders": {
+      "recipient": {"type": "String", "example": "Research"}
+    }
+  },
   "profilesSoulBannerCheck": "Check",
   "@profilesSoulBannerCheck": {
     "description": "Banner action that reads the file to find out whether an unconfirmed save arrived."
@@ -3169,6 +4858,10 @@
   "profilesSoulUnsupportedTitle": "This server doesn't offer personality settings.",
   "@profilesSoulUnsupportedTitle": {
     "description": "Message on the personality page when the server is too old to have the personality routes."
+  },
+  "profilesSwitcherFallbackLabel": "Profile",
+  "@profilesSwitcherFallbackLabel": {
+    "description": "Label of the Mac profile switcher when no profile is known."
   },
 
   "@@x-area-providers": "",
@@ -4490,14 +6183,38 @@
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",
+  "quickPanelTitleFallback": "Ask Hermes",
+  "@quickPanelTitleFallback": {
+    "description": "Title in the header of the quick panel when the panel has no title of its own."
+  },
 
   "@@x-area-schedules": "",
+  "schedulesDeliveryLocal": "Local",
+  "@schedulesDeliveryLocal": {
+    "description": "Where a schedule's result goes: it stays on the machine the agent runs on, with no message sent. Shown in a schedule's row and in its Deliver to fact."
+  },
+  "schedulesDeliveryOrigin": "Origin chat",
+  "@schedulesDeliveryOrigin": {
+    "description": "Where a schedule's result goes: back to the chat the schedule was created in. Shown in a schedule's row and in its Deliver to fact."
+  },
+  "schedulesFormAdvanced": "Advanced",
+  "@schedulesFormAdvanced": {
+    "description": "Title of the row of the schedule form that shows or hides the advanced fields."
+  },
   "schedulesRefreshAction": "Refresh",
   "@schedulesRefreshAction": {
     "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
   },
+  "schedulesRunRequested": "Run requested",
+  "@schedulesRunRequested": {
+    "description": "Snackbar after Run now when the server confirmed without a message."
+  },
 
   "@@x-area-screens": "",
+  "screensConnectionVersionUnknown": "unknown",
+  "@screensConnectionVersionUnknown": {
+    "description": "Value of the Agent version row of the Connection page when the server reports no version."
+  },
   "screensRefreshAction": "Refresh",
   "@screensRefreshAction": {
     "description": "Name of the Refresh button of the Connection page; reads the server status again."
@@ -4990,7 +6707,7 @@
   "@serverCareHeadlineChannelsOffline": {
     "description": "Headline when some messaging channels are not connected and the count is unknown."
   },
-  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured} messaging channels are offline",
+  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured, plural, =1{1 messaging channel} other{{configured} messaging channels}} {offline, plural, =1{is} other{are}} offline",
   "@serverCareHeadlineChannelsOfflineCount": {
     "description": "Headline when a known number of the configured messaging channels is not connected.",
     "placeholders": {
@@ -5222,7 +6939,7 @@
   "@serverCareLogsFileGateway": {
     "description": "Tab of the Logs page that shows the messaging gateway log."
   },
-  "serverCareLogsLastLines": "That's the last {count} lines.",
+  "serverCareLogsLastLines": "{count, plural, =1{That's the last line.} other{That's the last {count} lines.}}",
   "@serverCareLogsLastLines": {
     "description": "Note at the end of the Logs list when no older lines can be asked for.",
     "placeholders": {
@@ -6052,6 +7769,10 @@
   "@settingsAboutHermes": {
     "description": "Settings row that opens the About dialog."
   },
+  "settingsAboutLicenses": "Open source licenses",
+  "@settingsAboutLicenses": {
+    "description": "About dialog row that opens the list of open source licenses."
+  },
   "settingsAboutTitle": "About",
   "@settingsAboutTitle": {
     "description": "Title of the About dialog."
@@ -6190,6 +7911,10 @@
   "@settingsReportBug": {
     "description": "Link to the project's issue tracker."
   },
+  "settingsShowMenuBar": "Show menu bar",
+  "@settingsShowMenuBar": {
+    "description": "Settings switch on Windows and Linux that shows the File, View, Chat and Help menu bar above the app. Off by default."
+  },
   "settingsSignOut": "Sign Out",
   "@settingsSignOut": {
     "description": "Signs out of the dashboard: account menu item and the confirmation's button."
@@ -6226,12 +7951,20 @@
   "@settingsTitle": {
     "description": "Title of the settings dialog."
   },
+  "settingsVoiceCalls": "Voice calls",
+  "@settingsVoiceCalls": {
+    "description": "Settings row, and the title of its dialog, for turning voice calls on or off on this device. Not shown on iOS."
+  },
 
   "@@x-area-share": "",
 
   "@@x-area-shell": "",
 
   "@@x-area-skills": "",
+  "skillsCheckForUpdatesMac": "Check for Updates",
+  "@skillsCheckForUpdatesMac": {
+    "description": "Bordered button on the Hub skills row on a Mac. Starts the check for updates of the skills installed from the hub."
+  },
   "skillsCuratorAnnounceFinished": "Curator pass finished",
   "@skillsCuratorAnnounceFinished": {
     "description": "Announced by a screen reader once when a pass ends well."
@@ -6273,6 +8006,82 @@
   "skillsCuratorChecking": "Checking…",
   "@skillsCuratorChecking": {
     "description": "Status text of the Run now row while Check status is reading the server."
+  },
+  "skillsCuratorConfirmArchived": "Archived skills are moved aside on the server, not deleted. This app can't undo a pass.",
+  "@skillsCuratorConfirmArchived": {
+    "description": "Line under the items of the run confirmation: nothing is deleted, and the app cannot bring a skill back."
+  },
+  "skillsCuratorConfirmBuiltins": "Include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltins": {
+    "description": "Item shown when the server's config says built-in skills are pruned too."
+  },
+  "skillsCuratorConfirmBuiltinsMaybe": "May include skills that came with Hermes.",
+  "@skillsCuratorConfirmBuiltinsMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmCancel": "Cancel",
+  "@skillsCuratorConfirmCancel": {
+    "description": "Default button of the run confirmation; sends nothing."
+  },
+  "skillsCuratorConfirmConsolidate": "Merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidate": {
+    "description": "Item shown when the server's config says a pass consolidates skills."
+  },
+  "skillsCuratorConfirmConsolidateMaybe": "May also merge and rewrite skills, and update scheduled tasks that use them.",
+  "@skillsCuratorConfirmConsolidateMaybe": {
+    "description": "Same item when the config could not be read."
+  },
+  "skillsCuratorConfirmConsolidateOff": "It archives unused skills only.",
+  "@skillsCuratorConfirmConsolidateOff": {
+    "description": "Line shown in place of the merge item when the config says a pass does not consolidate."
+  },
+  "skillsCuratorConfirmLead": "A pass reviews the skills on the server. It may:",
+  "@skillsCuratorConfirmLead": {
+    "description": "Lead sentence above the list of what a pass may do."
+  },
+  "skillsCuratorConfirmPlaceholders": "Replace <name> with the skill and add your profile in place of <profile>.",
+  "@skillsCuratorConfirmPlaceholders": {
+    "description": "Line under the restore command; the angle-bracket words are placeholders that stay as typed in the command."
+  },
+  "skillsCuratorConfirmRestoreLead": "To bring an archived skill back, run this on the server:",
+  "@skillsCuratorConfirmRestoreLead": {
+    "description": "Lead above the copyable restore command."
+  },
+  "skillsCuratorConfirmRollbackNote": "Merged or rewritten skills can only be rolled back on the server.",
+  "@skillsCuratorConfirmRollbackNote": {
+    "description": "Added to the merge item, because restore does not undo a merge or rewrite."
+  },
+  "skillsCuratorConfirmRun": "Run now",
+  "@skillsCuratorConfirmRun": {
+    "description": "Button that starts a pass."
+  },
+  "skillsCuratorConfirmSkipped": "Pinned skills, skills a scheduled task uses and skills installed from the hub are skipped.",
+  "@skillsCuratorConfirmSkipped": {
+    "description": "Line saying what a pass leaves alone."
+  },
+  "skillsCuratorConfirmStale": "Mark skills stale after {stale, plural, =1{1 day} other{{stale} days}} without use and archive them after {archive, plural, =1{1 day} other{{archive} days}}.",
+  "@skillsCuratorConfirmStale": {
+    "description": "First item: the two thresholds, in days, from the server's status.",
+    "placeholders": {
+      "stale": {
+        "type": "int"
+      },
+      "archive": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsCuratorConfirmStaleAgentMade": "Only skills recorded as agent-made count.",
+  "@skillsCuratorConfirmStaleAgentMade": {
+    "description": "Second sentence of the first item."
+  },
+  "skillsCuratorConfirmStaleUnknown": "Mark skills stale and archive them after the set number of days.",
+  "@skillsCuratorConfirmStaleUnknown": {
+    "description": "First item when the server gave no thresholds."
+  },
+  "skillsCuratorConfirmTitle": "Run the curator now?",
+  "@skillsCuratorConfirmTitle": {
+    "description": "Title of the run confirmation."
   },
   "skillsCuratorCouldntConfirm": "Couldn't confirm.",
   "@skillsCuratorCouldntConfirm": {
@@ -6532,10 +8341,6 @@
   "@skillsCuratorSchedule": {
     "description": "Row title: how often scheduled passes run."
   },
-  "skillsCuratorShowOutput": "Show output",
-  "@skillsCuratorShowOutput": {
-    "description": "Label of the closed disclosure that opens the lines Hermes printed."
-  },
   "skillsCuratorShowOutputCount": "Show output · {count, plural, =1{1 line} other{{count} lines}}",
   "@skillsCuratorShowOutputCount": {
     "description": "Label of the closed disclosure that opens the lines Hermes printed, with how many there are. The disclosure state is added by the system.",
@@ -6623,6 +8428,144 @@
         "type": "int"
       }
     }
+  },
+  "skillsHubInstallAnyway": "Install anyway",
+  "@skillsHubInstallAnyway": {
+    "description": "Confirm button of the dialog that asks before installing a hub skill whose security scan raised findings."
+  },
+  "skillsHubInstallCancel": "Cancel",
+  "@skillsHubInstallCancel": {
+    "description": "Cancel button of the dialog that asks before installing a hub skill whose security scan raised findings."
+  },
+  "skillsHubInstallScanAsks": "The security scan asks for your confirmation.",
+  "@skillsHubInstallScanAsks": {
+    "description": "Message of the hub skill install confirmation when the scan gave no reason of its own."
+  },
+  "skillsHubInstallTitle": "Install {name}?",
+  "@skillsHubInstallTitle": {
+    "description": "Title of the dialog that asks before installing a hub skill whose security scan raised findings.",
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "github-review"
+      }
+    }
+  },
+  "skillsJobFailedFallback": "It failed.",
+  "@skillsJobFailedFallback": {
+    "description": "Outcome line of a finished skill job that failed and has no error text."
+  },
+  "skillsScreenAllSources": "All sources",
+  "@skillsScreenAllSources": {
+    "description": "Filter chip on the Discover tab that shows skills from every hub source."
+  },
+  "skillsScreenEmpty": "This profile has no skills yet.",
+  "@skillsScreenEmpty": {
+    "description": "Message on the Skills page when the profile has no skills."
+  },
+  "skillsScreenFilterAgent": "Agent",
+  "@skillsScreenFilterAgent": {
+    "description": "Filter chip, and the source badge or subtitle word of a skill: skills the agent wrote itself."
+  },
+  "skillsScreenFilterAll": "All",
+  "@skillsScreenFilterAll": {
+    "description": "Filter chip: every skill."
+  },
+  "skillsScreenFilterBundled": "Bundled",
+  "@skillsScreenFilterBundled": {
+    "description": "Filter chip, and the source badge or subtitle word of a skill: skills that ship with Hermes."
+  },
+  "skillsScreenFilterEnabled": "Enabled",
+  "@skillsScreenFilterEnabled": {
+    "description": "Filter chip: skills that are switched on."
+  },
+  "skillsScreenFilterHub": "Hub",
+  "@skillsScreenFilterHub": {
+    "description": "Filter chip, and the source badge or subtitle word of a skill: skills installed from the skills hub."
+  },
+  "skillsScreenHubSearchHint": "Search the skills hub",
+  "@skillsScreenHubSearchHint": {
+    "description": "Placeholder of the search field on the Discover tab."
+  },
+  "skillsScreenJobDone": "Done: {title}",
+  "@skillsScreenJobDone": {
+    "description": "Snackbar when a background hub job finished well. {title} is the job name.",
+    "placeholders": {
+      "title": {"type": "String", "example": "Install pr-review"}
+    }
+  },
+  "skillsScreenJobFailed": "Failed: {title}",
+  "@skillsScreenJobFailed": {
+    "description": "Snackbar when a background hub job failed. {title} is the job name.",
+    "placeholders": {
+      "title": {"type": "String", "example": "Install pr-review"}
+    }
+  },
+  "skillsScreenJobUnconfirmed": "Could not confirm: {title}",
+  "@skillsScreenJobUnconfirmed": {
+    "description": "Snackbar when the answer to a background hub job never arrived. {title} is the job name.",
+    "placeholders": {
+      "title": {"type": "String", "example": "Install pr-review"}
+    }
+  },
+  "skillsScreenLoadFailed": "Could not load skills",
+  "@skillsScreenLoadFailed": {
+    "description": "Message on the Skills page when loading failed."
+  },
+  "skillsScreenNewSkill": "New skill",
+  "@skillsScreenNewSkill": {
+    "description": "Bar button that opens the editor for a new skill."
+  },
+  "skillsScreenProfileMenu": "Profile",
+  "@skillsScreenProfileMenu": {
+    "description": "Accessibility label of the profile picker under the Skills title."
+  },
+  "skillsScreenSearchHint": "Search skills",
+  "@skillsScreenSearchHint": {
+    "description": "Placeholder of the search field on the Installed tab."
+  },
+  "skillsScreenSubtitleMac": "{profile} · {count, plural, =1{1 skill} other{{count} skills}}",
+  "@skillsScreenSubtitleMac": {
+    "description": "Mac subtitle of the Skills page: the profile and how many skills it has.",
+    "placeholders": {
+      "profile": {"type": "String", "example": "default"},
+      "count": {"type": "int", "example": "12"}
+    }
+  },
+  "skillsScreenTabDiscover": "Discover",
+  "@skillsScreenTabDiscover": {
+    "description": "Tab that finds skills on the hub."
+  },
+  "skillsScreenTabInstalled": "Installed",
+  "@skillsScreenTabInstalled": {
+    "description": "Tab that lists the skills of the profile."
+  },
+  "skillsScreenTitle": "Skills",
+  "@skillsScreenTitle": {
+    "description": "Title of the Skills page."
+  },
+  "skillsScreenToggleFailed": "Could not change {name}",
+  "@skillsScreenToggleFailed": {
+    "description": "Snackbar when switching a skill on or off failed. {name} is the skill.",
+    "placeholders": {
+      "name": {"type": "String", "example": "pr-review"}
+    }
+  },
+  "skillsScreenUnsupported": "The connected Hermes does not support skills.",
+  "@skillsScreenUnsupported": {
+    "description": "Message on the Skills page when the server has no skills routes."
+  },
+  "skillsTrustCommunity": "Community",
+  "@skillsTrustCommunity": {
+    "description": "Trust badge of a hub skill that anyone published and nobody vetted; also the word before a hub skill's description. Keep it short."
+  },
+  "skillsTrustOfficial": "Official",
+  "@skillsTrustOfficial": {
+    "description": "Trust badge of a hub skill that ships with Hermes; also the word before a hub skill's description. Keep it short."
+  },
+  "skillsTrustTrusted": "Trusted",
+  "@skillsTrustTrusted": {
+    "description": "Trust badge of a hub skill from a publisher Hermes trusts; also the word before a hub skill's description. Keep it short."
   },
 
   "@@x-area-spotlight": "",
@@ -7723,6 +9666,10 @@
   "@voiceCallHintSending": {
     "description": "Hint under the state word while the words are being prepared; End or Mute still cancels the send."
   },
+  "voiceCallHintSpeakOff": "Replies are not spoken. The answer will be in the chat.",
+  "@voiceCallHintSpeakOff": {
+    "description": "Hint under the state word while listening, when Speak replies is off for this call."
+  },
   "voiceCallHintSpeakingPaused": "Microphone paused while Hermes speaks. Tap the orb to interrupt.",
   "@voiceCallHintSpeakingPaused": {
     "description": "Hint while Hermes speaks on desktop, where the microphone is paused. The orb is the round button in the middle of the screen."
@@ -7755,9 +9702,17 @@
   "@voiceCallMute": {
     "description": "Label of the round control that mutes the microphone."
   },
+  "voiceCallReplyInChat": "Reply is in the chat",
+  "@voiceCallReplyInChat": {
+    "description": "Hermes line of the last turn when Speak replies is off: the reply finished and is in the chat."
+  },
   "voiceCallShowChat": "Show chat",
   "@voiceCallShowChat": {
     "description": "Button on the call screen that leaves the call screen without ending the call."
+  },
+  "voiceCallSpeakReplies": "Speak replies",
+  "@voiceCallSpeakReplies": {
+    "description": "Label of the switch under the call controls: whether Hermes reads its replies aloud during this call. On again for the next call."
   },
   "voiceCallSpeaker": "Speaker",
   "@voiceCallSpeaker": {
@@ -7807,9 +9762,25 @@
   "@voiceCallStateWaiting": {
     "description": "State word under the orb while Hermes needs an answer in the chat."
   },
+  "voiceCallTurnHermes": "Hermes",
+  "@voiceCallTurnHermes": {
+    "description": "Name before Hermes's words in the last-turns list of the call screen."
+  },
+  "voiceCallTurnYou": "You",
+  "@voiceCallTurnYou": {
+    "description": "Name before the user's words in the last-turns list of the call screen."
+  },
   "voiceCallUnmute": "Unmute",
   "@voiceCallUnmute": {
     "description": "Label of the round control that unmutes the microphone."
+  },
+  "voiceCallsDeviceNote": "New on this platform: calls stay off until you turn them on.",
+  "@voiceCallsDeviceNote": {
+    "description": "One-line note under the voice calls switch: calls are new on this platform and off by default."
+  },
+  "voiceCallsDeviceTitle": "Voice calls on this device (beta)",
+  "@voiceCallsDeviceTitle": {
+    "description": "Title of the switch that turns voice calls on for this device (Android, macOS, Windows, Linux)."
   },
   "voiceCheckModelFollowsMain": "Voice replies follow your main model.",
   "@voiceCheckModelFollowsMain": {
@@ -7987,7 +9958,7 @@
   "@voiceSetupOpenDictation": {
     "description": "Button that opens the system dictation settings."
   },
-  "voiceSetupOpenSystemSettings": "Open iOS Settings",
+  "voiceSetupOpenSystemSettings": "Open Settings",
   "@voiceSetupOpenSystemSettings": {
     "description": "Button that opens the system settings after microphone access was denied."
   },
@@ -8039,13 +10010,37 @@
   "@@x-area-watch": "",
 
   "@@x-area-widgets": "",
+  "widgetsBack": "Back",
+  "@widgetsBack": {
+    "description": "Back button title on a settings page that has no named page underneath it."
+  },
   "widgetsCancel": "Cancel",
   "@widgetsCancel": {
-    "description": "Label of the button that closes a form or dialog in a settings page bar without saving."
+    "description": "Label of the button that closes a form or dialog without saving: in a settings page bar and in the Kanban export, import, edit task and orchestration dialogs."
+  },
+  "widgetsChatBackTitle": "Chat",
+  "@widgetsChatBackTitle": {
+    "description": "Back button title on iOS of a settings page opened from the chat."
+  },
+  "widgetsCodeBlockCopied": "Copied!",
+  "@widgetsCodeBlockCopied": {
+    "description": "Label of the copy button of a code block for two seconds after it copied."
+  },
+  "widgetsCodeBlockCopy": "Copy code",
+  "@widgetsCodeBlockCopy": {
+    "description": "Label and tooltip of the copy button of a code block."
   },
   "widgetsDone": "Done",
   "@widgetsDone": {
     "description": "Button in the header of a settings dialog that closes it."
+  },
+  "widgetsOk": "OK",
+  "@widgetsOk": {
+    "description": "Confirm button of a one-line text question dialog when the caller names none."
+  },
+  "widgetsSearch": "Search",
+  "@widgetsSearch": {
+    "description": "Placeholder and screen reader name of a settings page search field when the page names none."
   },
   "widgetsSecretCharactersEntered": "{count, plural, one{{count} character entered} other{{count} characters entered}}",
   "@widgetsSecretCharactersEntered": {

@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/grouped_dialog.dart';
 import 'kanban_worker_log.dart';
 import '../kanban_models.dart';
@@ -42,11 +43,11 @@ class _KanbanTaskLogDialogState extends State<KanbanTaskLogDialog> {
   @override
   Widget build(BuildContext context) {
     return GroupedDialog(
-      title: 'Log · ${widget.taskId}',
+      title: context.l10n.kanbanLogTitle(widget.taskId),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
+          child: Text(context.l10n.kanbanInspectClose),
         ),
       ],
       children: [KanbanWorkerLog(log: _log, failed: _failed)],

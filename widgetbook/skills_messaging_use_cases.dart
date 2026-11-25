@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
@@ -16,6 +16,8 @@ import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/skills_hub_controller.dart';
 import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/skills/widgets/skill_detail_actions.dart';
+import 'package:hermes_app/src/skills/widgets/installed_skills_list.dart'
+    show SkillUpdatesSection;
 import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
 import 'package:hermes_app/src/skills/widgets/skill_job_bar.dart';
 import 'package:hermes_app/src/skills/widgets/skill_security_scan.dart';
@@ -25,6 +27,7 @@ import 'package:widgetbook/widgetbook.dart';
 import '../test/support/fake_hermes_server.dart';
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 /// Skills, the hub, messaging and profiles of one invented dashboard.
 FakeHermesServer skillsServer() => FakeHermesServer()
@@ -293,6 +296,23 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
                 onEdit: () {},
                 onAskDelete: () {},
                 onUninstall: () {},
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillUpdatesSection',
+      useCases: [
+        for (final scale in const [1.0, 2.0, 3.0])
+          WidgetbookUseCase(
+            name: 'Text ${scale.toInt()}x (Mac)',
+            builder: (context) => Theme(
+              data: platformTheme(context, TargetPlatform.macOS),
+              child: MediaQuery(
+                data: MediaQuery.of(context)
+                    .copyWith(textScaler: TextScaler.linear(scale)),
+                child: frame(SkillUpdatesSection(onPressed: () {})),
               ),
             ),
           ),

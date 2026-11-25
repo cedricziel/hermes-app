@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
@@ -13,6 +13,8 @@ import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
 
 import 'package:hermes_app/src/share/shared_item.dart';
+
+import 'support/tooltip_finder.dart';
 
 const _readyModels = {
   'model': 'local-model',
@@ -65,7 +67,7 @@ void main() {
           .widget<IconButton>(
             find
                 .descendant(
-                  of: find.byTooltip('Send'),
+                  of: find.tooltip('Send'),
                   matching: find.byType(IconButton),
                 )
                 .first,

@@ -1,12 +1,18 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
 
+import '../../widgets/app_banner.dart';
+import '../../widgets/platform_refresh.dart';
+
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
+import '../../macos/mac_commands.dart';
 import '../../macos/mac_sidebar.dart';
 import '../../memory/memory_waiting_count.dart';
 import '../../macos/mac_source_list.dart' show kMacSourceListRowHeight;
+import '../../navigation/keyboard_shortcuts.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -16,10 +22,13 @@ import '../../settings/widgets/mac_account_footer.dart';
 import '../../spotlight/spotlight_dialog.dart';
 import '../../spotlight/spotlight_settings.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../voice/calls/portable_call_settings.dart';
 import '../../voice/dictation_dialog.dart';
 import '../../voice/dictation_settings.dart';
+import '../../voice/portable_calls_dialog.dart';
 import '../chat_models.dart';
 import '../../drag_out/drag_out_item.dart';
 import '../../drag_out/drag_out_source.dart';
@@ -88,6 +97,8 @@ class ThreadSidebar extends StatelessWidget {
     this.fullPage = false,
     this.avatarBuilder,
     this.contentBottomPadding = 0,
+    this.onRefresh,
+    this.refreshFailed = false,
   });
 
   final List<ChatThread> threads;
@@ -144,6 +155,15 @@ class ThreadSidebar extends StatelessWidget {
   /// Scroll clearance for a floating control over the list or search results.
   final double contentBottomPadding;
 
+  /// Reads the first page of chats again, for a pull down on the list. The
+  /// pull is offered on iOS chrome only (iPhone and iPad), and only with
+  /// this.
+  final Future<void> Function()? onRefresh;
+
+  /// Whether the last pull to refresh failed; a notice above the list says
+  /// so until the next one works.
+  final bool refreshFailed;
+
   @override
   Widget build(BuildContext context) => _ThreadListScope(
     builder: (context, preferences) => _build(context, preferences),
@@ -197,7 +217,12 @@ class ThreadSidebar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: SidebarAction(
                     icon: AppIcons.add,
-                    label: 'New chat',
+                    label: context.l10n.chatWidgetsNewChat,
+                    tooltip: withChordHint(
+                      context,
+                      context.l10n.chatWidgetsNewChat,
+                      MacCommand.newChat,
+                    ),
                     onTap: onNewThread,
                   ),
                 ),
@@ -339,8 +364,56 @@ class ThreadSidebar extends StatelessWidget {
   }
 
   Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
+    final onRefresh = this.onRefresh;
+    final list = _threadListBody(context, preferences);
+    // Pull to refresh is for iOS chrome only (iPhone, iPad); the Mac has
+    // View > Reload and the Material platforms keep the list as it is.
+    if (onRefresh == null || platformChromeOf(context) != PlatformChrome.ios) {
+      return list;
+    }
+    final l10n = context.l10n;
+    return Column(
+      children: [
+        if (refreshFailed)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+            child: AppBanner(
+              tone: AppBannerTone.error,
+              title: l10n.chatWidgetsThreadListRefreshFailedTitle,
+              detail: l10n.chatWidgetsThreadListRefreshFailedDetail,
+            ),
+          ),
+        Expanded(
+          child: PlatformRefresh(
+            onRefresh: onRefresh,
+            semanticsLabel: l10n.chatWidgetsThreadListRefreshing,
+            child: list,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _threadListBody(
+    BuildContext context,
+    ThreadListPreferences preferences,
+  ) {
     if (fullPage && threads.isEmpty) {
-      return const Center(child: Text('No chats yet. Start a new message.'));
+      return LayoutBuilder(
+        builder: (context, constraints) => ListView(
+          physics: platformChromeOf(context) == PlatformChrome.ios
+              ? const AlwaysScrollableScrollPhysics()
+              : null,
+          children: [
+            SizedBox(
+              height: constraints.maxHeight,
+              child: const Center(
+                child: Text('No chats yet. Start a new message.'),
+              ),
+            ),
+          ],
+        ),
+      );
     }
     if (platformChromeOf(context).isApple ||
         preferences.grouping == ThreadGrouping.folder) {
@@ -365,6 +438,9 @@ class ThreadSidebar extends StatelessWidget {
         _ThreadListHeading(preferences: preferences),
         Expanded(
           child: ListView.builder(
+            physics: platformChromeOf(context) == PlatformChrome.ios
+                ? const AlwaysScrollableScrollPhysics()
+                : null,
             padding: EdgeInsets.fromLTRB(8, 0, 8, contentBottomPadding),
             itemCount: threads.length + (showMore ? 1 : 0),
             itemBuilder: (context, index) {
@@ -402,7 +478,11 @@ class SidebarAction extends StatelessWidget {
     required this.onTap,
     this.selected = false,
     this.expanded,
+    this.tooltip,
   });
+
+  /// Hover text, such as the label with its keyboard shortcut.
+  final String? tooltip;
 
   final AppIconSet icon;
   final String label;
@@ -416,7 +496,7 @@ class SidebarAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    final row = Semantics(
       button: true,
       selected: selected,
       expanded: expanded,
@@ -426,30 +506,39 @@ class SidebarAction extends StatelessWidget {
                   .withValues(alpha: 0.7)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                AppIcon(icon, size: 18),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        child: FocusRing(
+          radius: 6,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(
+                children: [
+                  AppIcon(icon, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+    final tooltip = this.tooltip;
+    return tooltip == null
+        ? row
+        : Tooltip(message: tooltip, excludeFromSemantics: true, child: row);
   }
 }
 
@@ -594,6 +683,7 @@ class _ThreadRowState extends State<_ThreadRow> {
     return SwipeableThreadRow(
       title: _thread.title,
       pinned: _thread.pinned,
+      canonical: _thread.isCanonicalBotChat,
       onAction: (action) => runThreadAction(
         context,
         action,
@@ -679,6 +769,9 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       if (housekeeping != null && housekeeping.hasMore) housekeeping,
     ];
     return ListView.builder(
+      physics: platformChromeOf(context) == PlatformChrome.ios
+          ? const AlwaysScrollableScrollPhysics()
+          : null,
       padding: EdgeInsets.fromLTRB(8, 0, 8, widget.bottomPadding),
       itemCount: items.length,
       itemBuilder: (context, index) => switch (items[index]) {
@@ -738,7 +831,8 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       relativeTime: relativeTime(thread.updatedAt),
       onTap: () => widget.onSelect(thread.id),
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
-      menuItems: (_) => macThreadMenuItems(
+      menuItems: (context) => macThreadMenuItems(
+        context.l10n,
         pinned: thread.pinned,
         canonical: thread.isCanonicalBotChat,
         manageable: housekeeping != null,
@@ -815,7 +909,7 @@ class AccountFooter extends StatelessWidget {
     if (platformChromeOf(context) == PlatformChrome.macos) {
       final baseUrl = auth.baseUrl;
       final host = baseUrl == null
-          ? 'Not connected'
+          ? context.l10n.chatWidgetsThreadSidebarNotConnected
           : (Uri.tryParse(baseUrl)?.authority ?? baseUrl);
       return MacAccountFooter(
         name: user,
@@ -827,7 +921,10 @@ class AccountFooter extends StatelessWidget {
             : null,
       );
     }
-    final label = user ?? auth.baseUrl ?? 'Not connected';
+    final label =
+        user ??
+        auth.baseUrl ??
+        context.l10n.chatWidgetsThreadSidebarNotConnected;
     final mark = serverAttentionMarkOf(context);
 
     return Padding(
@@ -849,6 +946,7 @@ class AccountFooter extends StatelessWidget {
                 if (value == 'appearance') showAppearanceDialog(context);
                 if (value == 'notifications') showNotificationsDialog(context);
                 if (value == 'dictation') showDictationDialog(context);
+                if (value == 'voice-calls') showPortableCallsDialog(context);
                 if (value == 'app-lock') showAppLockDialog(context);
                 if (value == 'spotlight') showSpotlightDialog(context);
                 if (value == 'about') showAppAboutDialog(context);
@@ -878,6 +976,12 @@ class AccountFooter extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'dictation',
                     child: Text('Dictation'),
+                  ),
+                if (PortableCallSettings.offeredOn(defaultTargetPlatform) &&
+                    _hasCallSettings(context))
+                  PopupMenuItem(
+                    value: 'voice-calls',
+                    child: Text(context.l10n.settingsVoiceCalls),
                   ),
                 if (SpotlightSettings.offered)
                   const PopupMenuItem(
@@ -1000,4 +1104,15 @@ class _ThreadListHeading extends StatelessWidget {
     grouping: preferences.grouping,
     onGroupingChanged: preferences.choose,
   );
+}
+
+/// Whether this app provides the voice calls switch, which a widget test or a
+/// catalog host may leave out.
+bool _hasCallSettings(BuildContext context) {
+  try {
+    context.read<PortableCallSettings>();
+    return true;
+  } on ProviderNotFoundException {
+    return false;
+  }
 }

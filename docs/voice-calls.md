@@ -1,6 +1,9 @@
-# Native iOS voice conversations
+# Voice conversations
 
-Open a chat and tap **Start voice call**. A readiness screen checks microphone
+Open a chat and tap **Start voice call**. On iOS it is always there. On
+Android, macOS, Windows and Linux it is there once you turn on **Voice calls on
+this device (beta)** in Settings (see **Other platforms**, which also says what
+differs from iOS). A readiness screen checks microphone
 access, the selected speech-recognition engine, Hermes speech configuration,
 the profile's voice model and the authenticated voice connection before
 starting CallKit. It does not
@@ -79,8 +82,7 @@ also while the persisted queue is read and while the session is opened or
 resumed (a mute counts when it is requested, not when the system confirms it).
 After the write the prompt stays in the chat and End stops this turn's reply.
 Transcripts are filtered in one order, the first match
-decides: empty, an echo of the reply just spoken (a seam until the portable
-bridge ships), a Whisper invention (the filter is a port of Hermes'
+decides: empty, an echo of the reply just spoken (see **Echo guard**), a Whisper invention (the filter is a port of Hermes'
 `is_whisper_hallucination`: "Thank you.", "Bye", "you", "the end", subtitle
 credits and short repeats; a lone "ok" counts too, as in Hermes), a stop
 phrase, else it is sent. A dropped transcript says nothing.
@@ -158,7 +160,7 @@ the call.
 
 **Idle.** Five minutes with no speech and no running reply end the call with
 "No one spoke for 5 minutes." Off iOS, hiding or backgrounding Hermes ends the
-call (the platform bridges for those come later).
+call (see **Other platforms**).
 
 **Sounds.** A rising tone when listening starts, a soft tick when the words are
 sent and a falling tone at stop, with a light haptic at the send and a medium
@@ -174,6 +176,180 @@ but the microphone may still be open." and so does the strip. A chat that
 closes while a call runs (sign-out, account change) ends the call first.
 "Hang up" and "End the call" are stop phrases. Approvals and clarification
 cards remain in the chat and require the existing user interaction.
+
+## Echo guard
+
+On every platform, iOS included, the first transcript after a reply is compared
+with that reply, and dropped silently when it is the reply heard back through
+the microphone. Only the first transcript after a reply is checked, whatever
+the answer; a later one never is, and a new reply arms the guard again. The
+check runs before the invented-transcript and stop-phrase checks.
+
+**The timing rule.** A real echo is acoustically close to the playback, so the
+guard only counts for speech that began (the speech detector's onset, not the
+end of the utterance or the time the transcript came back) while the reply was
+playing or within 1.5 s after its audio drained (`VoiceCall.echoTail`). The
+reply begins at its first text handed to the speech; its audio ends when the speech drained
+or was cut off (the user speaking over it, End, an error). Speech that began
+later is never an echo, whatever it says and however alike: "Goodbye." said
+3 s after a reply of "Goodbye." ends the call as a stop phrase, and "Turn the
+lights on" after "Should I turn the lights on or off?" is sent. Where there is
+no barge-in the microphone is closed through the playback and reopens 400 ms
+after it, so only speech inside that 1.5 s tail can count there. A transcript
+outside the window still spends the guard (an empty transcript does not: it is
+dropped first). The rule below applies to what is inside the window.
+
+**What this costs, plainly.** An answer that begins within 1.5 s of the reply
+and consists of the reply's own words is dropped silently, with no notice.
+Normal turn-taking gaps (0.2 to 1 s) are inside the window, so a quick "turn
+the lights on" after "Should I turn the lights on or off?" is dropped; said
+after a longer pause it is sent. Where barge-in is off the microphone reopens
+400 ms after the audio, so the 1.5 s tail there mostly catches the user's own
+answers, not the room. The tail stays 1.5 s on every platform: shortening it
+for the no-barge-in case would need the portable bridge's real output latency
+(SoLoud's buffer plus the device's) and the room's reverberation, and neither
+has been measured on a device (see the device checks). If the device checks show
+a shorter tail still catches the echo, shorten it then.
+
+**The exact rule.** Both texts are lowercased and reduced to words (letters and
+digits; everything else is a space). For a transcript T and a stretch S of the
+reply, T is the echo of S when both hold:
+
+1. **Alike:** `1 - editDistance(T, S) / max(len(T), len(S)) >= 0.6`, by
+   character on the word-only text.
+2. **Nothing new:** at most one word in eight of T (`floor(words(T) / 8)`) is
+   missing from S. A word is in S when it equals a word of S or, when both
+   have four or more letters, is at least 0.6 alike to one (a transposed
+   letter, "Hannah" for "Anna"). A word of up to three letters has to match
+   exactly.
+
+S is the whole reply; or, when T has ten characters or more and fewer words than
+the reply, any run of the reply with the same number of words as T (the
+microphone often hears only part of the reply). A reply longer than 4,000
+characters is compared by its end, and a transcript longer than 200 characters
+only with the whole reply.
+
+**Why the second condition.** The first alone (the rule the call shipped with)
+drops a real answer that repeats the question: "Yes, send the email to Anna"
+after "Shall I send the email to Anna?" is 0.88 alike to a stretch of the
+question, and "Yes, goodbye" after a reply of just "Goodbye." is 0.64 alike (0.67
+to the last two words of a longer reply). A
+reply read back has no words of its own: a recognizer garbles a letter or adds
+an occasional filler word, but the user's "yes", "no", "please" or a name is
+not in the reply. So a word that is not in the reply, beyond the one-in-eight
+allowance (zero below eight words), marks a person speaking. The allowance is
+there so a long echo with a stray "uh" is still caught; a short echo with a
+filler word is not (it is sent, which costs one wasted turn, where the other
+error drops a real answer silently).
+
+| Reply | Heard | Result |
+| --- | --- | --- |
+| The weather in Berlin is cloudy today with a chance of rain. | the same, any case or punctuation | dropped |
+| It is cloudy. I will remind you at five. Talk to you later. | I will remind you at five. Talk to you later | dropped (last sentences) |
+| The weather in Berlin is cloudy today. | weather in Berlin is cloudy toady | dropped (tail, typo) |
+| Shall I send the email to Anna? | shall I send the email to Hannah | dropped (name misheard) |
+| Goodbye. | Goodbye. | dropped |
+| I have turned the living room lights off now. | I have turned the uh living room lights off (9 words, 1 new) | dropped |
+| The reminder is set for five. Goodbye. | Yes, goodbye. | kept and sent |
+| Goodbye. | Yes, goodbye. | kept and sent |
+| Shall I send the email to Anna? | Yes, send the email to Anna | kept and sent |
+| Shall I send the email to Anna? | send the email to Anna please | kept and sent |
+| Shall I send the email to Anna? | No, send the email to Anna | kept and sent |
+| I have turned the living room lights off now. | I have turned the uh um living room lights off (10 words, 2 new) | kept and sent |
+| Okay, goodbye. Talk to you later. | Goodbye. (under ten characters, part of a longer reply) | kept and sent |
+| The weather in Berlin is cloudy today. | please turn on the kitchen lights now | kept and sent |
+
+The table is the test (`test/voice/calls/echo_guard_test.dart`, one row each,
+both ways). Answers made of the reply's own wording ("turn the lights on" after
+"Should I turn the lights on or off?", "book the table for Petra" after "...for
+Peter or Petra?", "send the email to Anna" after "Shall I send the email to
+Anna?", "move the meeting to Thursday" after "...Tuesday?", "the meeting is on
+Monday" after "...Sunday?") match the rule, so only the timing keeps them:
+call-level tests with a fake clock send them when said 3 s after the reply, drop
+them when said 0.5 s after it, and check the 1.4 s and 1.6 s edges and that the
+onset, not the end of the utterance, decides. Call-level tests also send "Yes,
+send the email to Anna" and "Yes, goodbye". There is deliberately no notice for a dropped echo.
+
+## Other platforms
+
+Android, macOS, Windows and Linux run the same loop through `PortableCallBridge`
+(`lib/src/voice/calls/portable_call_bridge.dart`) instead of CallKit.
+
+- **The switch (off by default).** Calls on these platforms are new, so they
+  stay off until the user turns on **Voice calls on this device (beta)**
+  (Settings on a Mac; the account menu's **Voice calls** elsewhere; a note says
+  it is new on this platform). The default is the constant
+  `kPortableCallsDefault` (`lib/src/voice/calls/portable_call_settings.dart`,
+  `false`); it flips after the device checks below, which is the owner's call.
+  iOS is unchanged: always available, no switch shown. It is a plain device
+  preference (`SharedPreferencesAsync`, key `hermes.portable_calls`, not a
+  secret); sign-out, a server change and a profile switch leave it alone, and
+  only the user changes it. With the switch off there is no header button and
+  no Mac toolbar button, and no other way in: no menu item, deep link, App
+  Intent, quick action, Spotlight or watch entry starts a call (`hermes://`
+  links only ever fill the composer). No bridge is created, the microphone
+  permission is never queried or requested for a call, and `flutter_soloud`
+  never initialises: its engine starts only inside `PortableCallBridge.start`,
+  and nothing else in `lib/` imports it. Turning the switch off while a call
+  runs leaves that call alone (its End and the strip stay); it only hides the
+  way to start the next one. Until the saved choice has been read from disk
+  the switch counts as off. Android's backup rules exclude only the Home Screen
+  widget preferences, so the switch is backed up and a restore onto a new device
+  from the user's own backup keeps their choice; that is intended.
+
+- **Audio.** The microphone is the `record` plugin (16 kHz mono PCM, the
+  platform's echo canceller and noise suppressor asked for, the
+  voice-communication input on Android). The voice plays through `flutter_soloud`
+  (a buffer stream of s16le mono at the rate the server sends). Android takes
+  audio focus and the in-communication audio mode through `audio_session` and
+  asks SoLoud for a voice-communication output stream. Neither library starts
+  before the user pressed Start, and on iOS neither is used.
+- **No barge-in.** None of these platforms cancels the echo of what the call
+  plays (Android's is to be proven on a device first), so the microphone is
+  closed while Hermes sends, thinks, speaks and plays a tone, and reopens 400 ms
+  after the audio ends. Closed means the recorder is stopped, not that samples
+  are dropped. Tapping the orb interrupts the reply. Speaking shows "Tap the
+  orb to interrupt." (Android) or "Microphone paused while Hermes speaks. Tap
+  the orb to interrupt." (desktop), and the strip says "paused".
+- **A hung plugin is bounded.** On End the bridge waits at most two seconds for
+  the recorder to stop, and two for each later release (player, recorder
+  dispose, audio session), so a recorder that hangs cannot keep the audio focus
+  and communication mode from being released.
+- **Echo guard.** See **Echo guard** above; on these platforms it is the second
+  line after the closed microphone.
+- **When the microphone is closed.** On End, on sign-out, an account change
+  or a profile switch (the chat ends the call), on losing audio focus, and
+  when the window is hidden or minimised or the app is paused or detached (the
+  lifecycle ends it; `inactive` does not) the capture closes first, then
+  playback, the recorder, and the Android audio focus and communication mode
+  are released, each step bounded by two seconds. Tests drive these through the
+  real `PortableCallBridge` with a fake recorder, player and audio session. App
+  Lock never ends a call (as on iOS): under it the capture continues, and the
+  cover keeps the Hands-free strip with End and shows no words. No audio,
+  transcript, reply or device name reaches a log, span or breadcrumb: the
+  bridge's events carry audio only as `pcm` and otherwise fixed words, a route
+  name is shown on the screen and never logged, and the bridge has no logging
+  of its own.
+- **Leaving the app ends the call.** The screen says so ("The call ends if you
+  leave Hermes." on Android, "...hide or minimise Hermes." on desktop). Android
+  ends it when the app is paused, which includes the screen locking; desktop
+  ends it when the window is hidden. A desktop screen lock is not observed: the
+  five-minute idle limit and the OS microphone indicator bound it. Android audio
+  focus loss (another app, a phone call), permanent or transient, ends the call;
+  ducking does not. A changed audio device is a route change.
+- **Where it opens.** A full-screen page on a phone; a 480 pt dialog over the
+  chat from 760 pt wide and on every Mac width (never a sheet on the Mac). Escape
+  and "Show chat" close the dialog and the call keeps running; the strip has End.
+  The Speaker control exists on iOS and Android only. A macOS conversation window
+  and the quick panel offer no call.
+- **Permissions.** The microphone is asked for with the same call as dictation
+  (`record`), and only once the switch is on and the call screen was opened. When it is denied iOS, macOS and Windows offer "Open Settings";
+  Android and Linux have no link the app can open, so they offer Allow again.
+  Android declares `MODIFY_AUDIO_SETTINGS`.
+- **Recognition.** Apple platforms use the device recognizer the Dictation
+  setting chooses; everywhere else the call transcribes through Hermes.
+- **Linux without audio.** SoLoud cannot start without an output device, and
+  the call then fails to start with "Could not start the call".
 
 ## Implementation
 
@@ -221,6 +397,13 @@ Protocol reference: NousResearch/hermes-agent, commit
 Ordinary voice-message playback pauses before CallKit starts and cannot change
 the audio session while a call owns it, including background pause and disposal.
 It can be resumed explicitly after the call ends.
+
+On Android with the portable bridge there is no CallKit: `AndroidCallAudioSession`
+owns the session for the call. A player that was paused for the call still holds
+its own focus request, and `audio_session` returns early from a new request while
+one is held, so the call first gives back any request of this process
+(`setActive(false)`, best effort, 2 s) and then makes its own voice-communication
+request.
 
 ## Other apps' audio
 
@@ -273,6 +456,10 @@ The call shipped first without these rules. This version changes it:
   you, silent drops of invented transcripts, tones and haptics, the
   Hands-free strip, and a turn spoken while a reply runs being dropped
   ("Hermes is still answering. Nothing was sent.") instead of ending the call.
+- **Echo guard:** it now runs on iOS too, with the exact rule and timing above
+  (before, the call had none). Speech that began during the reply or within
+  1.5 s after it and is the reply read back is dropped silently; an answer that
+  adds words of its own, or that begins later, is sent.
 - **Telemetry:** the reason `voice_hang_up` is now `stop_phrase`; `background`,
   `idle`, `transcription` and `focus_lost` are new.
 - **Strings:** the call views read from the ARB files (English and German).
@@ -290,8 +477,26 @@ The call shipped first without these rules. This version changes it:
   on; a lost session or profile ends it. A stop phrase Hermes catches ends the
   call (`voice_stopped`).
 
-Still to come with later changes: calls on Android and desktop, and the turn
-list and "Speak replies" switch.
+- **Last turn and Speak replies:** under the hint the call screen shows the
+  last turn as two plain lines, You (what was sent) and Hermes (the reply as it
+  streams, as far as it is spoken). The caption of a turn being sent replaces
+  them, and a stopped call shows none. The words live only in the open call:
+  the call drops them when it ends, App Lock covers them like the rest of the
+  screen, and they never reach a log, breadcrumb or span. A "Speak replies"
+  switch under the controls is on at the start of every call and never stored.
+  Off, the call opens no speech socket and holds no `tts-lease`, the listening
+  hint reads "Replies are not spoken. The answer will be in the chat.", the soft
+  tick at submit is the confirmation, and the Hermes line says "Reply is in the
+  chat" when the reply is done. Turning it off during a reply stops the voice
+  at once and the rest of that reply stays in the chat; turning it on speaks
+  from the next reply. The `voice_call.turn` outcome for an unspoken reply is
+  `in_chat`.
+- **`tts-lease`:** while the call is open and Speak replies is on, the app
+  holds `POST /api/audio/tts-lease` under a random `app:conversation:<uuid>`
+  name (it holds no server, profile or chat name) so the profile's speech
+  provider is warm for the first reply. A failure is ignored. It is released
+  once on the teardown step after the audio session and focus, or when Speak
+  replies is switched off, and never taken while it is off. A release that fails is retried once; a missed release keeps a local speech model loaded until the server restarts.
 
 ## Telemetry
 
@@ -317,7 +522,7 @@ time of each stage (`<0.5s`, `0.5-1s`, `1-2s`, `2-5s`, `5-10s`, `10-30s`,
 `>30s`, or `none` for a stage that never ran): `transcription`, `speech_open`
 and, counted from the moment `prompt.submit` is written, `first_text`,
 `first_audio` and `reply_complete`, plus `device_speech` and `fallback`
-(flags) and `outcome` (`spoken`, `interrupted`, `failed`). Raw durations,
+(flags) and `outcome` (`spoken`, `in_chat`, `interrupted`, `failed`). Raw durations,
 text and ids are never recorded. A turn the chat refused or withdrew before the write, or that Hermes answered at once (`queued`, `steered`, `redirected`, `voice_stopped`), logs no `voice_call.turn`.
 A native failure's `voice_call.ended` carries `step` set to the native code
 (`start_request`, `start_action`, `activation_timeout`, `audio_start`,
@@ -339,7 +544,7 @@ References: [CallKit](https://developer.apple.com/documentation/callkit),
 [CarPlay](https://developer.apple.com/carplay/),
 [requesting entitlements](https://developer.apple.com/documentation/carplay/requesting-carplay-entitlements).
 
-## Physical iPhone validation
+## Physical iPhone validation (iOS)
 
 Dart tests cover segmentation, chat ownership, protocol framing, native speaker
 drain, mute, end, route reset and late results. CI builds the native iOS plugin.
@@ -365,3 +570,41 @@ Real device validation is still required for:
    heard back as speech) and the haptics.
 10. End during every phase and confirm the microphone indicator clears at
     once; the strip over the system's lock and App Lock cover.
+
+## Device checks for Android and desktop: all UNVERIFIED
+
+Nothing below has been run on a device. CI proves that it compiles (Linux was
+built here; Android, macOS, Windows and iOS are built by CI) and the Dart tests
+prove the state machine against fake recorder, player and audio-session seams.
+
+0. Owner decision, after the checks below: flip `kPortableCallsDefault` to
+   `true` so calls are on by default on Android, macOS, Windows and Linux.
+   Until then the switch stays off.
+1. UNVERIFIED, Android: echo on the phone's loudspeaker with echo cancellation
+   on and the voice-communication output; whether SoLoud's output really is the
+   voice-communication stream. This decides whether barge-in is turned on.
+2. UNVERIFIED, Android: playback volume and routing in the in-communication
+   mode, the speaker switch, a Bluetooth headset, and unplugging a headset
+   during speech (route reset).
+3. UNVERIFIED, Android: focus loss from a phone call and from another media app
+   (permanent and transient end the call, ducking does not), and the call ending
+   when the app goes to the background or the screen locks.
+4. UNVERIFIED, Windows and Linux: whether the Flutter embedders report `hidden`
+   and `paused` when the window is minimised, so the call ends. If they do not,
+   the call goes on until the idle limit.
+5. UNVERIFIED, macOS: a call with the built-in microphone and speakers and with
+   headphones, and the microphone indicator clearing on End.
+6. UNVERIFIED, Windows and Linux: microphone capture and sound output (Linux
+   needs PulseAudio or ALSA), a missing device failing the start cleanly.
+7. UNVERIFIED, every portable platform: no self-hearing through the 400 ms tail
+   after the reply and the tones (the echo guard is the second line).
+8. UNVERIFIED: VoiceOver (iOS, macOS) and TalkBack (Android) announcing each
+   state and operating the orb, Mute and End.
+9. UNVERIFIED, macOS: Flutter derives `hidden` from window occlusion, so moving
+   to another Space or covering the windows fully may report `hidden` and end
+   the call more often than the footer ("hide or minimise") promises.
+10. UNVERIFIED, iOS (unchanged from before): speaker barge-in and an incoming
+   call.
+11. UNVERIFIED, Android: start a call while a voice message or read-aloud plays.
+   Other apps' audio must PAUSE for the whole call, not duck (the call's own
+   focus request, not the player's, must be the one in force).

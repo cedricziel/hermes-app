@@ -1,19 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_form_screen.dart';
+import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_detail_view.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/motion_spinner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -22,6 +25,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/mac_commands_builder.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -78,14 +82,15 @@ void main() {
     TargetPlatform platform = TargetPlatform.macOS,
     Size size = const Size(1000, 800),
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
-        builder: macCommandsBuilder(commands),
+        theme: buildHermesLightTheme(platform: platform),
+        builder: macCommandsBuilder(commands, desktopKeys: desktopKeys),
         home: SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       ),
     );
@@ -117,8 +122,8 @@ void main() {
       expect(find.byType(AppBar), findsNothing);
       expect(find.text('Schedules'), findsOneWidget);
       expect(find.text('2 jobs'), findsOneWidget);
-      expect(find.byTooltip('New Schedule ⌘N'), findsOneWidget);
-      expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+      expect(find.tooltip('New Schedule ⌘N'), findsOneWidget);
+      expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
     });
 
     testWidgets('View > Reload lists the jobs again', (tester) async {
@@ -134,6 +139,33 @@ void main() {
       expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);
     });
 
+    for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+      testWidgets('Ctrl+R and F5 list the jobs again on $platform', (
+        tester,
+      ) async {
+        final commands = MacCommandRegistry();
+        addTearDown(commands.dispose);
+        await pumpScreen(
+          tester,
+          platform: platform,
+          commands: commands,
+          desktopKeys: true,
+        );
+        int jobs() => server.requestsTo('GET', '/api/cron/jobs').length;
+        final before = jobs();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyR);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pumpAndSettle();
+        expect(jobs(), before + 1);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pumpAndSettle();
+        expect(jobs(), before + 2);
+      });
+    }
+
     testWidgets('Refresh shows a spinner and disables Reload while it runs', (
       tester,
     ) async {
@@ -146,7 +178,7 @@ void main() {
         return (status: 200, body: [healthy, failing]);
       });
 
-      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.tap(find.tooltip('Refresh ⌘R'));
       await tester.pump();
       expect(find.byType(MotionSpinner), findsOneWidget);
       expect(commands.handlerFor(MacCommand.reload)?.enabled, isFalse);
@@ -161,7 +193,7 @@ void main() {
       await pumpScreen(tester);
       final before = server.requestsTo('GET', '/api/cron/jobs').length;
 
-      await tester.tap(find.byTooltip('Refresh ⌘R'));
+      await tester.tap(find.tooltip('Refresh ⌘R'));
       await tester.pumpAndSettle();
 
       expect(server.requestsTo('GET', '/api/cron/jobs').length, before + 1);
@@ -207,11 +239,13 @@ void main() {
       await tester.tap(find.byKey(const Key('schedule-filter')));
       await tester.pumpAndSettle();
 
-      final entries = find.byWidgetPredicate((w) => w is PopupMenuEntry);
+      // The menu builds each checked item as a FocusRingCheckedMenuItem.
       expect(
         [
-          for (final entry in tester.widgetList<PopupMenuEntry>(entries))
-            ((entry as CheckedPopupMenuItem).child! as Text).data,
+          for (final entry in tester.widgetList<FocusRingCheckedMenuItem>(
+            find.byType(FocusRingCheckedMenuItem<ScheduleFilter>),
+          ))
+            (entry.item.child! as Text).data,
         ],
         ['All tasks', 'Failing (1)', 'Paused'],
       );
@@ -317,7 +351,7 @@ void main() {
       server.on('POST', '/api/cron/jobs/job2/pause', {'ok': true});
       await pumpScreen(tester);
 
-      await tester.tap(find.byTooltip('More'));
+      await tester.tap(find.tooltip('More'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Pause'));
       await tester.pumpAndSettle();

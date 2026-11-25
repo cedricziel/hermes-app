@@ -198,10 +198,12 @@ class Telemetry {
   /// An unusable endpoint disables telemetry rather than failing app start.
   ///
   /// [logExporter] bypasses [otlpEndpoint] entirely; it exists so tests can
-  /// inspect exported records without a real HTTP collector.
+  /// inspect exported records without a real HTTP collector; [spanExporter]
+  /// does the same for spans.
   static Future<Telemetry> initialize(
     TelemetryConfig config, {
     LogRecordExporter? logExporter,
+    SpanExporter? spanExporter,
   }) async {
     final endpoint = config.enabled ? Uri.tryParse(config.otlpEndpoint) : null;
     if (logExporter == null &&
@@ -226,6 +228,7 @@ class Telemetry {
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
         logExporter: logExporter,
+        spanExporter: spanExporter,
       ),
     );
     return Telemetry._(sdk);

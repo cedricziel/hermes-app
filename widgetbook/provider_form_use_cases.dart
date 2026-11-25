@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/providers/widgets/api_key_form.dart';
 import 'package:hermes_app/src/providers/widgets/connect_model_card.dart';
 import 'package:hermes_app/src/providers/widgets/default_model_step.dart';
@@ -14,6 +14,7 @@ import 'package:widgetbook/widgetbook.dart';
 import 'frame.dart';
 import 'host.dart';
 import 'provider_use_case_helpers.dart';
+import 'platform_theme.dart';
 
 // ---- invented sample data: example addresses, a fake key, neutral models ----
 
@@ -212,7 +213,7 @@ WidgetbookComponent _apiKeyComponent() => WidgetbookComponent(
     _case(
       'Mac dialog',
       (context) => Theme(
-        data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+        data: platformTheme(context, TargetPlatform.macOS),
         child: _keyForm(
           _keyIn(ApiKeyPhase.rejected, message: _rejectedMessage),
           text: _fakeKey,
@@ -223,7 +224,7 @@ WidgetbookComponent _apiKeyComponent() => WidgetbookComponent(
     _case(
       'Android full-screen dialog',
       (context) => Theme(
-        data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+        data: platformTheme(context, TargetPlatform.android),
         child: _keyForm(
           _keyIn(ApiKeyPhase.providerError, message: _providerDownMessage),
           text: _fakeKey,
@@ -728,7 +729,7 @@ WidgetbookComponent _endpointComponent() => WidgetbookComponent(
     _case(
       'Mac dialog',
       (context) => Theme(
-        data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+        data: platformTheme(context, TargetPlatform.macOS),
         child: _endpointForm(_endpointFound, dialog: true),
       ),
     ),
@@ -885,9 +886,7 @@ WidgetbookComponent _cardComponent() => WidgetbookComponent(
     _case(
       'Dark',
       (context) => Theme(
-        data: buildHermesDarkTheme().copyWith(
-          platform: Theme.of(context).platform,
-        ),
+        data: buildHermesDarkTheme(platform: Theme.of(context).platform),
         child: SizedBox.expand(
           child: Material(
             color: buildHermesDarkTheme().scaffoldBackgroundColor,
@@ -899,7 +898,7 @@ WidgetbookComponent _cardComponent() => WidgetbookComponent(
     _case(
       'Mac: centred, at most 420 pt',
       (context) => Theme(
-        data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+        data: platformTheme(context, TargetPlatform.macOS),
         child: _card(_connectCard, centred: true),
       ),
     ),
@@ -932,7 +931,7 @@ List<WidgetbookUseCase> _alert(
     WidgetbookUseCase(
       name: '$name ($label)',
       builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
+        data: platformTheme(context, platform),
         child: Builder(
           builder: (context) => openOnShow((context) async {
             await ask(context);

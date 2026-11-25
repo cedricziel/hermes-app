@@ -34,10 +34,12 @@ extension _ChatScreenBotScreen on _ChatScreenState {
   /// Makes sure the controller belongs to the chat's profile.
   void _syncBotScreen() {
     final gateway = _screenGateway;
-    // A chat on the server's default profile names none; display calls
-    // always name one.
-    final profile = _chat.profile ?? kDefaultProfile;
-    if (gateway == null || (_screen != null && _screenProfile == profile)) {
+    // Display calls always name a profile: the chat's, else the one the
+    // dashboard was launched with. With neither known nothing is asked.
+    final profile = _chat.profileResolver?.resolve(_chat.profile);
+    if (gateway == null ||
+        profile == null ||
+        (_screen != null && _screenProfile == profile)) {
       return;
     }
     final telemetry = _screenTelemetry();

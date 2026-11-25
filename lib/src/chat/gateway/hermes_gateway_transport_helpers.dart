@@ -44,7 +44,13 @@ final class _Resumed {
     this.replayedCount = 0,
     this.truncated = false,
     this.epochChanged = false,
+    this.refetch = false,
   });
+
+  /// Whether the reply asks for the thread to be read again: a
+  /// [ThreadNeedsRefetch] was added to what the reconnect hands over. False
+  /// when the replay restored the reply without one. For telemetry.
+  final bool refetch;
 
   /// The runtime session the reply is on now.
   final String runtimeId;
@@ -76,7 +82,10 @@ final class _Resumed {
   /// [GatewayConnectionClosed] means the server was not reached: the turn may
   /// still be running, and the reply is picked up again later.
   GatewayConnectionClosed get failure =>
-      gone ?? (turnEnded ? const GatewayTurnEnded() : const GatewayReplyLost());
+      gone ??
+      (turnEnded
+          ? GatewayTurnEnded(restarted: epochChanged)
+          : const GatewayReplyLost());
 
   /// How the reconnect went, for telemetry: `replayed` when the gap was filled
   /// from the server's ring, `rest_refetch` when the reply had to be rebuilt
@@ -106,6 +115,17 @@ class _Attempt {
   /// attempt that never got there (no socket, no answer in time) is not held
   /// against the reconnect's attempts.
   bool answered = false;
+
+  /// Where the attempt stopped: `connect`, `resume` or `replay`. For
+  /// telemetry only.
+  String stage = 'connect';
+
+  /// What stopped it, when something threw. Read for its type alone: its
+  /// message can quote the server.
+  Object? error;
+
+  /// The socket the attempt used, for its close code.
+  GatewayRpcClient? client;
 }
 
 /// A [StreamIterator] that counts the frames it handed out.

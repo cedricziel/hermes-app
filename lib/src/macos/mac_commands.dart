@@ -35,6 +35,8 @@ enum MacCommand {
   deleteThread,
   showMainWindow,
   help,
+  keyboardShortcuts,
+  focusMenuBar,
 }
 
 /// What a [MacCommand] does on the screen in front. A null [onInvoke] shows
@@ -198,7 +200,9 @@ class MacCommandRegistration {
 ///     MacCommand.newChat: MacCommandHandler(_newThread),
 ///     MacCommand.pinThread: MacCommandHandler(
 ///       thread == null ? null : () => _pin(thread),
-///       title: thread?.pinned ?? false ? 'Unpin' : 'Pin',
+///       title: thread?.pinned ?? false
+///           ? context.l10n.macosMenuUnpin
+///           : context.l10n.macosMenuPin,
 ///     ),
 ///   },
 ///   child: ...,

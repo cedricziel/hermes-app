@@ -88,15 +88,35 @@ class GatewayConnectionClosed implements Exception {
   String toString() => 'The gateway connection closed';
 }
 
+/// A channel that keeps the WebSocket close code readable after the socket
+/// ended, which a cast [StreamChannel] would hide.
+abstract interface class SocketCloseCode {
+  int? get closeCode;
+}
+
+/// A call or a connect ran out of time and its socket was dropped. A
+/// [GatewayConnectionClosed] to every caller; telemetry tells a hung call from
+/// a socket that closed.
+class GatewayCallTimedOut extends GatewayConnectionClosed {
+  const GatewayCallTimedOut();
+
+  @override
+  String toString() => 'The gateway did not answer in time';
+}
+
 /// `session.resume` was answered with an error that says this session or turn
 /// is not on the server any more (or never will resume), so reconnecting again
 /// cannot help. A [GatewayConnectionClosed], so code that treats a lost
 /// connection as the reply's end still does; a reader that wants to say why
 /// checks for this type first. [code] is the JSON-RPC code of the refusal.
+///
+/// [restarted]: the server's replay epoch changed since the app last heard from
+/// the session, so the server was restarted and its turn died with it.
 class GatewaySessionGone extends GatewayConnectionClosed {
-  const GatewaySessionGone(this.code);
+  const GatewaySessionGone(this.code, {this.restarted = false});
 
   final int code;
+  final bool restarted;
 
   @override
   String toString() => 'The gateway no longer has the session ($code)';
@@ -120,11 +140,30 @@ class GatewayReplyLost extends GatewayConnectionClosed {
 /// was lost and the thread is read again instead. A [GatewayConnectionClosed]
 /// so older readers still end the reply, but unlike a lost connection nothing
 /// is left to wait for: the reply fails.
+///
+/// [restarted]: the server was restarted since the app last heard from the
+/// session (its replay epoch changed) and brought nothing back, so the turn was
+/// interrupted by the restart.
 class GatewayTurnEnded extends GatewayConnectionClosed {
-  const GatewayTurnEnded();
+  const GatewayTurnEnded({this.restarted = false});
+
+  final bool restarted;
 
   @override
   String toString() => 'The turn ended without a reply';
+}
+
+/// The server cannot be made to say whether the turn still runs: its answers to
+/// "is this session still working?" were refused or unreadable for as long as
+/// the transport is willing to ask, or the turn has been silent for longer than
+/// any live one is. Nothing is waited for any more and nothing is resent, and
+/// the reply says it could not confirm how the turn ended. A
+/// [GatewayConnectionClosed] so older readers still end the reply.
+class GatewayReplyUnconfirmed extends GatewayConnectionClosed {
+  const GatewayReplyUnconfirmed();
+
+  @override
+  String toString() => 'The gateway could not confirm the turn';
 }
 
 /// Whether a `session.resume` refusal is final: no later attempt can succeed.
@@ -173,13 +212,24 @@ class GatewayRpcClient {
     this.deadAfter = const Duration(seconds: 45),
     this.resumeGrace = const Duration(milliseconds: 250),
     this.probeTimeout = const Duration(seconds: 5),
+    this.onSocketClosed,
   }) : _channel = channel {
     _subscription = channel.stream.listen(
       _onFrame,
-      onError: (Object _) {},
-      onDone: _onClosed,
+      onError: (Object _) => _errored = true,
+      onDone: () {
+        _closeReason ??= _errored ? 'error' : 'remote_close';
+        _onClosed();
+      },
     );
   }
+
+  /// Told once when the socket ends, with why (`heartbeat_silence`,
+  /// `remote_close`, `local_close`, `error`), the WebSocket close code when
+  /// the channel can say one, and how long the socket lived. Never throws into
+  /// the client: a failing callback is ignored.
+  final void Function(String reason, int? closeCode, Duration lived)?
+  onSocketClosed;
 
   final bool heartbeat;
   final Duration pingEvery;
@@ -202,6 +252,14 @@ class GatewayRpcClient {
   final _pending = <int, _Pending>{};
   var _nextId = 1;
   var _closed = false;
+  var _errored = false;
+  String? _closeReason;
+  int? _closeCode;
+  final DateTime _openedAt = clock.now();
+
+  /// The WebSocket close code the peer ended the socket with, once it is
+  /// closed and the channel could say one.
+  int? get closeCode => _closeCode;
 
   /// How many frames have arrived, to tell a socket that went quiet from one
   /// whose frames are still waiting to be handled.
@@ -353,6 +411,7 @@ class GatewayRpcClient {
   }
 
   Future<void> close() async {
+    _closeReason ??= 'local_close';
     _onClosed();
     await _subscription.cancel();
     await _channel.sink.close();
@@ -398,6 +457,7 @@ class GatewayRpcClient {
   }
 
   void _close() {
+    _closeReason ??= 'heartbeat_silence';
     _onClosed();
     unawaited(_subscription.cancel());
     unawaited(_channel.sink.close());
@@ -525,6 +585,23 @@ class GatewayRpcClient {
     }
     _events.close();
     _serverRequests.close();
+    _reportClosed();
+  }
+
+  void _reportClosed() {
+    try {
+      final channel = _channel;
+      _closeCode = channel is SocketCloseCode
+          ? (channel as SocketCloseCode).closeCode
+          : null;
+      onSocketClosed?.call(
+        _closeReason ?? 'remote_close',
+        _closeCode,
+        clock.now().difference(_openedAt),
+      );
+    } on Object {
+      // Telemetry must not take the socket's teardown down with it.
+    }
   }
 }
 

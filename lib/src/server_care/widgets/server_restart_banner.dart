@@ -1,9 +1,10 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../macos/mac_window.dart';
 import '../../theme/platform_chrome.dart';
@@ -172,27 +173,30 @@ class _ServerRestartBannerState extends State<ServerRestartBanner> {
           : MergeSemantics(
               child: Semantics(
                 button: true,
-                child: InkWell(
-                  onTap: widget.onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    child: Row(
-                      children: [
-                        icon,
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(text, style: textStyle)),
-                        const SizedBox(width: 8),
-                        ExcludeSemantics(
-                          child: AppIcon(
-                            AppIcons.chevronRight,
-                            size: 20,
-                            color: colors.subtleText,
+                child: FocusRing(
+                  radius: 0,
+                  child: InkWell(
+                    onTap: widget.onTap,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          icon,
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(text, style: textStyle)),
+                          const SizedBox(width: 8),
+                          ExcludeSemantics(
+                            child: AppIcon(
+                              AppIcons.chevronRight,
+                              size: 20,
+                              color: colors.subtleText,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

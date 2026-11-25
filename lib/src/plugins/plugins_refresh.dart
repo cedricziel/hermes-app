@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// What each Plugins tab says when a reload failed.
 const kInstalledRefreshFailed = 'Could not refresh plugins';

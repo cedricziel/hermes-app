@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../chat/widgets/thread_actions_menu.dart';
+import '../macos/edit_menu_state.dart';
 import '../macos/mac_commands.dart';
 import 'conversation_windows.dart';
 
@@ -32,6 +34,14 @@ class ConversationWindowsMenu extends StatelessWidget {
         ),
     ];
     final key = windows.keyWindow;
+    // A conversation window or the quick panel is key: the Edit items would
+    // follow this engine's focus, which is the main window behind.
+    try {
+      context.read<EditMenuState>().suspended =
+          windows.keyWindowId != null || windows.quickPanelKey;
+    } on ProviderNotFoundException {
+      // No Mac menu bar above: nothing to turn off.
+    }
     MacCommandHandler run(ThreadAction action, {String? title}) =>
         MacCommandHandler(() => windows!.runInKeyWindow(action), title: title);
     return MacCommandScope(
@@ -55,7 +65,9 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.nextChange: const MacCommandHandler(null),
               MacCommand.pinThread: run(
                 ThreadAction.pin,
-                title: key.pinned ? 'Unpin' : 'Pin',
+                title: key.pinned
+                    ? context.l10n.macosMenuUnpin
+                    : context.l10n.macosMenuPin,
               ),
               MacCommand.renameThread: run(ThreadAction.rename),
               MacCommand.copyTranscript: run(ThreadAction.copyTranscript),
@@ -79,7 +91,7 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.changeFolder: const MacCommandHandler(null),
               MacCommand.toggleInspector: MacCommandHandler(
                 windows.toggleKeyWindowInspector,
-                title: 'Show Inspector',
+                title: context.l10n.chatActivityInspectorShow,
               ),
             },
       child: child,

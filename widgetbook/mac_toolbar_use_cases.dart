@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
@@ -7,11 +7,12 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'host.dart';
+import 'platform_theme.dart';
 
 /// The toolbar of a Mac window, shown on macOS in either viewport.
 Widget _mac(Widget child) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: Align(alignment: Alignment.topCenter, child: child),
   ),
 );

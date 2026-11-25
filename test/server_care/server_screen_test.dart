@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -21,6 +21,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -96,7 +97,7 @@ void main() {
         child: MaterialApp(
           navigatorObservers: [pushedRoutes],
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
           home: MultiProvider(
@@ -495,7 +496,7 @@ void main() {
             ChangeNotifierProvider<ServerCheckController>.value(value: check),
           ],
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: const ServerScreen(source: 'test'),
@@ -879,10 +880,7 @@ void main() {
         },
       });
       await pump(tester, size: const Size(360, 1600));
-      expect(
-        find.text('1 of 2 messaging channels are offline'),
-        findsOneWidget,
-      );
+      expect(find.text('1 of 2 messaging channels is offline'), findsOneWidget);
       expect(find.text('Running, some channels offline'), findsOneWidget);
       expect(find.text('1 of 2 connected'), findsOneWidget);
     });

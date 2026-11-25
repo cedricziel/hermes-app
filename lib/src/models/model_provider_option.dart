@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 /// The reasoning-effort levels Hermes accepts (`VALID_REASONING_EFFORTS`),
 /// with `none` for thinking off.
 const kReasoningEfforts = [
@@ -11,12 +13,18 @@ const kReasoningEfforts = [
   'ultra',
 ];
 
-/// What the dashboard calls [effort].
-String effortLabel(String effort) => switch (effort) {
-  'none' => 'Off',
-  'xhigh' => 'Extra High',
-  '' => '',
-  _ => effort[0].toUpperCase() + effort.substring(1),
+/// What the dashboard calls [effort]; a level the app does not know is shown
+/// as the server sent it.
+String effortLabel(AppLocalizations l10n, String effort) => switch (effort) {
+  'none' => l10n.modelsEffortNone,
+  'minimal' => l10n.modelsEffortMinimal,
+  'low' => l10n.modelsEffortLow,
+  'medium' => l10n.modelsEffortMedium,
+  'high' => l10n.modelsEffortHigh,
+  'xhigh' => l10n.modelsEffortXhigh,
+  'max' => l10n.modelsEffortMax,
+  'ultra' => l10n.modelsEffortUltra,
+  _ => effort,
 };
 
 /// A model and, optionally, a reasoning effort to run a chat with. A model id

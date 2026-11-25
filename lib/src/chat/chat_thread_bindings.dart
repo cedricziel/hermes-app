@@ -20,6 +20,7 @@ import 'slash_command.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_thread_view.dart';
 import 'widgets/message_actions.dart' show TurnActionStatus;
+import 'tool_value_budget.dart' show ToolValueBudget;
 import 'widgets/tool_call_expansion.dart';
 
 /// The current chat model, its discovery state, and recovery actions.
@@ -172,6 +173,7 @@ ChatThreadView boundChatThreadView({
   Widget? workingDirectoryRow,
   Widget? workspaceNotice,
   ToolCallExpansionStore? toolCallExpansion,
+  ToolValueBudget? toolValueBudget,
 }) {
   final t = thread;
   return ChatThreadView(
@@ -188,6 +190,7 @@ ChatThreadView boundChatThreadView({
         : BoundActivityLine(chat: chat, thread: t, onOpen: onOpenActivity),
     onShowAgentDetails: onShowAgentDetails,
     toolCallExpansion: toolCallExpansion,
+    toolValueBudget: toolValueBudget,
     screenPreview: screen == null
         ? null
         : (run) => BoundBotScreenPreview(
@@ -248,7 +251,9 @@ ChatThreadView boundChatThreadView({
     onRetry: t == null || chat.lastPromptText(t) == null
         ? null
         : () => chat.retry(t),
-    onEdit: !editable || t == null || !chat.canEditLastPrompt(t)
+    // A held turn still offers Edit, dimmed with the reason (turnActionStatus).
+    onEdit:
+        !editable || t == null || !chat.canEditLastPrompt(t, ignoringHold: true)
         ? null
         : () => chat.editLastPrompt(t),
     onBranch: !branchable || t == null || !chat.canBranch(t)

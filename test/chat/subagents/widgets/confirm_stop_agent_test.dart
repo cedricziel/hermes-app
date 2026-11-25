@@ -1,8 +1,10 @@
-import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoDialogAction;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/confirm_stop_agent.dart';
+
+import '../../../support/test_localizations.dart';
 
 Future<bool?> open(
   WidgetTester tester, {
@@ -15,7 +17,7 @@ Future<bool?> open(
     MaterialApp(
       theme: ThemeData(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Builder(
         builder: (context) => TextButton(
@@ -67,7 +69,7 @@ void main() {
     bool? answer;
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) => TextButton(

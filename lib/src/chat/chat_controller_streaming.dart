@@ -205,6 +205,7 @@ extension _ChatControllerStreaming on ChatController {
     }
     _following.clear();
     _followingIds.clear();
+    _followByThread.clear();
   }
 
   /// A turn another client submitted carries no user message on the wire: the
@@ -219,7 +220,18 @@ extension _ChatControllerStreaming on ChatController {
 
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
-  void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+  ///
+  /// [adoptLost]: this follow-up is the pick-up that follows a reply settled as
+  /// lost ([_afterLossSettle]). Its first turn, or its first completion, is the
+  /// settled reply's own (the turn went on, or finished) and fills that bubble;
+  /// anything later, such as another client's prompt on the same session, gets a
+  /// bubble of its own.
+  void _followUps(
+    ChatTransport transport,
+    ChatThread thread,
+    String? profile, {
+    bool adoptLost = false,
+  }) {
     _listenOwnedSessions();
     if (_sessionStates[thread]?.reclaimedReason != null) return;
     if (!active || _profile != profile || !_threads.contains(thread)) return;
@@ -229,17 +241,28 @@ extension _ChatControllerStreaming on ChatController {
     // A reply that lost its connection takes what the server still runs back
     // into itself: the turn has one bubble, never a second one beside it.
     ChatMessage? reply = _reconnectingReply(thread);
+    var heldByLoss = false;
+    var mayAdopt = adoptLost;
+    // The pick-up is only the settled reply's own for a short while.
+    final adoptTimer = adoptLost
+        ? Timer(lostAdoptWindow, () => mayAdopt = false)
+        : null;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       if (!_currentActivity(epoch)) return;
+      adoptTimer?.cancel();
       _following.remove(subscription);
       _followingIds.remove(thread.id);
+      if (_followByThread[threadId] == subscription) {
+        _followByThread.remove(threadId);
+      }
       final pending = reply;
       if (pending != null && pending.isPending) {
         // Still not reached, or reached and lost again: the turn may run on.
         // A stream that ended quietly before saying anything changes nothing.
         if (isConnectionLost(error) ||
             (error == null && pending.reconnecting)) {
+          _diag.holdAgain(thread);
           _holdForReconnect(thread, pending);
           return;
         }
@@ -250,10 +273,33 @@ extension _ChatControllerStreaming on ChatController {
       if (!disposed) notifyListeners();
       if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
+        _diag.endedHeld(
+          thread,
+          outcome: 'failed',
+          error: error,
+          queued: _queues[thread]?.length ?? 0,
+        );
+        // The queue rule after any failed reply: halted, so what waits in it
+        // stays and nothing is sent by itself.
         _turnEnded(thread, halted: true);
-        _updateReply(thread, pending, () => failReply(pending, error));
+        final loss = replyLossOf(error);
+        if (loss != null) {
+          breadcrumbs('chat.reply.settled', {'reason': loss.name});
+        }
+        _updateReply(
+          thread,
+          pending,
+          () => loss == null
+              ? failReply(pending, error)
+              : settleLost(pending, loss),
+        );
         if (!_currentActivity(epoch)) return;
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+        // What the server did with the turn is in its history: read it again,
+        // and the settled reply is kept only while the history has no answer.
+        if (loss != null) _afterLossSettle(thread, transport, profile);
+        // Whether the server still runs it decides if the actions come back.
+        if (pending.serverMayRun) unawaited(refreshActive());
       }
     }
 
@@ -262,10 +308,41 @@ extension _ChatControllerStreaming on ChatController {
         .listen(
           (event) {
             if (!_currentActivity(epoch)) return;
+            _diag.follow(thread, event);
             if (reply == null && opensTurn(event)) {
               // A stop in flight may be aimed at the turn this opens a reply
               // for (a folded prompt's), so the hold stays.
-              reply = _addPlaceholder(thread);
+              final lost = mayAdopt ? _lostReply(thread) : null;
+              mayAdopt = false;
+              if (lost != null) {
+                // The turn the server was thought to have lost goes on: it
+                // fills the reply that was settled for it, and the queue stays
+                // paused behind it, as it was when that reply was settled.
+                _resumeLost(thread, lost);
+                reply = lost;
+                heldByLoss = true;
+              } else {
+                reply = _addPlaceholder(thread);
+              }
+            }
+            if (reply == null && mayAdopt && event is ReplyCompleted) {
+              // The turn the settled reply stood for finished meanwhile: its
+              // result belongs in that bubble. The queue stays paused.
+              mayAdopt = false;
+              if (_lostReply(thread) case final lost?) {
+                // The settle told the person the reply failed. A completion
+                // that proves it did not is told once, as the success it is
+                // (it replaces the failure in the tray); one that failed
+                // again is not told twice.
+                _onReplyEvent(
+                  thread,
+                  lost,
+                  event,
+                  profile,
+                  announce: !event.failed,
+                );
+                return;
+              }
             }
             final current = reply;
             if (current == null) {
@@ -281,14 +358,31 @@ extension _ChatControllerStreaming on ChatController {
               _reconnectTimers.remove(thread)?.cancel();
               _reconnectTries.remove(thread);
             }
+            // Read before the event settles the hold: an idle report that ends
+            // a turn the user stopped is a stop, not a completion.
+            final stoppedByUser = switch (_holdOf(thread)) {
+              _Hold.stopping || _Hold.paused => true,
+              _ => false,
+            };
             _onReplyEvent(thread, current, event, profile);
             if (!_currentActivity(epoch)) return;
             if (event is ReplyCompleted) {
+              _diag.endedHeld(
+                thread,
+                outcome: event.failed
+                    ? 'failed'
+                    : event.stopped
+                    ? 'stopped'
+                    : 'completed',
+                error: null,
+                queued: _queues[thread]?.length ?? 0,
+              );
               reply = null;
               final drain = _turnEnded(
                 thread,
-                halted: event.failed || event.stopped,
+                halted: event.failed || event.stopped || heldByLoss,
               );
+              heldByLoss = false;
               if (drain) _awaitSettle(thread);
               _refetchForeignTurn(thread);
               unawaited(refreshActive());
@@ -296,12 +390,23 @@ extension _ChatControllerStreaming on ChatController {
               // The session reports the turn over without a completion. It is
               // closed all the same, so the next chained turn gets a reply of
               // its own, and the queue goes on now that the session settled.
+              _diag.endedHeld(
+                thread,
+                outcome: current.status == MessageStatus.error
+                    ? 'failed'
+                    : stoppedByUser
+                    ? 'stopped'
+                    : 'completed',
+                error: null,
+                queued: _queues[thread]?.length ?? 0,
+              );
               reply = null;
               final drain = _turnEnded(
                 thread,
-                halted: current.status == MessageStatus.error,
+                halted: current.status == MessageStatus.error || heldByLoss,
                 idleOnly: true,
               );
+              heldByLoss = false;
               if (drain) _drainQueue(thread);
               _refetchForeignTurn(thread);
               unawaited(refreshActive());
@@ -312,6 +417,7 @@ extension _ChatControllerStreaming on ChatController {
           cancelOnError: true,
         );
     _following.add(subscription);
+    _followByThread[threadId] = subscription;
   }
 
   /// An event on the follow-ups while no reply is open. It is about the
@@ -404,6 +510,53 @@ extension _ChatControllerStreaming on ChatController {
       return message.reconnecting && message.isPending ? message : null;
     }
     return null;
+  }
+
+  /// After a reply was settled because the server no longer has its turn (or
+  /// could not say): the thread is read again at once, and picked up again, so
+  /// a turn that goes on, or finished, fills the same bubble instead of a
+  /// second one on the next open. A pick-up that finds nothing running closes
+  /// without events and the notice stays.
+  void _afterLossSettle(
+    ChatThread thread,
+    ChatTransport? transport,
+    String? profile,
+  ) {
+    _refetch.add(thread);
+    _refetchIfIdle(thread);
+    if (transport != null) {
+      _followUps(transport, thread, profile, adoptLost: true);
+    }
+  }
+
+  /// The reply of [thread] that was settled as lost and is its last assistant
+  /// message, if there is one: what a pick-up feeds when the turn it settled
+  /// shows signs of life again.
+  ChatMessage? _lostReply(ChatThread thread) {
+    for (final message in thread.messages.reversed) {
+      if (message.role != ChatRole.assistant) continue;
+      return message.loss != null && message.status == MessageStatus.error
+          ? message
+          : null;
+    }
+    return null;
+  }
+
+  /// Takes the settled [reply] back as a turn that runs: the notice goes, and
+  /// the reply is pending again with what it had.
+  void _resumeLost(ChatThread thread, ChatMessage reply) {
+    _queueTurnReady.remove(thread);
+    _queueSettled.remove(thread);
+    _settleTimers.remove(thread)?.cancel();
+    _updateReply(thread, reply, () {
+      reply.loss = null;
+      reply.error = null;
+      reply.failure = null;
+      reply.serverMayRun = false;
+      reply.status = reply.content.isEmpty && reply.sealedProse.isEmpty
+          ? MessageStatus.thinking
+          : MessageStatus.streaming;
+    });
   }
 
   /// Keeps [reply], whose connection was lost, as it is and says so, instead of

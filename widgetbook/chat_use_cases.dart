@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 import 'package:hermes_app/src/chat/attachments/draggable_attachment.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
@@ -15,6 +17,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
+import 'package:hermes_app/src/chat/tool_value_budget.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
@@ -29,7 +32,6 @@ import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/named_icon_button.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/message_drag_grip.dart';
 import 'package:hermes_app/src/chat/widgets/reply_error_note.dart';
@@ -44,7 +46,16 @@ import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/touch_row_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/thread_housekeeping.dart';
+
+import '../test/support/fake_hermes_server.dart';
+
+import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart'
+    show ActivityButton;
+import 'package:hermes_app/src/profiles/widgets/profile_avatar.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_arguments_view.dart';
@@ -60,6 +71,7 @@ import 'package:widgetbook/widgetbook.dart';
 import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 Future<void> _answers(Object? _) =>
     Future<void>.delayed(const Duration(milliseconds: 600));
@@ -101,27 +113,105 @@ const _queued = [
   ]),
 ];
 
-WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
-        child: Builder(
-          builder: (context) => Scaffold(
-            appBar: buildChatAppBar(
-              context,
-              leading: IconButton(
-                icon: const Icon(Icons.menu),
-                tooltip: 'Open navigation menu',
-                onPressed: () {},
-              ),
-              title: Text(threads[0].title),
-              actions: [NewChatButton(onPressed: () {})],
-            ),
+const _longBarTitle =
+    'Plan the quarterly release, migrate the staging database and write up '
+    'the rollback notes for the on-call team';
+
+WidgetbookUseCase _phoneBar(
+  String name,
+  TargetPlatform platform, {
+  double textScale = 1,
+  double? width,
+  String? title,
+  bool persona = false,
+  bool pill = false,
+  Locale? locale,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) {
+    Widget bar(BuildContext context) {
+      final text = title ?? threads[0].title;
+      final below = chatTitleBelowBar(context);
+      final avatar = persona
+          ? ProfileAvatar(profile: messengerRecipients.first, size: 32)
+          : null;
+      return Scaffold(
+        appBar: buildChatAppBar(
+          context,
+          leading: IconButton(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Open navigation menu',
+            onPressed: () {},
           ),
+          title: below
+              ? null
+              : Row(
+                  children: [
+                    if (avatar != null) ...[avatar, const SizedBox(width: 8)],
+                    Expanded(
+                      child: Text(
+                        text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+          bottom: below
+              ? chatTitleBelowBarRow(context, text: text, avatar: avatar)
+              : null,
+          actions: [
+            ThreadActionsButton(
+              thread: threads[0],
+              includeCopyTranscript: true,
+            ),
+            ActivityButton(open: false, waiting: 0, onPressed: () {}),
+            NewChatButton(onPressed: () {}),
+          ],
         ),
+        body: pill
+            ? Align(
+                alignment: Alignment.bottomLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ComposerModelPill(
+                    options: modelOptions,
+                    choice: null,
+                    onChanged: (_) {},
+                  ),
+                ),
+              )
+            : null,
+      );
+    }
+
+    Widget content = Theme(
+      data: platformTheme(context, platform),
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(textScale),
+          size: width == null
+              ? MediaQuery.sizeOf(context)
+              : Size(width, MediaQuery.sizeOf(context).height),
+        ),
+        child: Builder(builder: bar),
       ),
     );
+    if (width != null) {
+      // Wider than the viewport: draw at its own width, scaled to fit.
+      content = FittedBox(
+        child: SizedBox(width: width, height: 320, child: content),
+      );
+    }
+    return locale == null
+        ? content
+        : Localizations.override(
+            context: context,
+            locale: locale,
+            child: content,
+          );
+  },
+);
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -202,6 +292,81 @@ class _RemountedToolRunsState extends State<_RemountedToolRuns> {
     ],
   );
 }
+
+/// A thread menu as it opens from the header's button, for the catalog to
+/// look at. The button gets a real [ThreadHousekeeping], as in the app, so
+/// the menu has Rename, Pin, Archive and Delete around the export row.
+class _OpenThreadMenu extends StatefulWidget {
+  const _OpenThreadMenu({required this.exportJson, this.mac = false});
+
+  final ExportJsonOffer exportJson;
+  final bool mac;
+
+  @override
+  State<_OpenThreadMenu> createState() => _OpenThreadMenuState();
+}
+
+class _OpenThreadMenuState extends State<_OpenThreadMenu> {
+  final _button = GlobalKey<ThreadActionsButtonState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _button.currentState?.open();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topRight,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: ThreadActionsButton(
+        key: _button,
+        thread: threads[0],
+        includeCopyTranscript: true,
+        exportJson: widget.exportJson,
+        onOpenInNewWindow: widget.mac ? (_) {} : null,
+        housekeeping: ThreadHousekeeping(
+          repository: HermesChatRepository(FakeHermesServer().client().raw),
+          threads: () => threads,
+          profile: () => 'default',
+          changed: () {},
+          report: (_) {},
+          removed: (_) {},
+          history: (thread, {cancelled}) async => const [],
+        ),
+      ),
+    ),
+  );
+}
+
+WidgetbookUseCase _threadMenu(
+  String name,
+  TargetPlatform platform, {
+  bool enabled = true,
+  bool german = false,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (context) {
+    Widget menu = Theme(
+      data: platformTheme(context, platform),
+      child: _OpenThreadMenu(
+        exportJson: ExportJsonOffer(onSelected: () {}, enabled: enabled),
+        mac: platform == TargetPlatform.macOS,
+      ),
+    );
+    if (german) {
+      menu = Localizations.override(
+        context: context,
+        locale: const Locale('de'),
+        child: menu,
+      );
+    }
+    return menu;
+  },
+);
 
 WidgetbookNode chatNode() => WidgetbookFolder(
   name: 'Chat',
@@ -288,6 +453,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Diff',
           const ToolCallCard(call: diffToolCall, initiallyOpen: true),
         ),
+        ..._toolValueCards(),
       ],
     ),
     WidgetbookComponent(
@@ -403,7 +569,69 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'ChatAppBar',
       useCases: [
         _phoneBar('iOS', TargetPlatform.iOS),
+        _phoneBar('iOS, text scale 2', TargetPlatform.iOS, textScale: 2),
         _phoneBar('Material (Android)', TargetPlatform.android),
+        _phoneBar(
+          'Material (Android), text scale 1.3 boundary',
+          TargetPlatform.android,
+          textScale: 1.3,
+          persona: true,
+          title: 'Weekly plan',
+        ),
+        _phoneBar(
+          'Material (Android), large text, avatar, long title and all actions',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+          title: _longBarTitle,
+        ),
+        _phoneBar(
+          'Material (Android), text scale 3.1',
+          TargetPlatform.android,
+          textScale: 3.1,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, without persona',
+          TargetPlatform.android,
+          textScale: 2,
+        ),
+        _phoneBar(
+          'Material (Android), large text, persona and model pill',
+          TargetPlatform.android,
+          textScale: 2,
+          persona: true,
+          pill: true,
+        ),
+        for (final scale in [1.3, 2.0, 3.1])
+          _phoneBar(
+            'Material (Android), short title, text scale $scale',
+            TargetPlatform.android,
+            textScale: scale,
+            persona: true,
+            title: 'Taxes',
+          ),
+        _phoneBar(
+          'Material (Android), tablet width 800, text scale 1',
+          TargetPlatform.android,
+          width: 800,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), tablet width 800, text scale 3.1',
+          TargetPlatform.android,
+          textScale: 3.1,
+          width: 800,
+          persona: true,
+        ),
+        _phoneBar(
+          'Material (Android), large text, German',
+          TargetPlatform.android,
+          textScale: 2,
+          locale: const Locale('de'),
+          title: 'Wochenplanung für das Release',
+          persona: true,
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -412,6 +640,29 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool(
           'Local thread: copy transcript only',
           ThreadActionsButton(thread: threads[2], includeCopyTranscript: true),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'Thread actions menu',
+      useCases: [
+        _threadMenu('Export chat as JSON (Mac)', TargetPlatform.macOS),
+        _threadMenu(
+          'Export chat as JSON, running (Mac)',
+          TargetPlatform.macOS,
+          enabled: false,
+        ),
+        _threadMenu(
+          'Export chat as JSON, German (Mac)',
+          TargetPlatform.macOS,
+          german: true,
+        ),
+        _threadMenu('Export chat as JSON (iPhone)', TargetPlatform.iOS),
+        _threadMenu('Export chat as JSON (Material)', TargetPlatform.android),
+        _threadMenu(
+          'Export chat as JSON, running (Material)',
+          TargetPlatform.android,
+          enabled: false,
         ),
       ],
     ),
@@ -437,6 +688,48 @@ WidgetbookNode chatNode() => WidgetbookFolder(
                 ),
               ),
               maxWidth: 300,
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'TouchRowMenu',
+      useCases: [
+        for (final (name, pinned, canonical, open) in [
+          ('Unpinned', false, false, false),
+          ('Pinned', true, false, false),
+          ('Menu open, unpinned', false, false, true),
+          ('Menu open, pinned', true, false, true),
+          ('Menu open, Bot Chat', false, true, true),
+        ])
+          WidgetbookUseCase(
+            name: name,
+            builder: (_) => frame(
+              SizedBox(
+                height: open ? 300 : null,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: TouchRowMenu(
+                    title: 'Release notes',
+                    pinned: pinned,
+                    canonical: canonical,
+                    initiallyOpen: open,
+                    onAction: (_) {},
+                    child: SidebarRow(
+                      selected: false,
+                      onTap: () {},
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      child: const Text(
+                        'Release notes (long press for the menu)',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              maxWidth: 360,
             ),
           ),
       ],
@@ -741,8 +1034,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: name,
             builder: (context) => Theme(
-              data: Theme.of(context)
-                  .copyWith(platform: TargetPlatform.android),
+              data: platformTheme(context, TargetPlatform.android),
               child: ChangeNotifierProvider(
                 create: (_) => ComposerHeightNotifier(),
                 child: frame(
@@ -770,7 +1062,7 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'Android touch targets',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+            data: platformTheme(context, TargetPlatform.android),
             child: frame(
               MessageActions(
                 text: 'The build finished.',
@@ -881,16 +1173,127 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const ReplyErrorNote(kReplyFailedMessage),
+              Builder(
+                builder: (context) =>
+                    ReplyErrorNote(context.l10n.chatReplyFailedGeneric),
+              ),
               MessageActions(
                 text: 'Timed out',
                 showCopy: false,
                 onRetry: () {},
                 status: const TurnActionStatus(
-                  problem: "Couldn't reach Hermes to try again. Check your connection.",
+                  problem: TurnActionProblem(
+                    TurnAction.retry,
+                    TurnProblemKind.unreachable,
+                  ),
                 ),
               ),
             ],
+          ),
+        ),
+        _tool(
+          'Edit refused by Hermes',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(
+              problem: TurnActionProblem(
+                TurnAction.edit,
+                TurnProblemKind.rejected,
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Hermes answered busy (not an error: nothing changed)',
+          MessageActions(
+            text: 'Timed out',
+            showCopy: false,
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(
+              problem: TurnActionProblem(
+                TurnAction.retry,
+                TurnProblemKind.busy,
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Held: the server may still run the turn',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Builder(
+                builder: (context) =>
+                    ReplyErrorNote(context.l10n.chatReplyFailedMayStillRun),
+              ),
+              MessageActions(
+                text: 'Starting the build.',
+                onRetry: () {},
+                onEdit: () {},
+                status: const TurnActionStatus(held: true),
+              ),
+            ],
+          ),
+        ),
+        _tool(
+          'Held, a failed reply that kept no text',
+          MessageActions(
+            text: '',
+            showCopy: false,
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(held: true),
+          ),
+        ),
+        _tool(
+          'Held, with Read aloud',
+          MessageActions(
+            text: 'Starting the build.',
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(held: true),
+            readAloud: ReadAloudState.idle,
+            onReadAloud: () {},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Held, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'Starting the build.',
+                onRetry: () {},
+                onEdit: () {},
+                status: const TurnActionStatus(held: true),
+              ),
+              maxWidth: 320,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Busy answer, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'Starting the build.',
+                onRetry: () {},
+                onEdit: () {},
+                status: const TurnActionStatus(
+                  problem: TurnActionProblem(
+                    TurnAction.retry,
+                    TurnProblemKind.busy,
+                  ),
+                ),
+              ),
+              maxWidth: 320,
+            ),
           ),
         ),
       ],
@@ -1149,3 +1552,173 @@ class _ComposerState extends State<_Composer> {
         : null,
   );
 }
+
+String _keys(int n) => jsonEncode({
+  for (var i = 0; i < n; i++)
+    'key_$i': switch (i % 4) {
+      0 => 'value $i',
+      1 => i,
+      2 => i.isEven,
+      _ => [i, null],
+    },
+});
+
+/// The generic card with its value views: JSON, code, plain text, limits,
+/// hidden characters, a running call and a failed one with a JSON body.
+List<WidgetbookUseCase> _toolValueCards() => [
+  _tool(
+    'Value: JSON input and result',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'search_issues',
+        summary: '',
+        args: const {'query': 'is:open label:bug', 'limit': 5},
+        result: _keys(12),
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: JSON summary as input',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: '{"command": "ls -la", "cwd": "/tmp"}',
+        result: 'total 0',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: 70-key JSON result',
+    ToolCallCard(
+      call: ToolCall(name: 'list_all', summary: '', result: _keys(70)),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: code output from a path extension',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'read_file',
+        summary: 'lib/main.dart',
+        args: {'path': 'lib/main.dart'},
+        result: "import 'package:flutter/material.dart';\n\n/// Starts the app.\nvoid main() {\n  runApp(const MyApp(title: 'Hermes', retries: 3));\n}\n",
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: plain text',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: 'x',
+        result: 'Build finished in 12.4 s\n3 warnings, 0 errors\nDone.',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: very large (over 512 KB, plain, no tag)',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: 'x',
+        result: List.generate(
+          12000,
+          (i) => 'line $i: ${'abc ' * 12}',
+        ).join('\n'),
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: JSON over 64 KB (flat, no tree)',
+    ToolCallCard(
+      call: ToolCall(name: 'dump', summary: '', result: _keys(2400)),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: hidden characters',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: 'x',
+        result:
+            'rm -rf /tmp/${String.fromCharCode(0x202E)}gpj.txt\nzero${String.fromCharCode(0x200B)}width',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: running, plain',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'custom',
+        summary: '',
+        status: ToolCallStatus.running,
+        args: const {'query': 'x'},
+        result: _keys(6),
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: failed with a JSON error body',
+    ToolCallCard(
+      call: ToolCall(
+        name: 'fetch',
+        summary: 'x',
+        status: ToolCallStatus.error,
+        result: '{"error": {"code": 503, "message": "upstream timed out"}}',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: failed with a plain error',
+    const ToolCallCard(
+      call: ToolCall(
+        name: 'fetch',
+        summary: 'x',
+        status: ToolCallStatus.error,
+        result: 'connection reset by peer',
+      ),
+      initiallyOpen: true,
+    ),
+  ),
+  _tool(
+    'Value: long label at 2x text',
+    MediaQuery.withClampedTextScaling(
+      minScaleFactor: 2,
+      maxScaleFactor: 2,
+      child: ToolCallCard(
+        call: ToolCall(
+          name: 'mcp__github__list_pull_requests_for_repository',
+          summary: '',
+          result: _keys(8),
+        ),
+        initiallyOpen: true,
+      ),
+    ),
+  ),
+  _tool(
+    'Value: colouring budget spent',
+    ToolValueBudgetScope(
+      budget: ToolValueBudget(maxChars: 2000),
+      child: Column(
+        children: [
+          for (var i = 0; i < 3; i++) ...[
+            ToolCallCard(
+              call: ToolCall(name: 'dump_$i', summary: '', result: _keys(60)),
+              initiallyOpen: true,
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    ),
+  ),
+];

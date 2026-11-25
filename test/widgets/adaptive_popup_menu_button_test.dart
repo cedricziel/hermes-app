@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -49,7 +49,7 @@ void main() {
     await tester.tap(find.byType(IconButton));
     await tester.pumpAndSettle();
     expect(find.byType(CupertinoMenuItem), findsNWidgets(3));
-    expect(find.byType(PopupMenuItem<String>), findsNothing);
+    expect(find.bySubtype<PopupMenuItem<String>>(), findsNothing);
     await tester.tap(find.text('Rename'));
     await tester.pumpAndSettle();
     expect(picked, ['rename']);
@@ -71,7 +71,12 @@ void main() {
     expect(find.byType(CupertinoMenuItem), findsNothing);
     expect(
       tester
-          .getSize(find.widgetWithText(PopupMenuItem<String>, 'Rename'))
+          .getSize(
+            find.ancestor(
+              of: find.text('Rename'),
+              matching: find.bySubtype<PopupMenuItem<String>>(),
+            ),
+          )
           .height,
       AdaptivePopupMenuButton.macRowHeight,
     );
@@ -87,10 +92,53 @@ void main() {
     expect(find.byType(CupertinoMenuItem), findsNothing);
     expect(
       tester
-          .getSize(find.widgetWithText(PopupMenuItem<String>, 'Rename'))
+          .getSize(
+            find.ancestor(
+              of: find.text('Rename'),
+              matching: find.bySubtype<PopupMenuItem<String>>(),
+            ),
+          )
           .height,
       kMinInteractiveDimension,
     );
+  });
+
+  testWidgets('the Material menu keeps an item\'s key, cursor and styles', (
+    tester,
+  ) async {
+    const style = TextStyle(fontSize: 21);
+    const label = TextStyle(fontSize: 23);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: Center(
+            child: AdaptivePopupMenuButton<String>(
+              tooltip: 'Menu',
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  key: ValueKey('rename-item'),
+                  value: 'rename',
+                  mouseCursor: SystemMouseCursors.help,
+                  textStyle: style,
+                  labelTextStyle: WidgetStatePropertyAll(label),
+                  child: Text('Rename'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byType(IconButton));
+    await tester.pumpAndSettle();
+    final item = tester.widget<PopupMenuItem<String>>(
+      find.byKey(const ValueKey('rename-item')),
+    );
+    expect(item, isA<FocusRingMenuItem<String>>());
+    expect(item.mouseCursor, SystemMouseCursors.help);
+    expect(item.textStyle, style);
+    expect(item.labelTextStyle?.resolve({}), label);
   });
 
   testWidgets('a right-click on a row opens its menu on macOS', (tester) async {

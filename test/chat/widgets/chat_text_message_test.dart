@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_text_message.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/type_scale.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 /// The look of a text message through the real chat path. Distinct colours for
 /// the chat theme's `onPrimary` and `onSurface`: links must ignore both and
@@ -46,11 +47,11 @@ Future<void> _pump(
   addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
+        child: AppThemeScopes(child: child!),
       ),
       home: Scaffold(
         body: Chat(

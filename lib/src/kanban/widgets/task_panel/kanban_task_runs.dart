@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../../../../l10n/l10n.dart';
 
 import '../../../chat/widgets/relative_time.dart';
 import '../../../theme/app_icons.dart';
@@ -26,64 +28,67 @@ class KanbanTaskRuns extends StatelessWidget {
   final VoidCallback onShowLog;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      if (runs.isNotEmpty)
-        DisclosureTile(
-          tilePadding: EdgeInsets.zero,
-          title: Text('Runs (${runs.length})'),
-          children: [
-            GroupedSection(
-              children: [
-                for (final r in runs.reversed)
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (runs.isNotEmpty)
+          DisclosureTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text(l10n.kanbanTaskRuns(runs.length)),
+            children: [
+              GroupedSection(
+                children: [
+                  for (final r in runs.reversed)
+                    GroupedRow(
+                      titleMaxLines: null,
+                      subtitleMaxLines: null,
+                      title:
+                          '#${r.id} · ${r.profile ?? l10n.kanbanTaskRunWorker} · '
+                          '${r.active ? l10n.kanbanTaskRunRunning : (r.outcome ?? r.status)}',
+                      subtitle: r.error != null || r.summary != null
+                          ? r.error ?? r.summary!
+                          : null,
+                      separateTrailing: true,
+                      trailing: r.active && taskRunning
+                          ? TextButton(
+                              onPressed: () => onTerminate(r),
+                              child: Text(l10n.kanbanWorkersTerminate),
+                            )
+                          : null,
+                    ),
                   GroupedRow(
-                    titleMaxLines: null,
-                    subtitleMaxLines: null,
-                    title:
-                        '#${r.id} · ${r.profile ?? 'worker'} · '
-                        '${r.active ? 'running' : (r.outcome ?? r.status)}',
-                    subtitle: r.error != null || r.summary != null
-                        ? r.error ?? r.summary!
-                        : null,
-                    separateTrailing: true,
-                    trailing: r.active && taskRunning
-                        ? TextButton(
-                            onPressed: () => onTerminate(r),
-                            child: const Text('Terminate'),
-                          )
-                        : null,
+                    title: l10n.kanbanTaskWorkerLog,
+                    chevron: false,
+                    onTap: onShowLog,
+                    leading: const AppIcon(AppIcons.terminal),
                   ),
-                GroupedRow(
-                  title: 'Worker log',
-                  chevron: false,
-                  onTap: onShowLog,
-                  leading: const AppIcon(AppIcons.terminal),
-                ),
-              ],
-            ),
-          ],
-        ),
-      if (events.isNotEmpty)
-        DisclosureTile(
-          tilePadding: EdgeInsets.zero,
-          title: const Text('History'),
-          children: [
-            GroupedSection(
-              children: [
-                for (final e in events.reversed)
-                  GroupedRow(
-                    wrapWhenStacked: true,
-                    title: e.kind.replaceAll('_', ' '),
-                    titleMaxLines: null,
-                    value: e.createdAt == null
-                        ? null
-                        : relativeTime(e.createdAt!),
-                  ),
-              ],
-            ),
-          ],
-        ),
-    ],
-  );
+                ],
+              ),
+            ],
+          ),
+        if (events.isNotEmpty)
+          DisclosureTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text(l10n.kanbanTaskHistory),
+            children: [
+              GroupedSection(
+                children: [
+                  for (final e in events.reversed)
+                    GroupedRow(
+                      wrapWhenStacked: true,
+                      title: e.kind.replaceAll('_', ' '),
+                      titleMaxLines: null,
+                      value: e.createdAt == null
+                          ? null
+                          : relativeTime(e.createdAt!),
+                    ),
+                ],
+              ),
+            ],
+          ),
+      ],
+    );
+  }
 }

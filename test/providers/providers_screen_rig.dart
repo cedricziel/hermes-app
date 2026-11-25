@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import 'fake_provider_backend.dart';
+import '../support/test_localizations.dart';
 
 /// A [ProvidersScreen] on a stateful fake Hermes, in a themed app at [size].
 class ProvidersRig {
@@ -59,7 +60,7 @@ class ProvidersRig {
     Widget app = MaterialApp(
       debugShowCheckedModeBanner: false,
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: brightness == Brightness.dark
           ? buildHermesDarkTheme(platform: platform)

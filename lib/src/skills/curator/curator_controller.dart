@@ -12,6 +12,7 @@ import '../../server_care/action_status.dart';
 import '../../server_care/resumable_sleep.dart';
 import 'curator_config.dart';
 import 'curator_result.dart';
+import 'curator_server_text.dart';
 import 'curator_status.dart';
 import 'curator_telemetry.dart';
 import 'hermes_curator_repository.dart';
@@ -23,6 +24,9 @@ enum CuratorLoad {
   offline,
   unavailable,
   failed,
+
+  /// The read got no answer in time (10 s). Reads are safe to repeat.
+  lost,
   profileGone,
   unsupported,
 }
@@ -155,6 +159,14 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   int _epoch = 0;
   int _runId = 0;
   int _confirmId = 0;
+
+  /// Numbers the config reads. A read that answers writes the cache unless a
+  /// newer one already did, even after its question closed.
+  int _configSeq = 0;
+
+  /// The number of the read that wrote the cache last (never reset: numbers
+  /// only grow, and a profile switch drops the answers of the old epoch).
+  int _cacheSeq = 0;
   int _statusSeq = 0;
 
   /// Status reads sent before this number are older than the last pause
@@ -175,6 +187,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   CuratorRunPhase _phase = CuratorRunPhase.opening;
   CuratorNotStarted? _notStarted;
   CuratorConfig? _confirmation;
+  CuratorConfig? _lastConfig;
   bool _checking = false;
   bool _checkFailed = false;
   bool _own = false;
@@ -186,6 +199,15 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
 
   List<String> _lines = const [];
   int _earlier = 0;
+
+  // Hermes' own words, cleaned for display (`curatorServerText`): screen
+  // state in the lifetime of the output lines. Dropped on lock, profile
+  // switch and dispose (a new run also drops `notStartedDetail` and
+  // `failureLine`, the next pause attempt drops `pauseDetail`), hidden while
+  // blanked, never logged.
+  String? _pauseDetail;
+  String? _notStartedDetail;
+  String? _failureLine;
   bool _locked = false;
   bool _inactive = false;
   bool _dropped = false;
@@ -254,8 +276,24 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   /// [blanked].
   List<String> get outputLines => blanked ? const [] : _lines;
 
+  /// Hermes' text when it refused a pause change ([CuratorPause.failed]), as
+  /// one cleaned line of at most 200 characters. Null when it said nothing
+  /// readable, and while [blanked].
+  String? get pauseDetail => blanked ? null : _pauseDetail;
+
+  /// Hermes' text when it could not start a pass
+  /// ([CuratorNotStarted.spawnFailed]). Same rules as [pauseDetail].
+  String? get notStartedDetail => blanked ? null : _notStartedDetail;
+
+  /// The last line of a failed pass this app started. Same rules as
+  /// [pauseDetail].
+  String? get failureLine => blanked ? null : _failureLine;
+
   /// How many lines before [outputLines] were left out.
   int get earlierLines => _earlier;
+
+  /// How many lines the pass left on screen, also while they are [blanked].
+  int get outputLineCount => _lines.length + _earlier;
 
   /// Reads the status and, once, the action status's `running` flag.
   void start() {
@@ -280,7 +318,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     _pause = CuratorPause.idle;
     _optimistic = null;
     _confirmation = null;
+    _lastConfig = null;
     _notStarted = null;
+    _pauseDetail = null;
     _clearResult();
     start();
   }
@@ -297,6 +337,8 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   void _clearResult() {
     _lines = const [];
     _earlier = 0;
+    _notStartedDetail = null;
+    _failureLine = null;
     _dropped = false;
     _startedAt = null;
     _checkFailed = false;
@@ -334,6 +376,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
         _load = switch (kind) {
           CuratorFailure.offline => CuratorLoad.offline,
           CuratorFailure.unavailable => CuratorLoad.unavailable,
+          CuratorFailure.timeout => CuratorLoad.lost,
           _ => CuratorLoad.failed,
         };
     }
@@ -373,6 +416,7 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     final epoch = _epoch;
     _optimistic = value;
     _pause = CuratorPause.saving;
+    _pauseDetail = null;
     notifyListeners();
     final result = await repository.setPaused(value, profile: _profile);
     if (_gone(epoch)) return;
@@ -389,29 +433,39 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
       case CuratorUnsupported():
         _pause = CuratorPause.idle;
         _load = CuratorLoad.unsupported;
-      case CuratorFailed(:final kind):
+      case CuratorFailed(:final kind, :final detail):
         _pause = switch (kind) {
           CuratorFailure.lostAnswer ||
           CuratorFailure.timeout => CuratorPause.lost,
           CuratorFailure.offline => CuratorPause.offline,
           _ => CuratorPause.failed,
         };
+        if (_pause == CuratorPause.failed && !_locked) {
+          _pauseDetail = curatorServerText(detail);
+        }
         if (_pause == CuratorPause.lost) unawaited(_loadStatus(epoch));
     }
     notifyListeners();
   }
 
-  /// Opens the run confirmation at once with the hedged wording; the config
-  /// read refines it when it lands and never delays it.
+  /// Opens the run confirmation at once, with the switches of the last config
+  /// read for this profile or the hedged wording when there is none; the read
+  /// started here never delays it and applies the next time the question is
+  /// opened (the sheet takes its wording once, when it opens).
   void beginRun() {
     if (!canRunNow) return;
-    _confirmation = const CuratorConfig();
+    _confirmation = _lastConfig ?? const CuratorConfig();
     final epoch = _epoch;
     final id = ++_confirmId;
+    final seq = ++_configSeq;
     notifyListeners();
     unawaited(() async {
       final config = await readConfig(_profile);
-      if (_gone(epoch) || id != _confirmId || _confirmation == null) return;
+      if (_gone(epoch) || seq < _cacheSeq) return;
+      _cacheSeq = seq;
+      // A failed read forgets the earlier one: the next opening is hedged.
+      _lastConfig = config;
+      if (id != _confirmId || _confirmation == null) return;
       _confirmation = config ?? const CuratorConfig();
       notifyListeners();
     }());
@@ -476,14 +530,14 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
         onProfileGone?.call();
       case CuratorUnsupported():
         _refused(CuratorNotStarted.refused);
-      case CuratorFailed(:final kind):
+      case CuratorFailed(:final kind, :final detail):
         switch (kind) {
           case CuratorFailure.offline:
             _refused(CuratorNotStarted.offline);
           case CuratorFailure.refused || CuratorFailure.unauthorized:
             _refused(CuratorNotStarted.refused);
           case CuratorFailure.spawnFailed:
-            _refused(CuratorNotStarted.spawnFailed);
+            _refused(CuratorNotStarted.spawnFailed, detail: detail);
           default:
             _triggerLost = true;
             _unsure(CuratorRunPhase.lostAnswer, CuratorRunOutcome.unknown);
@@ -491,8 +545,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     }
   }
 
-  void _refused(CuratorNotStarted why) {
+  void _refused(CuratorNotStarted why, {String? detail}) {
     _notStarted = why;
+    _notStartedDetail = _locked ? null : curatorServerText(detail);
     _phase = CuratorRunPhase.notStarted;
     _endSpan(CuratorRunOutcome.failed);
     notifyListeners();
@@ -662,6 +717,12 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     }
     _earlier = math.max(0, shown.length - maxLines);
     _lines = shown.sublist(_earlier);
+    // The last line only says why a failed pass failed.
+    _failureLine = _phase == CuratorRunPhase.failed
+        ? curatorServerText(
+            raw.lastWhere((l) => l.trim().isNotEmpty, orElse: () => ''),
+          )
+        : null;
   }
 
   /// App Lock locked: the output is dropped, not only hidden.
@@ -670,6 +731,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
     if (_lines.isNotEmpty) _dropped = true;
     _lines = const [];
     _earlier = 0;
+    _pauseDetail = null;
+    _notStartedDetail = null;
+    _failureLine = null;
     notifyListeners();
   }
 
@@ -692,6 +756,9 @@ class CuratorController extends ChangeNotifier with SafeNotifier {
   void dispose() {
     _drop();
     _lines = const [];
+    _pauseDetail = null;
+    _notStartedDetail = null;
+    _failureLine = null;
     super.dispose();
   }
 }

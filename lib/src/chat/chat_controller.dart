@@ -5,12 +5,14 @@ import 'dart:math';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, Message;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/l10n.dart' show l10nForPlatformLocale;
 import '../background/running_replies.dart';
 import '../core/safe_notifier.dart';
 import '../bot_mode/bot_chat_context.dart';
@@ -22,6 +24,7 @@ import '../models/model_options_state.dart';
 import '../live_activities/live_activities.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
 import '../surfaces/chat_hints.dart';
@@ -51,6 +54,7 @@ import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart';
+import 'reply_diagnostics.dart';
 import 'chat_transport.dart';
 import 'chat_warning_state.dart';
 import 'chat_session_state.dart';
@@ -75,7 +79,11 @@ import '../app_lock/app_lock_controller.dart';
 import 'process_output_state.dart';
 import 'reactions/reaction_state.dart';
 import 'gateway/gateway_rpc_client.dart'
-    show GatewayRpcException, GatewayConnectionClosed, GatewayReplyLost;
+    show
+        GatewayRpcException,
+        GatewayConnectionClosed,
+        GatewayReplyLost,
+        GatewaySessionGone;
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
@@ -85,7 +93,8 @@ import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 import 'thread_sections.dart' show sessionFolderPath;
-import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
+import 'widgets/message_actions.dart'
+    show TurnAction, TurnActionProblem, TurnActionStatus, TurnProblemKind;
 import '../telemetry/report_bug.dart';
 
 part 'chat_controller_billing.dart';
@@ -122,6 +131,18 @@ const _couldNotStop = 'Could not stop the reply. Try again.';
 /// The title of a chat that has no prompt yet.
 const _newChatTitle = 'New chat';
 
+/// How a pull to refresh of the chat list ended.
+enum ThreadListRefreshResult {
+  /// The first page was read and merged in.
+  refreshed,
+
+  /// The read failed or did not finish in time.
+  failed,
+
+  /// Nothing to refresh, or the list changed owner while it was waiting.
+  skipped,
+}
+
 /// An external open interrupted by suspension, for owner-controlled recovery.
 class InterruptedChatOpening {
   const InterruptedChatOpening({
@@ -151,6 +172,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ChatController({
     this.repository,
     this.profiles,
+    ProfileResolver? profileResolver,
     this.models,
     this.transport,
     this.activity,
@@ -185,8 +207,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.usageTelemetry = const ConnectionTelemetry(),
     this.replayGrace = const Duration(seconds: 20),
     this.reconnectRetry = const Duration(seconds: 15),
+    this.lostAdoptWindow = const Duration(seconds: 45),
     DateTime Function()? now,
   }) : _clock = now ?? DateTime.now,
+       // ignore: prefer_initializing_formals
+       _profileResolver = profileResolver,
        _watchSource = watchStatus?.source() {
     final repository = this.repository;
     if (repository == null) {
@@ -299,6 +324,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       unawaited(subscription.cancel());
     }
     _replies.clear();
+    _sendEnds.clear();
     _stopFollowing();
     _sending.clear();
     _cancelSettleWaits();
@@ -336,6 +362,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   final HermesChatRepository? repository;
   final HermesProfilesRepository? profiles;
+
+  /// Where a chat with no profile works; the profiles' own unless given.
+  late final ProfileResolver? profileResolver =
+      _profileResolver ?? profiles?.resolver;
+  final ProfileResolver? _profileResolver;
   final HermesModelsRepository? models;
   final ChatTransport? transport;
   final AppLockController? appLock;
@@ -526,6 +557,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// app coming to the front, the chat being opened and a stop that reached the
   /// server try at once.
   final Duration reconnectRetry;
+
+  /// How long after a reply was settled as lost the pick-up that follows may
+  /// still hand it the turn it stood for (a reconnect answers within the
+  /// transport's 20 s). A turn that starts later is another one and gets its
+  /// own bubble.
+  final Duration lostAdoptWindow;
   final DateTime Function() _clock;
   Timer? _replayEnds;
 
@@ -590,6 +627,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
   final Breadcrumbs breadcrumbs;
+
+  /// What a reply that is lost, failed or waiting is diagnosed with.
+  late final ReplyDiagnostics _diag = ReplyDiagnostics(
+    events: events,
+    now: _clock,
+  );
+
+  /// The app moved to [state]: logged while a reply runs, with how long the
+  /// app was away on the return (see [ReplyDiagnostics.lifecycle]).
+  void appLifecycleChanged(AppLifecycleState state) => _diag.lifecycle(
+    state,
+    replyRunning: _sending.isNotEmpty || _threads.any((t) => t.isReplying),
+  );
   final AppEventLogger events;
   final ConnectionTelemetry usageTelemetry;
   final Future<bool> Function(Uri)? connectorBrowser;
@@ -921,6 +971,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   var _sentMessages = 0;
   final _replies = <StreamSubscription<ChatEvent>>{};
 
+  /// Ends each send of a thread that is still streaming, as if its stream had
+  /// failed with the error given: the send is cancelled and its own end runs.
+  /// A settle the controller decides on itself (a stop that found the turn gone)
+  /// uses it, so no send is left attached to a reply that is over.
+  final _sendEnds = <ChatThread, List<void Function(Object)>>{};
+
+  /// The follow-up stream of each thread by id, to cancel one at a settle.
+  final _followByThread = <String, StreamSubscription<ChatEvent>>{};
+
   /// The listeners for turns Hermes chains after a reply, which outlive it.
   final _following = <StreamSubscription<ChatEvent>>{};
 
@@ -1047,6 +1106,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: profile,
         generation: generation,
       );
+      if (applied && _listRefreshFailed) {
+        _listRefreshFailed = false;
+        notifyListeners();
+      }
       // A change that started during the read: wait for it and read again.
       if (!applied &&
           active &&
@@ -1060,6 +1123,24 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       // The next find, or opening the screen again, reads the list.
     }
   }
+
+  /// How long a pull to refresh waits for the list to settle and be read
+  /// before it ends as a failure.
+  Duration threadListRefreshTimeout = const Duration(seconds: 30);
+
+  bool _listRefreshFailed = false;
+
+  /// Whether the last pull to refresh of the list failed; the list shows its
+  /// notice until the next read of the list succeeds.
+  bool get threadListRefreshFailed => _listRefreshFailed;
+
+  /// A pull to refresh of the chat list: reads its first page again and
+  /// merges it in. While the list cannot take it (it is loading, or has
+  /// pending changes) it waits for the list to settle, then reads; it never
+  /// throws and ends in [ThreadListRefreshResult.failed] when the wait or the
+  /// read fails or takes longer than [threadListRefreshTimeout].
+  Future<ThreadListRefreshResult> pullRefreshThreadList() =>
+      _ChatControllerHistory(this)._pullRefreshThreadList();
 
   @override
   void notifyListeners() {
@@ -1517,6 +1598,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _reclaimedQueueReview.remove(thread);
     _warnings.remove(thread)?.clear();
     _warningGenerations.remove(thread);
+    final abandoned = _queues[thread]?.length ?? 0;
+    if (abandoned > 0) _diag.queue(thread, 'abandoned', abandoned);
+    _diag.forget(thread);
     _queues.remove(thread);
     _loadedQueues.remove(thread);
     _restoredQueues.remove(thread);
@@ -1779,6 +1863,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// and shows its replying indicator. An idle thread closes the stream
   /// without events.
   void _pickUp(ChatThread thread, {bool retry = false}) {
+    if (_reconnectingReply(thread) != null) _diag.pickedUp(thread);
     if (queueStore != null) unawaited(_restoreQueue(thread));
     if (!retry) _ChatControllerStreaming(this)._restartReconnect(thread);
     final transport = this.transport;
@@ -1817,13 +1902,92 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final generation = _loadGeneration;
     final refresh = ++_activeRefresh;
     try {
-      return await _applyActive(transport, generation, refresh);
+      final answered = await _applyActive(transport, generation, refresh);
+      await _releaseHolds(transport, generation);
+      return answered;
     } finally {
       // The newest read's answer, or its failure (the poll goes on), ends
       // not knowing.
       if (refresh == _activeRefresh) _activeKnown = true;
     }
   }
+
+  /// Gives Retry and Edit back to the replies whose turn the server may still
+  /// run, when the server really answers that it does not run them. An
+  /// unreachable server, an error answer and an unreadable one release
+  /// nothing ([ChatTransport.activeStatusesAnswered] is null then), and every
+  /// status that counts as running ([_runningStatuses]: starting, streaming,
+  /// resuming as well as working and waiting) keeps the hold.
+  Future<void> _releaseHolds(ChatTransport transport, int generation) async {
+    // What each hold stood for when the ask went out: a turn sent after that
+    // is a different one, and an answer that predates it says nothing of it.
+    final asked = <ChatThread, (ChatMessage, int?)>{
+      for (final thread in _threads)
+        if (_ChatControllerCommands(this)._lastReplyHeld(thread)
+            case final held?)
+          thread: (held, _generations[thread]),
+    };
+    if (asked.isEmpty) return;
+    bool same(ChatThread thread, ChatMessage held) =>
+        asked[thread]!.$1 == held && asked[thread]!.$2 == _generations[thread];
+    final Map<String, String>? answered;
+    try {
+      answered = await transport.activeStatusesAnswered(profile: _profile);
+    } on Object catch (e, stack) {
+      // A poll never throws: nothing is released. An answer that failed is
+      // expected; anything else is a bug.
+      if (e is! Exception) reportBug(e, stack, 'the held release ask');
+      return;
+    }
+    if (answered == null || !active || generation != _loadGeneration) return;
+    for (final thread in [...asked.keys]) {
+      final held = _ChatControllerCommands(this)._lastReplyHeld(thread);
+      if (held == null ||
+          !same(thread, held) ||
+          _runningStatuses.contains(answered[thread.id])) {
+        continue;
+      }
+      // The turn is over. What it stored is read again (read-only, nothing is
+      // sent) BEFORE the hold goes, so a stored answer replaces the failed
+      // bubble instead of standing beside it with Retry on; the hold stays
+      // until that read has landed, and a read that fails leaves it for the
+      // next poll to try again. A chat with nothing to read back (not stored
+      // on the server, or its messages never loaded) has no stale bubble.
+      if (repository != null &&
+          thread.remote &&
+          !_unloaded.contains(thread.id)) {
+        // Another poll is already releasing this thread: it decides.
+        if (!_releasing.add(thread)) continue;
+        try {
+          // Strict: the server's last change may be the one a read during the
+          // hold already saw, and only the hold changed since.
+          await _ChatControllerHistory(this)._refreshThreadImpl(
+            thread.id,
+            strict: true,
+            releasing: true,
+            sendGeneration: asked[thread]!.$2 ?? 0,
+          );
+        } on Object catch (e, stack) {
+          if (e is! StateError) reportBug(e, stack, 'the held release re-read');
+          continue;
+        } finally {
+          _releasing.remove(thread);
+        }
+        if (!active || generation != _loadGeneration) return;
+      }
+      // The re-read may have dropped the bubble; then nothing is held. A
+      // send that came meanwhile keeps its own hold.
+      if (_ChatControllerCommands(this)._lastReplyHeld(thread) case final h?
+          when same(thread, h)) {
+        _ChatControllerStreaming(this)
+            ._updateReply(thread, h, () => h.serverMayRun = false);
+      }
+    }
+  }
+
+  /// The threads whose held reply a poll is releasing right now, so only one
+  /// poll does.
+  final _releasing = <ChatThread>{};
 
   Future<bool> _applyActive(
     ChatTransport transport,
@@ -1913,8 +2077,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Whether the last prompt of [thread] can be taken back on the server:
   /// edited, or sent again in place of its turn.
-  bool canEditLastPrompt(ChatThread thread) =>
-      _ChatControllerCommands(this)._canEditLastPromptImpl(thread);
+  ///
+  /// False while the server may still run the turn of the last reply
+  /// ([turnActionsHeld]); [ignoringHold] asks whether it would otherwise be
+  /// offered, so the action can be shown dimmed with the reason.
+  bool canEditLastPrompt(ChatThread thread, {bool ignoringHold = false}) =>
+      _ChatControllerCommands(this)
+          ._canEditLastPromptImpl(thread, ignoringHold: ignoringHold);
+
+  /// Whether the server may still be running the turn of the last reply of
+  /// [thread], because it ended on a lost connection or on a server that could
+  /// not say (`ChatMessage.serverMayRun`). Retry, Edit and Branch wait until
+  /// the server lists the session as not running; nothing is sent meanwhile.
+  bool turnActionsHeld(ChatThread thread) =>
+      _ChatControllerCommands(this)._turnHeldImpl(thread);
 
   /// Sends the text of the last prompt again. The server drops the turn it
   /// replaces first, so the model does not see that reply again. A command, a
@@ -1956,7 +2132,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Why the last retry or edit of a thread failed, until the next one or the
   /// next prompt.
-  final _turnProblems = <ChatThread, String>{};
+  final _turnProblems = <ChatThread, TurnActionProblem>{};
 
   /// The prompts waiting in [thread] for its reply to end.
   List<QueuedPrompt> queuedIn(ChatThread thread) =>

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/breakpoints.dart';
+import '../../../theme/focus_ring.dart';
 import '../attachment_source.dart';
 
 /// The attach menu: one row per origin. A dialog (macOS or a wide layout) gets
@@ -35,10 +36,12 @@ class AttachMenu extends StatelessWidget {
                 ),
               ),
             for (final origin in origins)
-              ListTile(
-                leading: AppIcon(_icon(origin)),
-                title: Text(_label(context, origin)),
-                onTap: () => onPick(origin),
+              FocusRing(
+                child: ListTile(
+                  leading: AppIcon(_icon(origin)),
+                  title: Text(_label(context, origin)),
+                  onTap: () => onPick(origin),
+                ),
               ),
           ],
         ),

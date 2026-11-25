@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -48,6 +48,77 @@ void main() {
     testWidgets('is plain on the Mac: no icon', (tester) async {
       await tester.pumpWidget(_host(row(), platform: TargetPlatform.macOS));
       expect(find.byType(AppIcon), findsNothing);
+    });
+
+    group('title colour', () {
+      Color? titleColor(WidgetTester tester) =>
+          tester.widget<Text>(find.text('Run now')).style?.color;
+
+      Widget titled({required bool link, VoidCallback? onPressed}) =>
+          GroupedSection(
+            children: [
+              GroupedActionRow(
+                title: 'Run now',
+                icon: AppIcons.play,
+                onPressed: onPressed,
+                subtitle: onPressed == null ? 'Not now.' : null,
+                linkColoredButtons: link,
+              ),
+            ],
+          );
+
+      testWidgets('the Mac title stays in the text colour by default', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _host(
+            titled(link: false, onPressed: () {}),
+            platform: TargetPlatform.macOS,
+          ),
+        );
+        final context = tester.element(find.text('Run now'));
+        expect(titleColor(tester), Theme.of(context).colorScheme.onSurface);
+      });
+
+      testWidgets(
+        'the Mac title takes the link colour with the curator opt-in',
+        (tester) async {
+          await tester.pumpWidget(
+            _host(
+              titled(link: true, onPressed: () {}),
+              platform: TargetPlatform.macOS,
+            ),
+          );
+          final context = tester.element(find.text('Run now'));
+          expect(titleColor(tester), context.hermesColors.link);
+          expect(find.byType(AppIcon), findsNothing, reason: 'still no icon');
+        },
+      );
+
+      testWidgets('a disabled Mac title is muted, link opt-in or not', (
+        tester,
+      ) async {
+        for (final link in [false, true]) {
+          await tester.pumpWidget(
+            _host(titled(link: link), platform: TargetPlatform.macOS),
+          );
+          final context = tester.element(find.text('Run now'));
+          expect(titleColor(tester), context.hermesColors.subtleText);
+        }
+      });
+
+      testWidgets('iOS keeps the link colour either way', (tester) async {
+        for (final link in [false, true]) {
+          await tester.pumpWidget(
+            _host(
+              titled(link: link, onPressed: () {}),
+              platform: TargetPlatform.iOS,
+            ),
+          );
+          final context = tester.element(find.text('Run now'));
+          expect(titleColor(tester), context.hermesColors.link);
+        }
+      });
     });
 
     for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {

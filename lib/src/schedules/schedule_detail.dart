@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
@@ -8,6 +8,7 @@ import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
 import 'widgets/schedule_detail_view.dart';
+import '../../l10n/l10n.dart';
 
 /// Asks the chat to show the session of a run.
 typedef OpenRun = void Function(CronRun run, CronJob job);
@@ -105,11 +106,12 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
   }
 
   Future<void> _runNow() async {
+    final l10n = context.l10n;
     try {
       final epoch = _controller.captureActivity();
       final message = await _controller.runNow(widget.job);
       _controller.requireActivity(epoch);
-      _say(message ?? 'Run requested');
+      _say(message ?? l10n.schedulesRunRequested);
       if (message == null) {
         await Future<void>.delayed(const Duration(seconds: 2));
         _controller.requireActivity(epoch);

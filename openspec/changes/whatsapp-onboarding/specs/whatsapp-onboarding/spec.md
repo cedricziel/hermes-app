@@ -146,16 +146,21 @@ Finish SHALL be offered only on `connected`. It SHALL ask "Save the WhatsApp set
 
 ### Requirement: Lost answers
 
-A start or apply whose answer is lost SHALL NOT read as done, and neither SHALL be resent automatically. After a lost start the user SHALL be able to Start again. After a lost apply the user SHALL be able to Check, which reads the platform list, and SHALL NOT be shown Finish again.
+A start or apply whose answer is lost (no answer in 10 s, a dropped connection, or for apply a 502, 503 or 504 with no server detail) SHALL NOT read as done, and neither SHALL be resent automatically. After a lost start the user SHALL be able to Start again. After a lost apply the user SHALL be able to Check, which reads the platform list, and SHALL NOT be shown Finish again.
 
 #### Scenario: Lost apply
 
 - **WHEN** the connection drops while apply is in flight
 - **THEN** the screen says "Could not confirm the setup was saved." with Check, and no second apply is sent
 
+#### Scenario: Gateway error on apply
+
+- **WHEN** apply is answered 502, 503 or 504 with no server `detail` (a reverse proxy in front of Hermes, which may have forwarded the apply and saved)
+- **THEN** it is a lost apply: Check is offered, Finish is not, and no second apply is sent; a 500 with a `detail` is still a refusal with its text
+
 ### Requirement: Leaving cancels
 
-Leaving the screen before Finish SHALL send `DELETE` for a live pairing, best effort, once, and SHALL ignore its failure. A cancel does not unlink an account that already connected, and the screen SHALL NOT claim it does.
+Leaving the screen before Finish SHALL send `DELETE` for a live pairing, best effort, once, and SHALL ignore its failure. Start again over a live record that is still held (a connected one whose read failed) SHALL send the same single `DELETE` for it before starting fresh, never one for a record whose apply was saved or whose answer was lost (a refused apply leaves the record on the server, so it is cancelled like any live one). A cancel does not unlink an account that already connected, and the screen SHALL NOT claim it does.
 
 #### Scenario: Back while waiting
 

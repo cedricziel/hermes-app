@@ -1,5 +1,6 @@
 import 'package:flutter_otel/flutter_otel.dart';
 
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'memory_proposal_session.dart';
 import 'memory_proposals.dart';
@@ -65,7 +66,7 @@ class MemoryProposalsRepository {
   final MemoryProposalSession session;
   final ConnectionTelemetry telemetry;
 
-  Future<ProposalsSnapshot> load(String profile) async {
+  Future<ProposalsSnapshot> load(ResolvedProfile profile) async {
     final (memory, skills) = await (
       _read(profile, ProposalKind.memory, parseMemoryPending),
       _read(profile, ProposalKind.skill, parseSkillsPending),
@@ -74,7 +75,7 @@ class MemoryProposalsRepository {
   }
 
   Future<KindRead> _read(
-    String profile,
+    ResolvedProfile profile,
     ProposalKind kind,
     ParsedProposals Function(String) parse,
   ) async {
@@ -121,7 +122,7 @@ class MemoryProposalsRepository {
 
   /// What `/skills diff` answers for the skill proposal [id], without the
   /// progress line and the title Hermes puts above it.
-  Future<String> diff(String profile, String id) async {
+  Future<String> diff(ResolvedProfile profile, String id) async {
     final span = _start('memory.proposals.diff', const {});
     var outcome = 'failed';
     try {

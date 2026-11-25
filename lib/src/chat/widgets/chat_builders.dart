@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ChatMessage, ComposerHeightNotifier;
@@ -19,6 +19,7 @@ import '../chat_models.dart'
         ApprovalRequest,
         ChatAttachment,
         ClarifyRequest,
+        ReplyLoss,
         Subagent,
         ToolCall,
         UnsupportedKind,
@@ -32,6 +33,7 @@ import 'attachment_views.dart';
 import 'clarify_card.dart';
 import 'following_chat_list.dart';
 import 'message_actions.dart';
+import '../../macos/menu_selection_area.dart';
 import 'message_drag_grip.dart';
 import 'read_aloud_actions.dart';
 import '../first_run_card.dart' show isProviderReplyError;
@@ -43,6 +45,7 @@ import 'review_summary_note.dart';
 import 'scroll_to_latest_button.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
+import 'reply_interrupted_note.dart';
 import 'reply_reconnecting_note.dart';
 import 'subagent_card.dart';
 import 'tool_call_expansion.dart';
@@ -258,12 +261,14 @@ Widget _buildText(
 }) {
   final scheme = Theme.of(context).colorScheme;
   final error = message.metadata?[kMetaError] as String?;
+  final loss = message.metadata?[kMetaLoss] as String?;
+  final failure = message.metadata?[kMetaFailure] as String?;
   final style = TextStyle(
     color: scheme.onSurface,
     fontSize: messageFontSizeFor(Theme.of(context).platform),
     height: 1.5,
   );
-  final bubble = SelectionArea(
+  final bubble = MenuSelectionArea(
     child: ChatTextMessage(
       message: message,
       linksDecoration: TextDecoration.underline,
@@ -299,6 +304,8 @@ Widget _buildText(
       onEdit: latest ? onEdit : null,
       onBranch: onBranch == null ? null : () => onBranch(message.id),
       status: status,
+      heldAnnounceKey:
+          '${message.id}#${message.createdAt?.microsecondsSinceEpoch}#held',
       readAloud: readAloud,
       onReadAloud: onReadAloud,
     ),
@@ -313,7 +320,27 @@ Widget _buildText(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (message.text.isNotEmpty) draggable,
-      if (error != null)
+      if (loss != null)
+        ReplyInterruptedNote(
+          unconfirmed: loss == ReplyLoss.unconfirmed.name,
+          text: switch (loss) {
+            'restarted' => context.l10n.chatReplyInterruptedRestarted,
+            'unconfirmed' => context.l10n.chatReplyUnconfirmed,
+            _ => context.l10n.chatReplyInterruptedGone,
+          },
+          // The id repeats after a sign-out resets the counter; the creation
+          // time does not.
+          announceKey:
+              '${message.id}#${message.createdAt?.microsecondsSinceEpoch}#$loss',
+        )
+      else if (failure != null)
+        ReplyErrorNote(switch (failure) {
+          kFailureMayStillRun => context.l10n.chatReplyFailedMayStillRun,
+          'profileUnavailable' =>
+            context.l10n.chatReplyFailedProfileUnavailable,
+          _ => context.l10n.chatReplyFailedGeneric,
+        })
+      else if (error != null)
         if (onCheckProviders != null && isProviderReplyError(error))
           Padding(
             padding: const EdgeInsets.only(top: 8),

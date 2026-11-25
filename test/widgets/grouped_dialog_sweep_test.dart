@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 
 import '../support/legacy_grouped_dialog.dart';
 import '../support/screenshot_recorder.dart';
+import '../support/test_localizations.dart';
 
 /// The rule for the dialog header, swept over phones, keyboards and text
 /// scales and checked against main's real dialog (`LegacyGroupedDialog`,
@@ -69,11 +70,9 @@ Widget _app(_Cell cell, {required bool legacy}) {
   ];
   return MaterialApp(
     debugShowCheckedModeBanner: false,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    theme: withScreenshotFont(
-      buildHermesLightTheme().copyWith(platform: cell.platform),
-    ),
+    theme: withScreenshotFont(buildHermesLightTheme(platform: cell.platform)),
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context)
           .copyWith(textScaler: TextScaler.linear(cell.scale)),

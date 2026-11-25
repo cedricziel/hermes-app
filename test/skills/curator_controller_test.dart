@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:characters/characters.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/skills/curator/curator_config.dart';
 import 'package:hermes_app/src/skills/curator/curator_controller.dart';
+import 'package:hermes_app/src/skills/curator/curator_result.dart';
 import 'package:hermes_app/src/skills/curator/curator_telemetry.dart';
 import 'package:hermes_app/src/skills/curator/hermes_curator_repository.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -218,6 +220,27 @@ void main() {
       expect((await opened()).load, CuratorLoad.offline);
     });
 
+    test('a status read with no answer in time is lost, not failed', () async {
+      server.onRequest(
+        'GET',
+        '/api/curator',
+        (r) => throw DioException(
+          requestOptions: r,
+          type: DioExceptionType.receiveTimeout,
+        ),
+      );
+      final c = await opened();
+
+      expect(c.load, CuratorLoad.lost);
+      expect(c.visible, isTrue);
+      expect(c.canRunNow, isFalse);
+
+      // Reads are safe to repeat: Try again reads again and recovers.
+      server.on('GET', '/api/curator', recordedCuratorRan);
+      await c.reload();
+      expect(c.load, CuratorLoad.loaded);
+    });
+
     test('off in config offers no Run now', () async {
       server.on('GET', '/api/curator', recordedCuratorDisabled);
       final c = await opened();
@@ -372,6 +395,190 @@ void main() {
 
       expect(c.confirmation?.consolidate, isNull);
       expect(c.confirmation?.pruneBuiltins, isNull);
+    });
+
+    Future<void> reopen(CuratorController c) async {
+      c.beginRun();
+      await pumpEventQueue();
+      c.cancelRun();
+    }
+
+    void configAnswers({required bool consolidate}) =>
+        server.on('GET', '/api/config', {
+          'curator': {'consolidate': consolidate, 'prune_builtins': false},
+        });
+
+    test(
+      'a failed read clears the cache: the next opening is hedged',
+      () async {
+        configAnswers(consolidate: false);
+        final c = await opened();
+        await reopen(c);
+        server.on('GET', '/api/config', 'oops', status: 500);
+        await reopen(c);
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      },
+    );
+
+    test('a newer successful read replaces the cache', () async {
+      configAnswers(consolidate: false);
+      final c = await opened();
+      await reopen(c);
+      configAnswers(consolidate: true);
+      await reopen(c);
+
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isTrue);
+    });
+
+    test('a profile switch drops the cache', () async {
+      configAnswers(consolidate: false);
+      final c = await opened();
+      await reopen(c);
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isFalse);
+      c.cancelRun();
+
+      c.switchProfile('demo-b');
+      await until(() => c.load != CuratorLoad.loading);
+      server.on('GET', '/api/config', 'oops', status: 500);
+      c.beginRun();
+      expect(c.confirmation?.consolidate, isNull);
+    });
+
+    group('config reads that land late', () {
+      Map<String, Object?> cfg(bool consolidate) => {
+        'curator': {'consolidate': consolidate, 'prune_builtins': false},
+      };
+
+      /// Answers each GET /api/config from its own gate, in call order.
+      List<Completer<FakeResponse>> gated() {
+        final gates = <Completer<FakeResponse>>[];
+        server.onRequest('GET', '/api/config', (_) {
+          final gate = Completer<FakeResponse>();
+          gates.add(gate);
+          return gate.future;
+        });
+        return gates;
+      }
+
+      Future<List<Completer<FakeResponse>>> firstRead(
+        CuratorController c,
+        bool consolidate,
+      ) async {
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        gates[0].complete((status: 200, body: cfg(consolidate)));
+        await until(() => c.confirmation?.consolidate != null);
+        c.cancelRun();
+        return gates;
+      }
+
+      test('a failed read after Cancel clears the cache', () async {
+        final c = await opened();
+        final gates = await firstRead(c, false);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        gates[1].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
+
+      test('a successful read after Cancel fills the cache', () async {
+        final c = await opened();
+        final gates = await firstRead(c, false);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        gates[1].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isTrue);
+      });
+
+      test(
+        'an older read answering last does not overwrite the newer',
+        () async {
+          final c = await opened();
+          final gates = gated();
+          c.beginRun();
+          await until(() => gates.length == 1);
+          c.cancelRun();
+          c.beginRun();
+          await until(() => gates.length == 2);
+          c.cancelRun();
+
+          gates[1].complete((status: 200, body: cfg(true)));
+          await pumpEventQueue();
+          gates[0].complete((status: 200, body: cfg(false)));
+          await pumpEventQueue();
+
+          c.beginRun();
+          expect(c.confirmation?.consolidate, isTrue);
+        },
+      );
+
+      test('a newer failed read clears a cache an older read filled', () async {
+        final c = await opened();
+        final gates = await firstRead(c, true);
+
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+        c.beginRun();
+        await until(() => gates.length == 3);
+        c.cancelRun();
+
+        gates[1].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
+
+      test('an older failure answering last keeps the newer success', () async {
+        final c = await opened();
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        c.cancelRun();
+        c.beginRun();
+        await until(() => gates.length == 2);
+        c.cancelRun();
+
+        gates[1].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+        gates[0].complete((status: 500, body: 'oops'));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isTrue);
+      });
+
+      test('a read for the old profile does not fill the new cache', () async {
+        final c = await opened();
+        final gates = gated();
+        c.beginRun();
+        await until(() => gates.length == 1);
+        c.cancelRun();
+
+        c.switchProfile('demo-b');
+        await until(() => c.load != CuratorLoad.loading);
+        gates[0].complete((status: 200, body: cfg(true)));
+        await pumpEventQueue();
+
+        c.beginRun();
+        expect(c.confirmation?.consolidate, isNull);
+      });
     });
 
     test('Cancel sends nothing and a late config does not reopen it', () async {
@@ -1244,6 +1451,7 @@ void main() {
       c.lock();
       expect(c.outputLines, isEmpty);
       expect(c.hasOutput, isFalse);
+      expect(c.outputLineCount, 0, reason: 'a lock drops the count too');
       expect(c.outputDropped, isTrue);
       c.unlocked();
 
@@ -1266,9 +1474,14 @@ void main() {
     test('inactive hides the lines and shows them again', () async {
       final c = await ran();
 
+      final count = c.outputLineCount;
+      expect(count, c.outputLines.length + c.earlierLines);
+      expect(count, greaterThan(0));
+
       c.setInactive(true);
       expect(c.blanked, isTrue);
       expect(c.outputLines, isEmpty);
+      expect(c.outputLineCount, count, reason: 'only the lines are hidden');
       c.setInactive(false);
 
       expect(c.outputLines, isNotEmpty);
@@ -1371,6 +1584,281 @@ void main() {
     });
   });
 
+  group('Hermes\' own text', () {
+    const hostile = 'a\u202Eb\u001B[31m\n second\tline \uD800';
+    const cleaned = 'a<U+202E>b<U+001B>[31m second line �';
+
+    List<String> failedLog(String last) => [
+      ..._lines(recordedStatusNeverRun),
+      '',
+      _disabledHeader,
+      'curator: starting',
+      last,
+    ];
+
+    Future<CuratorController> failedPass({
+      String last = 'curator: nope',
+    }) async {
+      statuses([recordedStatusNeverRun, _log(failedLog(last), exit: 1)]);
+      final c = await opened();
+      await confirm(c);
+      expect(c.phase, CuratorRunPhase.failed);
+      return c;
+    }
+
+    Future<CuratorController> pauseRefused([String detail = hostile]) async {
+      final c = await opened();
+      server.on('PUT', '/api/curator/paused', {'detail': detail}, status: 400);
+      await c.setPaused(true);
+      expect(c.pause, CuratorPause.failed);
+      return c;
+    }
+
+    Future<CuratorController> spawnFailed([String detail = hostile]) async {
+      server.on('POST', '/api/curator/run', {
+        'detail': 'Failed to run curator: $detail',
+      }, status: 500);
+      final c = await opened();
+      await confirm(c);
+      expect(c.notStarted, CuratorNotStarted.spawnFailed);
+      return c;
+    }
+
+    group('a refused pause', () {
+      test('keeps the cleaned detail', () async {
+        final c = await pauseRefused();
+        expect(c.pauseDetail, cleaned);
+      });
+
+      test('has none when Hermes said nothing readable', () async {
+        final c = await pauseRefused('  ');
+        expect(c.pauseDetail, isNull);
+      });
+
+      test('is capped at 200 characters with an ellipsis', () async {
+        final c = await pauseRefused('w' * 500);
+        expect(c.pauseDetail, '${'w' * 199}…');
+      });
+
+      test(
+        'goes with the next attempt, and is not kept by a success',
+        () async {
+          final c = await pauseRefused();
+          server.on('PUT', '/api/curator/paused', recordedPausedOn);
+          final next = c.setPaused(true);
+          expect(c.pauseDetail, isNull, reason: 'saving shows no old error');
+          await next;
+          expect(c.pause, CuratorPause.idle);
+          expect(c.pauseDetail, isNull);
+        },
+      );
+
+      test('a failure that is not a refusal carries none', () async {
+        final c = await opened();
+        server.on('PUT', '/api/curator/paused', {'detail': 'x'}, status: 401);
+        await c.setPaused(true);
+        expect(c.pause, CuratorPause.failed);
+        expect(c.pauseDetail, isNull);
+      });
+
+      test('is dropped by App Lock and does not come back', () async {
+        final c = await pauseRefused();
+        c.lock();
+        expect(c.pauseDetail, isNull);
+        c.unlocked();
+        expect(c.pauseDetail, isNull);
+        expect(c.pause, CuratorPause.failed, reason: 'the state stays');
+      });
+
+      test('a refusal that lands while locked is never kept', () async {
+        final c = await opened();
+        c.lock();
+        server.on('PUT', '/api/curator/paused', {'detail': 'x'}, status: 400);
+        await c.setPaused(true);
+        c.unlocked();
+        expect(c.pause, CuratorPause.failed);
+        expect(c.pauseDetail, isNull);
+      });
+
+      test('is hidden while the app is inactive and back after', () async {
+        final c = await pauseRefused();
+        c.setInactive(true);
+        expect(c.pauseDetail, isNull);
+        c.setInactive(false);
+        expect(c.pauseDetail, cleaned);
+      });
+
+      test('is dropped by a profile switch', () async {
+        final c = await pauseRefused();
+        c.switchProfile('demo-b');
+        expect(c.pauseDetail, isNull);
+        await until(() => c.load == CuratorLoad.loaded);
+        expect(c.pauseDetail, isNull);
+      });
+
+      test('is dropped when the controller is disposed (sign-out, a '
+          'server change)', () async {
+        final c = await pauseRefused();
+        c.dispose();
+        expect(c.pauseDetail, isNull);
+      });
+    });
+
+    group('a spawn failure', () {
+      test('keeps the cleaned text', () async {
+        final c = await spawnFailed();
+        expect(c.notStartedDetail, 'Failed to run curator: $cleaned');
+      });
+
+      test('is capped at 200 characters', () async {
+        final c = await spawnFailed('p' * 400);
+        expect(c.notStartedDetail!.characters.length, 200);
+        expect(c.notStartedDetail, endsWith('…'));
+      });
+
+      test('other refusals carry no text', () async {
+        server.on(
+          'POST',
+          '/api/curator/run',
+          recordedRunProfileInvalid.body,
+          status: recordedRunProfileInvalid.status,
+        );
+        final c = await opened();
+        await confirm(c);
+        expect(c.notStarted, CuratorNotStarted.refused);
+        expect(c.notStartedDetail, isNull);
+      });
+
+      test('goes when the run is tried again', () async {
+        final c = await spawnFailed();
+        server.on('POST', '/api/curator/run', recordedRunStarted);
+        statuses([recordedStatusNeverRun, recordedStatusArchived]);
+        await confirm(c);
+        expect(c.notStartedDetail, isNull);
+      });
+
+      test('is dropped by App Lock, hidden while inactive', () async {
+        final c = await spawnFailed();
+        c.setInactive(true);
+        expect(c.notStartedDetail, isNull);
+        c.setInactive(false);
+        expect(c.notStartedDetail, isNotNull);
+        c.lock();
+        c.unlocked();
+        expect(c.notStartedDetail, isNull);
+        expect(c.notStarted, CuratorNotStarted.spawnFailed);
+      });
+
+      test('an answer that lands while locked is never kept', () async {
+        final gate = Completer<FakeResponse>();
+        server.onRequest('POST', '/api/curator/run', (_) => gate.future);
+        final c = await opened();
+        c.beginRun();
+        final run = c.confirmRun();
+        await until(() => count('POST', '/api/curator/run') == 1);
+        c.lock();
+        gate.complete((
+          status: 500,
+          body: {'detail': 'Failed to run curator: secret words'},
+        ));
+        await run;
+        expect(c.notStarted, CuratorNotStarted.spawnFailed);
+        expect(c.notStartedDetail, isNull);
+        c.unlocked();
+        expect(c.notStartedDetail, isNull);
+      });
+
+      test('is dropped by a profile switch and by dispose', () async {
+        final c = await spawnFailed();
+        c.switchProfile('demo-b');
+        expect(c.notStartedDetail, isNull);
+        final d = await spawnFailed();
+        d.dispose();
+        expect(d.notStartedDetail, isNull);
+      });
+    });
+
+    group('a failed pass', () {
+      test('keeps its last line, cleaned', () async {
+        final c = await failedPass(last: hostile);
+        expect(c.failureLine, cleaned);
+      });
+
+      test('is the last non-empty line, not a blank one', () async {
+        statuses([
+          recordedStatusNeverRun,
+          _log([...failedLog('curator: why'), '', '  '], exit: 1),
+        ]);
+        final c = await opened();
+        await confirm(c);
+        expect(c.failureLine, 'curator: why');
+      });
+
+      test('is capped at 200 characters', () async {
+        final c = await failedPass(last: 'z' * 900);
+        expect(c.failureLine, '${'z' * 199}…');
+      });
+
+      test('a pass that finished has none', () async {
+        statuses([
+          recordedStatusNeverRun,
+          _log(failedLog('curator: fine'), exit: 0),
+        ]);
+        final c = await opened();
+        await confirm(c);
+        expect(c.phase, CuratorRunPhase.finished);
+        expect(c.failureLine, isNull);
+      });
+
+      test('is dropped by App Lock with the lines, and hidden while '
+          'inactive', () async {
+        final c = await failedPass();
+        c.setInactive(true);
+        expect(c.failureLine, isNull);
+        expect(c.outputLines, isEmpty);
+        c.setInactive(false);
+        expect(c.failureLine, 'curator: nope');
+        c.lock();
+        c.unlocked();
+        expect(c.failureLine, isNull);
+        expect(c.hasOutput, isFalse);
+      });
+
+      test('a pass read while locked keeps no line', () async {
+        statuses([recordedStatusNeverRun, _log(failedLog('x'), exit: 1)]);
+        final c = await opened();
+        c.lock();
+        await confirm(c);
+        expect(c.phase, CuratorRunPhase.failed);
+        c.unlocked();
+        expect(c.failureLine, isNull);
+      });
+
+      test('is dropped by a profile switch', () async {
+        final c = await failedPass();
+        c.switchProfile('demo-b');
+        expect(c.failureLine, isNull);
+        await until(() => c.load == CuratorLoad.loaded);
+        expect(c.failureLine, isNull);
+      });
+
+      test('is dropped when a new run starts', () async {
+        final c = await failedPass();
+        statuses([recordedStatusNeverRun, _log(failedLog('ok'), exit: 0)]);
+        c.beginRun();
+        unawaited(c.confirmRun());
+        expect(c.failureLine, isNull, reason: 'a new run starts clean');
+        await until(() => c.phase != CuratorRunPhase.starting);
+      });
+
+      test('is dropped when the controller is disposed', () async {
+        final c = await failedPass();
+        c.dispose();
+        expect(c.failureLine, isNull);
+      });
+    });
+  });
+
   group('privacy', () {
     test('a marker in profile, skills and output reaches no sink', () async {
       final logged = <String>[];
@@ -1437,6 +1925,75 @@ void main() {
       expect(sinks, isNotEmpty);
       expect(sinks, isNot(contains(_marker)));
       expect(c.outputLines.join(), contains(_marker), reason: 'on screen only');
+    });
+
+    test('a sentinel in the pause detail, the spawn failure and a failed '
+        'pass line is on screen only', () async {
+      const sentinel = 'SENTINEL-9d41';
+      final logged = <String>[];
+      final oldOnError = FlutterError.onError;
+      FlutterError.onError = (d) => logged.add('${d.exception} ${d.stack}');
+      final oldPrint = debugPrint;
+      debugPrint = (m, {wrapWidth}) => logged.add('$m');
+      addTearDown(() {
+        FlutterError.onError = oldOnError;
+        debugPrint = oldPrint;
+      });
+      // A refused pause.
+      server.on('PUT', '/api/curator/paused', {
+        'detail': 'pause says $sentinel',
+      }, status: 400);
+      final paused = await opened(profile: 'profile-$sentinel');
+      await paused.setPaused(true);
+      expect(paused.pauseDetail, contains(sentinel), reason: 'on screen');
+
+      // A spawn failure.
+      server.on('POST', '/api/curator/run', {
+        'detail': 'Failed to run curator: spawn says $sentinel',
+      }, status: 500);
+      final spawn = await opened();
+      await confirm(spawn);
+      expect(spawn.notStartedDetail, contains(sentinel), reason: 'on screen');
+
+      // A failed pass whose last line has it.
+      server.on('POST', '/api/curator/run', recordedRunStarted);
+      statuses([
+        recordedStatusNeverRun,
+        _log([
+          ..._lines(recordedStatusNeverRun),
+          '',
+          _disabledHeader,
+          'curator: last line says $sentinel',
+        ], exit: 1),
+      ]);
+      final failed = await opened();
+      await confirm(failed);
+      expect(failed.phase, CuratorRunPhase.failed);
+      expect(failed.failureLine, contains(sentinel), reason: 'on screen');
+      // Dropped by a lock; the sinks below were fed before and after.
+      failed.lock();
+      expect(failed.failureLine, isNull);
+
+      final sinks = [
+        ...logged,
+        crumbs.text,
+        for (final s in tracer.spans) ...[
+          s.name,
+          s.attributes.keys.join(' '),
+          s.attributes.values.join(' '),
+          s.eventDetails.join(' '),
+          '${s.statusDescription}',
+        ],
+        for (final n in events.namesStartingWith('')) n,
+        for (final n in events.namesStartingWith('skills_curator'))
+          ...events.named(n).map((a) => '$a'),
+        // The results' own text form, as an error report would print it.
+        '${CuratorFailed<bool>(CuratorFailure.refused, detail: sentinel)}',
+      ].join('\n');
+      expect(sinks, isNotEmpty);
+      expect(tracer.spans, isNotEmpty);
+      expect(crumbs.text, isNotEmpty);
+      expect(sinks, isNot(contains(sentinel)));
     });
   });
 }

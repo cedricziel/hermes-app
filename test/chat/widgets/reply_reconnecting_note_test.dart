@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/reply_reconnecting_note.dart';
@@ -113,6 +113,15 @@ void main() {
     await pump("Couldn't reconnect", 'r#1i');
 
     expect(announced, ['Reconnecting', "Couldn't reconnect"]);
+  });
+
+  testWidgets('the icon scales with the text', (tester) async {
+    await pumpNote(tester);
+    final normal = tester.getSize(find.byType(Icon)).width;
+
+    await pumpNote(tester, scale: 2);
+
+    expect(tester.getSize(find.byType(Icon)).width, normal * 2);
   });
 
   testWidgets('without a key it never announces', (tester) async {

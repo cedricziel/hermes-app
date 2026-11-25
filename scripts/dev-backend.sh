@@ -3,6 +3,8 @@
 # backend, without touching the real ~/.hermes.
 #
 #   scripts/dev-backend.sh start   # start on a free port, wait until ready
+#   scripts/dev-backend.sh start --launch-profile NAME [--sticky-profile NAME]
+#                                  # start the dashboard as `hermes -p NAME dashboard`
 #   scripts/dev-backend.sh url     # print the base URL of the running backend
 #   scripts/dev-backend.sh status  # running? which URL? which home?
 #   scripts/dev-backend.sh stop    # stop only the process this script started
@@ -13,6 +15,34 @@
 # delete the directory to start clean. Set HERMES_DEV_PORT to force a port,
 # and HERMES_DEV_STATE_DIR to keep the state somewhere else (scripts/verify.sh
 # puts it in a temporary directory outside the working tree).
+#
+# --launch-profile NAME makes NAME the profile the dashboard was launched with,
+# which GET /api/profiles/active reports as `current`. NAME is created in the
+# throwaway home first (once: a profile that is there already is reused), with
+# no wrapper alias, so nothing lands in ~/.local/bin. --sticky-profile NAME
+# creates another profile and makes it the sticky `active` one, which `hermes
+# profile use` writes and the launch profile does not follow. Flags only, no
+# environment variables: every start removes the home's `active_profile` unless
+# a sticky profile is given, so a plain start after a launch-profile one
+# launches the default profile again. NAME may not be one Hermes reserves
+# (scripts/profile-names.sh).
+#
+# Before anything else the script refuses (exit 3) a state directory or ambient
+# HERMES_HOME that is not a canonical absolute path (no //, ., .., ~, $, backtick
+# or control character), a state directory at or under the real Hermes home
+# (~/.hermes or ~/.hermes<anything>, any case) or an ambient HERMES_HOME, a
+# caller's HERMES_DATA_DIR_SUFFIX, and any symlink or hard-linked file anywhere
+# in the state directory, any part of that tree it cannot read, and a failing
+# `find`. Every path is then used resolved. That, with the
+# removal of HERMES_DATA_DIR_SUFFIX and SUDO_USER from the environment, is what
+# keeps a plain start away from the real home; its dashboard keeps the caller's
+# HOME. The profile commands and a launch-profile dashboard run with a
+# throwaway HOME ($STATE_DIR/userhome) and do not see the real one's
+# file-based logins. A bind mount of ~/.hermes is not detected, a `find` that
+# exits 0 but lies is not defended against (a hostile PATH could shadow hermes
+# itself), and a live
+# process that plants a link between the check and the start is outside the
+# threat model.
 #
 # Never use `hermes dashboard --stop` here: it kills every Hermes web server
 # on the machine, including ones other sessions or the developer started.
@@ -25,6 +55,10 @@ PID_FILE="$STATE_DIR/pid"
 PORT_FILE="$STATE_DIR/port"
 LOG_FILE="$STATE_DIR/dashboard.log"
 READY_TIMEOUT="${HERMES_DEV_READY_TIMEOUT:-120}"
+LAUNCH_FILE="$STATE_DIR/launch-profile"
+
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
 
 listening_pid() { lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null | head -n1 || true; }
 
@@ -55,7 +89,182 @@ process_home() {
   tr '\0' '\n' <"$environ" | sed -n 's/^HERMES_HOME=//p' | head -n1
 }
 
+# Exits 3, before anything else runs or is written, unless the state directory
+# (and an ambient HERMES_HOME) is a canonical absolute path, and the resolved
+# state directory is clear of the real Hermes home. Hermes takes `~/.hermes`,
+# `~/.hermes<HERMES_DATA_DIR_SUFFIX>` or HERMES_HOME (after expanduser and
+# expandvars) for its root, and `profile create` and `profile use` would write
+# the real profiles and the real `active_profile` there. See
+# scripts/profile-names.sh. Then binds every path below to the RESOLVED state
+# directory, so nothing later (mkdir, rm, hermes) goes through a symlink that
+# the check did not see.
+refuse_real_hermes_home() {
+  local path where state
+  for path in "$STATE_DIR" "${HERMES_HOME:-}"; do
+    [[ -z "$path" ]] && continue
+    if ! canonical_abs_path "$path"; then
+      echo "refusing: '$path' is not a canonical absolute path (one leading /, no //, no . or .. segment, no ~, \$ or backtick, no control character)" >&2
+      exit 3
+    fi
+  done
+  if [[ -n "${HERMES_DATA_DIR_SUFFIX:-}" ]]; then
+    echo "refusing: HERMES_DATA_DIR_SUFFIX is set, which moves Hermes' default home to ~/.hermes<suffix>; unset it" >&2
+    exit 3
+  fi
+  if [[ -z "$(real_user_home || true)" ]]; then
+    echo "refusing: HOME is unset and the passwd entry names no home, so the real Hermes home cannot be told" >&2
+    exit 3
+  fi
+  state="$(resolve_path "$STATE_DIR")"
+  # The raw path was checked above, but a symlink can resolve to a name Hermes
+  # would expand (a directory literally called `$X` or `~`): the resolved path
+  # is what every later call passes as HERMES_HOME, so it must be canonical too.
+  if ! canonical_abs_path "$state"; then
+    echo "refusing: $STATE_DIR resolves to '$state', which is not a canonical absolute path (one leading /, no //, no . or .. segment, no ~, \$ or backtick, no control character)" >&2
+    exit 3
+  fi
+  if where="$(inside_real_hermes_home "$state")"; then
+    echo "refusing: the state directory $state is at or under $where, a real Hermes home" >&2
+    echo "set HERMES_DEV_STATE_DIR to a directory elsewhere" >&2
+    exit 3
+  fi
+  bind_state_dir "$state"
+  check_state_tree
+}
+
+# Points every state path at the resolved directory $1.
+bind_state_dir() {
+  STATE_DIR="$1"
+  HOME_DIR="$STATE_DIR/home"
+  PID_FILE="$STATE_DIR/pid"
+  PORT_FILE="$STATE_DIR/port"
+  LOG_FILE="$STATE_DIR/dashboard.log"
+  LAUNCH_FILE="$STATE_DIR/launch-profile"
+}
+
+# Exits 3 when anything under the state directory is a symlink or a file with
+# more than one hard link (the directory outlives a run, and Hermes writes
+# through such a link into wherever it points, the real home included), when
+# any part of the tree cannot be read, when `find` fails for any reason, or
+# when the resolved Hermes home is inside the real one. One rule for the whole
+# tree, run before and after the directories are made; it names the first
+# offender. Only a `find` that succeeded is believed: an error (an unreadable
+# directory, a missing or broken `find`) is a refusal, never "nothing found".
+# `find -type l` and `-links +1` are in BSD find too, and `head` stands in for
+# GNU's `-quit`. A live process that plants a link between this check and the
+# start is outside the threat model.
+check_state_tree() {
+  local where
+  if [[ -d "$STATE_DIR" ]]; then
+    check_dirs_readable "$STATE_DIR"
+    find_none "a symlink" -type l
+    find_none "a file with more than one hard link" -type f -links +1
+  fi
+  if where="$(inside_real_hermes_home "$(resolve_path "$HOME_DIR")")"; then
+    echo "refusing: the Hermes home $HOME_DIR is at or under $where, a real Hermes home" >&2
+    exit 3
+  fi
+}
+
+# Exits 3 unless every directory under $1 is readable and searchable by this
+# user: `find` could not look inside one, and a link in it would go unseen.
+check_dirs_readable() {
+  local dir="$1" entry
+  if [[ ! -r "$dir" || ! -x "$dir" ]]; then
+    echo "refusing: $(printf %q "$dir") is not readable and searchable by this user, so the state directory cannot be checked for links" >&2
+    exit 3
+  fi
+  for entry in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+    if [[ -d "$entry" && ! -L "$entry" ]]; then
+      check_dirs_readable "$entry"
+    fi
+  done
+  return 0
+}
+
+# find_none WHAT FIND-ARGS...: runs find over the state directory and exits 3
+# if it fails (what it printed is named in the message) or reports anything.
+# Its output is read into a variable: no temp file is made anywhere, so nothing
+# can land in a real home or be left behind by a kill. stderr is merged in, so
+# a warning is read as a finding: that fails closed.
+find_none() {
+  local what="$1" out rc=0 first
+  shift
+  out="$(find "$STATE_DIR" "$@" -print 2>&1)" || rc=$?
+  if ((rc != 0)); then
+    echo "refusing: find failed (exit $rc) while looking for $what in $STATE_DIR: $(printf '%s\n' "$out" | head -n 3 | tr '\n' ' ')" >&2
+    exit 3
+  fi
+  first="$(printf '%s\n' "$out" | head -n 1)"
+  if [[ -n "$first" ]]; then
+    if [[ -e "$first" || -L "$first" ]]; then
+      first="$(printf %q "$first")"
+    else
+      first="a path containing a newline, or find's own message, starting $(printf %q "$first")"
+    fi
+    echo "refusing: $first is $what; remove it or use another state directory" >&2
+    exit 3
+  fi
+}
+
+# The profile commands of a launch-profile start run through here: a throwaway
+# HOME (so Hermes' default home, `~/.hermes`, is never the real one, whatever
+# the spelling of the paths, and no profile alias lands in the real
+# ~/.local/bin) and nothing in the environment that moves a default home or
+# names another user's (HERMES_DATA_DIR_SUFFIX, SUDO_USER).
+hermes_run() {
+  mkdir -p "$STATE_DIR/userhome"
+  env -u HERMES_DATA_DIR_SUFFIX -u SUDO_USER \
+    HOME="$STATE_DIR/userhome" HERMES_HOME="$HOME_DIR" hermes "$@"
+}
+
+# Creates profile $1 in the throwaway home unless it is there already. Never
+# writes a wrapper alias, and runs with a throwaway HOME.
+create_profile() {
+  [[ -d "$HOME_DIR/profiles/$1" ]] && return 0
+  hermes_run profile create "$1" --no-alias --no-skills >>"$LOG_FILE" 2>&1 || {
+    echo "could not create profile $1; last log lines:" >&2
+    tail -n 20 "$LOG_FILE" >&2
+    exit 1
+  }
+}
+
 cmd_start() {
+  local launch="" sticky="" problem
+  shift || true
+  while (($#)); do
+    case "$1" in
+      --launch-profile)
+        launch="${2:?--launch-profile needs a name}"
+        shift 2
+        ;;
+      --sticky-profile)
+        sticky="${2:?--sticky-profile needs a name}"
+        shift 2
+        ;;
+      *)
+        echo "unknown option: $1" >&2
+        exit 2
+        ;;
+    esac
+  done
+  if [[ -n "$launch" ]] && ! problem="$(profile_name_problem "$launch")"; then
+    echo "invalid launch profile: $problem" >&2
+    exit 2
+  fi
+  if [[ -n "$sticky" ]] && ! problem="$(profile_name_problem "$sticky")"; then
+    echo "invalid sticky profile: $problem" >&2
+    exit 2
+  fi
+  if [[ -n "$sticky" && -z "$launch" ]]; then
+    echo "--sticky-profile only makes sense with --launch-profile" >&2
+    exit 2
+  fi
+  if [[ -n "$launch" && "$launch" == "$sticky" ]]; then
+    echo "the sticky profile must differ from the launch profile" >&2
+    exit 2
+  fi
+  refuse_real_hermes_home
   if ! command -v hermes >/dev/null; then
     echo "hermes not found on PATH. Install Hermes Agent:" >&2
     echo "  https://github.com/NousResearch/hermes-agent (see its README)" >&2
@@ -71,10 +280,41 @@ cmd_start() {
     exit 1
   fi
 
+  mkdir -p "$STATE_DIR"
+  # Made just now: it must still be the directory that was checked.
+  if [[ "$(resolve_path "$STATE_DIR")" != "$STATE_DIR" ]]; then
+    echo "refusing: $STATE_DIR changed while it was checked" >&2
+    exit 3
+  fi
   mkdir -p "$HOME_DIR"
-  rm -f "$PID_FILE" "$PORT_FILE"
+  check_state_tree
+  rm -f "$PID_FILE" "$PORT_FILE" "$LAUNCH_FILE"
+  # The state directory outlives a run: a sticky profile left by an earlier
+  # launch-profile start must not decide which profile this start launches.
+  [[ -n "$sticky" ]] || rm -f "$HOME_DIR/active_profile"
   : >"$LOG_FILE"
-  HERMES_HOME="$HOME_DIR" nohup hermes dashboard --isolated --no-open \
+  local launch_args=() run_home="${HOME:-}"
+  if [[ -n "$launch" ]]; then
+    create_profile "$launch"
+    if [[ -n "$sticky" ]]; then
+      create_profile "$sticky"
+      hermes_run profile use "$sticky" >>"$LOG_FILE" 2>&1 || {
+        echo "could not make $sticky the sticky profile" >&2
+        exit 1
+      }
+    fi
+    echo "$launch" >"$LAUNCH_FILE"
+    launch_args=(-p "$launch")
+    # A launch-profile backend runs on a throwaway HOME too: it does not see
+    # the file-based logins of the real one (~/.claude, `gh auth token`, ~/.codex).
+    run_home="$STATE_DIR/userhome"
+  fi
+  # A plain start keeps the caller's HOME, as it always did, so Hermes can
+  # borrow those logins; it is kept from the real Hermes home by the checks
+  # above, not by a throwaway HOME.
+  nohup env -u HERMES_DATA_DIR_SUFFIX -u SUDO_USER \
+    HOME="$run_home" HERMES_HOME="$HOME_DIR" \
+    hermes ${launch_args[@]+"${launch_args[@]}"} dashboard --isolated --no-open \
     --port "${HERMES_DEV_PORT:-0}" >>"$LOG_FILE" 2>&1 &
   local launcher=$!
 
@@ -100,15 +340,26 @@ cmd_start() {
   listening_pid "$port" >"$PID_FILE"
 
   # Confirm the backend is using the throwaway home, not the real one.
-  local actual_home
+  # With a launch profile the server reports that profile's own folder
+  # (<home>/profiles/<name>); the listener's environment (the fallback behind
+  # a password gate) still names the home itself.
+  local actual_home want_home="$HOME_DIR"
   actual_home="$(reported_home)"
-  [[ -n "$actual_home" ]] || actual_home="$(process_home)"
-  if [[ "$actual_home" != "$HOME_DIR" && "$actual_home" != "$(cd "$HOME_DIR" && pwd -P)" ]]; then
-    echo "refusing: backend is using $actual_home, not $HOME_DIR" >&2
+  if [[ -n "$actual_home" ]]; then
+    [[ -n "$launch" ]] && want_home="$HOME_DIR/profiles/$launch"
+  else
+    actual_home="$(process_home)"
+  fi
+  if [[ "$actual_home" != "$want_home" && "$actual_home" != "$(cd "$want_home" && pwd -P)" ]]; then
+    echo "refusing: backend is using $actual_home, not $want_home" >&2
     cmd_stop
     exit 1
   fi
-  echo "ready: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR)"
+  if [[ -n "$launch" ]]; then
+    echo "ready: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR, launch profile $launch${sticky:+, sticky $sticky})"
+  else
+    echo "ready: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR)"
+  fi
 }
 
 cmd_stop() {
@@ -131,7 +382,9 @@ cmd_url() {
 
 cmd_status() {
   if ours; then
-    echo "running: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR)"
+    local launch=""
+    [[ -f "$LAUNCH_FILE" ]] && launch=", launch profile $(cat "$LAUNCH_FILE")"
+    echo "running: $(base_url) (pid $(cat "$PID_FILE"), home $HOME_DIR$launch)"
   else
     echo "not running"
     exit 1
@@ -139,12 +392,12 @@ cmd_status() {
 }
 
 case "${1:-}" in
-  start) cmd_start ;;
+  start) cmd_start "$@" ;;
   stop) cmd_stop ;;
   url) cmd_url ;;
   status) cmd_status ;;
   *)
-    echo "usage: $0 start|stop|url|status" >&2
+    echo "usage: $0 start [--launch-profile NAME [--sticky-profile NAME]]|stop|url|status" >&2
     exit 2
     ;;
 esac

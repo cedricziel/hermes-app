@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -6,6 +6,8 @@ import 'package:hermes_app/src/skills/widgets/curator_section.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/output_lines_tile.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../support/test_localizations.dart';
 
 final _now = DateTime.utc(2026, 11, 15, 12);
 final _ran = DateTime.utc(2026, 11, 12, 9, 12);
@@ -48,6 +50,7 @@ CuratorSectionModel _model({
   CuratorPauseView pause = CuratorPauseView.idle,
   CuratorRunView run = CuratorRunView.idle,
   List<String> lines = const [],
+  int? lineCount,
   bool blanked = false,
   bool? hasOutput,
   bool dropped = false,
@@ -73,6 +76,7 @@ CuratorSectionModel _model({
   paused: paused ?? status?.paused ?? false,
   run: run,
   outputLines: lines,
+  outputLineCount: lineCount,
   hasOutput: hasOutput ?? lines.isNotEmpty,
   outputBlanked: blanked,
   now: _now,
@@ -102,7 +106,7 @@ Widget _host(
     child: child!,
   ),
   locale: locale,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: buildHermesLightTheme(platform: platform),
   home: Scaffold(
@@ -335,13 +339,43 @@ void main() {
       expect(find.text('Ausgabe anzeigen · 2 Zeilen'), findsOneWidget);
     });
 
-    testWidgets('blanked output shows no count', (tester) async {
+    testWidgets('blanked output keeps the line count, and is read once', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      // As the controller gives it: the lines are hidden, the count stays.
       await pump(
         tester,
-        _model(run: CuratorRunView.finished, lines: ['a', 'b'], blanked: true),
+        _model(
+          run: CuratorRunView.finished,
+          hasOutput: true,
+          lineCount: 12,
+          blanked: true,
+        ),
       );
-      expect(find.text('Show output'), findsOneWidget);
-      expect(find.textContaining('2 lines'), findsNothing);
+      expect(find.text('Show output · 12 lines'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Show output')), findsOneWidget);
+      expect(find.text('Show output'), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('the earlier lines count in a blanked label too', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        CuratorSectionModel(
+          status: _status(),
+          run: CuratorRunView.finished,
+          hasOutput: true,
+          outputBlanked: true,
+          earlierLines: 20,
+          outputLineCount: 50,
+          canRunNow: true,
+          now: _now,
+        ),
+      );
+      expect(find.text('Show output · 50 lines'), findsOneWidget);
     });
 
     testWidgets('keeps the last 30 lines and counts the earlier ones', (
@@ -593,7 +627,7 @@ void main() {
       );
       expect(find.textContaining('secret-skill'), findsNothing);
       expect(find.bySemanticsLabel(RegExp('secret-skill')), findsNothing);
-      expect(find.bySemanticsLabel('Show output'), findsOneWidget);
+      expect(find.bySemanticsLabel('Show output · 1 line'), findsOneWidget);
       handle.dispose();
     });
 

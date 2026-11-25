@@ -1,8 +1,9 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../macos/mac_source_list.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
@@ -65,22 +66,25 @@ class MacSearchResults extends StatelessWidget {
         if (onScopeChanged != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-            child: CupertinoSlidingSegmentedControl<ThreadSearchScope>(
-              key: const Key('search-scope'),
-              groupValue: scope,
-              onValueChanged: (value) {
-                if (value != null) onScopeChanged(value);
-              },
-              children: const {
-                ThreadSearchScope.profile: Text(
-                  'This profile',
-                  style: TextStyle(fontSize: 12),
-                ),
-                ThreadSearchScope.allProfiles: Text(
-                  'All profiles',
-                  style: TextStyle(fontSize: 12),
-                ),
-              },
+            child: FocusRing.outside(
+              radius: 9,
+              child: CupertinoSlidingSegmentedControl<ThreadSearchScope>(
+                key: const Key('search-scope'),
+                groupValue: scope,
+                onValueChanged: (value) {
+                  if (value != null) onScopeChanged(value);
+                },
+                children: const {
+                  ThreadSearchScope.profile: Text(
+                    'This profile',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  ThreadSearchScope.allProfiles: Text(
+                    'All profiles',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                },
+              ),
             ),
           ),
         Expanded(child: _body(context)),
@@ -220,65 +224,70 @@ class MacSearchHitRow extends StatelessWidget {
             ? macSourceListSelectedFill(context)
             : Colors.transparent,
         borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        hit.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: scheme.onSurface,
+        child: FocusRing(
+          radius: 4,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          hit.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      relativeTime(hit.updatedAt),
-                      style: TextStyle(fontSize: 11, color: subtle),
+                      const SizedBox(width: 8),
+                      Text(
+                        relativeTime(hit.updatedAt),
+                        style: TextStyle(fontSize: 11, color: subtle),
+                      ),
+                    ],
+                  ),
+                  if (hit.snippet.isNotEmpty || profileLabel != null) ...[
+                    const SizedBox(height: 2),
+                    Text.rich(
+                      TextSpan(
+                        children: [
+                          if (profileLabel != null)
+                            TextSpan(
+                              text: '$profileLabel · ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          for (final part in hit.snippet)
+                            TextSpan(
+                              text: part.text,
+                              style: part.match
+                                  ? TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: scheme.onSurface,
+                                      backgroundColor:
+                                          scheme.surfaceContainerHigh,
+                                    )
+                                  : null,
+                            ),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: subtle),
                     ),
                   ],
-                ),
-                if (hit.snippet.isNotEmpty || profileLabel != null) ...[
-                  const SizedBox(height: 2),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        if (profileLabel != null)
-                          TextSpan(
-                            text: '$profileLabel · ',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        for (final part in hit.snippet)
-                          TextSpan(
-                            text: part.text,
-                            style: part.match
-                                ? TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: scheme.onSurface,
-                                    backgroundColor:
-                                        scheme.surfaceContainerHigh,
-                                  )
-                                : null,
-                          ),
-                      ],
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, color: subtle),
-                  ),
                 ],
-              ],
+              ),
             ),
           ),
         ),

@@ -63,7 +63,9 @@ lower-cased names with `-` for spaces.
    component in `widgetbook/directories.dart`. Wrap the widget in `frame(...)`.
 3. Cover the states a user can see: empty, running, failed, answered, expired.
    Pass callbacks that resolve (`Future.delayed`) or throw, so the buttons work.
-4. `flutter test test/widgetbook_test.dart -j 1`. Run it with `-j 1`: the
+4. `flutter test test/widgetbook_test.dart -j 1 --name '^<Folder> / <Component> '`
+   for your component (the whole file does not fit in one process, see
+   Rules). Run it with `-j 1`: the
    catalog test is heavy and times out when it runs in parallel with other
    tests. It builds every use case in each
    theme and viewport of `widgetbook/environment.dart` and fails on an
@@ -107,10 +109,32 @@ Workflow screenshots must pass `platform` explicitly to `pumpScreen` when checki
 Apple chrome. `phoneSize` and `desktopSize` change only the viewport; they do not
 select iOS or macOS.
 
-The viewports are Phone (iOS) and Desktop (macOS) only. To show the Material
-variant, wrap the use case in `Theme(data: Theme.of(context).copyWith(platform:
-TargetPlatform.android))`; `widgetbook/settings_chrome_use_cases.dart` builds
-one use case per platform this way (`_onEach`).
+The viewports are Phone (iOS) and Desktop (macOS) only. To show another
+platform, wrap the use case in `Theme(data: platformTheme(context, platform))`
+(`widgetbook/platform_theme.dart`); `onEachPlatform` (`widgetbook/frame.dart`)
+builds one use case per platform this way. `platformTheme` builds the app theme
+for that platform (`buildHermesLightTheme(platform: …)` or
+`buildHermesDarkTheme(platform: …)`) in the brightness of the surrounding
+theme. Never use `Theme.of(context).copyWith(platform: …)` (or
+`buildHermes…Theme().copyWith(platform: …)` in a test) for a platform preview:
+`ThemeData.copyWith(platform: …)` does not recompute the defaults derived from
+the platform, such as `materialTapTargetSize` (padded on Android and iOS,
+shrink-wrapped on macOS, Windows and Linux) or `visualDensity`, and keeps the
+base theme's platform-specific component themes (input decoration, button
+sizes, menus). Under `flutter test` the base theme is built for Android on any
+host (`FLUTTER_TEST` forces `defaultTargetPlatform` to android), so a desktop
+case got the phone layout; in the catalog on a Mac the base is the host, so
+iPhone and Material cases got desktop sizing. The `arch.theme-platform-copy`
+guard fails on `.copyWith(platform: …)` (in any argument position) in
+`lib/`, `widgetbook/` and `test/`. Anything
+that depends on tap-target size or density, such as focus-ring geometry, needs
+the case run on at least one shrink-wrap platform. In #1284 the scroll-to-latest
+mini button's focus ring sat inside the button on the desktop because the tests
+only used the padded layout; see `test/focus_ring_geometry_test.dart` (added in
+#1284), which runs every ring per platform.
+A ring geometry case must build the widget the screens actually use and
+reach it by keyboard (Tab), not by `requestFocus`: the #1307 case built
+`GroupedValueRow(onTap:)` and missed that `GroupedMenuRow` showed no ring on a Mac.
 
 For PR screenshots without running the catalog, render use cases in a
 throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
@@ -138,14 +162,27 @@ real fonts, so the PNGs read like the app. Don't commit the test.
   screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
   let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
   repository itself.
-- `widgetbook/main.dart` mounts the app's `AppThemeScopes` through a
-  `BuilderAddon` after the theme addon (`gpt_markdown` draws near-black
-  headings in dark without it). `test/widgetbook_test.dart` mounts it too.
+- `widgetbook/main.dart` builds every use case in `material_ui`'s
+  `MaterialApp` (its `appBuilder`) with a `Scaffold` from the theme addon:
+  Widgetbook's default builds Flutter's `MaterialApp` and `Material`, which
+  `material_ui` widgets do not see ("No Material widget found", #1354). A
+  bare `Navigator` sits around Widgetbook itself, under the picked theme and
+  locale, because a dialog that asks for the root navigator leaves the
+  workbench; such a route covers the whole window. It is not a second app:
+  an app's navigator would report routes to the browser and take the address
+  bar's, which are Widgetbook's.
+- `test/widgetbook_test.dart` opens each use case in `HermesWidgetbook`
+  itself, by its link, so the test and the catalog cannot wrap a use case
+  differently. Never give the test an app of its own again.
 - `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
   may build an `AuthController`, and it unmounts each use case and lets timers
   run out, so a screen that polls must cancel its timer on dispose.
-- Keep knobs out for now: the smoke test builds use cases without a
-  Widgetbook state, so `context.knobs` would throw.
+- The whole test is about 17,500 cases and its process grows with each one
+  (past 11 GB before the end), so never run the file in one process:
+  `scripts/test-shard.sh 0 4` runs it in six, one after the other (CI's
+  shard 0). In a cloud container run a part of it, about 100 cases at a time,
+  `flutter test test/widgetbook_test.dart -j 1 --name '^(Handoff|Files / Questions) '`
+  (a regular expression on "folder / component / use case").
 - Nothing under `widgetbook/` may import `lib/src/telemetry/`; the catalog
   starts no SDK.
 

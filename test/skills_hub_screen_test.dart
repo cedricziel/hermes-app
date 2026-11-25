@@ -1,6 +1,7 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
@@ -8,8 +9,11 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/hub_skill_screen.dart';
 import 'package:hermes_app/src/skills/skill_detail_screen.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
+import 'support/tooltip_finder.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/test_localizations.dart';
 
 /// The Discover tab, the hub skill page and the job sheet against a fake
 /// dashboard, through the real generated client.
@@ -24,9 +28,11 @@ Future<void> pumpFor(WidgetTester tester, int milliseconds) async {
 void main() {
   late FakeHermesServer server;
   var platform = TargetPlatform.android;
+  Locale? locale;
 
   setUp(() {
     platform = TargetPlatform.android;
+    locale = null;
     server = FakeHermesServer()
       ..on('GET', '/api/skills', [
         skillRow(name: 'compose', category: 'devops', provenance: 'hub'),
@@ -96,6 +102,10 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        locale: locale,
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: ThemeData(platform: platform),
         home: SkillsScreen(
           repository: HermesSkillsRepository(server.client().raw),
@@ -109,7 +119,7 @@ void main() {
 
   Future<void> openDiscover(WidgetTester tester) async {
     await pumpSkills(tester);
-    await tester.tap(find.text('Discover'));
+    await tester.tap(find.text(locale == null ? 'Discover' : 'Entdecken'));
     await tester.pumpAndSettle();
   }
 
@@ -318,6 +328,27 @@ void main() {
       );
     });
 
+    testWidgets('the install confirmation is in German', (tester) async {
+      locale = const Locale('de');
+      server.on(
+        'GET',
+        '/api/skills/hub/scan',
+        hubScanBody(policy: 'ask', findings: [hubFindingRow()]),
+      );
+      await openWebScraper(tester);
+
+      await tester.tap(find.text('Install anyway…'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('web-scraper installieren?'), findsOneWidget);
+      expect(
+        find.text('Die Sicherheitsprüfung verlangt deine Bestätigung.'),
+        findsOneWidget,
+      );
+      expect(find.text('Abbrechen'), findsOneWidget);
+      expect(find.text('Trotzdem installieren'), findsOneWidget);
+    });
+
     testWidgets(
       'the install confirmation keeps findings start-aligned on iOS',
       (tester) async {
@@ -481,6 +512,92 @@ void main() {
 
       expect(find.text('Done.'), findsNothing);
       expect(find.textContaining('could not be confirmed'), findsOneWidget);
+    });
+  });
+
+  group('German chrome', () {
+    setUp(() => locale = const Locale('de'));
+
+    const status = '/api/actions/skills-install-web-scraper/status';
+
+    Future<void> installInBackground(
+      WidgetTester tester,
+      Map<String, Object?> after, {
+      int httpStatus = 200,
+    }) async {
+      server.on(
+        'GET',
+        status,
+        jobStatusBody(running: true, exitCode: null, lines: ['Fetching…']),
+      );
+      await openWebScraper(tester);
+      await tester.tap(find.widgetWithText(FilledButton, 'Install'));
+      await pumpFor(tester, 800);
+      await tester.tap(find.text('Run in background'));
+      await pumpFor(tester, 800);
+      await tester.tap(find.tooltip('Zurück'));
+      await pumpFor(tester, 800);
+      server.on('GET', status, after, status: httpStatus);
+      await pumpFor(tester, 2500);
+      await pumpFor(tester, 800);
+    }
+
+    testWidgets('the tabs and the Discover search are in German', (
+      tester,
+    ) async {
+      await openDiscover(tester);
+
+      expect(find.text('Installiert'), findsOneWidget);
+      expect(find.text('Skills-Hub durchsuchen'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await tester.pumpAndSettle();
+      expect(
+        find.widgetWithText(CheckedPopupMenuItem<VoidCallback>, 'Alle Quellen'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a job that ended well says Fertig', (tester) async {
+      await installInBackground(tester, jobStatusBody(lines: ['Done']));
+
+      expect(find.text('Fertig: Installing web-scraper'), findsOneWidget);
+    });
+
+    testWidgets('a job that failed says Fehlgeschlagen', (tester) async {
+      await installInBackground(
+        tester,
+        jobStatusBody(exitCode: 1, lines: ['boom']),
+      );
+
+      expect(
+        find.text('Fehlgeschlagen: Installing web-scraper'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a job whose end never arrived says Nicht bestätigt', (
+      tester,
+    ) async {
+      await installInBackground(tester, {
+        'detail': 'Unknown action',
+      }, httpStatus: 404);
+
+      expect(
+        find.text('Nicht bestätigt: Installing web-scraper'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the Mac subtitle counts skills in German', (tester) async {
+      platform = TargetPlatform.macOS;
+      await pumpSkills(tester);
+      expect(find.text('work · 2 Skills'), findsOneWidget);
+
+      server.on('GET', '/api/skills', [skillRow(name: 'compose')]);
+      await tester.pumpWidget(const SizedBox());
+      await pumpSkills(tester);
+      expect(find.text('work · 1 Skill'), findsOneWidget);
     });
   });
 

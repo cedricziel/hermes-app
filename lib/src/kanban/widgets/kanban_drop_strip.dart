@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
 
@@ -28,7 +29,7 @@ class KanbanDropStrip extends StatelessWidget {
                 onWillAcceptWithDetails: (d) => d.data.status != status,
                 onAcceptWithDetails: (d) => onDrop(d.data, status),
                 builder: (context, over, rejected) => KanbanDropStripChip(
-                  label: kanbanStatusLabel(status),
+                  label: kanbanStatusLabel(context.l10n, status),
                   active: over.isNotEmpty,
                 ),
               ),

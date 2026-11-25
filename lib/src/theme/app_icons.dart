@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 
 /// An icon with a Material glyph and the SF Symbols-style glyph Apple
@@ -175,6 +175,10 @@ abstract final class AppIcons {
   static const tune = AppIconSet(
     Icons.tune,
     CupertinoIcons.slider_horizontal_3,
+  );
+  static const settings = AppIconSet(
+    Icons.settings_outlined,
+    CupertinoIcons.settings,
   );
   static const stop = AppIconSet(
     Icons.stop_circle_outlined,
@@ -522,6 +526,7 @@ abstract final class AppIcons {
     'undo': undo,
     'redo': redo,
     'tune': tune,
+    'settings': settings,
     'stop': stop,
     'mic': mic,
     'stopRecording': stopRecording,

@@ -8,6 +8,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../chat/gateway/gateway_rpc_client.dart';
 import '../chat/session_chat_transport.dart' show SessionTransportUnavailable;
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'bot_screen_models.dart';
 
@@ -69,18 +70,20 @@ class BotScreenRepository {
   var _reportedUnsupported = false;
   var _failureLogged = false;
 
-  Future<BotScreenResult<BotScreenStatus>> status(String profile) =>
+  Future<BotScreenResult<BotScreenStatus>> status(ResolvedProfile profile) =>
       _call('display.status', profile, BotScreenStatus.fromJson);
 
   /// Starts the profile's screen (idempotent) and returns its new status.
-  Future<BotScreenResult<BotScreenStatus>> start(String profile) =>
+  Future<BotScreenResult<BotScreenStatus>> start(ResolvedProfile profile) =>
       _call('display.start', profile, BotScreenStatus.fromJson);
 
   /// Starts installing the desktop packages on the gateway host. A refusal
   /// (another install running, an unsupported host, a sandbox, no package
   /// manager) is a [BotScreenFailed] carrying Hermes' message; it is not a
   /// read failure, so it is not logged here.
-  Future<BotScreenResult<BotScreenInstallStart>> install(String profile) {
+  Future<BotScreenResult<BotScreenInstallStart>> install(
+    ResolvedProfile profile,
+  ) {
     Object? carrier;
     return _call(
       'display.install',
@@ -121,7 +124,7 @@ class BotScreenRepository {
   /// Asks for a ticket to watch the screen's stream. [viewerId] is the id an
   /// earlier answer on this connection gave, which the server then keeps.
   Future<BotScreenResult<BotScreenObservation>> observe(
-    String profile, {
+    ResolvedProfile profile, {
     String? viewerId,
   }) {
     Object? carrier;
@@ -140,7 +143,7 @@ class BotScreenRepository {
   /// [BotScreenFailure.mismatch] says the id no longer belongs to a live
   /// connection, which an observe of the profile repairs.
   Future<BotScreenResult<BotScreenLease>> acquire(
-    String profile, {
+    ResolvedProfile profile, {
     required String viewerId,
     required Object connection,
     String? reason,
@@ -158,7 +161,7 @@ class BotScreenRepository {
   /// ignores a release by a viewer that does not hold the lease and answers
   /// the lease as it is, so read the holder of the answer.
   Future<BotScreenResult<BotScreenLease>> release(
-    String profile, {
+    ResolvedProfile profile, {
     required String viewerId,
     required Object connection,
   }) => _lease(
@@ -170,7 +173,9 @@ class BotScreenRepository {
 
   /// Gives control back to Hermes whoever holds it, with no viewer id. For a
   /// lease no viewer of this app holds; it takes control away from a person.
-  Future<BotScreenResult<BotScreenLease>> forceRelease(String profile) => _call(
+  Future<BotScreenResult<BotScreenLease>> forceRelease(
+    ResolvedProfile profile,
+  ) => _call(
     'display.lease.release',
     profile,
     _leaseOf,
@@ -180,7 +185,7 @@ class BotScreenRepository {
 
   Future<BotScreenResult<BotScreenLease>> _lease(
     String method,
-    String profile,
+    ResolvedProfile profile,
     Object connection, {
     required Map<String, Object?> extra,
   }) {
@@ -209,7 +214,7 @@ class BotScreenRepository {
   /// [watchers] is how many surfaces share the poll this grab belongs to, for
   /// its span.
   Future<BotScreenResult<BotScreenFrame>> thumbnail(
-    String profile, {
+    ResolvedProfile profile, {
     int? watchers,
   }) async {
     Span? span;
@@ -235,7 +240,7 @@ class BotScreenRepository {
 
   Future<BotScreenResult<T>> _call<T>(
     String method,
-    String profile,
+    ResolvedProfile profile,
     T Function(Map<String, Object?> result) parse, {
     bool logFailures = true,
     DisplayRpc? rpc,

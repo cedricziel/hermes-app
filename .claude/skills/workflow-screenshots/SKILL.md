@@ -37,20 +37,108 @@ To see one widget in every state without a flow around it, use the
 
 ## Traps
 
-- Third-party widgets that read a theme from a scope (`gpt_markdown` reads
-  `material_ui`'s) need the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`).
-  `HermesApp`, `pumpScreen` and the Widgetbook catalog all mount that one widget;
-  a hand-built `MaterialApp` in a test must too, or dark markdown headings draw
-  near-black (1.17:1) in the screenshot and the app never does. Add new app-level
-  theme scopes inside `AppThemeScopes`. `test/app_theme_scopes_test.dart` compares
-  the theme-like inherited widgets above the `Navigator` in `HermesApp` and
-  `pumpScreen` (a scope added in `app.dart` that the harness lacks fails it; a
-  chrome-only inherited widget goes on its `_notTheme` list) and, as a source check
-  (comments stripped, a file may not build more `MaterialApp`, `.router`,
-  `CupertinoApp` or `WidgetsApp` constructors than `AppThemeScopes(` calls), that
-  every app in `lib/` (the conversation window and quick panel engines too)
-  mounts it. It does not catch a scope added between the `Navigator` and a
-  route, or a value changed inside an existing type such as `scrollBehavior`.
+- Since the move to `material_ui` (#1354), `AppThemeScopes` and
+  `MaterialUiThemeScope` add nothing: a test app's `MaterialApp` already gives
+  `gpt_markdown` the app's theme. The guard below still requires the mount
+  until both scopes are removed.
+- The mount the guard requires: `HermesApp`, `pumpScreen` and the Widgetbook
+  catalog all mount the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`),
+  and a hand-built test app (`MaterialApp`, `CupertinoApp`, `WidgetsApp`, or a helper
+  such as `pumpChatScreen`, `pumpOnPlatform` or `pumpFiles` that builds one) that
+  renders markdown, code, files or skills widgets must mount it in its
+  `builder:`. A test without the mount draws the same today (see the note
+  above); before #1354 it drew dark markdown headings near-black.
+  `test/app_theme_scopes_test.dart` enforces it. It reads the sources with the
+  analyzer's unresolved syntax tree (`parseString`, no analysis context, nothing
+  resolved), so it sees names and shapes, not types. It derives the readers from
+  `lib/` (every class, function, getter or extension that reads `mui.Theme.of`,
+  draws `GptMarkdown`, or mentions one that does; the navigation-only roots
+  `AppShell`, `MacProfilesPage` and `HermesApp` do not count). A `*_test.dart`
+  file fails, naming the file and the readers, when it references one and builds
+  an app that mounts nothing, or calls a helper (any function or class under
+  `test/` outside `*_test.dart` files) whose app does not. A mention in a string,
+  an import or a `find.byType` does not count, and one mounted app does not
+  excuse another in the same file. The guard scans `test/` only; `benchmark/`
+  apps are out of its scope.
+  - What mounts: an `AppThemeScopes(`, `MaterialUiThemeScope(`,
+    `FlyerMaterialScope(` or `mui.Theme(` call in the app's `builder:` that wraps
+    the builder's child (its second parameter) and has no `?:`, `switch`, `if`
+    statement or collection `if` between it and the builder. A scope in `home:`
+    never counts (a route pushed from `home` is built outside it), nor does one
+    beside the child (`Stack(children: [AppThemeScopes(...), child!])`). A
+    `builder: _scoped` tear-off counts when every function or method named
+    `_scoped` in the same file mounts by those rules. An app is a bare or
+    import-prefixed (`m.MaterialApp(`) `MaterialApp`, `.router`, `CupertinoApp`
+    or `WidgetsApp`, with or without `const`.
+  - What an unmounted app draws: the readers in its own test (the narrowest
+    `test`, `testWidgets` or `group` callback around it; the whole file when it
+    is in none) and the readers built around the tests of every group it is in:
+    a `setUp` or `setUpAll` (also of an outer group), a local or closure of
+    `main` or a `group`, a `for` loop over widgets, a top-level helper of the
+    test file. A reader found there is reported with where it is built, for
+    example `BoundedMarkdown (reader built in setUp at line 12)`. Sibling `test`,
+    `testWidgets` and `group` callbacks stay out, and so does the `setUp` of a
+    sibling or nested group, so a localization-only app beside another test that
+    reads the theme passes.
+  - An extension member (`context.surface`) is a getter, setter or method that
+    the extension declares, read from its syntax tree; it counts as a reader use
+    only in a file that is in the extension's library or imports it. Imports and
+    `part of` are read from the string literal, so `import r'package:...'` works.
+  - A test that leaves its app unmounted on purpose (the unbridged fallback)
+    goes on the `_exemptions` list in the guard, with the path, the text of the
+    app and a one-line reason; a test asserts each entry is still an offender,
+    so remove it once it no longer applies. Never hide a conditional mount from
+    the guard by rewriting it.
+  - Known gaps, left as they are: a bare word is matched by name across files
+    (two classes of the same name in two libraries are one reader); `export`
+    barrels are not followed, so a library re-exported elsewhere is seen only
+    through its own imports; a function that returns a record of widgets is not
+    followed; a tear-off is looked up by name in its own file only (not through a
+    `part`, an import or a local variable). A mount that depends on a condition
+    on a reference to the scope (`final s = AppThemeScopes(child: child!);
+    return on ? s : child!;`) or on an early `return child!` before it is not
+    caught; these are on the roadmap. Reader names, seeds and finders are still
+    matched as words in the comment-free text of the range the syntax tree gives
+    (`_wordsPattern`, `_seed`), not as nodes.
+  - A reader named in a test by a member (`t.md`, a getter of an extension)
+    is reached through the members of the class or extension that holds it,
+    and references are identifiers and type names in the syntax tree, so a
+    label such as `body:` or a local inside a declaration is not one. Only a
+    declaration around the tests is followed, as a whole.
+  - A scope that wraps a local made of the child (`final content = child!;
+    return AppThemeScopes(child: content);`) mounts, unless the local is
+    assigned again or its value has a `?:`, `switch` or collection `if`; a
+    local declared bare and assigned once (`Widget w; w = child!;`) does not
+    count, which is conservative. Only the scope's
+    `child:` counts, not its `key:`. A reader built around the tests counts
+    only when a `setUp`, `setUpAll` or loop builds it, or when something the
+    test refers to by name (transitively) does; a reader in a mounted app's own
+    arguments, or in a declaration nothing refers to, is not blamed on another
+    test. Every file the guard scans has to parse without errors; a fixture may
+    be a bare snippet, a real file may not. If a Flutter or Dart bump brings
+    syntax that the `analyzer` package cannot parse, that assertion fails with
+    `path:line`; bump `analyzer`, do not change the file.
+  - `the analyzer API canary` parses a snippet with every construct the guard
+    reads (named arguments, bare and prefixed calls, constructions, extensions
+    and their members, directives, conditionals, loops) and names the ones the
+    parser no longer produces. If an `analyzer` major bump fails it, update
+    `_Parsed`, `_Index`, `_shapes`, `_findApps`, `_bodyMounts` and
+    `_declarations` to the new node types before trusting a green guard: a node
+    that is no longer produced would make it see no apps and pass.
+
+  Add new app-level theme scopes inside `AppThemeScopes`.
+  `test/app_theme_scopes_test.dart` compares the theme-like inherited widgets
+  above the `Navigator` in `HermesApp` and `pumpScreen` (a scope added in
+  `app.dart` that the harness lacks fails it; a chrome-only inherited widget goes
+  on its `_notTheme` list) and, as a source check, that a file in `lib/` does
+  not build more apps (`MaterialApp`, `.router`, `CupertinoApp` or `WidgetsApp`,
+  `HermesApp` aside) than it has `AppThemeScopes(` calls. That is a file-level
+  count: it does not prove that each app mounts the scope (two apps and two scope calls pass
+  even when one scope is in `home:`), so every app in `lib/` (the
+  conversation window and quick panel engines too) still has to mount it in its
+  `builder:`. It does not catch a scope added between the
+  `Navigator` and a route, or a value changed inside an existing type such as
+  `scrollBehavior`.
 - Fonts must be loaded inside the test body (`shots.start` does it). Loaded in a
   `setUpAll` they are ignored, and all text is drawn as black boxes.
 - Text with no font family (the AppBar title, some third-party widgets such as

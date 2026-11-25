@@ -325,7 +325,7 @@ class SchedulesController extends ChangeNotifier {
     }
   }
 
-  /// The profile to ask for: every one, the sticky active one, or null when
+  /// The profile to ask for: every one, the launch profile, or null when
   /// the server has no profiles to tell apart. A failure to read the active
   /// profile throws, so a list is never shown unscoped by accident.
   Future<String?> _scope(int epoch) async {
@@ -334,13 +334,14 @@ class SchedulesController extends ChangeNotifier {
     if (_allProfiles) return 'all';
     if (_activeKnown) return _activeProfile;
     try {
-      final active = (await profiles?.loadActive())?.active;
+      // The launch profile, not the sticky `active` one; null for a server
+      // without profiles.
+      final launch = await profiles?.resolver.load();
       _requireCurrent(epoch);
-      _activeProfile = active;
-    } on DioException catch (e) {
+      _activeProfile = launch;
+    } on Object {
       _requireCurrent(epoch);
-      if (e.response?.statusCode != 404) rethrow;
-      _activeProfile = null;
+      rethrow;
     }
     _activeKnown = true;
     return _activeProfile;

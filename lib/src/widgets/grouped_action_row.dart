@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
@@ -108,7 +108,9 @@ class GroupedActionRow extends StatelessWidget {
   final bool touchTargetButtons;
 
   /// Status buttons with the link colour for their label, in place of the
-  /// theme's default text colour.
+  /// theme's default text colour, and, on a Mac, the title in the link colour
+  /// too (it is the onSurface colour there by default, as Server care has
+  /// always had it).
   final bool linkColoredButtons;
 
   /// Text scale beyond which the leading icon stacks above the text.
@@ -127,7 +129,7 @@ class GroupedActionRow extends StatelessWidget {
     final disabled = onPressed == null && !working && !done;
     final accent = disabled
         ? colors.subtleText
-        : (mac ? scheme.onSurface : colors.link);
+        : (mac && !linkColoredButtons ? scheme.onSurface : colors.link);
     final shownTitle = (working || done) ? status!.text : title;
     final leadingColor = done ? colors.success : accent;
     final leading = done ? AppIcons.checkCircle : icon;
@@ -220,7 +222,7 @@ class GroupedActionRow extends StatelessWidget {
             enabled: !working && !done && !disabled,
             liveRegion: working || done,
             label: semanticLabel,
-            child: InkWell(
+            child: GroupedRowInk(
               onTap: working || done ? null : onPressed,
               child: ExcludeSemantics(
                 excluding: semanticLabel != null,

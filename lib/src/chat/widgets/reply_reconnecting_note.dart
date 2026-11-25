@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 
 import '../../theme/app_icons.dart';
@@ -69,6 +69,9 @@ class _ReplyReconnectingNoteState extends State<ReplyReconnectingNote> {
   @override
   Widget build(BuildContext context) {
     final color = context.hermesColors.warning;
+    // The icon and its offset follow the text, so they stay beside the first
+    // line at any text size.
+    final scaler = MediaQuery.textScalerOf(context);
     return Semantics(
       container: true,
       label: widget.text,
@@ -79,8 +82,12 @@ class _ReplyReconnectingNoteState extends State<ReplyReconnectingNote> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: AppIcon(AppIcons.wifiOff, size: 16, color: color),
+                padding: EdgeInsets.only(top: scaler.scale(2)),
+                child: AppIcon(
+                  AppIcons.wifiOff,
+                  size: scaler.scale(16),
+                  color: color,
+                ),
               ),
               const SizedBox(width: 6),
               Flexible(

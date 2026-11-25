@@ -6,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart' show Span;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../chat/gateway/gateway_replay.dart' show reconnectDelay;
+import '../../profiles/profile_resolver.dart';
 import '../../telemetry/telemetry.dart';
 import '../bot_screen_controller.dart';
 import '../bot_screen_models.dart';
@@ -87,7 +88,7 @@ class BotScreenViewerController extends ChangeNotifier {
   final DisplaySocketOpener openSocket;
 
   /// The profile watched; null is the server's default.
-  final String profile;
+  final ResolvedProfile profile;
   final ConnectionTelemetry telemetry;
 
   /// How long a cover may last, while in control, before the stream closes.
@@ -200,10 +201,9 @@ class BotScreenViewerController extends ChangeNotifier {
     return BotScreenControl.watching;
   }
 
-  /// What the notice of lost control says: who has the screen now.
-  String get lostText => screen.status?.lease.holder == BotScreenHolder.agent
-      ? 'Hermes took control back.'
-      : 'Someone else took control.';
+  /// Whether the notice of lost control says Hermes has the screen now (true)
+  /// or someone else does.
+  bool get lostToAgent => screen.status?.lease.holder == BotScreenHolder.agent;
 
   /// What the person in control sends input through, or null while this
   /// device is not in control, is handing control back or the stream is not

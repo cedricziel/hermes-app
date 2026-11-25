@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
@@ -6,12 +6,20 @@ import '../agent_messages/agent_message_watcher.dart'
     show agentMessagesSupported;
 import '../live_activities/live_activities.dart';
 import '../background/background_check_controller.dart';
+import '../widgets/dialog_presentation.dart';
 import 'background_check_section.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'notification_settings.dart';
+import 'system_notification_settings.dart';
+import 'widgets/open_settings_button.dart';
 
-Future<void> showNotificationsDialog(BuildContext context) {
+/// [openSettings] opens the system's notification settings for the button
+/// shown after the permission was denied, where the platform has any.
+Future<void> showNotificationsDialog(
+  BuildContext context, {
+  OpenNotificationSettings openSettings = openSystemNotificationSettings,
+}) {
   final settings = context.read<NotificationSettings>();
   LiveActivities? liveActivities;
   try {
@@ -28,13 +36,14 @@ Future<void> showNotificationsDialog(BuildContext context) {
   if (checks != null) {
     checks.refresh();
   }
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider.value(
       value: settings,
       child: _NotificationsDialog(
         liveActivities: liveActivities,
         checks: checks,
+        openSettings: openSettings,
       ),
     ),
   );
@@ -53,8 +62,13 @@ bool repliesFromNotification(TargetPlatform platform) =>
     platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
 
 class _NotificationsDialog extends StatelessWidget {
-  const _NotificationsDialog({this.liveActivities, this.checks});
+  const _NotificationsDialog({
+    this.liveActivities,
+    this.checks,
+    required this.openSettings,
+  });
   final BackgroundCheckController? checks;
+  final OpenNotificationSettings openSettings;
 
   /// Null where there are no Live Activities, which hides their switch.
   final LiveActivities? liveActivities;
@@ -70,6 +84,10 @@ class _NotificationsDialog extends StatelessWidget {
   Widget _build(BuildContext context) {
     final settings = context.watch<NotificationSettings>();
     final platform = Theme.of(context).platform;
+    final denied =
+        settings.enabled &&
+        (checks?.permission == false ||
+            (checks?.permission == null && settings.permissionDenied));
     return GroupedDialog(
       title: 'Notifications',
       children: [
@@ -89,16 +107,12 @@ class _NotificationsDialog extends StatelessWidget {
             GroupedSwitchRow(
               key: const Key('notify-me'),
               title: 'Notify me',
-              warning:
-                  settings.enabled &&
-                      (checks?.permission == false ||
-                          (checks?.permission == null &&
-                              settings.permissionDenied))
-                  ? 'Turn on notifications for Hermes in system settings.'
-                  : null,
+              warning: denied ? context.l10n.notificationsDeniedWarning : null,
               value: settings.enabled,
               onChanged: (value) => settings.setEnabled(value),
             ),
+            if (denied && canOpenNotificationSettings(platform))
+              OpenSettingsButton(onPressed: openSettings),
           ],
         ),
         GroupedSection(

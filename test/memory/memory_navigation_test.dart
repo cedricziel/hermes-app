@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -62,6 +62,25 @@ void main() {
       {'profile': 'work'},
     );
     expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
+  });
+
+  testWidgets('opens on the launch profile when none is named', (tester) async {
+    server.on('GET', '/api/profiles/active', {
+      'active': 'other',
+      'current': 'work',
+    });
+    await tester.pumpWidget(
+      Provider<HermesRepositories?>.value(
+        value: HermesRepositories(server.client()),
+        child: const MaterialApp(home: MemoryDestination()),
+      ),
+    );
+    await settle(tester);
+
+    expect(
+      server.requestsTo('GET', '/api/learning/graph').single.queryParameters,
+      {'profile': 'work'},
+    );
   });
 
   testWidgets('the waiting card counts the changes of the named profile', (

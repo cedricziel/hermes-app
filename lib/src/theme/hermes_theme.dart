@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import 'focus_ring.dart';
 import 'hermes_code_colors.dart';
 import 'macos_page_transitions.dart';
 import 'platform_chrome.dart';
@@ -62,6 +63,10 @@ const double kHermesMutedAlpha = 0.7;
 
 /// A push button's height on macOS, tighter than a touch target.
 const double _kMacButtonHeight = 28;
+
+/// The `minimumSize` height that renders a Mac button [_kMacButtonHeight]
+/// tall: the desktop's compact density (-2) takes 8 off a button's minimum.
+const double _kMacButtonMinHeightBeforeDensity = _kMacButtonHeight + 8;
 
 /// [platform] defaults to the running platform; tests pass one to build the
 /// Apple or Material variant.
@@ -140,7 +145,7 @@ ThemeData _buildTheme({
     platform: target,
   );
   final appleButtonSize = apple
-      ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonHeight)
+      ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonMinHeightBeforeDensity)
       : null;
   final macMenuText = isMac
       ? base.textTheme.bodyMedium?.copyWith(
@@ -158,6 +163,12 @@ ThemeData _buildTheme({
   final overlaySurface = dark ? HermesColors.zinc900 : null;
   const overlayRadius = Radius.circular(_kOverlayRadius);
   final fieldRadius = BorderRadius.circular(10);
+  // The keyboard focus ring, in the link colour: the primary colour is near
+  // black, so a ring in it would vanish on a filled button.
+  final buttonShape = focusRingShape(
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    link,
+  );
   final appleFieldBorder = OutlineInputBorder(
     borderRadius: fieldRadius,
     borderSide: BorderSide.none,
@@ -172,7 +183,7 @@ ThemeData _buildTheme({
     textTheme: isIos ? iosTextTheme(base.textTheme) : null,
     scaffoldBackgroundColor: scaffoldBackground,
     splashFactory: apple ? NoSplash.splashFactory : null,
-    adaptations: [_AppleSwitchAdaptation(scheme)],
+    adaptations: [_SwitchAdaptation(scheme)],
     extensions: [
       HermesChatColors(
         sidebar: sidebarBackground,
@@ -236,24 +247,21 @@ ThemeData _buildTheme({
       style: TextButton.styleFrom(
         minimumSize: appleButtonSize,
         foregroundColor: scheme.onSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      ).copyWith(shape: buttonShape),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: appleButtonSize,
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      ).copyWith(shape: buttonShape),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: appleButtonSize,
         foregroundColor: scheme.onSurface,
         side: BorderSide(color: scheme.outline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+      ).copyWith(shape: buttonShape),
     ),
     dialogTheme: dark
         ? DialogThemeData(
@@ -297,8 +305,17 @@ ThemeData _buildTheme({
             ),
           )
         : null,
+    // A chip's default shape (8 px) with the ring; a chip sets no shape of its
+    // own, and a `side` still draws its border.
+    chipTheme: ChipThemeData(
+      shape: FocusRingStateBorder(
+        base: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        color: link,
+      ),
+    ),
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(foregroundColor: scheme.onSurface),
+      style: IconButton.styleFrom(foregroundColor: scheme.onSurface)
+          .copyWith(shape: focusRingShape(const StadiumBorder(), link)),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: scheme.surface,
@@ -394,11 +411,16 @@ extension HermesThemeX on BuildContext {
   }
 }
 
-/// Keeps the iOS/macOS toggle's native shape and motion but swaps its green
-/// for the zinc primary; the thumb takes `onPrimary` so it stays visible on
-/// the near-white dark-mode track.
-class _AppleSwitchAdaptation extends Adaptation<SwitchThemeData> {
-  const _AppleSwitchAdaptation(this.scheme);
+/// Switch colours per platform. iOS and macOS keep the toggle's native shape
+/// and motion but swap its green for the zinc primary; the thumb takes
+/// `onPrimary` so it stays visible on the near-white dark-mode track. Every
+/// other platform draws Material's switch, whose off state is made visible
+/// against the row (WCAG 1.4.11):
+/// Material's defaults leave the outline, track and thumb all within a shade
+/// of the row's `surface`. The off state of the Apple switch is below 3:1 too;
+/// that is left as it is until the owner chooses its colour.
+class _SwitchAdaptation extends Adaptation<SwitchThemeData> {
+  const _SwitchAdaptation(this.scheme);
 
   final ColorScheme scheme;
 
@@ -421,7 +443,24 @@ class _AppleSwitchAdaptation extends Adaptation<SwitchThemeData> {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
-        return defaultValue;
+        final dark = scheme.brightness == Brightness.dark;
+        // A disabled switch is exempt from the contrast rule and keeps
+        // Material's dimmed look, as does the on state.
+        bool plainOff(Set<WidgetState> states) =>
+            !states.contains(WidgetState.selected) &&
+            !states.contains(WidgetState.disabled);
+        return defaultValue.copyWith(
+          trackOutlineColor: WidgetStateProperty.resolveWith(
+            (states) => plainOff(states)
+                ? HermesColors.zinc500
+                : defaultValue.trackOutlineColor?.resolve(states),
+          ),
+          thumbColor: WidgetStateProperty.resolveWith(
+            (states) => plainOff(states)
+                ? (dark ? HermesColors.zinc400 : HermesColors.zinc500)
+                : defaultValue.thumbColor?.resolve(states),
+          ),
+        );
     }
   }
 }

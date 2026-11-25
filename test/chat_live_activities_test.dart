@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -218,7 +218,7 @@ void main() {
     });
     await tester.runAsync(chat.loadThreads);
     chat.select('s1');
-    chat.submit('Any news?', const []);
+    await chat.submit('Any news?', const []);
     await tester.pump();
     expect(service.running, hasLength(1));
 

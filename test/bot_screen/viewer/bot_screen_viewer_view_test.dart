@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_viewer_view.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../support/tooltip_finder.dart';
 
 Widget _app(
   BotScreenViewerPhase phase, {
@@ -15,7 +17,7 @@ Widget _app(
   VoidCallback? onClose,
   BotScreenControl control = BotScreenControl.watching,
   bool canForce = false,
-  String lostText = 'Someone else took control.',
+  bool lostToAgent = false,
   String profile = 'research',
   VoidCallback? onTakeOver,
   VoidCallback? onHandBack,
@@ -41,7 +43,7 @@ Widget _app(
       onClose: onClose,
       control: control,
       canForce: canForce,
-      lostText: lostText,
+      lostToAgent: lostToAgent,
       onTakeOver: onTakeOver,
       onHandBack: onHandBack,
       onForceHandBack: onForceHandBack,
@@ -60,6 +62,35 @@ Widget _app(
 
 void main() {
   final zoom = find.byType(InteractiveViewer);
+
+  group('the viewer theme', () {
+    for (final (platform, shrinkWrap) in [
+      (TargetPlatform.macOS, true),
+      (TargetPlatform.windows, true),
+      (TargetPlatform.iOS, false),
+      (TargetPlatform.android, false),
+    ]) {
+      testWidgets('is built for $platform, dark', (tester) async {
+        await tester.pumpWidget(
+          _app(BotScreenViewerPhase.live, platform: platform),
+        );
+
+        final theme = Theme.of(tester.element(zoom));
+        expect(theme.brightness, Brightness.dark);
+        expect(theme.platform, platform);
+        expect(
+          theme.materialTapTargetSize,
+          shrinkWrap
+              ? MaterialTapTargetSize.shrinkWrap
+              : MaterialTapTargetSize.padded,
+        );
+        expect(
+          theme.visualDensity,
+          shrinkWrap ? VisualDensity.compact : VisualDensity.standard,
+        );
+      });
+    }
+  });
 
   group('the picture', () {
     testWidgets('zooms out no further than the screen and up to 4 times', (
@@ -138,7 +169,7 @@ void main() {
       );
 
       expect(
-        tester.getTopLeft(find.byTooltip('Close')).dx,
+        tester.getTopLeft(find.tooltip('Close')).dx,
         greaterThanOrEqualTo(47),
       );
       expect(tester.getBottomRight(zoom).dy, lessThanOrEqualTo(390 - 21));
@@ -192,7 +223,7 @@ void main() {
         final tooltip = platform == TargetPlatform.macOS
             ? 'Close (Esc)'
             : 'Close';
-        await tester.tap(find.byTooltip(tooltip));
+        await tester.tap(find.tooltip(tooltip));
       }
 
       expect(closed, TargetPlatform.values.length);
@@ -284,7 +315,7 @@ void main() {
       );
 
       expect(find.text('Someone else took control.'), findsOne);
-      await tester.tap(find.byTooltip('Dismiss'));
+      await tester.tap(find.tooltip('Dismiss'));
       await tester.tap(find.text('Take over'));
 
       expect((dismissed, tookOver), (1, 1));
@@ -297,7 +328,7 @@ void main() {
           BotScreenViewerPhase.blanked,
           picture: false,
           control: BotScreenControl.lost,
-          lostText: 'Hermes took control back.',
+          lostToAgent: true,
         ),
       );
 
@@ -424,7 +455,7 @@ void main() {
       );
 
       expect(find.text("This text can't be pasted to the screen."), findsOne);
-      await tester.tap(find.byTooltip('Dismiss'));
+      await tester.tap(find.tooltip('Dismiss'));
 
       expect(closed, 1);
     });

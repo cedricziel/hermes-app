@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -16,6 +16,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -136,7 +137,7 @@ void main() {
     await pumpBoard(tester, size: const Size(1400, 900));
 
     server.on('GET', '/api/plugins/kanban/board', {'detail': 'x'}, status: 404);
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
 
     expect(find.text('Kanban isn’t available'), findsOneWidget);
@@ -163,7 +164,7 @@ void main() {
     expect(find.text(notice), findsNothing);
 
     server.on('GET', '/api/plugins/kanban/board', {'detail': 'x'}, status: 500);
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
 
     expect(find.text(notice), findsOneWidget);
@@ -202,7 +203,7 @@ void main() {
     await pumpBoard(tester, size: const Size(1400, 900));
     final before = server.requestsTo('GET', '/api/plugins/kanban/board').length;
 
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
 
     expect(
@@ -217,7 +218,7 @@ void main() {
     serveTasks();
     await pumpBoard(tester, size: const Size(400, 800));
 
-    expect(find.byTooltip('Refresh'), findsNothing);
+    expect(find.tooltip('Refresh'), findsNothing);
   });
 
   testWidgets('tapping a card opens its detail', (tester) async {

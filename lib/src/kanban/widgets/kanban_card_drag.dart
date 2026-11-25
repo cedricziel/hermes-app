@@ -1,7 +1,8 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -82,7 +83,7 @@ class KanbanDragHandle extends StatelessWidget {
     onDragStarted: onDragStarted,
     onDragEnd: (_) => onDragEnd?.call(),
     child: Tooltip(
-      message: 'Drag to move',
+      message: context.l10n.kanbanCardDragHint,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           minWidth: platformChromeOf(context).isApple ? kAppleMinTapTarget : 0,

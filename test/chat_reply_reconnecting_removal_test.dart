@@ -53,7 +53,7 @@ void main() {
     chat.select('s1');
     await pumpEventQueue();
     final thread = chat.selectedThread!;
-    chat.submit('Again', const []);
+    await chat.submit('Again', const []);
     final send = transport.sends.single;
     send
       ..emit(const PromptAcknowledged(2))

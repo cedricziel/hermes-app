@@ -1,3 +1,4 @@
+import '../profiles/profile_resolver.dart';
 import '../chat/chat_transport.dart';
 
 /// Where the commands about staged writes run, in one place so the inbox, the
@@ -11,7 +12,7 @@ class MemoryProposalSession {
 
   final ChatTransport _transport;
 
-  Future<String> run(String profile, String command) async =>
+  Future<String> run(ResolvedProfile profile, String command) async =>
       (await _transport.runSlashCommand(
         profile: profile,
         command: command,

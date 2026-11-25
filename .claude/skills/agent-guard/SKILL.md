@@ -15,8 +15,9 @@ run it: hooks exist only in Claude Code sessions, and nothing under
 
 Do what the message says; do not look for another spelling of the same command.
 The messages are the rules: no `--no-verify`/`-n`, no `core.hooksPath` change,
-no `git stash`, no staging everything (`git add -A`, `.`, `commit -a`), no force
-push or remote branch deletion, no rebase of a branch that exists on origin,
+no `git stash`, no `git worktree prune` (any form), no staging everything
+(`git add -A`, `.`, `commit -a`), no force push or remote branch deletion, no
+rebase of a branch that exists on origin,
 no commit before `dart run tool/setup_git_hooks.dart`, no touching the real
 `~/.hermes`, no `pkill -f`/`killall`.
 
@@ -41,6 +42,19 @@ add a test, do not work around it.
 - With `--post` the same script is a PostToolUse hook that runs
   `flutter gen-l10n` after a pull or merge that changed `lib/l10n/arb/*.arb`.
 
+- Only when `CLAUDE_CODE_REMOTE=true` (cloud sessions; unset, empty, `false` or
+  anything else is local and behaves as before, so the release skill's `gh`
+  commands work locally), `gh` is search-only (F.333): only `gh api` GET on `search/{code,repositories,
+  issues,commits,users}` (with `-f` needing an explicit `-X GET`, since gh turns
+  `-f` into a POST), `gh --version`, `gh help` and bare `gh` pass; every other
+  `gh` call is blocked with the nearest `mcp__github__*` tool. It sees `gh` after
+  `env`/`sudo`/`command`/a path, inside `$(...)`, `bash -c`, `xargs` and
+  `find -exec`, and fails closed on a computed program name (`$G pr view`)
+  while `gh` is a word of the command. Quoted text like `git commit -m "gh x"`
+  passes. Not covered: `gh` run from inside a script file or a `python -c`.
+- In local and cloud sessions alike, each `find -exec/-execdir/-ok/-okdir`
+  action (after `env`/`sudo`/`timeout`/`nice`, up to its `;`, or a `{}` followed by `+`) gets the same
+  git checks and messages as a direct command; `find -exec sh -c 'git stash'` is not unwrapped.
 - Beyond git it also blocks `gh pr merge --delete-branch`, `gh api -X DELETE`
   on `git/refs`, `-c alias.*` and `GIT_CONFIG_KEY_*` for `core.hooksPath` or
   aliases, removing or `chmod -x` of the pre-commit hook, `git pull --rebase`
@@ -71,11 +85,30 @@ add a test, do not work around it.
   file executable.
 
 Known gaps: a program named by substitution (`$(which git) stash`), a banned
-command inside a script file or a git alias defined in a config file, `find
--exec` and similar runners, other ways to delete a remote branch through
+command inside a script file or a git alias defined in a config file, other runners
+(`parallel`) for the git bans, other ways to delete a remote branch through
 `gh`, a hook path built from a variable (`$HOOKS/pre-commit`) or written with
 `sed -i` or `python`, and hosts without `python3` (the hook then cannot run and
-does not block).
+does not block). For `find` actions, `-execdir` judges git scope by the shell's cwd.
+`flock`, `stdbuf`, `ionice` and `setsid` are not unwrapped for the git bans.
+Non-git checks (`hermes dashboard`, `chmod` on `.git/hooks`) are not applied to find actions.
+
+## Startup freshness warning
+
+Hooks load from `$CLAUDE_PROJECT_DIR`, so a checkout from before the guard
+existed runs unguarded and silent. `.claude/hooks/session-start.sh` (local and
+cloud) runs `check_guard_freshness.py` first and prints `WARNING: the Bash guard
+is not active in this session:` when `guard_bash.py` is missing, `settings.json`
+has no `PreToolUse` hook for Bash running it (checks (a) and (b) need no git;
+the command is matched exactly against `GUARD_COMMANDS` in the helper, so a
+change to the PreToolUse command in `settings.json` must update that constant,
+which `test_real_repo_settings_are_recognised` enforces),
+and, with a lag-only header, when HEAD is more than `MAX_COMMITS_BEHIND`
+(20) commits behind the local `origin/main` (no fetch; skipped without that
+ref). It is read-only, always exits 0, and names the fix
+(`git -C "$CLAUDE_PROJECT_DIR" fetch origin main && ... merge --ff-only origin/main`,
+then a new session). If you see it, run the fix and start a new session. Tests:
+`scripts/test_session_start_guard_check.py`.
 
 ## Add or change a rule
 

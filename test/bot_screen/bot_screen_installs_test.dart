@@ -7,6 +7,7 @@ import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/bot_screen/install/bot_screen_installs.dart';
 import 'package:hermes_app/src/bot_screen/install/install_state.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/fake_gateway.dart';
@@ -23,7 +24,7 @@ void main() {
   late FakeAsync async;
   late RecordingTracer tracer;
   final logged = <String>[];
-  final asked = <String>[];
+  final asked = <String?>[];
   final askedProfiles = <String>[];
 
   /// What the password prompt answers; null is Cancel.
@@ -60,7 +61,7 @@ void main() {
   }
 
   InstallState? stateOf([String profile = 'work']) =>
-      installs.stateFor(profile);
+      installs.stateFor(resolvedProfile(profile));
 
   /// The JSON-RPC error code the app answered the request with.
   int? errorCode(String id) =>
@@ -90,7 +91,7 @@ void main() {
         telemetry: telemetryOf(),
       );
 
-  Future<String?> defaultAsk(String host, String profile, Future<void> ended) {
+  Future<String?> defaultAsk(String? host, String profile, Future<void> ended) {
     asked.add(host);
     askedProfiles.add(profile);
     if (holdPrompt case final hold?) return hold.future;
@@ -134,7 +135,7 @@ void main() {
 
   /// Presses Install on Server for `work` and lets the answer arrive.
   void install() {
-    installs.start('work', profileKey: _key);
+    installs.start(resolvedProfile('work'), profileKey: _key);
     settle();
   }
 
@@ -260,7 +261,7 @@ void main() {
     test('before the answer to display.install still ends it', () {
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         settle();
         log('early');
         done(0);
@@ -408,7 +409,7 @@ void main() {
         'for the connection to be known, then is answered', () {
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         settle();
 
         sudo('srq-1');
@@ -430,7 +431,7 @@ void main() {
     test('a refused install does not leave a waiting request unanswered', () {
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         settle();
         sudo('srq-1');
 
@@ -483,8 +484,8 @@ void main() {
           'command': _command,
           'profile_key': '/keys/${params['profile']}',
         };
-        installs.start('work', profileKey: '/keys/work');
-        installs.start('home', profileKey: '/keys/home');
+        installs.start(resolvedProfile('work'), profileKey: '/keys/work');
+        installs.start(resolvedProfile('home'), profileKey: '/keys/home');
         settle();
 
         sudo('srq-w', key: '/keys/work');
@@ -713,7 +714,7 @@ void main() {
       });
       scenario(() {
         gateway.silent.add('display.install');
-        installs.start('work', profileKey: _key);
+        installs.start(resolvedProfile('work'), profileKey: _key);
         async.elapse(const Duration(seconds: 11));
 
         expect(tracer.spans.single.attributes['outcome'], 'error');

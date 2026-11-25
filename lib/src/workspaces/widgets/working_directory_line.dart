@@ -1,15 +1,28 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import 'workspace_widget_support.dart';
 
+/// From this text scale (inclusive) the chat header gives its title and the
+/// folder line their own rows under the bar. The Files screens keep
+/// [isLargeText] (above 1.3); the header needs the boundary itself, where a
+/// 360 dp bar already cuts a short title to a few characters.
+const double kHeaderLargeTextScale = 1.3;
+
+/// Whether the chat header is at [kHeaderLargeTextScale] or more.
+bool isHeaderLargeText(BuildContext context) =>
+    textScaleOf(context) >= kHeaderLargeTextScale - 1e-6;
+
 /// Whether the folder line leaves the bar and becomes a full-width row under
-/// it: at a large text size, so the bar keeps one line of title.
-bool workingDirectoryLineBelowBar(BuildContext context) => isLargeText(context);
+/// it: from [kHeaderLargeTextScale], so the bar keeps one line of title and
+/// the title row moves with it.
+bool workingDirectoryLineBelowBar(BuildContext context) =>
+    isHeaderLargeText(context);
 
 /// The line under an open chat's title: the folder glyph, "api · main" (the
 /// folder and the branch) and a small chevron. A tap opens the folder's
@@ -161,15 +174,18 @@ class WorkingDirectoryLine extends StatelessWidget {
         shape: below
             ? Border(bottom: BorderSide(color: scheme.outlineVariant))
             : null,
-        child: InkWell(
-          onTap: onTap,
-          child: ExcludeSemantics(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: minHeight),
-              child: Align(
-                alignment: AlignmentDirectional.centerStart,
-                widthFactor: below ? null : 1,
-                child: content,
+        child: FocusRing(
+          radius: 0,
+          child: InkWell(
+            onTap: onTap,
+            child: ExcludeSemantics(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: minHeight),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  widthFactor: below ? null : 1,
+                  child: content,
+                ),
               ),
             ),
           ),
