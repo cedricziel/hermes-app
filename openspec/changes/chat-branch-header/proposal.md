@@ -18,7 +18,7 @@ Branching from a reply shipped in #880: every finished reply offers "Branch in n
 - Listing a chat's branches on the parent ("3 branches"). Needs a scan of every loaded row for `_branched_from` and says nothing for rows not loaded; later, if wanted.
 - Nesting branches under their parent in the list, as Hermes' own desktop app does (`apps/desktop/src/lib/session-branch-tree.ts`). It conflicts with the app's recency sections, folder grouping, pins and swipe rows (see `design.md`).
 - Using `session.branch`'s `count` or `idempotency_key` (the shipped flow cuts with `session.undo`; see `docs/architecture/chat.md`). Reusing an idempotency key on a retry is a separate item of #458.
-- Conversation windows and the quick panel: they hold no controller, so they show no notice.
+- Conversation windows and the quick panel: `ChatScreen` is the only caller that passes the notice to `boundChatThreadView` (as it does `workspaceNotice`), so they show none.
 
 ## Security and privacy impact
 

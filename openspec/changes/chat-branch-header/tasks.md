@@ -22,8 +22,8 @@ Plain-model widgets only: no controller, no repository, no screen.
 
 ## 3. PR 3 - `feat(chat): open the original chat from a branch`
 
-- [ ] 3.1 Failing controller tests first: tap with a loaded parent opens it (one `latest-descendant`, then the open); not loaded opens through `fetchMissing`; `changed: true` opens the tip and the row then names it; 404 `Session not found` ends in `deleted` and a second tap sends nothing; 5xx, no answer and a 10 s wait (simulated clock) end in `unreachable` with nothing resent; a tap while opening is ignored; a read that finishes under the App Lock cover leaves the selection unchanged; sign-out, server change and profile switch drop the state.
-- [ ] 3.2 `ChatController.openBranchParent` and the notice slot in `boundChatThreadView` beside `FolderMismatchNotice`; none in conversation windows or the quick panel.
+- [ ] 3.1 Failing controller tests first: tap with a loaded parent opens it (one `latest-descendant`, then the open); not loaded opens through `fetchMissing`; `changed: true` opens the tip and the row then names it; 404 `Session not found` ends in `deleted` and a second tap sends nothing; 5xx, no answer and a 10 s wait (simulated clock) end in `unreachable` with nothing resent; a tap while opening is ignored; a read that finishes under the App Lock cover leaves the selection unchanged; a read that finishes after the user selected another chat opens nothing (`dropped`); sign-out and server change drop the state; a profile switch (through the list load) clears the `deleted` set and an in-flight open.
+- [ ] 3.2 `ChatController.openBranchParent` and a `branchNotice` parameter of `boundChatThreadView` beside `workspaceNotice`, passed only by `ChatScreen`; a test that a conversation window and the quick panel build none.
 - [ ] 3.3 Mac: `MacCommand.openParentChat` in the Chat menu, no chord, disabled without a parent or when `deleted`.
 - [ ] 3.4 Privacy check: a test that the `chat.branch_parent.open` breadcrumb's payload keys are exactly `outcome`; the surface snapshot test sees no parent id or title.
 - [ ] 3.5 Workflow test screenshot of a branched chat on phone and desktop (`workflow-screenshots`).

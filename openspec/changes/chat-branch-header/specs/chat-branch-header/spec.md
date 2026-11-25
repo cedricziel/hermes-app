@@ -22,7 +22,7 @@ The app SHALL treat a chat as a branch only when its session row (`GET /api/sess
 
 ### Requirement: Branched-from notice
 
-An open chat with a parent SHALL show one row between its header and its transcript: "Branched from <title>" with a chevron when the parent is in the loaded list, "Branched from another chat" when it is not. The row SHALL be one tap target of at least 44 pt (48 dp on Android, 32 pt on the Mac). Conversation windows and the quick panel SHALL show none.
+An open chat with a parent SHALL show one row between its header and its transcript: "Branched from <title>" with a chevron when the parent is in the loaded list, "Branched from another chat" when it is not. The row SHALL be one tap target of at least 44 pt (48 dp on Android, 32 pt on the Mac). Conversation windows and the quick panel SHALL show none, because only the main chat screen passes the notice.
 
 #### Scenario: Title known
 
@@ -52,6 +52,11 @@ A tap SHALL send one `GET /api/sessions/{id}/latest-descendant` with the chat's 
 
 - **WHEN** the request fails, answers 5xx or has no answer after 10 s
 - **THEN** the row reads "Couldn't reach Hermes. Check your connection." with "Try again", and nothing is resent until the next tap
+
+#### Scenario: The user selected another chat meanwhile
+
+- **WHEN** the read finishes after the user selected a different chat, or the profile changed
+- **THEN** nothing opens and the selection stays
 
 #### Scenario: App Lock covers the app meanwhile
 
