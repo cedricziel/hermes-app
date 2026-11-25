@@ -45,6 +45,18 @@ class _Flaky implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// Always draws just below the bound, so a wait shows how big its bound is.
+class _Top implements Random {
+  @override
+  double nextDouble() => 0.999;
+
+  @override
+  bool nextBool() => true;
+
+  @override
+  int nextInt(int max) => max - 1;
+}
+
 void main() {
   late List<Duration> slept;
   late Dio dio;
@@ -146,6 +158,16 @@ void main() {
       expect(slept, isEmpty);
     });
   }
+
+  test('the bound doubles from one wait to the next', () async {
+    final adapter = _Flaky(DioExceptionType.connectionError, failures: 2);
+    dio = build(adapter, random: _Top());
+
+    await dio.get<Object?>('/api/status');
+
+    expect(slept[0], greaterThan(const Duration(milliseconds: 400)));
+    expect(slept[1], greaterThan(const Duration(milliseconds: 900)));
+  });
 
   test('requests that fail together do not wait the same time', () async {
     final adapter = _Flaky(DioExceptionType.connectionError, failures: 12);
