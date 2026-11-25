@@ -160,7 +160,7 @@ extension _ChatControllerSending on ChatController {
     // The queue waited for the session to settle after the turn before. This
     // one decides when it may go on.
     _settleTimers.remove(thread)?.cancel();
-    return _insertReply(thread);
+    return _insertReply(thread)..regenerated = _regenerating.remove(thread);
   }
 
   /// Adds a thinking assistant message to [thread], at the end or, with

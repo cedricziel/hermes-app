@@ -185,6 +185,10 @@
   "@chatReplyReconnecting": {
     "description": "Note under a reply whose connection to Hermes dropped while the answer may still be coming. Not an error: the reply keeps what it had and goes on when the connection is back. Announced once to screen readers. Wraps at any text size."
   },
+  "chatReplyRegenerated": "Regenerated",
+  "@chatReplyRegenerated": {
+    "description": "Small label in the row of actions under a reply that replaced an earlier one after the user chose Retry or Edit. One word beside a refresh icon, on one line. Shown only in the session where it happened; a chat reloaded from the server does not show it."
+  },
   "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
   "@chatReplyUnconfirmed": {
     "description": "Note under a reply that was settled because the server could not be made to say whether its turn still runs or how it ended (its answers were refused, or unreadable for as long as the app is willing to ask). Nothing was resent. Announced once to screen readers. Wraps at any text size."

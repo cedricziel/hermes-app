@@ -642,6 +642,10 @@ class ChatMessage {
   /// The user stopped this reply after some of it had streamed, so it is not
   /// the whole answer. Known only to this app, not to reloaded history.
   bool stopped = false;
+
+  /// This reply replaced the one a Retry or an Edit took back. Known only to
+  /// this app: Hermes stores no such flag, so reloaded history does not show it.
+  bool regenerated = false;
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
 

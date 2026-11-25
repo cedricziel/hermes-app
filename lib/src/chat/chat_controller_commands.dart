@@ -310,7 +310,9 @@ extension _ChatControllerCommands on ChatController {
   ) async {
     if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
       try {
-        await _undoLastTurn(thread, TurnAction.retry);
+        if (await _undoLastTurn(thread, TurnAction.retry)) {
+          _regenerating.add(thread);
+        }
       } on Object catch (error) {
         if (_currentActivity(epoch) &&
             _sessionActionCurrent(thread, generation)) {
@@ -358,6 +360,7 @@ extension _ChatControllerCommands on ChatController {
       report("This Hermes server can't edit prompts. Update Hermes to edit.");
       return;
     }
+    _regenerating.add(thread);
     onPrefill?.call(prompt);
   }
 

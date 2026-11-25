@@ -195,7 +195,7 @@ List<Message> chatMessageToFlyer(
         text: m.role == ChatRole.user
             ? media.text
             : insertTableBlankLines(media.text),
-        metadata: switch (m.status) {
+        metadata: _withRegenerated(m, switch (m.status) {
           MessageStatus.error when m.loss != null && m.error == null => {
             kMetaLoss: m.loss!.name,
           },
@@ -209,7 +209,7 @@ List<Message> chatMessageToFlyer(
           MessageStatus.streaming => {kMetaStreaming: true},
           _ when m.stopped => {kMetaStopped: true},
           _ => null,
-        },
+        }),
       ),
     for (final (i, attachment) in media.attachments.indexed)
       attachmentMessage('${m.id}-media-$i', attachment),
@@ -245,6 +245,12 @@ List<Message> chatMessageToFlyer(
   }
   return messages;
 }
+
+/// [meta] with the regenerated mark of [m], if it has one.
+Map<String, dynamic>? _withRegenerated(
+  ChatMessage m,
+  Map<String, dynamic>? meta,
+) => m.regenerated ? {...?meta, kMetaRegenerated: true} : meta;
 
 List<Message> chatThreadToFlyer(ChatThread t) =>
     chatMessagesToFlyer(t.messages);

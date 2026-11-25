@@ -93,7 +93,8 @@ enum ReadAloudState { idle, loading, playing }
 /// The small row of actions under a finished reply — assistant-ui's action
 /// bar. Copy takes the reply's text; retry, when given, asks again, and edit
 /// takes the prompt back to change it. A reply the user [stopped] says so
-/// first, so it does not read as finished. While [status] has an action
+/// first, so it does not read as finished; one that [regenerated] an earlier
+/// reply (Retry or Edit) says so the same way. While [status] has an action
 /// running, it takes the place of retry and edit; a [TurnActionStatus.problem]
 /// is said below the bar. While the status is [TurnActionStatus.held] Retry
 /// and Edit stay on the bar but cannot be pressed, and a line says why
@@ -106,6 +107,7 @@ class MessageActions extends StatefulWidget {
     required this.text,
     this.showCopy = true,
     this.stopped = false,
+    this.regenerated = false,
     this.onRetry,
     this.onEdit,
     this.onBranch,
@@ -120,6 +122,7 @@ class MessageActions extends StatefulWidget {
   /// False for a failed reply that kept no text.
   final bool showCopy;
   final bool stopped;
+  final bool regenerated;
   final VoidCallback? onRetry;
   final VoidCallback? onEdit;
   final VoidCallback? onBranch;
@@ -168,6 +171,7 @@ class _MessageActionsState extends State<MessageActions> {
         widget.onBranch == null &&
         widget.readAloud == null &&
         !widget.stopped &&
+        !widget.regenerated &&
         widget.status == TurnActionStatus.idle) {
       return const SizedBox.shrink();
     }
@@ -198,6 +202,7 @@ class _MessageActionsState extends State<MessageActions> {
     final problem = widget.status.problem;
     final held = widget.status.held && running == null;
     final l10n = context.l10n;
+    final labelStyle = TextStyle(color: color, fontSize: 12.5);
     final bar = Padding(
       padding: EdgeInsets.only(top: touch ? 0 : 4),
       child: Row(
@@ -206,7 +211,20 @@ class _MessageActionsState extends State<MessageActions> {
           if (widget.stopped) ...[
             AppIcon(AppIcons.stop, size: 16, color: color),
             const SizedBox(width: 4),
-            Text('Stopped', style: TextStyle(color: color, fontSize: 12.5)),
+            Text('Stopped', style: labelStyle),
+            const SizedBox(width: 8),
+          ],
+          if (widget.regenerated) ...[
+            AppIcon(AppIcons.refresh, size: 16, color: color),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                l10n.chatReplyRegenerated,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: labelStyle,
+              ),
+            ),
             const SizedBox(width: 8),
           ],
           if (widget.showCopy)
