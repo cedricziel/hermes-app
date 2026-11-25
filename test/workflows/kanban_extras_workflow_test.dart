@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart' show RequestOptions;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +24,15 @@ import '../support/fake_kanban_files.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
+
+/// The rows of the open bulk picker, whatever the value type behind them.
+final _choiceRows = find.byWidgetPredicate(
+  (widget) => widget is GroupedChoiceRow,
+);
+
+Finder _choiceRow(String label) =>
+    find.descendant(of: _choiceRows, matching: find.text(label));
 
 /// The Kanban screens `kanban_workflow_test.dart` does not walk: workers,
 /// orchestration, boards management, the task panel and its dialogs, the
@@ -524,7 +533,7 @@ void main() {
         expect(columnLabel(size, 'Scheduled', 0), findsOneWidget);
         expect(columnLabel(size, 'Ready', 0), findsOneWidget);
         expect(card('Triage item 1'), findsOneWidget);
-        expect(find.byTooltip('Refresh'), findsOneWidget);
+        expect(find.tooltip('Refresh'), findsOneWidget);
       } else {
         // Running is listed, with a chip for every column and its count.
         expect(chipSelected(tester, 'Running', 14), isTrue);
@@ -541,7 +550,7 @@ void main() {
         expect(inCard(richTitle, '12'), findsOneWidget);
         expect(inCard(richTitle, '2/5'), findsOneWidget);
         expect(inCard(richTitle, '2'), findsOneWidget);
-        expect(find.byTooltip('Refresh'), findsNothing);
+        expect(find.tooltip('Refresh'), findsNothing);
       }
 
       // The end of the running list, where the FAB sits over the last card.
@@ -573,20 +582,6 @@ void main() {
 
       await showColumn(tester, size, 'Todo');
       await shots.capture(tester, 'todo-long-titles');
-      if (!wide(size)) {
-        // Stopgap: the phone list keeps one scroll offset across status chips
-        // (the same ListView is reused), so the running list's bottom offset
-        // carries over; scroll back up to reach the card. A product defect
-        // with its own follow-up.
-        await tester.scrollUntilVisible(
-          find.text('Todo 3'),
-          -200,
-          scrollable: find.descendant(
-            of: find.byType(ListView).last,
-            matching: find.byType(Scrollable),
-          ),
-        );
-      }
       expect(card('Todo 3'), findsOneWidget);
       expect(card('Todo 5'), findsOneWidget);
       expect(
@@ -790,7 +785,7 @@ void main() {
       expect(find.text('0 selected'), findsOneWidget);
       expect(find.text('Kanban'), findsNothing);
       expect(find.text('New task'), findsNothing);
-      expect(find.byTooltip('Cancel selection'), findsOneWidget);
+      expect(find.tooltip('Cancel selection'), findsOneWidget);
       expect(find.byType(KanbanBulkBar), findsOneWidget);
       // Nothing is picked, so no action can be started.
       for (final action in [
@@ -851,7 +846,7 @@ void main() {
       await shots.capture(tester, 'move-dialog');
       expect(find.text('Move to'), findsOneWidget);
       // The statuses a person may set, and not Running or Archived.
-      expect(find.byType(SimpleDialogOption), findsNWidgets(7));
+      expect(_choiceRows, findsNWidgets(7));
       for (final status in [
         'Triage',
         'Todo',
@@ -861,11 +856,7 @@ void main() {
         'Review',
         'Done',
       ]) {
-        expect(
-          find.widgetWithText(SimpleDialogOption, status),
-          findsOneWidget,
-          reason: status,
-        );
+        expect(_choiceRow(status), findsOneWidget, reason: status);
       }
       await popRoute(tester);
       expect(find.text('Move to'), findsNothing);
@@ -876,32 +867,22 @@ void main() {
       await shots.capture(tester, 'assign-dialog');
       expect(find.text('Assign to'), findsOneWidget);
       // Nobody, then everyone the board knows.
-      expect(find.byType(SimpleDialogOption), findsNWidgets(9));
-      expect(find.widgetWithText(SimpleDialogOption, 'Nobody'), findsOneWidget);
-      expect(
-        find.widgetWithText(SimpleDialogOption, 'designer'),
-        findsOneWidget,
-      );
-      expect(
-        find.widgetWithText(SimpleDialogOption, opsAssignee),
-        findsOneWidget,
-      );
+      expect(_choiceRows, findsNWidgets(9));
+      expect(_choiceRow('Nobody'), findsOneWidget);
+      expect(_choiceRow('designer'), findsOneWidget);
+      expect(_choiceRow(opsAssignee), findsOneWidget);
       await popRoute(tester);
       expect(find.text('Assign to'), findsNothing);
 
       await tester.tap(find.text('Priority'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'priority-dialog');
-      expect(find.byType(SimpleDialogOption), findsNWidgets(4));
+      expect(_choiceRows, findsNWidgets(4));
       for (final priority in ['Normal', 'P1', 'P2', 'P3']) {
-        expect(
-          find.widgetWithText(SimpleDialogOption, priority),
-          findsOneWidget,
-          reason: priority,
-        );
+        expect(_choiceRow(priority), findsOneWidget, reason: priority);
       }
       await popRoute(tester);
-      expect(find.byType(SimpleDialogOption), findsNothing);
+      expect(_choiceRows, findsNothing);
 
       await tester.tap(find.text('Archive'));
       await tester.pumpAndSettle();
@@ -1061,7 +1042,7 @@ void main() {
       server.on('GET', '/api/plugins/kanban/workers/active', {
         'detail': 'gateway timeout',
       }, status: 504);
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.tooltip('Refresh'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'refresh-failed');
       // The refresh is said to have failed, and the list stays as it was.
@@ -1087,7 +1068,7 @@ void main() {
     server.on('GET', '/api/plugins/kanban/workers/active', {
       'detail': 'x',
     }, status: 500);
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
     // With nothing on screen to keep, a failed refresh is only told.
     expect(snack('Could not refresh: x'), findsOneWidget);
@@ -1331,7 +1312,7 @@ void main() {
         }, status: 404);
       await pumpBoard(tester, shots, size: size, brightness: brightness);
       expect(isDark(tester), brightness == Brightness.dark);
-      await tester.tap(find.byTooltip('Switch board'));
+      await tester.tap(find.tooltip('Switch board'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'switch-menu');
       // Every board with its task count, the open one checked.
@@ -1430,7 +1411,7 @@ void main() {
       expect(find.text('Rename'), findsNothing);
       expect(find.text('Export…'), findsNothing);
 
-      await tester.tap(find.byTooltip('New board'));
+      await tester.tap(find.tooltip('New board'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'new-board');
       expect(find.text('New board'), findsOneWidget);
@@ -1532,7 +1513,7 @@ void main() {
       await popRoute(tester);
       expect(find.text('Board exported'), findsNothing);
 
-      await tester.tap(find.byTooltip('Import a board'));
+      await tester.tap(find.tooltip('Import a board'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'import');
       expect(find.text('Import a board'), findsOneWidget);
@@ -1616,7 +1597,7 @@ void main() {
       // The task: its id and status, its title, who has it, how urgent.
       expect(inPanel('t_rich · Running'), findsOneWidget);
       expect(inPanel(richTitle), findsOneWidget);
-      expect(find.byTooltip('Edit'), findsOneWidget);
+      expect(find.tooltip('Edit'), findsOneWidget);
       Finder valueRow(String row, String value) => find.descendant(
         of: find.widgetWithText(GroupedValueRow, row),
         matching: find.text(value),
@@ -1741,7 +1722,7 @@ void main() {
       );
       String fieldText(WidgetTester tester, String label) =>
           tester.widget<EditableText>(field(label)).controller.text;
-      await tester.tap(find.byTooltip('Edit'));
+      await tester.tap(find.tooltip('Edit'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'edit-dialog');
       expect(find.text('Edit task'), findsOneWidget);
@@ -1970,11 +1951,11 @@ void main() {
           reason: '$file is $size',
         );
       }
-      expect(find.byTooltip('Save attachment'), findsNWidgets(4));
-      expect(find.byTooltip('Remove attachment'), findsNWidgets(4));
+      expect(find.tooltip('Save attachment'), findsNWidgets(4));
+      expect(find.tooltip('Remove attachment'), findsNWidgets(4));
       expect(inPanel('Attach file'), findsOneWidget);
 
-      await tapText(tester, find.byTooltip('Save attachment').at(1));
+      await tapText(tester, find.tooltip('Save attachment').at(1));
       await shots.capture(tester, 'download-failed');
       // The file of the second attachment was asked for, was not there, and
       // the server's reason is told. Nothing was saved.
@@ -2000,7 +1981,7 @@ void main() {
       expect(inPanel('Attach file'), findsOneWidget);
       await letSnackBarsGo(tester);
 
-      await tapText(tester, find.byTooltip('Remove attachment').at(1));
+      await tapText(tester, find.tooltip('Remove attachment').at(1));
       await shots.capture(tester, 'remove-confirm');
       // It names the file, and asks before removing it.
       expect(find.text('Remove $longAttachment?'), findsOneWidget);

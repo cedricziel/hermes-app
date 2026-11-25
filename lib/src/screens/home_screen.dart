@@ -1,11 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
 import '../auth/auth_controller.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../models/hermes_status.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
@@ -65,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen> {
           key: const Key('connection-refresh'),
           label: context.l10n.screensRefreshAction,
           icon: AppIcons.refresh,
+          command: MacCommand.reload,
           shortcut: mac ? '⌘R' : null,
           busy: _reloading,
           onPressed: _reload,
@@ -103,8 +105,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
-    if (!mac) return scaffold;
-    // View > Reload owns ⌘R.
+    if (!mac && !bindsDesktopChords(Theme.of(context).platform)) {
+      return scaffold;
+    }
+    // View > Reload owns ⌘R, and Ctrl+R and F5 on Windows and Linux.
     return MacCommandScope(
       commands: {
         MacCommand.reload: MacCommandHandler(

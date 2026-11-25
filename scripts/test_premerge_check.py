@@ -1026,7 +1026,7 @@ class PremergeTest(unittest.TestCase):
                 "lib/src/chat/c.dart": "changed\n",
             },
         )
-        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        r = self.run_check(10, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         # (c1) stays whole although it exceeds the cap.
         self.assertEqual(
@@ -1044,10 +1044,66 @@ class PremergeTest(unittest.TestCase):
         self.assertNotIn("lib/src/chat/", line[0])
         self.assertRegex(r.stdout, r"affected tests: 4 files run.*CAPPED")
 
+    def capped_pr(self):
+        self.fixture()
+        self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
+
+    def test_capped_run_exits_7_and_the_pass_line_says_capped(self):
+        self.capped_pr()
+        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(r.returncode, 7, r.stdout + r.stderr)
+        line = [l for l in r.stdout.splitlines() if l.startswith("PASS")]
+        self.assertEqual(len(line), 1, r.stdout)
+        self.assertIn("PASS (CAPPED: directory-wide tests skipped for lib/src/kanban/)", line[0])
+        self.assertIn("PREMERGE_ALLOW_CAPPED", r.stderr)
+        self.assertNotIn("safe to arm", r.stdout)
+
+    def test_allow_capped_exits_0_and_still_says_capped(self):
+        self.capped_pr()
+        r = self.run_check(10, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        line = [l for l in r.stdout.splitlines() if l.startswith("PASS")]
+        self.assertIn("PASS (CAPPED: directory-wide tests skipped for lib/src/kanban/)", line[0])
+        self.assertIn("affected tests: CAPPED", r.stdout)
+
+    def test_uncapped_pass_line_has_no_capped_and_exits_0(self):
+        self.capped_pr()
+        r = self.run_check(10, PREMERGE_TEST_CAP="7")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("CAPPED", r.stdout)
+
+    def test_failure_beats_capped(self):
+        self.capped_pr()
+        r = self.run_check(
+            10,
+            PREMERGE_TEST_CAP="1",
+            PREMERGE_ALLOW_CAPPED="1",
+            STUB_FAIL_FILES="test/kanban_barrel_test.dart",
+        )
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertNotIn("PASS", r.stdout)
+        r = self.run_check(
+            10, PREMERGE_TEST_CAP="1", STUB_FAIL_FILES="test/kanban_barrel_test.dart"
+        )
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+
+    def test_budget_cut_beats_capped(self):
+        self.capped_pr()
+        r = self.run_check(
+            10,
+            PREMERGE_TEST_CAP="1",
+            PREMERGE_TEST_BUDGET="2",
+            PREMERGE_TEST_BATCH="1",
+            STUB_SLEEP_ALL="3",
+        )
+        self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+        self.assertNotIn("PASS", r.stdout)
+
     def test_cap_fills_c2_up_to_the_cap_in_order(self):
         self.fixture()
         self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
-        r = self.run_check(10, PREMERGE_TEST_CAP="4")
+        r = self.run_check(10, PREMERGE_TEST_CAP="4", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(len(self.ran()), 4)
         self.assertEqual(self.ran()[3], "test/kanban_card_test.dart")
@@ -1057,13 +1113,14 @@ class PremergeTest(unittest.TestCase):
         self.fixture()
         self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
         r = self.run_check(10, PREMERGE_TEST_CAP="7")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(len(self.ran()), 7)
         self.assertNotIn("CAPPED", r.stdout)
 
     def test_part_file_change_selects_the_library_importers(self):
         self.fixture()
         self.pr(10, {"lib/src/kanban/kanban_view.dart": "part of 'kanban_screen.dart';\n// x\n"})
-        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        r = self.run_check(10, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(
             self.ran(),
@@ -1110,7 +1167,7 @@ class PremergeTest(unittest.TestCase):
     def test_lib_rename_counts_the_old_path_as_changed(self):
         self.fixture()
         self.pr(10, rename=[("lib/src/chat/c.dart", "lib/src/theme/c.dart")])
-        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        r = self.run_check(10, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("test/chat_test.dart", self.ran())
 
@@ -1142,7 +1199,7 @@ class PremergeTest(unittest.TestCase):
     def test_arb_change_under_a_small_cap_keeps_l10n_tests_and_names_the_dir(self):
         self.fixture()
         self.pr(10, {"lib/l10n/arb/app_de.arb": '{"a": "b"}\n'})
-        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        r = self.run_check(10, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(
             self.ran(), ["test/l10n/l10n_test.dart", "test/l10n_extra_test.dart"]
         )
@@ -1175,7 +1232,7 @@ class PremergeTest(unittest.TestCase):
         self.pr(1213, {"lib/src/kanban/kanban_screen.dart":
                        "import 'kanban_model.dart';\npart 'kanban_view.dart';\n// 1213\n"})
         self.advance_main({"test/workflows/kanban_extras_workflow_test.dart": "// 1196\n"})
-        r = self.run_check(1213, PREMERGE_TEST_CAP="1")
+        r = self.run_check(1213, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("test/workflows/kanban_extras_workflow_test.dart", self.ran())
 
@@ -1206,7 +1263,7 @@ class PremergeTest(unittest.TestCase):
             }
         )
         self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
-        r = self.run_check(10, PREMERGE_TEST_CAP="1")
+        r = self.run_check(10, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.ran(), ["test/renamed_pkg_test.dart"])
 
@@ -1325,6 +1382,100 @@ class PremergeTest(unittest.TestCase):
                                       "test/kanban_direct_test.dart"])
         self.assert_clean_up()
 
+    # the catalog test -----------------------------------------------------
+
+    CATALOG = "test/widgetbook_test.dart"
+
+    def catalog_calls(self):
+        """The flutter test lines that name the catalog file."""
+        return [l.split(" ", 1)[1] for l in self.log.read_text().splitlines()
+                if self.CATALOG in l and " test " in f" {l.split(' ', 1)[1]} "]
+
+    def catalog_pr(self):
+        self.fixture()
+        self.pr(10, {self.CATALOG: "void main() {}\n",
+                     "test/unrelated_test.dart": "// pr\n"})
+
+    def test_the_catalog_file_runs_in_sequential_parts_never_in_a_batch(self):
+        self.catalog_pr()
+        r = self.run_check(10, CATALOG_PARTS="3")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = self.catalog_calls()
+        self.assertEqual(
+            [c.split("test ", 1)[1] for c in calls],
+            [f"--no-pub --total-shards 3 --shard-index {i} {self.CATALOG}"
+             for i in range(3)],
+        )
+        # No call mixes it with another file, and no call lacks the split.
+        for c in calls:
+            self.assertEqual(c.count("_test.dart"), 1, c)
+        self.assertIn("unrelated_test.dart", self.log.read_text())
+        self.assertIn("affected tests: 2 files run", r.stdout)
+
+    def test_the_catalog_defaults_to_six_parts_and_runs_after_the_batches(self):
+        self.catalog_pr()
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(len(self.catalog_calls()), 6)
+        self.assertEqual(self.ran()[-1], self.CATALOG)
+        self.assertEqual(self.ran().count(self.CATALOG), 6)
+
+    def test_only_the_catalog_selected_runs_it_in_parts_and_passes(self):
+        # BATCHABLE is empty here; an unguarded expansion aborts bash 3.2.
+        self.fixture()
+        self.pr(10, {self.CATALOG: "void main() {}\n"})
+        r = self.run_check(10, CATALOG_PARTS="2")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.ran(), [self.CATALOG] * 2)
+        self.assertEqual(len(self.catalog_calls()), 2)
+        self.assertIn("affected tests: 1 files run", r.stdout)
+
+    def test_no_empty_array_is_expanded_bare_under_set_u(self):
+        # bash 3.2 (macOS) treats "${A[@]}" of an empty array as unbound under
+        # set -u. TEST_FILES and BATCHABLE are empty when nothing, or only the
+        # catalog test, is selected; use ${A[@]+"${A[@]}"} or a length guard.
+        import re
+        text = SCRIPT.read_text()
+        bare = re.findall(r'(?<!\+)"\$\{(?:TEST_FILES|BATCHABLE)\[@\]\}"', text)
+        self.assertEqual(bare, [], "bare expansion of an array that can be empty")
+
+    def test_a_bad_catalog_parts_value_exits_1(self):
+        self.catalog_pr()
+        for bad in ("abc", "0", "-1", "100"):
+            r = self.run_check(10, CATALOG_PARTS=bad)
+            self.assertEqual(r.returncode, 1, (bad, r.stdout, r.stderr))
+            self.assertIn("CATALOG_PARTS", r.stdout + r.stderr)
+
+    def test_a_failing_catalog_part_exits_5_and_the_other_parts_still_run(self):
+        self.catalog_pr()
+        stub = self.bin / "flutter"
+        stub.write_text(stub.read_text().replace(
+            "  test)\n",
+            "  test)\n    [ \"${STUB_FAIL_SHARD:-}\" != \"\" ] && "
+            "case \"$*\" in *\"--shard-index $STUB_FAIL_SHARD \"*) "
+            "echo \"00:01 +0 -1: loading x [E]\"; exit 1;; esac\n", 1))
+        r = self.run_check(10, CATALOG_PARTS="3", STUB_FAIL_SHARD="1")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertEqual(len(self.catalog_calls()), 3)
+        block = r.stderr.split("affected tests failed")[1]
+        self.assertIn(self.CATALOG, block)
+        self.assertNotIn("unrelated_test.dart", block)
+        self.assertNotIn("PASS", r.stdout)
+
+    def test_a_cut_inside_the_catalog_parts_lists_it_as_not_run(self):
+        self.catalog_pr()
+        r = self.run_check(
+            10, CATALOG_PARTS="3", PREMERGE_TEST_BUDGET="2",
+            STUB_SLEEP_FILE=self.CATALOG)
+        out = r.stdout + r.stderr
+        self.assertEqual(r.returncode, 6, out)
+        self.assertIn("CUT SHORT after 1/2 files", out)
+        self.assertIn(self.CATALOG, out.split("files not run:")[1])
+        self.assertNotIn("unrelated_test.dart", out.split("files not run:")[1])
+        self.assertEqual(len(self.catalog_calls()), 1, "a cut stops the later parts")
+        self.assertNotIn("PASS", r.stdout)
+        self.assert_clean_up()
+
     def test_budget_cut_kills_the_whole_process_tree(self):
         pidfile = self.root / "grandchild.pid"
         self.cut_run(STUB_GRANDCHILD=str(pidfile))
@@ -1415,12 +1566,22 @@ class PremergeTest(unittest.TestCase):
         self.assertIn("stacked: #11 #12", r.stdout.split("PASS")[1])
         self.assert_clean_up()
 
+    def test_stack_where_only_the_stacked_pr_is_capped_exits_7(self):
+        self.fixture()
+        self.pr(11, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
+        self.pr(10, {"README.md": "docs\n"})
+        r = self.run_check(10, "--stack", 11, PREMERGE_TEST_CAP="1")
+        self.assertEqual(r.returncode, 7, r.stdout + r.stderr)
+        line = [l for l in r.stdout.splitlines() if l.startswith("PASS")]
+        self.assertEqual(len(line), 1, r.stdout)
+        self.assertIn("PASS (CAPPED: directory-wide tests skipped for lib/src/kanban/)", line[0])
+
     def test_stack_selection_covers_the_union_of_all_prs(self):
         self.fixture()
         self.pr(11, {"lib/src/chat/c.dart": "changed\n"})
         self.pr(12, {"test/unrelated_test.dart": "// stacked\n"})
         self.pr(10, {"lib/src/kanban/kanban_model.dart": "// changed\n"})
-        r = self.run_check(10, "--stack", 11, 12, PREMERGE_TEST_CAP="1")
+        r = self.run_check(10, "--stack", 11, 12, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(
             self.ran(),
@@ -1439,7 +1600,7 @@ class PremergeTest(unittest.TestCase):
         self.pr(1196, {"test/workflows/kanban_extras_workflow_test.dart": "// 1196\n"})
         self.pr(1213, {"lib/src/kanban/kanban_screen.dart":
                        "import 'kanban_model.dart';\npart 'kanban_view.dart';\n// 1213\n"})
-        r = self.run_check(1213, "--stack", 1196, PREMERGE_TEST_CAP="1")
+        r = self.run_check(1213, "--stack", 1196, PREMERGE_TEST_CAP="1", PREMERGE_ALLOW_CAPPED="1")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(
             self.ran()[0], "test/workflows/kanban_extras_workflow_test.dart")

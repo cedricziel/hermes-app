@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
@@ -6,6 +6,9 @@ import 'package:hermes_app/src/models/model_options_state.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 const _options = ModelOptions(
   current: ModelChoice('anthropic', 'claude-opus-4'),
@@ -40,7 +43,7 @@ Future<List<ModelChoice>> _pumpPill(
     MaterialApp(
       theme: platform == null
           ? buildHermesLightTheme()
-          : buildHermesLightTheme().copyWith(platform: platform),
+          : buildHermesLightTheme(platform: platform),
       home: Scaffold(
         body: StatefulBuilder(
           builder: (context, setState) => ComposerModelPill(
@@ -151,7 +154,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: const Scaffold(body: SizedBox()),
       ),
     );
@@ -164,7 +167,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         locale: const Locale('de'),
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(),
         home: Scaffold(
@@ -233,7 +236,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byTooltip('Could not load models, selected model claude-opus-4'),
+      find.tooltip('Could not load models, selected model claude-opus-4'),
       findsOneWidget,
     );
     semantics.dispose();

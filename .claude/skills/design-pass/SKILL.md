@@ -14,6 +14,9 @@ Server care is the worked example: `openspec/changes/server-care/design.md`
 holds the server facts and state machines, and `docs/design-briefs/server-care.md`
 holds the design brief and the decisions of the pass.
 
+The PR body names the record with a `Design:` line (canvas link or record
+path, or `Design: not needed, <reason>`); the isolated reviewer confirms it.
+
 Both links below are private artifacts of the repo owner. Ask for access if
 they do not open.
 
@@ -250,4 +253,5 @@ whose status your change moves.
 - What you could not check (the claude.ai viewer, real devices).
 - Any component props you guessed and did not confirm.
 - If you changed the repo: branch, head sha, PR link, and the result of
-  `openspec validate <change> --strict`.
+  `npx --yes @fission-ai/openspec@2.1.1 validate <change> --strict` (see
+  `openspec/config.yaml`).

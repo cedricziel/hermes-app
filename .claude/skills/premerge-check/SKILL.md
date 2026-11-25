@@ -1,6 +1,6 @@
 ---
 name: premerge-check
-description: Use before arming auto-merge on a hermes-app PR, before merging one by hand, or when two PRs that were each green may break main together (duplicate declaration, conflicting edits in one library directory, a PR changing a screen whose workflow test another PR rewrote). Runs scripts/premerge_check.sh, a trial merge of the PR (and any stacked PRs) into the current origin/main with analyze, the architecture tests and the affected tests.
+description: Optional tool, not a merge gate. Use for a risky pair of hermes-app PRs that were each green but may break main together (duplicate declaration, conflicting edits in one library directory, a PR changing a screen whose workflow test another PR rewrote, a stack). Runs scripts/premerge_check.sh, a trial merge of the PR (and any stacked PRs) into the current origin/main with analyze, the architecture tests and the affected tests.
 ---
 
 # Pre-merge trial check
@@ -11,9 +11,13 @@ merged minutes apart can each be green and still break main together: #1123 and
 `test/workflows/kanban_extras_workflow_test.dart` and #1213 changed
 `lib/src/kanban/kanban_screen.dart`; #1213's check ran on a base that already
 had #1196 but only analyzed, so main failed in that workflow test. That is why
-the check also runs the tests that touch what changed. Until a merge queue
-exists, every arm or hand merge first runs this check against the main that
-exists right now.
+the check also runs the tests that touch what changed.
+
+The check is optional and no longer a merge gate. Decision of the owner,
+2026-11-24 21:55 UTC, asked what to stop: "Drop trial merges". READY and merging
+do not depend on it (`fleet-rules`); after a merge the orchestrator reads main's
+push run and fixes a break forward at once, or reverts the merge. Run it for a
+risky pair of PRs, for example two PRs touching the same files, or a stack.
 
 ```bash
 scripts/premerge_check.sh <pr> [--stack <n> <n> ...] [--others <n> <n> ...] [--base main] [--keep]
@@ -101,11 +105,25 @@ Environment (positive integers; a bad value exits 1):
 | `PREMERGE_TEST_CAP`          | 150     | Files; (a), (b), (c1) are kept whole, (c2) is dropped beyond it |
 | `PREMERGE_TEST_CONCURRENCY`  | 4       | `flutter test --concurrency`                                    |
 | `PREMERGE_TEST_BATCH`        | 20      | Files per `flutter test` call (the budget is checked per batch) |
+| `CATALOG_PARTS`              | 6       | Sequential processes for `test/widgetbook_test.dart` (1 to 99), as in `scripts/test-shard.sh` |
+
+`test/widgetbook_test.dart` (about 17,500 cases, past 11 GB in one process) is
+never passed to a batch. It runs last, alone, as `CATALOG_PARTS` calls of
+`flutter test --total-shards N --shard-index i`, inside the same budget. It
+counts as one file in the `files run` and `CUT SHORT after` numbers; a part
+that fails lists the file under the failing ones, and a cut during its parts
+lists it as not run.
+
+`PREMERGE_ALLOW_CAPPED` is a flag, not a number, and is not validated: only the exact value `1` counts; any other value (`true`, `yes`, empty) keeps exit 7.
 
 Over the cap it prints `affected tests: CAPPED` and names the `lib/src/<dir>/`
-or `lib/l10n/` directories whose (c2) tests were skipped. The PASS line says
-`affected tests: N files run` (N may be 0; nothing is run then) and `CAPPED` when
-it applies. A budget cut prints `affected tests CUT SHORT after N/M files
+or `lib/l10n/` directories whose (c2) tests were skipped. The PASS line then
+reads `PASS (CAPPED: directory-wide tests skipped for <dirs>)` and the run exits
+7, not 0, unless `PREMERGE_ALLOW_CAPPED=1` (then it exits 0 and the line still
+says CAPPED). A capped pass is not a full pass: a theme-wide or helper-wide
+selection needs `PREMERGE_TEST_CAP` and `PREMERGE_TEST_BUDGET` raised (one recent
+run needed 3000 s). The second line says `affected tests: N files run` (N may be
+0; nothing is run then). A budget cut prints `affected tests CUT SHORT after N/M files
 (budget X s); not a pass` and lists the files not run: exit 6, never 0. A
 failure in a batch that ran before the cut exits 5, not 6, and the cut notice is
 printed too.
@@ -131,24 +149,27 @@ replaced by `/tmp`. A full run takes about two minutes.
 
 | Code | Meaning                                                       | Next step                                                                                                                                 |
 | ---- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| 0    | Merged tree analyzes and passes the architecture and affected tests | Arm at exactly the printed head SHA, while main is still the printed base (below). Rerun after any push.                           |
+| 0    | Merged tree analyzes and passes the architecture and affected tests | The pass speaks only for the printed head and base (below); a later push or move of main makes it stale. No rerun is required.                   |
 | 1    | Usage error, bad `PREMERGE_TEST_*` value, unknown PR number, fetch failure, already merged, affected tests could not be selected | Fix the arguments or the remote; check the PR is open.                                                                                    |
 | 2    | Merge conflict (files listed; names the stacked PR that conflicted) | Merge origin/main into the PR branch, resolve, push, rerun.                                                                         |
 | 3    | `pub get` or analyze failed (issues printed)                  | Rerun with `--keep`, run `flutter analyze` in the trial merge, fix the PR, or merge origin/main in if the clash comes from main.          |
 | 4    | Architecture tests failed                                     | Rerun with `--keep`, run `flutter test test/architecture` in the trial merge, fix the PR, or merge origin/main in if the clash is main's. |
 | 5    | Affected tests failed (files named)                           | Rerun with `--keep`, run `flutter test <file>` in the trial merge, fix the PR, or merge origin/main in if the clash is main's.            |
 | 6    | Affected tests cut short by the budget (files not run listed) | Not a pass. Rerun with a larger `PREMERGE_TEST_BUDGET`, or run the listed files, then rerun the check.                                    |
+| 7    | `PASS (CAPPED: ...)`: the cap skipped directory-wide (c2) tests | Not a full pass. Rerun with `PREMERGE_TEST_CAP` and `PREMERGE_TEST_BUDGET` raised, or set `PREMERGE_ALLOW_CAPPED=1` to accept the skipped tests (exit 0, still says CAPPED). 5 and 6 win over 7. |
 
-## Arming: tie it to the head and the base
+## A pass is tied to the head and the base
 
-A pass is about one PR head and one main. On exit 0 the script prints the head
-SHA and the base (main) SHA it was checked against, and the rule: merge or arm
-only while `origin/main` still equals that base SHA; rerun otherwise. It also
-prints the exact head SHA: arm with a head-SHA match (`gh pr merge --auto --squash
---match-head-commit <sha>` locally, or the auto-merge route with that sha), so a later push to the
-PR cannot ride on this result. Rerun after ANY push to the PR or to main. On an
-overlap `WARNING`, arm one of the overlapping PRs, wait for it to merge, then
-rerun the check for the other.
+When you choose to run the check, a pass is about one PR head and one main. On
+exit 0 the script prints the head SHA and the base (main) SHA it was checked
+against, and a line saying to merge or arm only while `origin/main` still equals
+that base SHA; that line is the script's own output, not a requirement of this
+repo. A later push to the PR or a move of main makes the result stale. Nothing
+requires a rerun before arming or merging. If you do arm on a pass, a head-SHA
+match (`gh pr merge --auto --squash --match-head-commit <sha>` locally, or the
+auto-merge route with that sha) keeps a later push from riding on the result. On
+an overlap `WARNING`, you may arm one of the overlapping PRs, wait for it to
+merge, then run the check for the other.
 
 The incident-catching path (exit 3 on a merged tree that does not compile) is
 covered by the stub test only (`test_analyze_failure_exits_3`). Main had been

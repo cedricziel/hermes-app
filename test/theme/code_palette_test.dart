@@ -1,10 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 double _luminance(Color c) {
   double channel(double v) =>
@@ -53,9 +52,7 @@ void main() {
         'page': scheme.surface,
         'surface-high': scheme.surfaceContainerHighest,
         // What a fenced block of a chat reply sits on.
-        'chat code block': buildMaterialUiTheme(scheme)
-            .colorScheme
-            .surfaceContainer,
+        'chat code block': scheme.surfaceContainer,
       };
 
       for (final role in _roles(palette).entries) {

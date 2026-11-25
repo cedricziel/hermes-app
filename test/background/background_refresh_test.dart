@@ -1047,6 +1047,7 @@ void main() {
 
     test('reads a server without profiles with no profile parameter', () async {
       server.on('GET', '/api/profiles', {'detail': 'nope'}, status: 404);
+      server.on('GET', '/api/profiles/active', {'detail': 'nope'}, status: 404);
       sessions = {
         null: [_session('chat-a')],
       };
@@ -1061,7 +1062,27 @@ void main() {
         {'session_id': 'rt-chat-a'},
       ]);
       expect(notifications.shown.single.profile, isNull);
-      expect(storedSnapshot()['pending'], [containsPair('profile', 'default')]);
+      // With no profile to name, the snapshot has nothing to point at.
+      expect(storedSnapshot()['pending'], isEmpty);
+    });
+
+    test('names the launch profile for a session listed without one', () async {
+      server
+        ..on('GET', '/api/profiles', {'detail': 'nope'}, status: 404)
+        ..on('GET', '/api/profiles/active', {
+          'active': 'default',
+          'current': 'work',
+        });
+      sessions = {
+        null: [_session('chat-a')],
+      };
+      approvals = {
+        'rt-chat-a': [_approval('r1')],
+      };
+
+      await refresh();
+
+      expect(storedSnapshot()['pending'], [containsPair('profile', 'work')]);
     });
   });
 

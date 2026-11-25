@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +8,7 @@ import '../../../l10n/l10n.dart';
 import '../../files/code_highlight.dart';
 import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_segmented_control.dart';
@@ -17,6 +18,7 @@ import '../tool_value_budget.dart';
 import '../tool_value_language.dart';
 import 'tool_hidden_chars.dart';
 import 'tool_json_tree.dart';
+import '../../macos/menu_selection_area.dart';
 
 /// The code style of a tool value. Ligatures and contextual alternates are
 /// off, so `->` and `!=` stay the characters that were sent.
@@ -146,7 +148,7 @@ class _ToolValueViewState extends State<ToolValueView> {
     if (!widget.selectable || SelectionContainer.maybeOf(context) != null) {
       return text;
     }
-    return SelectionArea(child: text);
+    return MenuSelectionArea(child: text);
   }
 }
 
@@ -284,40 +286,47 @@ class ToolValueCopyButton extends StatelessWidget {
           minWidth: metrics.target,
           minHeight: metrics.target,
         ),
-        child: InkWell(
-          key: const ValueKey('tool-value-copy'),
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(metrics.target / 2),
-          child: Center(
-            widthFactor: 1,
-            heightFactor: 1,
-            child: Container(
-              height: height,
-              // A circle for the icon alone, a pill once it says "Copied".
-              width: copied ? null : height,
-              alignment: copied ? null : Alignment.center,
-              padding: copied
-                  ? const EdgeInsets.symmetric(horizontal: 8)
-                  : EdgeInsets.zero,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(height / 2),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppIcon(
-                    copied ? AppIcons.check : AppIcons.copy,
-                    size: 14,
-                    color: subtle,
-                  ),
-                  if (copied) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      context.l10n.chatWidgetsToolValueCopied,
-                      style: TextStyle(fontSize: 11.5, color: scheme.onSurface),
+        // The ring is 2 px outside the round tap area, which nothing clips.
+        child: FocusRing.outside(
+          radius: metrics.target / 2,
+          child: InkWell(
+            key: const ValueKey('tool-value-copy'),
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(metrics.target / 2),
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Container(
+                height: height,
+                // A circle for the icon alone, a pill once it says "Copied".
+                width: copied ? null : height,
+                alignment: copied ? null : Alignment.center,
+                padding: copied
+                    ? const EdgeInsets.symmetric(horizontal: 8)
+                    : EdgeInsets.zero,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(height / 2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppIcon(
+                      copied ? AppIcons.check : AppIcons.copy,
+                      size: 14,
+                      color: subtle,
                     ),
+                    if (copied) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        context.l10n.chatWidgetsToolValueCopied,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../telemetry/breadcrumbs.dart';
@@ -215,10 +216,11 @@ class _SkillsScreenState extends State<SkillsScreen>
     if (hub == null || job == null || job.running || hub.sheetOpen) return;
     hub.dismissJob();
     if (!mounted) return;
+    final l10n = context.l10n;
     final text = switch (job.state) {
-      JobState.succeeded => 'Done: ${job.title}',
-      JobState.failed => 'Failed: ${job.title}',
-      _ => 'Could not confirm: ${job.title}',
+      JobState.succeeded => l10n.skillsScreenJobDone(job.title),
+      JobState.failed => l10n.skillsScreenJobFailed(job.title),
+      _ => l10n.skillsScreenJobUnconfirmed(job.title),
     };
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
@@ -296,9 +298,11 @@ class _SkillsScreenState extends State<SkillsScreen>
   Future<void> _toggle(HermesSkill skill, bool enabled) async {
     final ok = await _controller.toggle(skill.name, enabled);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not change ${skill.name}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.skillsScreenToggleFailed(skill.name)),
+        ),
+      );
     }
   }
 
@@ -310,25 +314,28 @@ class _SkillsScreenState extends State<SkillsScreen>
         final hub = _hub;
         final onDiscover = hub != null && _tabs.index == 1;
         final ready = _controller.status == SkillsStatus.ready;
+        final l10n = context.l10n;
         return SettingsScaffold(
-          title: 'Skills',
+          title: l10n.skillsScreenTitle,
           subtitle: _subtitle(context),
           subtitleMenu: _profileMenu(),
           actions: [
             if (ready && !onDiscover)
               SettingsBarAction(
                 key: const Key('skills-new'),
-                label: 'New skill',
+                label: l10n.skillsScreenNewSkill,
                 icon: AppIcons.add,
                 onPressed: _create,
               ),
           ],
-          tabs: hub == null ? null : const ['Installed', 'Discover'],
+          tabs: hub == null
+              ? null
+              : [l10n.skillsScreenTabInstalled, l10n.skillsScreenTabDiscover],
           tabController: _tabs,
           search: onDiscover
-              ? _hubSearch(hub)
+              ? _hubSearch(hub, l10n)
               : ready && _controller.hasSkills
-              ? _skillsSearch()
+              ? _skillsSearch(l10n)
               : null,
           body: hub == null
               ? _body()
@@ -361,7 +368,7 @@ class _SkillsScreenState extends State<SkillsScreen>
       return profile;
     }
     final count = _controller.skillCount;
-    return '$profile · $count skill${count == 1 ? '' : 's'}';
+    return context.l10n.skillsScreenSubtitleMac(profile, count);
   }
 
   SettingsSubtitleMenu<String>? _profileMenu() {
@@ -369,7 +376,7 @@ class _SkillsScreenState extends State<SkillsScreen>
     final others = _controller.availableProfiles;
     if (profile == null || others.isEmpty) return null;
     return SettingsSubtitleMenu<String>(
-      label: 'Profile',
+      label: context.l10n.skillsScreenProfileMenu,
       onSelected: _selectProfile,
       itemBuilder: (_) => [
         for (final p in others)
@@ -382,30 +389,30 @@ class _SkillsScreenState extends State<SkillsScreen>
     );
   }
 
-  SettingsSearch _skillsSearch() => SettingsSearch(
+  SettingsSearch _skillsSearch(AppLocalizations l10n) => SettingsSearch(
     query: _controller.query,
     onChanged: _controller.setQuery,
-    hint: 'Search skills',
+    hint: l10n.skillsScreenSearchHint,
     filters: [
       for (final filter in SkillFilter.values)
         SettingsFilter(
-          label: _filterLabel(filter),
+          label: _filterLabel(l10n, filter),
           selected: _controller.filter == filter,
           onSelected: () => _controller.setFilter(filter),
         ),
     ],
   );
 
-  SettingsSearch? _hubSearch(SkillsHubController hub) {
+  SettingsSearch? _hubSearch(SkillsHubController hub, AppLocalizations l10n) {
     if (hub.status != HubStatus.ready) return null;
     return SettingsSearch(
       query: hub.query,
       onChanged: hub.setQuery,
-      hint: 'Search the skills hub',
+      hint: l10n.skillsScreenHubSearchHint,
       filters: [
         if (hub.sources.isNotEmpty)
           for (final (id, label) in [
-            (SkillsHubController.allSources, 'All sources'),
+            (SkillsHubController.allSources, l10n.skillsScreenAllSources),
             for (final s in hub.sources) (s.id, s.label),
           ])
             SettingsFilter(
@@ -418,6 +425,7 @@ class _SkillsScreenState extends State<SkillsScreen>
   }
 
   Widget _body() {
+    final l10n = context.l10n;
     switch (_controller.status) {
       case SkillsStatus.loading:
         return _withCurator(
@@ -427,16 +435,14 @@ class _SkillsScreenState extends State<SkillsScreen>
           ),
         );
       case SkillsStatus.unsupported:
-        return const StateMessage(
-          title: 'The connected Hermes does not support skills.',
-        );
+        return StateMessage(title: l10n.skillsScreenUnsupported);
       case SkillsStatus.failed:
         return _withCurator(
           StateMessage(
-            title: 'Could not load skills',
+            title: l10n.skillsScreenLoadFailed,
             action: FilledButton(
               onPressed: _controller.load,
-              child: const Text('Retry'),
+              child: Text(l10n.commonRetry),
             ),
           ),
         );
@@ -444,9 +450,7 @@ class _SkillsScreenState extends State<SkillsScreen>
         break;
     }
     if (!_controller.hasSkills) {
-      return _withCurator(
-        const StateMessage(title: 'This profile has no skills yet.'),
-      );
+      return _withCurator(StateMessage(title: l10n.skillsScreenEmpty));
     }
     final hub = _hub;
     final curator = _curator;
@@ -478,13 +482,14 @@ class _SkillsScreenState extends State<SkillsScreen>
     );
   }
 
-  static String _filterLabel(SkillFilter f) => switch (f) {
-    SkillFilter.all => 'All',
-    SkillFilter.enabled => 'Enabled',
-    SkillFilter.hub => 'Hub',
-    SkillFilter.bundled => 'Bundled',
-    SkillFilter.agent => 'Agent',
-  };
+  static String _filterLabel(AppLocalizations l10n, SkillFilter f) =>
+      switch (f) {
+        SkillFilter.all => l10n.skillsScreenFilterAll,
+        SkillFilter.enabled => l10n.skillsScreenFilterEnabled,
+        SkillFilter.hub => l10n.skillsScreenFilterHub,
+        SkillFilter.bundled => l10n.skillsScreenFilterBundled,
+        SkillFilter.agent => l10n.skillsScreenFilterAgent,
+      };
 }
 
 /// Shown while a job runs that the user has sent to the background.

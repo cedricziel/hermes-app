@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -24,7 +24,9 @@ import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/navigation/desktop_command_shortcuts.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -32,6 +34,7 @@ import '../../support/actions_chat_transport.dart';
 import '../../support/fake_attachment_source.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/fake_notification_service.dart';
+import '../../support/tooltip_finder.dart';
 
 /// Invented content only.
 const _prompt = 'Split the token refresh out';
@@ -169,9 +172,13 @@ void main() {
     bool rows = true,
     TargetPlatform? platform,
     MacCommandRegistry? commands,
+    bool desktopKeys = false,
   }) async {
     Widget app = MaterialApp(
       theme: ThemeData(platform: platform),
+      builder: (_, child) => AppThemeScopes(
+        child: desktopKeys ? DesktopCommandShortcuts(child: child!) : child!,
+      ),
       home: Scaffold(
         body: Align(
           alignment: Alignment.topRight,
@@ -232,6 +239,7 @@ void main() {
       });
       final controller = checkpointsOf();
       Widget presence(Key key) => MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: CheckpointsPanelPresence(
           key: key,
           controller: controller,
@@ -266,6 +274,7 @@ void main() {
       addTearDown(showPresence.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           navigatorKey: navigator,
           home: ValueListenableBuilder<bool>(
             valueListenable: showPresence,
@@ -474,7 +483,7 @@ void main() {
       expect(find.text('Compress this conversation?'), findsOneWidget);
       expect(find.text("What's in it"), findsOneWidget);
 
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await settle(tester);
       expect(find.text('Wait for the reply to finish.'), findsWidgets);
       final compress = tester.widget<TextButton>(
@@ -547,7 +556,7 @@ void main() {
       );
       expect(commands.handlerFor(MacCommand.reload), isNull);
       await openCheckpoints(tester);
-      expect(find.byTooltip('Refresh ⌘R'), findsOneWidget);
+      expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
       expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
 
       final before = source.fake.count('list');
@@ -576,9 +585,56 @@ void main() {
       expect(commands.handlerFor(MacCommand.nextChange), isNull);
     });
 
-    testWidgets('other platforms keep the keys', (tester) async {
+    for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
+      testWidgets('$platform steps with F8 and Shift+F8, not Alt+arrows', (
+        tester,
+      ) async {
+        final commands = MacCommandRegistry();
+        addTearDown(commands.dispose);
+        await tester.runAsync(open);
+        await pumpPanel(
+          tester,
+          platform: platform,
+          commands: commands,
+          desktopKeys: true,
+        );
+        await openFirstFile(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+        );
+
+        // The old Alt+arrow binding is Mac and touch only.
+        await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+          reason: '$platform',
+        );
+
+        // Next change is Shift+F8, previous is F8.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await settle(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsNothing,
+          reason: '$platform',
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+        await settle(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+          reason: '$platform',
+        );
+      });
+    }
+
+    testWidgets('Android keeps the Alt+arrow keys', (tester) async {
       await tester.runAsync(open);
-      await pumpPanel(tester, platform: TargetPlatform.windows);
+      await pumpPanel(tester, platform: TargetPlatform.android);
       await openFirstFile(tester);
       expect(find.text(breakableFileName('token_refresh.dart')), findsWidgets);
 
@@ -687,7 +743,7 @@ void main() {
       await openCheckpoints(tester);
       await tester.tap(find.text('Before editing a file'));
       await settle(tester);
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await settle(tester);
       expect(find.text('Wait for the reply to finish.'), findsOneWidget);
       final bar = tester.widget<OutlinedButton>(
@@ -757,6 +813,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: ListenableBuilder(
             listenable: chat,

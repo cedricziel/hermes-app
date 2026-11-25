@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/l10n.dart';
@@ -6,6 +6,7 @@ import '../agent_messages/agent_message_watcher.dart'
     show agentMessagesSupported;
 import '../live_activities/live_activities.dart';
 import '../background/background_check_controller.dart';
+import '../widgets/dialog_presentation.dart';
 import 'background_check_section.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
@@ -35,7 +36,7 @@ Future<void> showNotificationsDialog(
   if (checks != null) {
     checks.refresh();
   }
-  return showDialog<void>(
+  return showAppDialog<void>(
     context: context,
     builder: (_) => ChangeNotifierProvider.value(
       value: settings,

@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -8,6 +7,8 @@ import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/test_localizations.dart';
 
 final _registry = MacCommandRegistry();
 
@@ -24,10 +25,7 @@ Future<void> _pump(
       registry: _registry,
       child: MaterialApp(
         locale: locale,
-        localizationsDelegates: const [
-          ...AppLocalizations.localizationsDelegates,
-          GlobalMaterialLocalizations.delegate,
-        ],
+        localizationsDelegates: const [...kTestLocalizationsDelegates],
         supportedLocales: AppLocalizations.supportedLocales,
         home: MacSidebarScope(
           child: Scaffold(

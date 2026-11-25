@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../files/code_highlight.dart' show CodeToken, codeTokenStyle;
 import '../../files/widgets/files_metrics.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
@@ -318,14 +319,17 @@ class _TreeRow extends StatelessWidget {
       button: true,
       expanded: open,
       onTap: onToggle,
-      child: InkWell(
-        excludeFromSemantics: true,
-        onTap: onToggle,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: target),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: content,
+      child: FocusRing(
+        radius: 0,
+        child: InkWell(
+          excludeFromSemantics: true,
+          onTap: onToggle,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: target),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: content,
+            ),
           ),
         ),
       ),

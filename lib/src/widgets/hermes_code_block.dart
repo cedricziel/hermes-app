@@ -5,7 +5,9 @@ import 'package:gpt_markdown/gpt_markdown.dart' show CodeBlockStyle;
 import 'package:material_ui/material_ui.dart' as mui;
 
 import '../files/code_highlight.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_code_colors.dart';
+import '../../l10n/l10n.dart';
 
 /// A fenced code block of a markdown message: the language label, a copy
 /// button and the code, coloured by the shared code palette
@@ -55,6 +57,50 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   String? _cachedLanguage;
   List<CodeRun>? _cachedRuns;
 
+  /// What [build] returned last time. Returning the identical widget lets
+  /// Flutter skip the whole subtree, which matters because the markdown
+  /// package creates every block again on every streamed delta. It is dropped
+  /// whenever something the subtree shows may have changed: a widget field
+  /// ([didUpdateWidget], comparing the style with its own `==`), an inherited widget this State's own context reads
+  /// ([didChangeDependencies], which tracks them without a list to keep in
+  /// step), and any [setState]. Descendants that read an inherited widget
+  /// through their own context (builders, tooltips, icons, text) are marked
+  /// dirty by it themselves and rebuild even when this widget is reused.
+  Widget? _built;
+
+  @override
+  void setState(VoidCallback fn) {
+    _built = null;
+    super.setState(fn);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _built = null;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _built = null;
+  }
+
+  @override
+  void didUpdateWidget(HermesCodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameConfig(oldWidget, widget)) _built = null;
+  }
+
+  /// `CodeBlockStyle` defines `==` over all its fields, so one a package
+  /// upgrade adds is compared too.
+  static bool _sameConfig(HermesCodeBlock a, HermesCodeBlock b) =>
+      a.name == b.name &&
+      a.codes == b.codes &&
+      a.highlightCode == b.highlightCode &&
+      a.scalesItsOwnText == b.scalesItsOwnText &&
+      a.style == b.style;
+
   List<CodeRun> _runs() {
     final language = widget.highlightCode
         ? widget.name.trim().toLowerCase()
@@ -91,9 +137,10 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   }
 
   Widget _copyButton(BuildContext context) {
+    final l10n = context.l10n;
     final label = _copied
-        ? (widget.style.copiedLabel ?? 'Copied!')
-        : (widget.style.copyLabel ?? 'Copy code');
+        ? (widget.style.copiedLabel ?? l10n.widgetsCodeBlockCopied)
+        : (widget.style.copyLabel ?? l10n.widgetsCodeBlockCopy);
     final icon = _copied
         ? mui.Icons.check_rounded
         : mui.Icons.content_copy_rounded;
@@ -103,32 +150,36 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
       button: true,
       child: mui.Tooltip(
         message: label,
-        child: Container(
-          width: _copyButtonSize,
-          height: _copyButtonSize,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            shape: BoxShape.circle,
-          ),
-          child: mui.Material(
-            type: mui.MaterialType.transparency,
-            shape: const CircleBorder(),
-            child: mui.InkWell(
-              customBorder: const CircleBorder(),
-              hoverColor: scheme.onSurface.withValues(alpha: 0.08),
-              highlightColor: scheme.onSurface.withValues(alpha: 0.12),
-              onTap: _copyCode,
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 160),
-                  transitionBuilder: (child, animation) =>
-                      ScaleTransition(scale: animation, child: child),
-                  child: Icon(
-                    icon,
-                    key: ValueKey(_copied),
-                    size: _copyIconSize,
-                    color: scheme.onSurfaceVariant,
+        // The ring is 2 px outside the round button, which nothing clips.
+        child: FocusRing.outside(
+          radius: _copyButtonSize / 2,
+          child: Container(
+            width: _copyButtonSize,
+            height: _copyButtonSize,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: mui.Material(
+              type: mui.MaterialType.transparency,
+              shape: const CircleBorder(),
+              child: mui.InkWell(
+                customBorder: const CircleBorder(),
+                hoverColor: scheme.onSurface.withValues(alpha: 0.08),
+                highlightColor: scheme.onSurface.withValues(alpha: 0.12),
+                onTap: _copyCode,
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 160),
+                    transitionBuilder: (child, animation) =>
+                        ScaleTransition(scale: animation, child: child),
+                    child: Icon(
+                      icon,
+                      key: ValueKey(_copied),
+                      size: _copyIconSize,
+                      color: scheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -140,7 +191,9 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _built ??= _buildBlock(context);
+
+  Widget _buildBlock(BuildContext context) {
     final theme = mui.Theme.of(context);
     final scheme = theme.colorScheme;
     final borderColor = widget.style.borderColor;
@@ -181,50 +234,86 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
                   padding:
                       widget.style.headerPadding ??
                       const EdgeInsets.fromLTRB(10, 8, 8, 2),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      if (showLabel)
-                        Flexible(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: scheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(7),
-                              ),
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      // 36 px is the chip's minimum (padding, icon and gap);
+                      // below it the chip is left out. Its name then goes on the
+                      // header, which has an area, so it stays in the tree.
+                      final chipFits =
+                          box.maxWidth - (showCopy ? _copyButtonSize + 8 : 0) >=
+                          36;
+                      final header = Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (showLabel && chipFits)
+                            Flexible(
+                              // The gap lives here, so it shrinks with the chip
+                              // and the copy button never loses its width.
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 5,
+                                padding: EdgeInsetsDirectional.only(
+                                  end: showCopy ? 8 : 0,
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      mui.Icons.terminal_rounded,
-                                      size: 13,
-                                      color: scheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Flexible(
-                                      child: Text(
-                                        displayName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: widget.style.languageStyle,
+                                child: Align(
+                                  alignment: AlignmentDirectional.centerStart,
+                                  // The chip names itself, so the name stays
+                                  // when its text has no room left.
+                                  child: Semantics(
+                                    label: displayName,
+                                    excludeSemantics: true,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: scheme.surfaceContainerHighest,
+                                        borderRadius: BorderRadius.circular(7),
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 5,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              mui.Icons.terminal_rounded,
+                                              size: 13,
+                                              color: scheme.onSurfaceVariant,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Flexible(
+                                              child: Text(
+                                                displayName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style:
+                                                    widget.style.languageStyle,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      if (showLabel && showCopy) const SizedBox(width: 8),
-                      if (!showLabel) const Spacer(),
-                      if (showCopy) _copyButton(context),
-                    ],
+                          if (!showLabel || !chipFits) const Spacer(),
+                          if (showCopy) _copyButton(context),
+                        ],
+                      );
+                      return showLabel && !chipFits
+                          ? Semantics(
+                              label: displayName,
+                              container: true,
+                              explicitChildNodes: true,
+                              // A header with nothing in it is 0 px tall and
+                              // would be dropped from the tree.
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(minHeight: 1),
+                                child: header,
+                              ),
+                            )
+                          : header;
+                    },
                   ),
                 ),
               // Source code and its scroll origin keep their LTR order inside

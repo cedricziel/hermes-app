@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -15,6 +15,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/markdown_contrast.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// The skills hub: the Discover tab, a hub skill's page and its security
 /// scan, the install / uninstall / update job sheet, the editor for a new
@@ -628,7 +629,7 @@ void main() {
     testWidgets('$name: writing a new skill', (tester) async {
       final shots = ScreenshotRecorder('skills-hub-editor-$name');
       await pumpSkills(tester, shots, size: size, brightness: brightness);
-      await tester.tap(find.byTooltip('New skill'));
+      await tester.tap(find.tooltip('New skill'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'template');
 

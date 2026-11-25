@@ -123,11 +123,82 @@ void main() {
       expect(model.hasOutput, isFalse);
       expect(model.outputBlanked, isFalse);
       expect(model.outputDropped, isFalse);
-      // Hermes' own words never reach the view.
+      // Nothing of Hermes' own words yet.
       expect(model.failureLine, isNull);
       expect(model.notStartedDetail, isNull);
       expect(model.pauseDetail, isNull);
     });
+
+    test('Hermes\' own text reaches the view cleaned, and only then', () async {
+      // A refused pause.
+      server.on('PUT', '/api/curator/paused', {
+        'detail': 'no\u202E way',
+      }, status: 400);
+      final c = await opened();
+      await c.setPaused(true);
+      var model = curatorSectionModel(c);
+      expect(model.pause, CuratorPauseView.failed);
+      expect(model.pauseDetail, 'no<U+202E> way');
+      expect(model.notStartedDetail, isNull);
+      expect(model.failureLine, isNull);
+
+      // A spawn failure.
+      server.on('POST', '/api/curator/run', {
+        'detail': 'Failed to run curator: ${'x' * 300}',
+      }, status: 500);
+      c.beginRun();
+      await c.confirmRun();
+      model = curatorSectionModel(c);
+      expect(model.run, CuratorRunView.notStarted);
+      expect(model.notStartedDetail, hasLength(200));
+      expect(model.notStartedDetail, endsWith('…'));
+
+      // Locked: all of it is gone from the view.
+      c.lock();
+      model = curatorSectionModel(c);
+      expect(model.pauseDetail, isNull);
+      expect(model.notStartedDetail, isNull);
+      expect(model.failureLine, isNull);
+    });
+
+    test(
+      'a failed pass maps its last line, and a blanked one maps none',
+      () async {
+        var read = 0;
+        server.onRequest(
+          'GET',
+          '/api/actions/curator-run/status',
+          (_) => (
+            status: 200,
+            body: [
+              recordedStatusArchived,
+              recordedStatusArchived,
+              recordedStatusDisabled,
+            ][read < 2 ? read++ : 2],
+          ),
+        );
+        final c = await opened();
+        c.beginRun();
+        await c.confirmRun();
+        for (var i = 0; i < 200 && c.phase != CuratorRunPhase.failed; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        var model = curatorSectionModel(c);
+        expect(model.run, CuratorRunView.failed);
+        expect(
+          model.failureLine,
+          'curator: disabled via config; enable with `curator.enabled: true`',
+        );
+
+        c.setInactive(true);
+        expect(curatorSectionModel(c).failureLine, isNull);
+        c.setInactive(false);
+        c.lock();
+        model = curatorSectionModel(c);
+        expect(model.failureLine, isNull);
+        expect(model.outputDropped, isTrue);
+      },
+    );
 
     test('a status read with no answer is the lost view', () async {
       server.onRequest(
@@ -197,6 +268,11 @@ void main() {
         expect(model.outputLines, isEmpty);
         expect(model.outputBlanked, isTrue);
         expect(model.hasOutput, isTrue, reason: 'hidden, not gone');
+        expect(
+          model.outputLineCount,
+          greaterThan(0),
+          reason: 'the label keeps its count',
+        );
         expect(model.outputDropped, isFalse);
 
         c.setInactive(false);

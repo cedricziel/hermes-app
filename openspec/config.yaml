@@ -7,6 +7,15 @@ context: |
   self-hosted server URL, signs in (OIDC or password, both via the RFC 8252 native flow),
   and chats with the agent over the dashboard's /api/ws JSON-RPC socket.
   Language: artifacts are written in English.
+  Validation: cloud sessions have no `openspec` CLI on PATH. Before opening the PR, run
+  `npx --yes @fission-ai/openspec@2.1.1 validate <change> --strict` from the repo root, once
+  per change (2.1.1 rather than the generated-skills pin, because only it checks requirement
+  length in a change). Put its output, or the reason it could not run, in the PR's `## Proof`. If the
+  permission system refuses npx because it downloads and runs a package, say so in `## Proof`;
+  never work around the refusal. It fails on a requirement over 500 characters (a warning that
+  `--strict` turns into a failure): split it into ADDED requirements. It also fails on a
+  MODIFIED block that drops a scenario the current spec has, even without `--strict`: copy the
+  omitted scenarios into the block.
   Conventions: conventional commits (release-please builds the changelog from them).
   See CLAUDE.md for commands and the architecture map, docs/architecture/ for each area in full.
 

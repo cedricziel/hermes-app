@@ -6,7 +6,6 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/chat_warning_state.dart' show AgentNotice;
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -119,7 +118,7 @@ void main() {
       await startTurn();
       await lose();
 
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
 
       expectOneSubmit();
@@ -148,14 +147,15 @@ void main() {
     test('a loss before the server had the prompt still fails', () async {
       chat.newThread();
       thread = chat.selectedThread!;
-      chat.submit('Hello', const []);
+      await chat.submit('Hello', const []);
       send = transport.sends.single;
       send.emit(const ThreadBound('s1'));
       await pumpEventQueue();
       await lose();
 
       expect(assistant().status, MessageStatus.error);
-      expect(assistant().error, kReplyFailedMessage);
+      expect(assistant().error, isNull);
+      expect(assistant().failure, ReplyFailure.generic);
       expect(assistant().reconnecting, isFalse);
       expectOneSubmit();
     });
@@ -337,7 +337,7 @@ void main() {
         transport.promptAccepted = true;
         chat.newThread();
         thread = chat.selectedThread!;
-        chat.submit('Hello', const []);
+        await chat.submit('Hello', const []);
         send = transport.sends.single;
         send.emit(const ThreadBound('s1'));
         await pumpEventQueue();
@@ -381,7 +381,7 @@ void main() {
       () async {
         await startTurn();
         await lose();
-        chat.submit('And then deploy', const []);
+        await chat.submit('And then deploy', const []);
         await pumpEventQueue();
         expectOneSubmit();
 
@@ -448,7 +448,7 @@ void main() {
       );
       other.newThread();
       thread = other.selectedThread!;
-      other.submit('Run the build', const []);
+      await other.submit('Run the build', const []);
       send = transport.sends.single;
       send
         ..emit(const ThreadBound('s1'))
@@ -488,7 +488,7 @@ void main() {
         'waits when the connection is lost', () async {
       chat.newThread();
       thread = chat.selectedThread!;
-      chat.submit('Hello', const []);
+      await chat.submit('Hello', const []);
       send = transport.sends.single;
       send.emit(const ThreadBound('s1'));
       await pumpEventQueue();
@@ -577,7 +577,7 @@ void main() {
       addTearDown(other.dispose);
       other.newThread();
       thread = other.selectedThread!;
-      other.submit('Run the build', const []);
+      await other.submit('Run the build', const []);
       send = transport.sends.single;
       send
         ..emit(const ThreadBound('s1'))
@@ -599,20 +599,43 @@ void main() {
   });
 
   group('a real failure still fails the reply', () {
-    for (final (name, error) in <(String, Object)>[
-      ('an unknown error', StateError('boom')),
-      ('a turn the server ended with nothing', const GatewayTurnEnded()),
-      ('an answer from the server', const GatewayRpcException(5000, 'boom')),
-    ]) {
+    // A tool call is marked failed only when the server reported the failure;
+    // a connection the client lost says nothing of it. The server may still run
+    // the turn only when the end came from the connection.
+    for (final (name, error, tool, mayRun)
+        in <(String, Object, ToolCallStatus, bool)>[
+          (
+            'an unknown error',
+            StateError('boom'),
+            ToolCallStatus.cancelled,
+            false,
+          ),
+          (
+            'a turn the server ended with nothing',
+            const GatewayTurnEnded(),
+            ToolCallStatus.cancelled,
+            true,
+          ),
+          (
+            'an answer from the server',
+            const GatewayRpcException(5000, 'boom'),
+            ToolCallStatus.error,
+            false,
+          ),
+        ]) {
       test(name, () async {
         await startTurn();
+        // The server still lists the session as working.
+        transport.active['s1'] = 'working';
         await lose(error);
 
         final reply = assistant();
         expect(reply.status, MessageStatus.error);
-        expect(reply.error, kReplyFailedMessage);
+        expect(reply.error, isNull);
+        expect(reply.failure, ReplyFailure.generic);
         expect(reply.reconnecting, isFalse);
-        expect(reply.toolCalls.single.status, ToolCallStatus.error);
+        expect(reply.toolCalls.single.status, tool);
+        expect(reply.serverMayRun, mayRun);
         expect(thread.isReplying, isFalse);
         expectOneSubmit();
       });

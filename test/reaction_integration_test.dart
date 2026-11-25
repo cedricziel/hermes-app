@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -12,6 +12,7 @@ import 'package:hermes_app/src/chat/owned_session_transport.dart';
 import 'package:hermes_app/src/chat/reactions/reaction_state.dart';
 import 'package:hermes_app/src/chat/session_chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -120,7 +121,7 @@ void main() {
       reaction(42, 'user', '🎉');
       return {'status': 'streaming', 'user_row_id': 42};
     };
-    chat.submit('Repeated', const []);
+    await chat.submit('Repeated', const []);
     await pumpEventQueue();
     final thread = chat.selectedThread!;
     final ownUser = thread.messages[thread.messages.length - 2];
@@ -143,7 +144,7 @@ void main() {
 
   test('identity-free supported acknowledgement does not assign a message or settle main reply', () async {
     await open();
-    chat.submit('New prompt', const []);
+    await chat.submit('New prompt', const []);
     await pumpEventQueue();
     final thread = chat.selectedThread!;
     gateway.event('reaction', 'rt-1', {'kind': 'future'});
@@ -503,6 +504,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: AnimatedBuilder(
               animation: chat,

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -14,6 +14,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/queue_storage/durable_queue_store.dart';
 import 'package:hermes_app/src/chat/queue_storage/queue_record.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -324,6 +325,7 @@ void main() {
       addTearDown(latest.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: ListenableBuilder(
               listenable: chat,
@@ -572,6 +574,7 @@ void main() {
       addTearDown(latest.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: ListenableBuilder(
               listenable: chat,

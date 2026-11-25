@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'src/settings/third_party_notices.dart';
@@ -21,6 +21,7 @@ import 'src/share/share_provider.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/update/github_release_store.dart';
+import 'src/voice/calls/soloud_quit_probe.dart';
 import 'src/windows/conversation_window_app.dart';
 
 Future<void> main([List<String> args = const []]) async {
@@ -39,12 +40,13 @@ Future<void> main([List<String> args = const []]) async {
   // A certificate installed in Settings counts once the user is back.
   AppLifecycleListener(onResume: () => unawaited(trustUserCertificates()));
 
+  unawaited(runSoloudQuitProbeIfAsked());
   runApp(
     MultiProvider(
       providers: [
         ...authProviders(telemetry),
         ...telemetryProviders(telemetry),
-        ...deepLinkProviders(telemetry),
+        ...deepLinkProviders(telemetry, launchArguments: args),
         ...macosInputProviders(telemetry),
         ...appLockProviders(telemetry),
         ...macosWindowProviders(telemetry),

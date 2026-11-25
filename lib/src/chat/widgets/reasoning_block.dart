@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_toggled.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
 import 'thinking_shimmer.dart';
+import '../../../l10n/l10n.dart';
 
 /// What the model reasoned before it answered, folded away until the user
 /// opens it — assistant-ui's collapsible reasoning part.
@@ -76,7 +78,9 @@ class _ReasoningBlockState extends State<ReasoningBlock> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
-    final label = widget.active ? widget.activity ?? 'Thinking…' : 'Reasoning';
+    final label = widget.active
+        ? widget.activity ?? context.l10n.chatWidgetsReasoningThinking
+        : 'Reasoning';
     final elapsed = widget.active && widget.startedAt != null
         ? '${formatThinkingElapsed(DateTime.now().difference(widget.startedAt!))} · '
         : '';
@@ -92,38 +96,42 @@ class _ReasoningBlockState extends State<ReasoningBlock> {
           expanded: _open,
           onTap: _toggle,
           child: ExcludeSemantics(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: _toggle,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minTap),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  widthFactor: 1,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppIcon(AppIcons.reasoning, size: 16, color: subtle),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: ThinkingShimmer(
-                            active: widget.active,
-                            child: Text(
-                              '$elapsed$label',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontSize: 13, color: subtle),
+            // Hugs its text and nothing clips it: the ring goes outside.
+            child: FocusRing.outside(
+              radius: 8,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: _toggle,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: minTap),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          AppIcon(AppIcons.reasoning, size: 16, color: subtle),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: ThinkingShimmer(
+                              active: widget.active,
+                              child: Text(
+                                '$elapsed$label',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 13, color: subtle),
+                              ),
                             ),
                           ),
-                        ),
-                        AppIcon(
-                          _open ? AppIcons.expandLess : AppIcons.expandMore,
-                          size: 18,
-                          color: subtle,
-                        ),
-                      ],
+                          AppIcon(
+                            _open ? AppIcons.expandLess : AppIcons.expandMore,
+                            size: 18,
+                            color: subtle,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

@@ -2,10 +2,11 @@ import 'dart:async';
 
 import 'package:dio/dio.dart' show RequestOptions;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_availability.dart';
@@ -17,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 import 'tools_screen_fixtures.dart';
 
 const _phone = Size(390, 844);
@@ -59,7 +61,7 @@ void main() {
     addTearDown(tester.view.reset);
     final app = MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: buildHermesLightTheme(platform: platform),
       home: const Scaffold(body: Text('home')),
@@ -82,7 +84,7 @@ void main() {
                 builder: (_, name, _) => ToolsScreen(
                   repository: HermesToolsRepository(
                     server.client().raw,
-                    profile: name,
+                    profile: resolvedProfile(name),
                   ),
                   availability: availability,
                   onProfileGone: onProfileGone,
@@ -210,7 +212,9 @@ void main() {
         HermesToolsRoot(server.client().raw),
       );
       addTearDown(availability.dispose);
-      await tester.runAsync(() => availability.refresh('work'));
+      await tester.runAsync(
+        () => availability.refresh(resolvedProfile('work')),
+      );
       final before = listReads();
       final gate = holdAnswer(server, 'GET', '/api/tools/toolsets');
 

@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
-
-import '../../files/widgets/safe_path_text.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../files/widgets/safe_path_text.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import 'workspace_widget_support.dart';
 
@@ -63,22 +63,28 @@ class FolderToolbarButton extends StatelessWidget {
             onPressed: onPressed,
             style:
                 TextButton.styleFrom(
-                  foregroundColor: color,
-                  disabledForegroundColor: color,
-                  minimumSize: const Size(28, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.standard,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  textStyle: Theme.of(context).textTheme.labelLarge
-                      ?.copyWith(fontSize: 13, fontWeight: FontWeight.w500),
-                ).copyWith(
-                  overlayColor: WidgetStatePropertyAll(
-                    scheme.onSurface.withValues(alpha: 0.08),
-                  ),
-                ),
+                      foregroundColor: color,
+                      disabledForegroundColor: color,
+                      minimumSize: const Size(28, 28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.standard,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      textStyle: Theme.of(context).textTheme.labelLarge
+                          ?.copyWith(fontSize: 13, fontWeight: FontWeight.w500),
+                    )
+                    .copyWith(
+                      shape: focusRingShapeOf(
+                        context,
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    )
+                    .copyWith(
+                      overlayColor: WidgetStatePropertyAll(
+                        scheme.onSurface.withValues(alpha: 0.08),
+                      ),
+                    ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

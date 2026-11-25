@@ -1,8 +1,9 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'middle_ellipsis.dart';
@@ -272,6 +273,69 @@ class GroupedSection extends StatelessWidget {
   }
 }
 
+/// The width [text] takes in [style] at the current text scale, on one line
+/// unless [maxLines] says otherwise. What a row measures to decide whether a
+/// value or a button still fits beside its title.
+double measureRowText(
+  BuildContext context,
+  String text,
+  TextStyle style, {
+  int? maxLines = 1,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    maxLines: maxLines,
+  )..layout();
+  try {
+    return painter.width;
+  } finally {
+    painter.dispose();
+  }
+}
+
+/// The ink of a row of a [GroupedSection]: the tap target, its focus tint and
+/// the keyboard focus ring 2 px inside the section's clip, with the section's
+/// corner radius less the inset. [GroupedRow], [GroupedActionRow], the iOS
+/// value row and the Schedules "Advanced" row all take it from here, so a row
+/// that builds its own tap target gets the same ring.
+///
+/// A row that draws its own focus mark ([focusFill] off) or takes none
+/// ([focusable] off) gets no ring from here.
+class GroupedRowInk extends StatelessWidget {
+  const GroupedRowInk({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.focusable = true,
+    this.focusFill = true,
+  });
+
+  final Widget child;
+
+  /// Null draws a row that does not take focus or taps.
+  final VoidCallback? onTap;
+  final bool focusable;
+  final bool focusFill;
+
+  @override
+  Widget build(BuildContext context) {
+    final tap = InkWell(
+      canRequestFocus: focusable,
+      focusColor: focusFill ? null : Colors.transparent,
+      onTap: onTap,
+      child: child,
+    );
+    return focusable && focusFill
+        ? FocusRing(
+            radius: GroupedMetrics.of(context).radius - kFocusRingOffset,
+            child: tap,
+          )
+        : tap;
+  }
+}
+
 /// A row of a [GroupedSection]: a [title] with optional inline [meta] (a
 /// version), a [subtitle] (one line unless [subtitleMaxLines] says more) and
 /// [warning] and [error] lines under it, which wrap, and at the
@@ -291,6 +355,7 @@ class GroupedRow extends StatelessWidget {
     this.titleMiddleEllipsis = false,
     this.subtitleMiddleEllipsis = false,
     this.wrapWhenStacked = false,
+    this.stackCrampedValue = false,
     this.monospaceSubtitle = false,
     this.caption,
     this.warning,
@@ -341,6 +406,11 @@ class GroupedRow extends StatelessWidget {
   /// under the title, whatever [titleMaxLines] and [subtitleMaxLines] say.
   /// Beside the value, and at the default text size, they keep those limits.
   final bool wrapWhenStacked;
+
+  /// Puts the [value] under the title at any text size, whenever the two do
+  /// not fit on one line together, instead of cutting the value at half the
+  /// row. A value that fits beside the title stays there.
+  final bool stackCrampedValue;
 
   /// Sets [subtitle] in a monospaced font, for a command line.
   final bool monospaceSubtitle;
@@ -426,28 +496,18 @@ class GroupedRow extends StatelessWidget {
   ) {
     final value = this.value;
     if (value == null || trailing != null) return false;
+    if (stackCrampedValue) return _valueCramped(context, width, metrics);
     final scaler = MediaQuery.textScalerOf(context);
     if (scaler.scale(metrics.titleSize) <= metrics.titleSize) return false;
-    final direction = Directionality.of(context);
     // Called from under the row's Material, so this is the style the row's
     // text is drawn in.
     final base = DefaultTextStyle.of(context).style;
-    double measure(String text, double size, {int? maxLines}) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: base.merge(TextStyle(fontSize: size)),
-        ),
-        textDirection: direction,
-        textScaler: scaler,
-        maxLines: maxLines,
-      )..layout();
-      try {
-        return painter.width;
-      } finally {
-        painter.dispose();
-      }
-    }
+    double measure(String text, double size, {int? maxLines}) => measureRowText(
+      context,
+      text,
+      base.merge(TextStyle(fontSize: size)),
+      maxLines: maxLines,
+    );
 
     final valueWidth = measure(value, metrics.subtitleSize, maxLines: 1) + 8;
     // Room beside the title: the row less its leading, chevron and gaps.
@@ -458,6 +518,28 @@ class GroupedRow extends StatelessWidget {
     // The title keeps at least its own width, or a third of the row.
     final titleMin = titleNeeds < width / 3 ? titleNeeds : width / 3;
     return valueWidth > width / 2 || room - valueWidth < titleMin;
+  }
+
+  /// Whether the title and the [value] do not fit on one line in a row
+  /// [width] wide.
+  bool _valueCramped(
+    BuildContext context,
+    double width,
+    GroupedMetrics metrics,
+  ) {
+    final base = DefaultTextStyle.of(context).style;
+    double measure(String text, double size) => measureRowText(
+      context,
+      text,
+      base.merge(TextStyle(fontSize: size)),
+      maxLines: 1,
+    );
+
+    var room = width;
+    if (leading != null) room -= metrics.leadingSize + metrics.leadingGap;
+    if (chevron ?? (onTap != null)) room -= 26;
+    final valueWidth = measure(value!, metrics.subtitleSize) + 8;
+    return measure(title, metrics.titleSize) + valueWidth + 1 > room;
   }
 
   @override
@@ -665,15 +747,17 @@ class GroupedRow extends StatelessWidget {
             ? row()
             : LayoutBuilder(
                 builder: (context, box) => row(
-                  valueWidth: box.maxWidth / 2,
+                  valueWidth: stackCrampedValue
+                      ? box.maxWidth
+                      : box.maxWidth / 2,
                   stacked: _stacksValue(context, box.maxWidth, metrics),
                 ),
               ),
       ),
     );
-    final ink = InkWell(
-      canRequestFocus: focusable,
-      focusColor: focusFill ? null : Colors.transparent,
+    final ink = GroupedRowInk(
+      focusable: focusable,
+      focusFill: focusFill,
       onTap: enabled ? onTap : null,
       child: content,
     );
@@ -769,7 +853,7 @@ class GroupedSwitchRow extends StatelessWidget {
   const GroupedSwitchRow({
     super.key,
     required this.title,
-    this.titleMaxLines = 1,
+    this.titleMaxLines = 2,
     required this.value,
     required this.onChanged,
     this.subtitle,

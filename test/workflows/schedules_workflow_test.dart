@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:ui' show Tristate;
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -38,6 +38,7 @@ import '../support/fake_share_inbox.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// Scheduled tasks: the navigation that offers them, the list, one task in
 /// full (pause, run now, delete), and creating and editing a task.
@@ -167,7 +168,7 @@ void main() {
     // A phone keeps the destinations in a drawer: Chat's own, or the shell's
     // on another page. A compact Mac window opens its sidebar over the page.
     Future<void> openMenu(WidgetTester tester) async {
-      final drawer = find.byTooltip('Open navigation menu').hitTestable();
+      final drawer = find.tooltip('Open navigation menu').hitTestable();
       await tester.tap(
         drawer.evaluate().isNotEmpty
             ? drawer.first
@@ -621,7 +622,7 @@ void main() {
       final shots = ScreenshotRecorder('schedules-phone-list-refresh-failed');
       await pumpSchedules(tester, shots, size: phoneSize);
       server.on('GET', '/api/cron/jobs', {}, status: 500);
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.tooltip('Refresh'));
       await _settle(tester);
       await shots.capture(tester, 'error-note');
       // The failure is told above the tasks, which stay.
@@ -650,7 +651,7 @@ void main() {
       expect(find.byType(JobTile), findsNothing);
 
       server.on('GET', '/api/cron/jobs', {}, status: 500);
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.tooltip('Refresh'));
       await _settle(tester);
       await shots.capture(tester, 'still-empty-after-failed-refresh');
       expect(find.text('The server answered 500'), findsOneWidget);
@@ -660,7 +661,7 @@ void main() {
       cron
         ..rows.removeWhere((r) => r['state'] != 'scheduled')
         ..serve();
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.tooltip('Refresh'));
       await _settle(tester);
       await _filter(tester, 'Paused');
       await shots.capture(tester, 'no-match-for-filter');
@@ -756,7 +757,7 @@ void main() {
       expect(find.byType(JobTile), findsNothing);
 
       server.on('GET', '/api/cron/jobs', {}, status: 500);
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.tooltip('Refresh'));
       await _settle(tester);
       await shots.capture(tester, 'refresh-failed');
       expect(find.text('The server answered 500'), findsOneWidget);
@@ -2626,8 +2627,10 @@ Future<void> _mount(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: withScreenshotFont(
-            dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
-          ).copyWith(platform: platform),
+            dark
+                ? buildHermesDarkTheme(platform: platform)
+                : buildHermesLightTheme(platform: platform),
+          ),
           home: home,
         ),
       ),

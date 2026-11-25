@@ -262,6 +262,7 @@ extension _ChatControllerStreaming on ChatController {
         // A stream that ended quietly before saying anything changes nothing.
         if (isConnectionLost(error) ||
             (error == null && pending.reconnecting)) {
+          _diag.holdAgain(thread);
           _holdForReconnect(thread, pending);
           return;
         }
@@ -272,6 +273,12 @@ extension _ChatControllerStreaming on ChatController {
       if (!disposed) notifyListeners();
       if (pending != null) _finishMoaTurn(thread, pending);
       if (pending != null && pending.isPending) {
+        _diag.endedHeld(
+          thread,
+          outcome: 'failed',
+          error: error,
+          queued: _queues[thread]?.length ?? 0,
+        );
         // The queue rule after any failed reply: halted, so what waits in it
         // stays and nothing is sent by itself.
         _turnEnded(thread, halted: true);
@@ -291,6 +298,8 @@ extension _ChatControllerStreaming on ChatController {
         // What the server did with the turn is in its history: read it again,
         // and the settled reply is kept only while the history has no answer.
         if (loss != null) _afterLossSettle(thread, transport, profile);
+        // Whether the server still runs it decides if the actions come back.
+        if (pending.serverMayRun) unawaited(refreshActive());
       }
     }
 
@@ -299,6 +308,7 @@ extension _ChatControllerStreaming on ChatController {
         .listen(
           (event) {
             if (!_currentActivity(epoch)) return;
+            _diag.follow(thread, event);
             if (reply == null && opensTurn(event)) {
               // A stop in flight may be aimed at the turn this opens a reply
               // for (a folded prompt's), so the hold stays.
@@ -320,7 +330,17 @@ extension _ChatControllerStreaming on ChatController {
               // result belongs in that bubble. The queue stays paused.
               mayAdopt = false;
               if (_lostReply(thread) case final lost?) {
-                _onReplyEvent(thread, lost, event, profile);
+                // The settle told the person the reply failed. A completion
+                // that proves it did not is told once, as the success it is
+                // (it replaces the failure in the tray); one that failed
+                // again is not told twice.
+                _onReplyEvent(
+                  thread,
+                  lost,
+                  event,
+                  profile,
+                  announce: !event.failed,
+                );
                 return;
               }
             }
@@ -338,9 +358,25 @@ extension _ChatControllerStreaming on ChatController {
               _reconnectTimers.remove(thread)?.cancel();
               _reconnectTries.remove(thread);
             }
+            // Read before the event settles the hold: an idle report that ends
+            // a turn the user stopped is a stop, not a completion.
+            final stoppedByUser = switch (_holdOf(thread)) {
+              _Hold.stopping || _Hold.paused => true,
+              _ => false,
+            };
             _onReplyEvent(thread, current, event, profile);
             if (!_currentActivity(epoch)) return;
             if (event is ReplyCompleted) {
+              _diag.endedHeld(
+                thread,
+                outcome: event.failed
+                    ? 'failed'
+                    : event.stopped
+                    ? 'stopped'
+                    : 'completed',
+                error: null,
+                queued: _queues[thread]?.length ?? 0,
+              );
               reply = null;
               final drain = _turnEnded(
                 thread,
@@ -354,6 +390,16 @@ extension _ChatControllerStreaming on ChatController {
               // The session reports the turn over without a completion. It is
               // closed all the same, so the next chained turn gets a reply of
               // its own, and the queue goes on now that the session settled.
+              _diag.endedHeld(
+                thread,
+                outcome: current.status == MessageStatus.error
+                    ? 'failed'
+                    : stoppedByUser
+                    ? 'stopped'
+                    : 'completed',
+                error: null,
+                queued: _queues[thread]?.length ?? 0,
+              );
               reply = null;
               final drain = _turnEnded(
                 thread,
@@ -505,6 +551,8 @@ extension _ChatControllerStreaming on ChatController {
     _updateReply(thread, reply, () {
       reply.loss = null;
       reply.error = null;
+      reply.failure = null;
+      reply.serverMayRun = false;
       reply.status = reply.content.isEmpty && reply.sealedProse.isEmpty
           ? MessageStatus.thinking
           : MessageStatus.streaming;

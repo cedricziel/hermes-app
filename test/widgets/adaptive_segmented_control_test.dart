@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_segmented_control.dart';
@@ -17,10 +17,12 @@ Future<List<bool>> _pump(
   double textScale = 1,
 }) async {
   final picks = <bool>[];
-  final base = dark ? buildHermesDarkTheme() : buildHermesLightTheme();
+  final base = dark
+      ? buildHermesDarkTheme(platform: platform)
+      : buildHermesLightTheme(platform: platform);
   await tester.pumpWidget(
     MaterialApp(
-      theme: base.copyWith(platform: platform),
+      theme: base,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(textScale)),

@@ -20,6 +20,16 @@ class FakeFile {
 /// Stands in for the Hermes dashboard at the HTTP layer, so tests drive the
 /// real generated client and the real Dio pipeline rather than a mock of it.
 class FakeHermesServer implements HttpClientAdapter {
+  /// A dashboard launched with the `default` profile, which is what a chat
+  /// with no profile of its own works in. A test of another launch profile
+  /// answers `/api/profiles/active` itself.
+  FakeHermesServer() {
+    on('GET', '/api/profiles/active', {
+      'active': 'default',
+      'current': 'default',
+    });
+  }
+
   final _routes = <_Route>[];
 
   /// Every request the client sent, in order.

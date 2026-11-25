@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../l10n/l10n.dart';
+import '../widgets/dialog_presentation.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'report_bug_link.dart';
@@ -13,7 +14,7 @@ Future<void> showAppAboutDialog(BuildContext context) async {
   );
   if (!context.mounted) return;
   final shown = version ?? context.l10n.settingsAboutVersionUnavailable;
-  await showDialog<void>(
+  await showAppDialog<void>(
     context: context,
     builder: (_) => AppAboutDialog(version: shown),
   );

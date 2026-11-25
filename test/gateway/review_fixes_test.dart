@@ -62,7 +62,7 @@ class _Live {
   /// Sends [text] in a new thread and lets the gateway answer.
   Future<ChatThread> start(String text) async {
     chat.newThread();
-    chat.submit(text, const []);
+    await chat.submit(text, const []);
     await settle();
     return chat.selectedThread!;
   }
@@ -134,7 +134,7 @@ void main() {
         'stored_session_id': 'stored-1',
       });
       final thread = await live.start('One');
-      live.chat.submit('Two', const []);
+      await live.chat.submit('Two', const []);
       await live.settle();
 
       expect(thread.isReplying, isTrue);
@@ -188,7 +188,7 @@ void main() {
       'grace ends the reply as an error, pauses the queue and announces it',
       () async {
         final thread = await live.start('One');
-        live.chat.submit('Two', const []);
+        await live.chat.submit('Two', const []);
         await live.settle();
 
         live.gateway
@@ -285,7 +285,7 @@ void main() {
         await pumpEventQueue();
         rig.followUp().emit(const ReplyDelta('chained'));
         await pumpEventQueue();
-        rig.chat.submit('Two', const []);
+        unawaited(Future.value(rig.chat.submit('Two', const [])));
         expect(rig.sentTexts, ['One']);
 
         rig.followUp().emit(const SessionInfo(running: false));
@@ -698,7 +698,7 @@ void main() {
         final old = _replies(thread).single;
         expect(old.settledWithoutCompletion, isTrue);
 
-        rig.chat.submit('Two', const []);
+        await rig.chat.submit('Two', const []);
         rig.transport.sends.last
           ..emit(const ReplyCompleted('Answer two'))
           ..finish();
@@ -928,7 +928,7 @@ void main() {
       final rig = _Rig();
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
-      rig.chat.submit('Two', const []);
+      unawaited(Future.value(rig.chat.submit('Two', const [])));
       first
         ..emit(const ReplyCompleted('Done.'))
         ..finish();
@@ -950,7 +950,7 @@ void main() {
         'turn is still shown and the queue stays paused', () async {
       final live = _Live();
       final thread = await live.start('One');
-      live.chat.submit('Two', const []);
+      await live.chat.submit('Two', const []);
       await live.settle();
 
       live.gateway
@@ -983,7 +983,7 @@ void main() {
         final rig = _Rig();
         final (thread, send) = rig.start('One');
         await pumpEventQueue();
-        rig.chat.submit('Two', const []);
+        unawaited(Future.value(rig.chat.submit('Two', const [])));
 
         await rig.chat.stopReply(thread);
         send
@@ -1135,7 +1135,7 @@ void main() {
         final rig = _Rig();
         final (thread, first) = rig.start('One');
         await pumpEventQueue();
-        rig.chat.submit('Two', const []);
+        unawaited(Future.value(rig.chat.submit('Two', const [])));
         first
           ..emit(const ReplyCompleted('Done.'))
           ..finish();

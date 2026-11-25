@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
@@ -10,6 +10,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 // The skill curator section in every state of the design brief
 // (docs/design-briefs/skills-curator.md). The model is plain, so each case
@@ -67,6 +68,7 @@ CuratorSectionModel _model({
   bool checking = false,
   bool checkFailed = false,
   List<String> lines = const [],
+  int? lineCount,
   int earlier = 0,
   bool? hasOutput,
   bool blanked = false,
@@ -89,6 +91,7 @@ CuratorSectionModel _model({
     startedAt: run == CuratorRunView.unconfirmed ? _ranAt : null,
     outputLines: lines,
     earlierLines: earlier,
+    outputLineCount: lineCount,
     hasOutput: hasOutput ?? lines.isNotEmpty,
     outputBlanked: blanked,
     outputDropped: dropped,
@@ -232,30 +235,26 @@ List<WidgetbookUseCase> _states(
 ];
 
 /// The Skills screen's states around the section, built from the real
-/// chrome, list and message widgets. The screen itself wires the section in
-/// a later change; this fixes where it sits.
+/// chrome, list and message widgets the way the screen wires them: the
+/// section above the categories, then the hub update row and the link that
+/// ends the list ([updating] is a running hub job).
 Widget _placed({
   required CuratorSectionModel model,
   bool hub = true,
+  bool updating = false,
   _Body body = _Body.list,
 }) {
   final section = _section(model);
-  final groups = [
-    const SkillGroup('github', [
-      HermesSkill(
-        name: 'pr-review',
-        description: 'Review a pull request',
-        category: 'github',
-        source: SkillSource.agent,
-      ),
-    ]),
-  ];
+  const groups = _installedGroups;
   final Widget content = switch (body) {
     _Body.list => InstalledSkillsList(
       groups: groups,
       onOpen: (_) {},
       onToggle: (_, _) {},
       onClearFilters: () {},
+      onCheckForUpdates: hub ? () {} : null,
+      updating: updating,
+      onWhatsTheDifference: () {},
       header: section,
     ),
     _Body.loading => GroupedListView(
@@ -325,6 +324,40 @@ class _ScreenState extends State<_Screen> with SingleTickerProviderStateMixin {
   );
 }
 
+const _installedGroups = [
+  SkillGroup('apple', [
+    HermesSkill(
+      name: 'apple-notes',
+      description: 'Read and write Apple Notes',
+      category: 'apple',
+      usage: 14,
+    ),
+    HermesSkill(
+      name: 'apple-reminders',
+      description: 'Add reminders and read the lists',
+      category: 'apple',
+      enabled: false,
+    ),
+  ]),
+  SkillGroup('devops', [
+    HermesSkill(
+      name: 'compose',
+      description: 'Manage Compose stacks',
+      category: 'devops',
+      source: SkillSource.hub,
+      usage: 3,
+    ),
+  ]),
+  SkillGroup('github', [
+    HermesSkill(
+      name: 'pr-review',
+      description: 'Review a pull request',
+      category: 'github',
+      source: SkillSource.agent,
+    ),
+  ]),
+];
+
 const _knownDays = CuratorRunConfirmationModel(
   staleAfterDays: 14,
   archiveAfterDays: 30,
@@ -332,7 +365,7 @@ const _knownDays = CuratorRunConfirmationModel(
   consolidate: false,
 );
 
-enum _Where { iPhone, iPad, mac, android }
+enum _Where { iPhone, iPad, mac, android, windows, linux }
 
 /// The confirmation the way `showAdaptiveSheet` presents it: a bottom sheet
 /// on a phone, a centred dialog on an iPad and a Mac.
@@ -345,14 +378,20 @@ WidgetbookUseCase _confirm(
 }) => WidgetbookUseCase(
   name: name,
   builder: (context) {
-    final dialog = where == _Where.iPad || where == _Where.mac;
+    final dialog =
+        where == _Where.iPad ||
+        where == _Where.mac ||
+        where == _Where.windows ||
+        where == _Where.linux;
     final platform = switch (where) {
       _Where.iPhone || _Where.iPad => TargetPlatform.iOS,
       _Where.mac => TargetPlatform.macOS,
       _Where.android => TargetPlatform.android,
+      _Where.windows => TargetPlatform.windows,
+      _Where.linux => TargetPlatform.linux,
     };
     Widget body = Theme(
-      data: Theme.of(context).copyWith(platform: platform),
+      data: platformTheme(context, platform),
       child: Builder(
         builder: (context) => Align(
           alignment: dialog ? Alignment.center : Alignment.bottomCenter,
@@ -485,7 +524,7 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'Run now row',
       useCases: [
-        ..._states('Idle', _model()),
+        ..._states('Idle', _model(), platforms: true),
         ..._states('Opening', _model(run: CuratorRunView.opening)),
         ..._states(
           'Running',
@@ -502,8 +541,15 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
         ),
         ..._states(
           'Finished, output hidden',
-          _model(run: CuratorRunView.finished, hasOutput: true, blanked: true),
+          // The lines are hidden, the count in the label stays.
+          _model(
+            run: CuratorRunView.finished,
+            hasOutput: true,
+            lineCount: 12,
+            blanked: true,
+          ),
           open: true,
+          platforms: true,
         ),
         ..._states(
           'Finished with no output',
@@ -611,6 +657,9 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
         _confirm('Archive only (iPad dialog)', _knownDays, where: _Where.iPad),
         _confirm('Archive only (Mac)', _knownDays, where: _Where.mac),
         _confirm('Archive only (Android)', _knownDays, where: _Where.android),
+        _confirm('Archive only (Windows)', _knownDays, where: _Where.windows),
+        _confirm('Archive only (Linux)', _knownDays, where: _Where.linux),
+        _confirm('German (Mac)', _knownDays, where: _Where.mac, german: true),
         _confirm(
           'Built-ins included (iPhone)',
           const CuratorRunConfirmationModel(
@@ -706,6 +755,19 @@ WidgetbookNode skillsCuratorNode() => WidgetbookFolder(
             name,
             (_) => _calm(_placed(model: _model(), body: body)),
           ),
+        ...onEachPlatform(
+          'Installed list, paused and updating',
+          (_) => _calm(
+            _placed(
+              model: _model(status: _status(paused: true), paused: true),
+              updating: true,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Installed list, largest text',
+          builder: (_) => _largest(_calm(_placed(model: _model()))),
+        ),
         WidgetbookUseCase(
           name: 'No hub, no tabs',
           builder: (_) => _placed(model: _model(), hub: false),

@@ -1,6 +1,7 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_tab_bar.dart'
     show
@@ -122,34 +123,37 @@ class AdaptiveSegmentedControl<T extends Object> extends StatelessWidget {
 
   Widget _ios(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return CupertinoSlidingSegmentedControl<T>(
-      groupValue: value,
-      backgroundColor: _track(context),
-      thumbColor: _thumb(context),
-      padding: EdgeInsets.zero,
-      children: {
-        for (final MapEntry(key: segment, value: label) in segments.entries)
-          segment: Semantics(
-            button: true,
-            selected: segment == value,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: ShrinkToFitText(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: segment == value
-                      ? FontWeight.w600
-                      : FontWeight.w400,
-                  color: scheme.onSurface,
+    return FocusRing.outside(
+      radius: 9,
+      child: CupertinoSlidingSegmentedControl<T>(
+        groupValue: value,
+        backgroundColor: _track(context),
+        thumbColor: _thumb(context),
+        padding: EdgeInsets.zero,
+        children: {
+          for (final MapEntry(key: segment, value: label) in segments.entries)
+            segment: Semantics(
+              button: true,
+              selected: segment == value,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: ShrinkToFitText(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: segment == value
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: scheme.onSurface,
+                  ),
                 ),
               ),
             ),
-          ),
-      },
-      onValueChanged: (segment) {
-        if (segment != null) onChanged(segment);
-      },
+        },
+        onValueChanged: (segment) {
+          if (segment != null) onChanged(segment);
+        },
+      ),
     );
   }
 
@@ -176,7 +180,18 @@ class AdaptiveSegmentedControl<T extends Object> extends StatelessWidget {
     ),
     segments: [
       for (final MapEntry(key: segment, value: label) in segments.entries)
-        ButtonSegment<T>(value: segment, label: Text(label, maxLines: 1)),
+        // Material clips each segment to the control's outline and draws its
+        // shape itself, so the ring is the label's, 2 px inside the segment.
+        ButtonSegment<T>(
+          value: segment,
+          label: HostFocusRing<TextButton>(
+            radius: 12,
+            // The button lays its segments out 32 high and the control crops
+            // them to its own height.
+            maxHeight: kCompactSegmentedHeight,
+            child: Text(label, maxLines: 1),
+          ),
+        ),
     ],
   );
 }

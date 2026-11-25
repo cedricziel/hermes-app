@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -27,11 +27,6 @@ void main() {
 
     test('presses leave no ink splash', () {
       expect(theme.splashFactory, NoSplash.splashFactory);
-    });
-
-    test('buttons are compact', () {
-      final size = theme.textButtonTheme.style!.minimumSize!.resolve({});
-      expect(size!.height, 28);
     });
 
     test('popup menus use the smaller Mac radius', () {

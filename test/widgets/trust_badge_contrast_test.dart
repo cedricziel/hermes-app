@@ -1,8 +1,9 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -65,7 +66,10 @@ void main() {
         tester,
       ) async {
         await _pump(tester, SourceBadge(source), dark: dark);
-        _expectReadable(tester, skillSourceLabel(source));
+        _expectReadable(
+          tester,
+          skillSourceLabel(lookupAppLocalizations(const Locale('en')), source),
+        );
       });
     }
   }

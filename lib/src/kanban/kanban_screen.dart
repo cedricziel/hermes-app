@@ -5,7 +5,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_controller.dart';
 import '../chat/widgets/new_chat_fab.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../navigation/desktop_navigation_history.dart';
 import '../macos/mac_toolbar.dart';
 import '../theme/platform_chrome.dart';
@@ -46,6 +47,7 @@ import 'widgets/kanban_mac_toolbar.dart';
 import 'widgets/kanban_status_chips.dart';
 import 'widgets/kanban_orchestration_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
+import 'widgets/new_task_fab.dart';
 
 /// The Kanban board: status chips over a card list on a phone, real columns
 /// on a wide screen. Kept current by the plugin's event stream.
@@ -70,6 +72,12 @@ class KanbanScreen extends StatefulWidget {
 
 class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
+
+  /// Saved phone list offsets; owned here so a rebuilt shell starts at the top.
+  /// Replaced whenever the board or a filter changes, so only a status chip
+  /// switch ever brings an offset back.
+  var _offsets = PageStorageBucket();
+  int _offsetsGeneration = 0;
   late final KanbanRepository _repository;
   late final AppLifecycleListener _lifecycle;
 
@@ -178,7 +186,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       _newTask,
       title: context.l10n.macosMenuNewTask,
     ),
-    if (_mac)
+    if (_mac || bindsDesktopChords(Theme.of(context).platform))
       MacCommand.reload: MacCommandHandler(
         _reloading ? null : () => unawaited(_reload()),
       ),
@@ -221,10 +229,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
     more: _controller.board == null
         ? null
         : MacToolbarMenu<String>(
-            label: 'More',
+            label: context.l10n.kanbanMenuMore,
             icon: AppIcons.more,
             onSelected: _onMore,
-            itemBuilder: (_) => _moreItems,
+            itemBuilder: _moreItems,
           ),
   );
 
@@ -238,18 +246,22 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 leading: ShellMenu.clearOfWindowControls(
                   context,
                   NamedIconButton(
-                    label: 'Cancel selection',
+                    label: context.l10n.kanbanSelectionCancel,
                     icon: AppIcons.close,
                     onPressed: _controller.stopSelecting,
                   ),
                 ),
-                title: Text('${_controller.selected.length} selected'),
+                title: Text(
+                  context.l10n.kanbanSelectionCount(
+                    _controller.selected.length,
+                  ),
+                ),
               )
             : _mac
             ? _macToolbar()
             : AppBar(
                 leading: ShellMenu.button(context),
-                title: const Text('Kanban'),
+                title: Text(context.l10n.kanbanTitle),
                 actions: [
                   if (_controller.boards.isNotEmpty)
                     KanbanBoardMenu(
@@ -290,11 +302,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
         floatingActionButton: !_fabShown
             ? null
-            : FloatingActionButton.extended(
-                onPressed: _newTask,
-                icon: const AppIcon(AppIcons.add),
-                label: const Text('New task'),
-              ),
+            : NewTaskFab(onPressed: _newTask),
       ),
     );
   }
@@ -347,15 +355,21 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   Widget _moreMenu() => AdaptivePopupMenuButton<String>(
     onSelected: _onMore,
-    itemBuilder: (_) => _moreItems,
+    itemBuilder: _moreItems,
   );
 
-  static const _moreItems = [
-    PopupMenuItem(value: 'select', child: Text('Select tasks')),
-    PopupMenuItem(value: 'dispatch', child: Text('Run dispatcher now')),
-    PopupMenuItem(value: 'workers', child: Text('Active workers…')),
-    PopupMenuItem(value: 'orchestration', child: Text('Orchestration…')),
-  ];
+  List<PopupMenuEntry<String>> _moreItems(BuildContext context) {
+    final l10n = context.l10n;
+    return [
+      PopupMenuItem(value: 'select', child: Text(l10n.kanbanMenuSelect)),
+      PopupMenuItem(value: 'dispatch', child: Text(l10n.kanbanMenuDispatch)),
+      PopupMenuItem(value: 'workers', child: Text(l10n.kanbanMenuWorkers)),
+      PopupMenuItem(
+        value: 'orchestration',
+        child: Text(l10n.kanbanMenuOrchestration),
+      ),
+    ];
+  }
 
   void _onMore(String value) {
     switch (value) {
@@ -379,12 +393,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
           ),
         );
       case 'orchestration':
-        showDialog<void>(
-          context: context,
-          builder: (_) => KanbanOrchestrationDialog(
-            repository: _repository,
-            board: _controller.boardSlug,
-          ),
+        showKanbanOrchestrationDialog(
+          context,
+          repository: _repository,
+          board: _controller.boardSlug,
         );
     }
   }
@@ -392,8 +404,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
   Future<void> _dispatch() async {
     final ok = await runKanbanAction(context, _controller.dispatch);
     if (!ok || !mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Dispatcher nudged')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.kanbanMenuDispatched)));
     unawaited(_controller.refresh());
   }
 
@@ -424,8 +437,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${failures.length} of $count could not be changed: '
-          '${failures.first.error}',
+          context.l10n.kanbanBulkFailed(
+            failures.length,
+            count,
+            failures.first.error,
+          ),
         ),
       ),
     );
@@ -473,16 +489,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
       return StateMessage(
         icon: _controller.unavailable ? AppIcons.extensionOff : AppIcons.error,
         title: _controller.unavailable
-            ? 'Kanban isn’t available'
-            : 'Could not load the board',
+            ? context.l10n.kanbanUnavailableTitle
+            : context.l10n.kanbanBoardLoadFailed,
         detail: _controller.unavailable
-            ? 'The plugin was turned off on this server.'
+            ? context.l10n.kanbanUnavailableDetail
             : null,
         action: _controller.unavailable
             ? null
             : FilledButton(
                 onPressed: _controller.refresh,
-                child: const Text('Retry'),
+                child: Text(context.l10n.commonRetry),
               ),
       );
     }
@@ -518,48 +534,60 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final shown = _controller.shownStatus;
     final tasks =
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
-    return Column(
-      children: [
-        KanbanStatusChips(
-          columns: columns,
-          selected: shown,
-          onSelected: _controller.showStatus,
-        ),
-        Expanded(
-          child: Stack(
-            children: [
-              PlatformRefresh(
-                onRefresh: _controller.refresh,
-                child: tasks.isEmpty
-                    ? ListView(
-                        children: const [
-                          SizedBox(height: 80),
-                          Center(child: Text('No tasks here')),
-                        ],
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.fromLTRB(
-                          12,
-                          12,
-                          12,
-                          12 + _fabInset,
-                        ),
-                        itemCount: tasks.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _item(tasks[i], narrow: true),
-                      ),
-              ),
-              if (tasks.any((t) => t.id == _dragId))
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: KanbanDropStrip(onDrop: _move),
-                ),
-            ],
+    if (_controller.filterGeneration != _offsetsGeneration) {
+      _offsetsGeneration = _controller.filterGeneration;
+      _offsets = PageStorageBucket();
+    }
+    final scope = '$_offsetsGeneration\u0000$shown';
+    return PageStorage(
+      bucket: _offsets,
+      child: Column(
+        children: [
+          KanbanStatusChips(
+            columns: columns,
+            selected: shown,
+            onSelected: _controller.showStatus,
           ),
-        ),
-      ],
+          Expanded(
+            child: Stack(
+              children: [
+                PlatformRefresh(
+                  onRefresh: _controller.refresh,
+                  child: tasks.isEmpty
+                      ? ListView(
+                          key: PageStorageKey<String>(scope),
+                          children: [
+                            const SizedBox(height: 80),
+                            Center(child: Text(context.l10n.kanbanEmptyColumn)),
+                          ],
+                        )
+                      : ListView.separated(
+                          // One saved offset per status chip.
+                          key: PageStorageKey<String>(scope),
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            12,
+                            12,
+                            12 + _fabInset,
+                          ),
+                          itemCount: tasks.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (_, i) => _item(tasks[i], narrow: true),
+                        ),
+                ),
+                if (tasks.any((t) => t.id == _dragId))
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: KanbanDropStrip(onDrop: _move),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -593,7 +621,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8, left: 4),
                     child: Text(
-                      '${kanbanStatusLabel(column.name)}  ${column.tasks.length}',
+                      '${kanbanStatusLabel(context.l10n, column.name)}  '
+                      '${column.tasks.length}',
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                   ),

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -13,6 +13,7 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// The MCP servers screen against a fake dashboard, through the real generated
 /// client.
@@ -827,7 +828,7 @@ void main() {
 
   group('adding', () {
     Future<void> tapAdd(WidgetTester tester) async {
-      await tester.tap(find.byTooltip('Add server'));
+      await tester.tap(find.tooltip('Add server'));
       await tester.pumpAndSettle();
     }
 
@@ -957,7 +958,7 @@ void main() {
 
   group('overflow menu', () {
     Future<void> openMenu(WidgetTester tester) async {
-      await tester.tap(find.byTooltip('More'));
+      await tester.tap(find.tooltip('More'));
       await tester.pumpAndSettle();
     }
 
@@ -993,7 +994,7 @@ void main() {
       server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
       await pumpScreen(tester);
 
-      expect(find.byTooltip('More'), findsNothing);
+      expect(find.tooltip('More'), findsNothing);
     });
 
     testWidgets('a saved editor changes the list', (tester) async {

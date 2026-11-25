@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_otel/flutter_otel.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -113,6 +114,7 @@ void main() {
     bool loggerFails = false,
   }) async {
     final chat = ChatController(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       profiles: resolveProfile
           ? HermesProfilesRepository(server.client().raw)
@@ -482,6 +484,23 @@ void main() {
     expect((await store.load(scope())).records, isEmpty);
   });
 
+  test('an accepted protected prompt is logged as drained, with the count '
+      'left', () async {
+    await store.commit(scope(), 'first');
+    await store.commit(scope(), 'second');
+    store = DurableQueueStore(directory: directory, keys: keys);
+    final chat = await open();
+    final thread = chat.selectedThread!;
+    chat.sendQueued(thread);
+    await transport.prepared;
+    await pumpEventQueue();
+
+    expect([
+      for (final (name, attributes) in outcomes)
+        if (name == 'chat.queue.state') attributes,
+    ], anyElement(equals({'state': 'drained', 'count': '1'})));
+  });
+
   test('lock cycle during enqueue keeps draft and does not dispatch', () async {
     final entered = Completer<void>();
     final release = Completer<void>();
@@ -689,7 +708,7 @@ void main() {
     );
   }
 
-  test('resolved default profile remains explicit after backend active profile changes', () async {
+  test('resolved default profile remains the launch profile after the active one changes', () async {
     server.on('GET', '/api/profiles/active', activeProfileBody(active: 'work'));
     await store.commit(scope('work'), 'work retained');
     await store.commit(scope('personal'), 'personal retained');
@@ -713,12 +732,13 @@ void main() {
     await chat.loadThreads();
     chat.select('stored');
     await queueIdle(chat);
-    expect(chat.profile, 'personal');
+    // The launch profile is read once: the sticky active profile changing
+    // later does not move the chat.
+    expect(chat.profile, 'work');
     expect(
-      chat.queuedIn(chat.selectedThread!).single.text,
+      (await store.load(scope('personal'))).records.single.text,
       'personal retained',
     );
-    expect(chat.queueNeedsReview(chat.selectedThread!), true);
     expect(transport.sends, hasLength(1));
   });
 

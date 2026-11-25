@@ -22,7 +22,10 @@ the job summary. Read that step first.
 `scripts/test-shard.sh <index> 4` reproduces the file partition. CI's split and
 a local one match only when run on the same tree, since adding or removing a
 test file moves the rest. Shard 0 is the
-catalog; the other files are sorted and distributed round-robin. Adding a test
+catalog, run in `CATALOG_PARTS` processes (default 6) one after the other,
+because one process for the whole file runs out of memory; its coverage file
+and failure report hold all parts. The other files are sorted and distributed
+round-robin. Adding a test
 file can move existing tests between shards. Start with the failing file before
 running a full shard.
 
@@ -47,6 +50,15 @@ example, media_kit's NativePlayer property API). Keep that implementation
 behind a conditional import/export with a matching browser stub; a runtime
 platform check alone cannot fix missing-method compilation errors. Validate
 with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
+
+## Require pubspec.lock resolved with the pinned Flutter
+
+The `Analyze` step of that name fails when `flutter pub get` rewrites
+`pubspec.lock`. The lock was resolved with another Flutter than `.fvmrc`, for
+example by dependabot, or an SDK-pinned package such as `test_api` moved with
+the SDK. Fix: run `flutter pub get` on the `.fvmrc` Flutter and commit
+`pubspec.lock` (by name; pub get also rewrites generated platform files, which
+stay out). `update-flutter.yml` does this for its bump PR.
 
 ## Which jobs run
 
@@ -155,6 +167,8 @@ payload, so edit the body to re-check. Each failure names its fix:
 - `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
 - "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
 - Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push. A block pasted with leading indentation is not recognised: paste it flush left.
+- "New public widgets have no Widgetbook use case" (catalog first, `PR policy`): the PR adds a file under `lib/src/**/widgets/` that declares a public `class X extends StatelessWidget|StatefulWidget`, and no line the PR adds in a `widgetbook/` `.dart` file names any of the new classes as a whole word. Add a use case that builds one (`component-catalog` skill). Only the file list and patches are read; commit order is not checked (squash merges erase it). A modified, renamed or removed file never triggers. Widgetbook patches are fetched only when a widget triggers the check; a file that cannot be read just does not count. If a use case truly does not apply (no state or layout to show, or "shown through the `<Parent>` use case"), the isolated reviewer emits `Catalog-first: not applicable, <reason>` in its block (reason of at least 10 characters, not `n/a`, `tbd`, `todo`, `<reason>` or punctuation). It counts only between the block's `Reviewer:` line (clean, for the current head) and its `Proof reproduced:` line (when there is none, up to the next blank line), outside code fences and HTML comments (an unclosed `<!--` hides the rest of the body). An author's line elsewhere in `## Review` does not count. Any push changes the head and re-locks the check until the review is redone.
+- "Design:" line (advisory, not a `PR policy` check): a PR that changes `lib/src/**/widgets/`, a `lib/**/*_screen.dart` or `lib/src/theme/` names its design record in the body, `Design: <canvas link or record path>` or `Design: not needed, <reason>`. The isolated reviewer confirms it (`Design: confirmed ...` in its block) or lists a finding; nothing fails CI for it yet.
 - "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
 - Known gap: model names inside inline code or fenced code are not checked.
 - TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.

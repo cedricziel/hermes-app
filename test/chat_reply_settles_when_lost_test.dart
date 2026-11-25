@@ -140,12 +140,16 @@ void main() {
     test('a turn found over with nothing to show, and no restart, is a plain '
         'failure still', () async {
       await startTurn();
+      transport.active['s1'] = 'working';
       await lose(const GatewayTurnEnded());
 
       expect(assistant().status, MessageStatus.error);
       expect(assistant().loss, isNull);
-      expect(assistant().error, kReplyFailedMessage);
-      expect(assistant().toolCalls.single.status, ToolCallStatus.error);
+      expect(assistant().error, isNull);
+      expect(assistant().failure, ReplyFailure.generic);
+      // The client lost the connection; nothing says the call failed.
+      expect(assistant().toolCalls.single.status, ToolCallStatus.cancelled);
+      expect(assistant().serverMayRun, isTrue);
       expectOneSubmit();
     });
 
@@ -197,7 +201,7 @@ void main() {
       'is paused: the prompt is kept and nothing is sent by itself',
       () async {
         await startTurn();
-        chat.submit('And then deploy', const []);
+        await chat.submit('And then deploy', const []);
         await pumpEventQueue();
         expect(chat.queuedIn(thread), hasLength(1));
 
@@ -212,7 +216,7 @@ void main() {
 
     test('is the same as after a failed reply', () async {
       await startTurn();
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
       await lose(StateError('boom'));
       final afterFailure = (
@@ -224,14 +228,14 @@ void main() {
       // A second chat, ended by a lost turn instead.
       chat.newThread();
       thread = chat.selectedThread!;
-      chat.submit('Second', const []);
+      await chat.submit('Second', const []);
       send = transport.sends.last;
       send
         ..emit(const ThreadBound('s2'))
         ..emit(const PromptAcknowledged(1))
         ..emit(const ReplyDelta('Working. '));
       await pumpEventQueue();
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
       await lose(const GatewaySessionGone(4007));
       await pumpEventQueue();
@@ -304,7 +308,7 @@ void main() {
       'a queued prompt stays queued and is not sent by the settle',
       () async {
         await startTurn();
-        chat.submit('And then deploy', const []);
+        await chat.submit('And then deploy', const []);
         await pumpEventQueue();
         transport.onStop = (_) async => throw const GatewaySessionGone(4001);
 
@@ -341,7 +345,7 @@ void main() {
 
     test('a stop that timed out does not hold the queue for good', () async {
       await startTurn();
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
       transport.onStop = (_) async => throw const GatewayConnectionClosed();
 
@@ -405,7 +409,7 @@ void main() {
     test('frames a still-open send sends after a stop settled the reply do not '
         'un-settle it, and the queue is not sent by itself', () async {
       await startTurn();
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
       transport.onStop = (_) async =>
           throw const GatewaySessionGone(4001, restarted: true);
@@ -441,7 +445,7 @@ void main() {
     test('a turn that goes on after "couldn\'t confirm" fills the same bubble, '
         'and the queue stays paused', () async {
       await startTurn();
-      chat.submit('And then deploy', const []);
+      await chat.submit('And then deploy', const []);
       await pumpEventQueue();
       final reply = assistant();
       await lose(const GatewayReplyUnconfirmed());

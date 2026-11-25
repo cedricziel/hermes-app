@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
@@ -17,6 +17,7 @@ import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/profiles/chat_profiles.dart';
 import 'package:hermes_app/src/providers/providers_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -25,6 +26,7 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/voice/calls/call_bridge.dart';
 import 'package:hermes_app/src/voice/voice_recorder.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +38,7 @@ import 'fake_hermes_server.dart';
 import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
 import 'mac_commands_builder.dart';
+import 'test_localizations.dart';
 
 /// The composer's editable text; the sidebar's search field is another one.
 final composerField = find.descendant(
@@ -51,6 +54,11 @@ Future<void> pumpChatScreen(
   FakeHermesServer? server,
   HermesApiClient? api,
   bool withProfiles = false,
+  // Where a chat with no profile works. Left out, a chat on a screen without
+  // `withProfiles` resolves to `default`; pass one to test another launch
+  // profile, or none known. The chat's own first list still asks the
+  // repositories' resolver, so a chat stays profile-less when that read 404s.
+  ProfileResolver? profileResolver,
   bool withSkills = false,
   HermesModelsRepository? models,
   ProvidersRepository? providersRepository,
@@ -63,6 +71,7 @@ Future<void> pumpChatScreen(
   StarterContextLoader? starterContext,
   TargetPlatform? platform,
   MacCommandRegistry? commands,
+  bool desktopKeys = false,
   VoiceRecorder? voiceRecorder,
   CallBridge Function()? callBridge,
   VoiceRecorder? voiceMessageRecorder,
@@ -94,16 +103,27 @@ Future<void> pumpChatScreen(
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: theme ?? buildHermesLightTheme().copyWith(platform: platform),
-      builder: macCommandsBuilder(commands),
+      theme: theme ?? buildHermesLightTheme(platform: platform),
+      builder: (context, child) {
+        final scoped = AppThemeScopes(child: child!);
+        return commands == null
+            ? scoped
+            : macCommandsBuilder(commands, desktopKeys: desktopKeys)!(
+                context,
+                scoped,
+              );
+      },
       home: _Visible(
         visible: visible,
         builder: (shown) => ChatScreen(
           visible: shown,
           repository: client == null ? null : HermesChatRepository(client.raw),
           profiles: withProfiles ? HermesProfilesRepository(client!.raw) : null,
+          profileResolver:
+              profileResolver ??
+              (withProfiles ? null : ProfileResolver.known('default')),
           skills: withSkills ? HermesSkillsRepository(client!.raw) : null,
           models: models,
           providers: providersRepository,

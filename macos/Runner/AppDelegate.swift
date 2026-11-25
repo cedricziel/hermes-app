@@ -89,11 +89,26 @@ class AppDelegate: FlutterAppDelegate {
             Spotlight.shared.install(messenger: controller.engine.binaryMessenger)
         }
         #if DEBUG
-        // CI measures the main window's size here (build-macos in ci.yml). Debug builds only.
-        if ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW"] == "1" {
+        // CI quits the debug build here (build-macos in ci.yml) to prove that a normal quit
+        // does not crash. NSApp.terminate is what the Quit menu item and the "terminate"
+        // channel call above end in, so FlutterEngineTerminationHandler and every
+        // NSApplicationWillTerminate observer run as for a user. Debug builds only.
+        //
+        // With HERMES_REPORT_WINDOW=1 the same hook first prints the main window's frame
+        // (the build-macos window measurement), and HERMES_REPORT_WINDOW_SET=WxH resizes it
+        // before the quit, so AppKit writes the frame it remembers.
+        let environment = ProcessInfo.processInfo.environment
+        if environment["HERMES_QUIT_AFTER_LAUNCH"] == "1" {
+            let reportWindow = environment["HERMES_REPORT_WINDOW"] == "1"
+            let resizeTo = environment["HERMES_REPORT_WINDOW_SET"]
             var waited = 0.0
+            func quit() {
+                print("HERMES_QUIT terminating")
+                fflush(stdout)
+                NSApp.terminate(nil)
+            }
             func report() {
-                guard let window = mainFlutterWindow else { NSApp.terminate(nil); return }
+                guard let window = mainFlutterWindow else { quit(); return }
                 // Dart styles the window after launch and then calls "settleFrame", which
                 // puts the remembered frame back; wait up to 10 s for that call, so the
                 // frame is measured in its final style and not in between.
@@ -106,8 +121,7 @@ class AppDelegate: FlutterAppDelegate {
                 if !settled {
                     // Not a frame that looks settled: the CI check fails on this line.
                     print("HERMES_WINDOW unsettled: settleFrame did not run within 10 s")
-                    fflush(stdout)
-                    NSApp.terminate(nil)
+                    quit()
                     return
                 }
                 // The frame is stable: the xib content size plus the title bar. The
@@ -119,9 +133,7 @@ class AppDelegate: FlutterAppDelegate {
                 let full = window.styleMask.contains(.fullSizeContentView)
                 let screen = NSScreen.main?.visibleFrame.size ?? .zero
                 print("HERMES_WINDOW frame=\(Int(frame.width.rounded()))x\(Int(frame.height.rounded())) chrome=\(Int(chrome.rounded())) min=\(Int(minimum.width.rounded()))x\(Int(minimum.height.rounded())) full=\(full) screen=\(Int(screen.width.rounded()))x\(Int(screen.height.rounded()))")
-                fflush(stdout)
-                // Resize, then quit normally so AppKit has written the frame it remembers.
-                if let spec = ProcessInfo.processInfo.environment["HERMES_REPORT_WINDOW_SET"] {
+                if let spec = resizeTo {
                     let size = spec.split(separator: "x").compactMap { Double($0) }
                     if size.count == 2 {
                         window.setFrame(
@@ -131,13 +143,16 @@ class AppDelegate: FlutterAppDelegate {
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     UserDefaults.standard.synchronize()
-                    NSApp.terminate(nil)
+                    quit()
                 }
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { report() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                if reportWindow { report() } else { quit() }
+            }
         }
         #endif
-        super.applicationDidFinishLaunching(notification)
+        // No super call: FlutterAppDelegate does not implement
+        // applicationDidFinishLaunching, so it threw "unrecognized selector".
     }
 
     /// The share extension opens `hermes-share://share` once it has left the

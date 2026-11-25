@@ -2,6 +2,73 @@ part of 'chat_controller.dart';
 
 /// Thread loading, message pagination, and history reconciliation.
 extension _ChatControllerHistory on ChatController {
+  Future<ThreadListRefreshResult> _pullRefreshThreadList() async {
+    final profile = _profile;
+    if (!active || repository == null || profile == null) {
+      return ThreadListRefreshResult.skipped;
+    }
+    var cancelled = false;
+    void Function()? waiter;
+    Future<ThreadListRefreshResult> attempt() async {
+      while (true) {
+        if (threadListInvalidationBlocked) {
+          final settled = Completer<void>();
+          void check() {
+            if (!threadListInvalidationBlocked && !settled.isCompleted) {
+              settled.complete();
+            }
+          }
+
+          waiter = check;
+          addListener(check);
+          try {
+            await settled.future;
+          } finally {
+            removeListener(check);
+            waiter = null;
+          }
+        }
+        if (cancelled || !active || _profile != profile) {
+          return ThreadListRefreshResult.skipped;
+        }
+        final generation = _loadGeneration;
+        final page = await readThreadListPage(profile);
+        if (cancelled) return ThreadListRefreshResult.skipped;
+        if (applyInvalidatedThreads(
+          page,
+          profile: profile,
+          generation: generation,
+        )) {
+          return ThreadListRefreshResult.refreshed;
+        }
+        // A change started during the read: wait for it and read again.
+        if (!active || _profile != profile) {
+          return ThreadListRefreshResult.skipped;
+        }
+      }
+    }
+
+    var result = ThreadListRefreshResult.failed;
+    try {
+      result = await attempt().timeout(threadListRefreshTimeout);
+    } on Object catch (e, stack) {
+      cancelled = true;
+      final stale = waiter;
+      if (stale != null) removeListener(stale);
+      if (e is! DioException && e is! TimeoutException) {
+        reportBug(e, stack, 'the chat list pull to refresh');
+      }
+    }
+    if (disposed) return result;
+    final failed = result == ThreadListRefreshResult.failed;
+    if (failed != _listRefreshFailed &&
+        result != ThreadListRefreshResult.skipped) {
+      _listRefreshFailed = failed;
+      notifyListeners();
+    }
+    return result;
+  }
+
   Future<void> _loadThreads(
     String? profile, {
     bool Function()? valid,
@@ -29,6 +96,7 @@ extension _ChatControllerHistory on ChatController {
     _listRefreshPending = false;
     _loadingThreads = true;
     _threadsFailed = false;
+    _listRefreshFailed = false;
     notifyListeners();
     try {
       if (!active || generation != _loadGeneration) return;
@@ -373,17 +441,11 @@ extension _ChatControllerHistory on ChatController {
     }
   }
 
-  /// The sticky active profile, or null when the server has none to report:
-  /// no repository, or a server without the profiles route (404). Any other
-  /// failure throws, so the caller does not list or send unscoped.
-  Future<String?> _activeProfile() async {
-    try {
-      return (await profiles?.loadActive())?.active;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
-      rethrow;
-    }
-  }
+  /// The profile the dashboard was launched with, or null when the server has
+  /// none to report: no repository, or a server without the profiles route
+  /// (404). Any other failure throws, so the caller does not list or send
+  /// unscoped. It is `current`, not the sticky `active` one.
+  Future<String?> _activeProfile() async => await profiles?.resolver.load();
 
   Future<void> _loadModelOptions(
     String? profile,
@@ -820,6 +882,8 @@ extension _ChatControllerHistory on ChatController {
     String id, {
     bool strict = false,
     bool historyRemoved = false,
+    bool releasing = false,
+    int? sendGeneration,
   }) async {
     Never notRead() => throw StateError('The chat was not read again');
     if (!active) return strict ? notRead() : null;
@@ -832,8 +896,14 @@ extension _ChatControllerHistory on ChatController {
       return strict ? notRead() : null;
     }
     final generation = _loadGeneration;
+    // [sendGeneration]: the read was asked for the turn that stood there; a
+    // send made since is another turn's, and nothing of this read is its.
     bool stale() =>
-        !active || generation != _loadGeneration || thread.isReplying;
+        !active ||
+        generation != _loadGeneration ||
+        thread.isReplying ||
+        (sendGeneration != null &&
+            sendGeneration != (_generations[thread] ?? 0));
     try {
       final fresh = await repository.loadThread(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
@@ -852,7 +922,7 @@ extension _ChatControllerHistory on ChatController {
       }
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
-      var failed = _failedTurn(thread, page.messages);
+      var failed = _failedTurn(thread, page.messages, releasing: releasing);
       // After a full restore took history away, a failed turn whose prompt
       // the server no longer holds is gone with it, not put back. Any other
       // read keeps it, with its Retry.
@@ -889,7 +959,15 @@ extension _ChatControllerHistory on ChatController {
   /// A prompt repeats earlier ones, so it is found by its place among the user
   /// messages of the same text: with n of them before it here, the history
   /// holds it only when it has more than n, and its occurrence is the next.
-  List<ChatMessage> _failedTurn(ChatThread thread, List<ChatMessage> history) {
+  ///
+  /// A reply the server may still run (`serverMayRun`) is kept whatever the
+  /// history holds, except for the read that [releasing] it: that read is the
+  /// one that lets a stored answer replace the bubble.
+  List<ChatMessage> _failedTurn(
+    ChatThread thread,
+    List<ChatMessage> history, {
+    bool releasing = false,
+  }) {
     final messages = thread.messages;
     final reply = messages.lastOrNull;
     if (reply == null ||
@@ -908,6 +986,9 @@ extension _ChatControllerHistory on ChatController {
         if (same(history[i])) i,
     ];
     if (occurrences.length <= before) return [prompt, reply];
+    // The server may still run this turn and has already stored a row of it:
+    // the reply stays, so Retry and Edit do not come back on that row.
+    if (reply.serverMayRun && !releasing) return [reply];
     final answered = history
         .skip(occurrences[before] + 1)
         .any((m) => m.role == ChatRole.assistant);

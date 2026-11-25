@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/agent_messages/agent_message_record.dart';
@@ -256,6 +256,41 @@ void main() {
           expect(
             server.requestsTo('GET', '/api/profiles/active'),
             hasLength(1),
+          );
+        });
+      });
+
+      testWidgets('takes the launch profile as the one the user is on, not '
+          'the sticky default', (tester) async {
+        await tester.runAsync(() async {
+          server.on(
+            'GET',
+            '/api/profiles/active',
+            activeProfileBody(active: 'home', current: 'work'),
+          );
+
+          await twoDeliveries();
+
+          expect(
+            {for (final alert in service.shown) alert.title},
+            {'Report (default)', 'Other'},
+          );
+        });
+      });
+
+      testWidgets('names no profile when the server has no profiles route', (
+        tester,
+      ) async {
+        await tester.runAsync(() async {
+          server.on('GET', '/api/profiles/active', {
+            'detail': 'no',
+          }, status: 404);
+
+          await twoDeliveries();
+
+          expect(
+            {for (final alert in service.shown) alert.title},
+            {'Report', 'Other'},
           );
         });
       });

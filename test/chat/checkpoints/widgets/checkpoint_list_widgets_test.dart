@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -11,10 +11,12 @@ import 'package:hermes_app/src/chat/checkpoints/widgets/restore_all_bar.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
 
+import '../../../support/test_localizations.dart';
+
 Widget _app(Widget child, {double scale = 1, TargetPlatform? platform}) =>
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(

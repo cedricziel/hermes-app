@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../l10n/l10n.dart';
 import '../../../theme/app_icons.dart';
+import '../../../theme/focus_ring.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../../theme/platform_chrome.dart';
 import '../../../widgets/busy_bar.dart' show reduceMotionOf;
@@ -222,13 +223,19 @@ class _Line extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: theme.dividerColor)),
             ),
-            child: InkWell(
-              onTap: onOpen,
-              child: SizedBox(
-                height: height,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(alignment: Alignment.centerLeft, child: body()),
+            child: FocusRing(
+              radius: 0,
+              child: InkWell(
+                onTap: onOpen,
+                child: SizedBox(
+                  height: height,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: body(),
+                    ),
+                  ),
                 ),
               ),
             ),

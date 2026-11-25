@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/command_row.dart';
@@ -317,8 +318,11 @@ class _Buttons extends StatelessWidget {
     final chrome = platformChromeOf(context);
     final scheme = Theme.of(context).colorScheme;
     final link = context.hermesColors.link;
+    // Android is the only touch Material platform: Windows and Linux keep
+    // desktop sizes and, like Apple, an outlined Run now.
+    final touchMaterial = isAndroid(context);
     final minHeight = switch (chrome) {
-      PlatformChrome.material => 48.0,
+      PlatformChrome.material => touchMaterial ? 48.0 : 36.0,
       PlatformChrome.ios => kAppleMinTapTarget,
       PlatformChrome.macos => 28.0,
     };
@@ -334,31 +338,44 @@ class _Buttons extends StatelessWidget {
       key: const ValueKey('curator-confirm-cancel'),
       autofocus: true,
       onPressed: onCancel,
-      style: TextButton.styleFrom(
-        foregroundColor: chrome.isApple ? scheme.onSurface : null,
-        minimumSize: Size(chrome.isApple ? 0 : 64, minHeight),
-        padding: padding,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        visualDensity: VisualDensity.standard,
-        shape: shape,
-        textStyle: Theme.of(context).textTheme.labelLarge
-            ?.copyWith(fontWeight: FontWeight.w700),
-      ),
+      style:
+          TextButton.styleFrom(
+                foregroundColor: chrome.isApple ? scheme.onSurface : null,
+                minimumSize: Size(chrome.isApple ? 0 : 64, minHeight),
+                padding: padding,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.standard,
+                // Plain text on Apple platforms: no filled hover, focus or pressed
+                // overlay (an autofocused Cancel would draw a grey pill). Focus
+                // shows as an underline instead.
+                overlayColor: chrome.isApple ? Colors.transparent : null,
+              )
+              .copyWith(shape: focusRingShapeOf(context, shape))
+              .copyWith(
+                textStyle: WidgetStateProperty.resolveWith((states) {
+                  final base = Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(fontWeight: FontWeight.w700);
+                  if (!chrome.isApple ||
+                      !states.contains(WidgetState.focused)) {
+                    return base;
+                  }
+                  return base?.copyWith(decoration: TextDecoration.underline);
+                }),
+              ),
       child: Text(l10n.skillsCuratorConfirmCancel, textAlign: TextAlign.center),
     );
-    final run = chrome.isApple
+    final run = (chrome.isApple || !touchMaterial)
         ? OutlinedButton(
             key: const ValueKey('curator-confirm-run'),
             onPressed: onRun,
             style: OutlinedButton.styleFrom(
               foregroundColor: link,
               side: BorderSide(color: link),
-              minimumSize: Size(0, minHeight),
+              minimumSize: Size(chrome.isApple ? 0 : 64, minHeight),
               padding: padding,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.standard,
-              shape: shape,
-            ),
+            ).copyWith(shape: focusRingShapeOf(context, shape)),
             child: Text(
               l10n.skillsCuratorConfirmRun,
               textAlign: TextAlign.center,

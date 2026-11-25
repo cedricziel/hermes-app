@@ -243,6 +243,17 @@ extension _ChatScreenNavigation on _ChatScreenState {
     );
   }
 
+  /// Opens the drawer of the chat list, or closes it while it is open.
+  void _toggleDrawer() {
+    final scaffold = _chatsScaffoldKey.currentState;
+    if (scaffold == null) return;
+    if (scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+    } else {
+      scaffold.openDrawer();
+    }
+  }
+
   /// Opens the Files page of the chat in front.
   void _showFiles(FilesOpenedFrom from) {
     _closeDrawerIfNarrow();
@@ -343,7 +354,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       profile: _chat.profile,
       transport: _chat.transport,
     );
-    if (mounted) unawaited(_memoryWaiting?.refresh(_chat.profile));
+    if (mounted) unawaited(_refreshMemoryWaiting());
   }
 
   void _openPlugins() {
@@ -360,8 +371,13 @@ extension _ChatScreenNavigation on _ChatScreenState {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) =>
-            McpServersScreen(repository: _mcp!, profiles: _profiles),
+        // The chat's profile, else the launch profile (the screen reads it
+        // when this is null).
+        builder: (_) => McpServersScreen(
+          repository: _mcp!,
+          profiles: _profiles,
+          profile: _chat.profileResolver?.resolve(_chat.profile),
+        ),
       ),
     );
   }
@@ -373,9 +389,20 @@ extension _ChatScreenNavigation on _ChatScreenState {
   Future<void> _openTools() async {
     _closeDrawerIfNarrow();
     final availability = _toolsAvailability;
-    // A chat on the server's default profile names none: use the profile the
-    // list was last asked for.
-    final profile = toolsProfileFor(_chat.profile, availability);
+    // The chat's profile, else the launch profile. Not the one the list was
+    // last asked for: that may be another chat's.
+    final resolver = _chat.profileResolver;
+    var profile = resolver?.resolve(_chat.profile);
+    if (profile == null && resolver != null) {
+      // Not read yet, or the read failed earlier: ask once more.
+      try {
+        await resolver.load();
+      } on Object {
+        // Left unresolved: nothing is opened.
+      }
+      if (!mounted) return;
+      profile = resolver.resolve(_chat.profile);
+    }
     final tools = profile == null ? null : _tools?.forProfile(profile);
     if (tools == null) return;
     // The Computer use details link to the bot's screen. The status is read

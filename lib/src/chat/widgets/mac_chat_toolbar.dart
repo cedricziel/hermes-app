@@ -1,20 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../macos/mac_sidebar.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../macos/mac_toolbar_search_field.dart';
 import '../../theme/app_icons.dart';
-import '../../theme/hermes_theme.dart';
-import '../../widgets/adaptive_popup_menu_button.dart';
-import '../../widgets/named_popup_menu_button.dart';
+import 'mac_chat_more_menu.dart';
 import 'thread_actions_menu.dart' show ExportJsonOffer;
 
 /// From this window width the toolbar shows the search field itself; below
 /// it a button that opens the field.
 const double kMacToolbarSearchFieldWidth = 1000;
-
-enum _More { showFiles, copyTranscript, exportJson, connection }
 
 /// The chat's toolbar in a Mac window: the chat's title over "profile ·
 /// model", then New Chat, Copy Transcript, Connection Details and search.
@@ -103,23 +99,28 @@ class MacChatToolbar extends StatelessWidget {
         ?callButton,
         MacToolbarButton(
           key: const Key('toolbar-new-chat'),
-          label: 'New Chat',
+          label: context.l10n.chatWidgetsMacToolbarNewChat,
           shortcut: '⌘N',
           icon: AppIcons.compose,
           onPressed: onNewChat,
         ),
         if (compact)
-          _moreMenu(context)
+          MacChatMoreMenu(
+            onShowFiles: onShowFiles,
+            onCopyTranscript: onCopyTranscript,
+            exportJson: exportJson,
+            onShowConnection: onShowConnection,
+          )
         else ...[
           MacToolbarButton(
             key: const Key('toolbar-share'),
-            label: 'Copy Transcript',
+            label: context.l10n.macosMenuCopyTranscript,
             icon: AppIcons.share,
             onPressed: onCopyTranscript,
           ),
           MacToolbarButton(
             key: const Key('toolbar-connection'),
-            label: 'Connection Details',
+            label: context.l10n.macosMenuConnectionDetails,
             icon: AppIcons.info,
             onPressed: onShowConnection,
           ),
@@ -159,53 +160,11 @@ class MacChatToolbar extends StatelessWidget {
         else
           MacToolbarButton(
             key: const Key('toolbar-search'),
-            label: 'Search',
+            label: context.l10n.chatWidgetsMacToolbarSearch,
             shortcut: '⌘F',
             icon: AppIcons.search,
             onPressed: onSearchBegin,
           ),
-      ],
-    );
-  }
-
-  Widget _moreMenu(BuildContext context) {
-    final onCopyTranscript = this.onCopyTranscript;
-    return NamedPopupMenuButton<_More>(
-      key: const Key('toolbar-more'),
-      label: 'More',
-      icon: AppIcons.more,
-      iconSize: 18,
-      color: context.hermesColors.subtleText,
-      padding: EdgeInsets.zero,
-      style: macToolbarButtonStyle(context),
-      onSelected: (item) => switch (item) {
-        _More.showFiles => onShowFiles?.call(),
-        _More.copyTranscript => onCopyTranscript?.call(),
-        _More.exportJson => exportJson?.onSelected(),
-        _More.connection => onShowConnection(),
-      },
-      itemBuilder: (_) => [
-        if (onShowFiles != null)
-          AdaptiveMenuItem(
-            value: _More.showFiles,
-            shortcut: '⇧⌘F',
-            child: const Text('Show Files'),
-          ),
-        AdaptiveMenuItem(
-          value: _More.copyTranscript,
-          enabled: onCopyTranscript != null,
-          child: const Text('Copy Transcript'),
-        ),
-        if (exportJson case final offer?)
-          AdaptiveMenuItem(
-            value: _More.exportJson,
-            enabled: offer.enabled,
-            child: const Text('Export Chat as JSON…'),
-          ),
-        const AdaptiveMenuItem(
-          value: _More.connection,
-          child: Text('Connection Details'),
-        ),
       ],
     );
   }

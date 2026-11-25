@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -13,6 +13,7 @@ import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import '../../support/screenshot_recorder.dart';
+import '../../support/test_localizations.dart';
 
 Widget _host(
   Widget child, {
@@ -22,13 +23,13 @@ Widget _host(
   double width = 390,
   bool realFonts = false,
 }) {
-  final light = buildHermesLightTheme();
+  final light = buildHermesLightTheme(platform: platform);
   final base = realFonts ? withScreenshotFont(light) : light;
   return MaterialApp(
-    theme: platform == null ? base : base.copyWith(platform: platform),
+    theme: base,
     themeAnimationDuration: Duration.zero,
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     home: MediaQuery(
       data: MediaQueryData(

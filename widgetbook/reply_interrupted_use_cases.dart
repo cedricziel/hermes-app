@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/reply_error_note.dart';
 import 'package:hermes_app/src/chat/widgets/reply_interrupted_note.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
@@ -84,7 +83,7 @@ WidgetbookFolder replyInterruptedNode() => WidgetbookFolder(
               ),
               const SizedBox(height: 24),
               _reply(
-                const ReplyErrorNote(kReplyFailedMessage),
+                ReplyErrorNote(context.l10n.chatReplyFailedGeneric),
                 calls: const ToolCallGroup(calls: failedToolRun),
               ),
             ],

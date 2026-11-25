@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/tool_value_budget.dart';
@@ -12,6 +12,8 @@ import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+
 String _object(int keys) => jsonEncode({
   for (var i = 0; i < keys; i++) 'key_$i': i.isEven ? 'value $i' : i,
 });
@@ -19,7 +21,7 @@ String _object(int keys) => jsonEncode({
 Widget _host(Widget child, {bool dark = false, double width = 360}) =>
     MaterialApp(
       theme: dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: SingleChildScrollView(
@@ -61,8 +63,8 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          theme: buildHermesLightTheme(platform: platform),
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: SingleChildScrollView(
@@ -93,8 +95,8 @@ void main() {
     testWidgets('the label row is $row high on $platform', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          theme: buildHermesLightTheme(platform: platform),
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: const Scaffold(
             body: Align(

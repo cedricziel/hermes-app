@@ -1,12 +1,13 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -162,14 +163,10 @@ void main() {
       );
       // The CI round trip resizes the frame, not the content.
       final delegate = readSwift('macos/Runner/AppDelegate.swift');
-      final set = delegate.substring(
-        delegate.indexOf('HERMES_REPORT_WINDOW_SET'),
-      );
+      final from = delegate.indexOf('HERMES_REPORT_WINDOW_SET');
+      final set = delegate.substring(from, delegate.indexOf('#endif', from));
       expect(set, contains('window.setFrame('));
-      expect(
-        set.substring(0, set.indexOf('NSApp.terminate')),
-        isNot(contains('setContentSize')),
-      );
+      expect(set, isNot(contains('setContentSize')));
     },
   );
 
@@ -202,6 +199,19 @@ void main() {
       delegate.indexOf('#endif', hits.last.end),
     );
     expect(block, contains('NSApp.terminate(nil)'));
+    // One launch mechanism: the report is a branch of the quit hook of the
+    // quit-crash check (HERMES_QUIT_AFTER_LAUNCH), not a second way to quit.
+    final hook = delegate.indexOf(
+      'environment["HERMES_QUIT_AFTER_LAUNCH"] == "1"',
+    );
+    expect(hook, isNonNegative);
+    expect(hook, lessThan(hits.first.start));
+    expect(
+      'NSApp.terminate(nil)'.allMatches(block),
+      hasLength(1),
+      reason: 'every end of the report goes through quit()',
+    );
+    expect(block, contains('print("HERMES_QUIT terminating")'));
     expect(block, contains('HERMES_WINDOW frame='));
     // The report waits for the settleFrame call and, if it never comes, prints a
     // line the CI check rejects instead of a frame that looks settled.
@@ -221,6 +231,36 @@ void main() {
       block.indexOf('HERMES_WINDOW unsettled'),
       lessThan(block.indexOf('HERMES_WINDOW frame=')),
     );
+  });
+
+  test('CI measures the window through the quit step, not a second launch', () {
+    final ci = File('.github/workflows/ci.yml').readAsStringSync();
+    expect(ci, isNot(contains('Measure the main window size')));
+    // Every launch of the app in ci.yml goes through quit_launch, which fails
+    // on a crash; the window launches add the report to the same hook.
+    expect(
+      'exec @ARGV\' "\$bin"'.allMatches(ci),
+      hasLength(1),
+      reason: 'the debug binary is started only inside quit_launch',
+    );
+    expect(
+      ci,
+      contains(
+        'assignments="HERMES_QUIT_AFTER_LAUNCH=1 HERMES_REPORT_WINDOW=1"',
+      ),
+    );
+    expect(ci, contains('quit_launch "\$1" "\$assignments"'));
+    // The launches that fix the numbers: the resize to 900x600 and to 640x480
+    // and the restore of each.
+    for (final launch in [
+      'window_launch "window 1" 900x600',
+      'window_launch "window 2"',
+      'window_launch "window 3" 640x480',
+      'window_launch "window 4"',
+    ]) {
+      expect(ci, contains(launch));
+    }
+    expect(ci, contains('NSWindow Frame HermesMainWindow'));
   });
 
   group('home shell', () {
@@ -263,6 +303,7 @@ void main() {
         withAppProviders(
           auth,
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             debugShowCheckedModeBanner: false,
             theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
             home: const AppShell(),

@@ -16,7 +16,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 0.1.81 # x-release-please-version
+version: 0.1.84 # x-release-please-version
 
 environment:
   sdk: ^3.13.4
@@ -134,6 +134,10 @@ dependencies:
   # Syntax colours for the Files code preview. Already in the tree through
   # gpt_markdown, so this adds no package; see the server-files change.
   val_highlight: ^0.1.1
+  # The QR encoder (pure Dart, no native code) for the WhatsApp link code; the
+  # app draws the matrix itself so the quiet zone and colours are fixed (see
+  # lib/src/messaging/widgets/qr_code_card.dart).
+  qr: ^4.0.1
 
   # Open the system notification settings after a denial; Android needs an
   # intent, which a plain launchUrl('app-settings:') does not send.

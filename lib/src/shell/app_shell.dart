@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_otel/flutter_otel.dart';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
@@ -36,6 +36,7 @@ import '../macos/mac_app.dart';
 import '../macos/mac_window.dart';
 import '../macos/mac_commands.dart';
 import '../navigation/desktop_navigation_history.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../macos/mac_sidebar.dart';
 import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
@@ -46,6 +47,7 @@ import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../platform_hint/platform_hint_offer.dart';
 import '../platform_hint/show_platform_hint_prompt.dart';
+import '../profiles/profile_resolver.dart';
 import '../profiles/chat_profiles.dart';
 import '../server_care/server_attention_mark.dart';
 import '../server_care/gateway_restart.dart';
@@ -59,7 +61,6 @@ import '../server_care/server_check_controller.dart';
 import '../server_care/server_care_scope.dart';
 import '../server_care/server_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
-import '../profiles/server_default_profile.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
 import '../profiles/widgets/new_profile_dialog.dart';
@@ -144,7 +145,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   ToolsetInstalls? _toolInstalls;
 
   /// The profile [_tools] was last asked about.
-  String? _toolsProfile;
+  ResolvedProfile? _toolsProfile;
   BotModeRosterRepository? _botsRepository;
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
@@ -285,7 +286,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         connectionEvents: gateway.connectionEvents,
         registerServerRequestHandler: gateway.registerServerRequestHandler,
         askPassword: _askSudoPassword,
-        host: Uri.tryParse(auth!.baseUrl!)?.host ?? 'your server',
+        host: Uri.tryParse(auth!.baseUrl!)?.host,
         telemetry: repositories.telemetry,
       );
       _botsRepository = BotModeRosterRepository(
@@ -501,10 +502,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _resolveServerCareProfile() async {
     try {
-      final active = await _profiles?.loadActive();
-      if (active != null) {
-        _defaultProfile = serverDefaultProfile(active);
-      }
+      // The launch profile (`current`), which a chat with no profile of its
+      // own works in; the same read the chat and its features resolve by.
+      _defaultProfile = await _profiles?.resolver.load();
     } on Object {
       // The chat's own report is then what names the profile.
     }
@@ -525,7 +525,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// Reads the Tools list for the chat's profile, once per profile and again
   /// when [force]d.
   void _followToolsProfile({bool force = false}) {
-    final profile = _chatProfiles?.current ?? _defaultProfile;
+    final profile = _profiles?.resolver.resolve(_chatProfiles?.current);
     if (profile == null || !_authorizedOwner) return;
     if (profile == _toolsProfile && !force) return;
     _toolsProfile = profile;
@@ -722,7 +722,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 : built,
           );
     final chrome = platformChromeOf(context);
-    if (!chrome.isApple) return provided;
+    if (!chrome.isApple && !bindsDesktopChords(Theme.of(context).platform)) {
+      return provided;
+    }
     final mac = chrome == PlatformChrome.macos;
     if (mac && !_macLoaded) {
       _macLoaded = true;

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
@@ -24,6 +24,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import 'bot_screen_repository_test.dart' show jpeg, statusJson;
+import '../support/tooltip_finder.dart';
 
 /// The chat screen opening the live viewer from the Activity card.
 void main() {
@@ -168,7 +169,7 @@ void main() {
     await settle(tester);
   }
 
-  final enlarge = find.byTooltip('Enlarge screen');
+  final enlarge = find.tooltip('Enlarge screen');
   final viewer = find.byType(BotScreenViewerView);
 
   testWidgets('Enlarge is offered and opens the viewer over the window', (
@@ -229,7 +230,7 @@ void main() {
       contains('bot_screen.viewer.opened {surface: page, source: card}'),
     );
 
-    await tester.tap(find.byTooltip('Close'));
+    await tester.tap(find.tooltip('Close'));
     await settle(tester);
 
     expect(viewer, findsNothing);
@@ -246,7 +247,7 @@ void main() {
     await settle(tester);
     await serve(tester);
 
-    await tester.tap(find.byTooltip('Close (Esc)'));
+    await tester.tap(find.tooltip('Close (Esc)'));
     await settle(tester);
     expect(viewer, findsNothing);
     expect(channels.last.sentCloseCode, 1000);
@@ -259,6 +260,29 @@ void main() {
 
     expect(viewer, findsNothing);
     expect(channels, hasLength(2));
+    expect(channels.last.sentCloseCode, 1000);
+    await finish(tester);
+  });
+
+  testWidgets('Escape still closes the overlay after a mouse click on its '
+      'edge', (tester) async {
+    await pumpScreen(tester);
+    await tester.tap(enlarge);
+    await settle(tester);
+    await serve(tester);
+
+    final at = tester.getBottomLeft(viewer) + const Offset(2, -2);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: at);
+    await mouse.down(at);
+    await mouse.up();
+    await mouse.removePointer();
+    await tester.pump();
+    expect(viewer, findsOne);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(viewer, findsNothing);
     expect(channels.last.sentCloseCode, 1000);
     await finish(tester);
   });
@@ -421,7 +445,7 @@ void main() {
         expect(commands.invoke(command), isFalse, reason: '$command');
       }
 
-      await tester.tap(find.byTooltip('Close (Esc)'));
+      await tester.tap(find.tooltip('Close (Esc)'));
       await settle(tester);
       await pumpFor(tester);
       expect(commands.invoke(MacCommand.newChat), isTrue);

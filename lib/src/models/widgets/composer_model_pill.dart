@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../files/widgets/safe_path_text.dart';
 import '../../../l10n/l10n.dart';
@@ -85,7 +85,7 @@ class ComposerModelPill extends StatefulWidget {
         (choice == null ? null : safePathText(choice!.modelId)) ??
             l10n.modelsPillProfileDefault,
       ModelOptionsState.ready =>
-        '$model${effort == null ? '' : ' · ${effortLabel(effort)}'}',
+        '$model${effort == null ? '' : ' · ${effortLabel(l10n, effort)}'}',
     };
     return ComposerSelectorChip(
       key: const Key('composer-model-pill'),

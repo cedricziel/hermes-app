@@ -74,16 +74,15 @@ Future<Map<({String profile, String id}), String>> readMessageTexts(
   };
 }
 
-/// The server's active profile, for a message of another one to say which when
-/// the chat screen has not reported the profile it shows. Null when it cannot
-/// be read within [lookup].
+/// The launch profile, for a message of another one to say which when the
+/// chat screen has not reported the profile it shows. Null when it cannot be
+/// read within [lookup].
 Future<String?> activeProfileName(
   HermesProfilesRepository profiles,
   Duration lookup,
 ) async {
   try {
-    final active = (await profiles.loadActive().timeout(lookup)).active;
-    return active.isEmpty ? null : active;
+    return await profiles.resolver.load().timeout(lookup);
   } on Object {
     return null;
   }

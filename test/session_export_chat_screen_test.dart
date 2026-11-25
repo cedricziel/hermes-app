@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -29,6 +29,7 @@ import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
 import 'support/fake_session_auth.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 /// A session whose owner generation, server and sign-out can move one at a
 /// time.
@@ -400,7 +401,7 @@ void main() {
   testWidgets('the sidebar row menu off the Mac does not', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Chat actions').first);
+    await tester.tap(find.tooltip('Chat actions').first);
     await frames(tester);
 
     expect(find.text('Archive'), findsOneWidget);

@@ -36,10 +36,17 @@ const pillRadius = 999;
 
 bool _onRadiusScale(num v) => radiusScale.contains(v) || v >= pillRadius;
 
-/// The files that implement the shared dialog and sheet helpers.
+/// The files that implement the shared dialog, sheet and picker helpers: they
+/// are the building blocks, so the platform calls inside them are not debt.
 const dialogHelperFiles = {
   'lib/src/widgets/dialog_presentation.dart',
   'lib/src/widgets/adaptive_sheet.dart',
+  // AppAlertDialog builds the (Cupertino)AlertDialog.
+  'lib/src/widgets/adaptive_dialog.dart',
+  // The Cupertino date and time picker popup.
+  'lib/src/widgets/adaptive_pickers.dart',
+  // showAppActionSheet builds the Cupertino action sheet popup.
+  'lib/src/widgets/app_action_sheet.dart',
 };
 
 const _dialogFunctions = {
@@ -258,6 +265,8 @@ class _Visitor extends RecursiveAstVisitor<void> {
           'package:flutter/material.dart',
           'package:flutter/widgets.dart',
           'package:flutter/cupertino.dart',
+          'package:material_ui/material_ui.dart',
+          'package:cupertino_ui/cupertino_ui.dart',
         ].contains(d.uri.stringValue),
       );
 

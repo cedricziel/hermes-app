@@ -102,6 +102,13 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      - name: Require pubspec.lock resolved with the pinned Flutter
+        run: |
+          if ! git diff --exit-code -- pubspec.lock; then
+            echo "::error file=pubspec.lock::pubspec.lock was resolved with a different Flutter than .fvmrc. Run flutter pub get on the .fvmrc Flutter and commit pubspec.lock."
+            exit 1
+          fi
+
       - name: Require Swift Package Manager for Apple plugins
         run: python3 scripts/check_apple_spm.py
 
@@ -385,15 +392,24 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
-      # The debug build alone has the HERMES_REPORT_WINDOW branch in
-      # AppDelegate.swift: once launch has settled it prints the main window's
+      # Quits the debug build the way a user does and fails on a crash. The debug
+      # build alone has the HERMES_QUIT_AFTER_LAUNCH branch in AppDelegate.swift,
+      # which calls NSApp.terminate five seconds after launch, so
+      # FlutterEngineTerminationHandler and every NSApplicationWillTerminate
+      # observer of a plugin run. The step fails on a non-zero exit (139 is
+      # SIGSEGV) or a crash report newer than the launch. Main's macOS build
+      # compiled the app and never ran it, which is how a crash on every quit
+      # (flutter_soloud's quit handler) shipped.
+      #
+      # The same hook measures the main window: with HERMES_REPORT_WINDOW=1 it
+      # first waits for settleFrame (Dart's window styling is done), prints the
       # frame, title bar height, minimum content size, whether the style has the
-      # full-size content view and the screen's visible size, optionally resizes
-      # the frame (HERMES_REPORT_WINDOW_SET) and quits normally, so AppKit writes
-      # the frame it remembers. Launch 1 must show the defaults, launch 2 the
-      # resized frame. The defaults are kMacMainWindowDefaultSize and
-      # kMacMainWindowMinSize in lib/src/theme/breakpoints.dart; keep them in step.
-      - name: Measure the main window size and its remembered frame
+      # full-size content view and the screen's visible size, and
+      # HERMES_REPORT_WINDOW_SET=WxH resizes the frame before the quit, so AppKit
+      # writes the frame it remembers. The defaults are kMacMainWindowDefaultSize
+      # and kMacMainWindowMinSize in lib/src/theme/breakpoints.dart; keep them in step.
+      - name: Launch the app and quit it normally
+        timeout-minutes: 10
         run: |
           set -o pipefail
           name="$(sed -n 's/^PRODUCT_NAME *= *//p' macos/Runner/Configs/AppInfo.xcconfig)"
@@ -401,26 +417,29 @@ jobs:
           bin="$app/Contents/MacOS/$name"
           [ -x "$bin" ] || { echo "::error::No debug binary at $bin"; exit 1; }
           bundle="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")"
+          marker="$(mktemp)"
           # The Debug app is sandboxed, so its defaults live in its container, not
-          # in ~/Library/Preferences.
+          # in ~/Library/Preferences. The window launches below leave a frame there.
           prefs="$HOME/Library/Containers/$bundle/Data/Library/Preferences/$bundle.plist"
           key="NSWindow Frame HermesMainWindow"
           forget() { defaults delete "$prefs" "$key" 2>/dev/null || true; }
-          trap 'rm -f window.log' EXIT
-          # Diagnosis only (never relaxes the check): the newest crash report of the
-          # app. ReportCrash writes it a few seconds after the crash, so wait for it.
+          trap 'rm -f quit.log "$marker"; forget' EXIT
+          reports() { # crash reports of the app (named <product name>-<date>.ips; the runner's own
+          # Runner.Listener and Runner.Worker reports are not ours) newer than the launch
+            find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports \
+              "$HOME/Library/Containers/$bundle/Data/Library/Logs" \
+              -name "$name-*.ips" -newer "$marker" 2>/dev/null || true
+          }
+          # Diagnosis only: ReportCrash writes the report a few seconds after the crash.
           crash_report() {
             report=""
             for _ in $(seq 1 15); do
-              report="$(ls -t "$HOME"/Library/Logs/DiagnosticReports/{Hermes,Runner}*.ips \
-                /Library/Logs/DiagnosticReports/{Hermes,Runner}*.ips \
-                "$HOME/Library/Containers/$bundle/Data/Library/Logs"/{Hermes,Runner}*.ips \
-                2>/dev/null | head -n 1 || true)"
+              report="$(reports | head -n 1)"
               [ -n "$report" ] && break
               sleep 1
             done
-            if [ -z "$report" ]; then echo "No Hermes or Runner crash report within 15 s."; return 0; fi
-            echo "::group::Crash report $report (crashed thread, then the file's first 200 lines)"
+            if [ -z "$report" ]; then echo "No $name crash report within 15 s."; return 0; fi
+            echo "::group::Crash report $report"
             python3 -I - "$report" <<'PY' || true
           import json, sys
           lines = open(sys.argv[1], errors="replace").read().split("\n", 1)
@@ -437,37 +456,56 @@ jobs:
           except Exception as error:
               print("could not parse the report:", error)
           PY
-            head -n 200 "$report" | cut -c1-300
             echo "::endgroup::"
           }
           # Diagnosis only: the same launch once more under lldb, to get a backtrace
           # when no crash report exists. Its result is ignored and it cannot hang.
-          lldb_rerun() { # <label> [WxH]
-            echo "::group::lldb rerun of launch $1"
-            if [ "$1" = 1 ]; then forget; fi
-            HERMES_REPORT_WINDOW=1 HERMES_REPORT_WINDOW_SET="${2:-}" perl -e 'alarm 60; exec @ARGV' \
+          lldb_rerun() { # <env assignments>
+            echo "::group::lldb rerun of the launch ($1)"
+            env $1 perl -e 'alarm 60; exec @ARGV' \
               lldb -b -o run -k "thread backtrace all" -k "register read pc" -k 'image lookup -a $pc' -k quit \
               -- "$bin" -ApplePersistenceIgnoreState YES 2>&1 | head -n 300 || true
             echo "::endgroup::"
           }
-          # One launch: prints the HERMES_WINDOW line, or fails with the log.
-          launch() { # <label> [WxH to resize to before quitting]
+          fail() { echo "::error::$2"; head -n 40 quit.log; crash_report; lldb_rerun "$1"; exit 1; }
+          # One launch: <label> <env assignments, none with a space inside> <line the app prints just before it quits>
+          quit_launch() {
             start=$SECONDS
-            if HERMES_REPORT_WINDOW=1 HERMES_REPORT_WINDOW_SET="${2:-}" perl -e 'alarm 60; exec @ARGV' "$bin" \
-              -ApplePersistenceIgnoreState YES > window.log 2>&1; then status=0; else status=$?; fi
-            echo "launch $1 took $(( SECONDS - start )) s, exit status $status"
-            if [ "$status" -eq 142 ]; then
-              echo "::error::Launch $1 did not quit within 60 s (SIGALRM); log follows."; tail -n 40 window.log; crash_report; lldb_rerun "$1" "${2:-}"; forget; exit 1
-            elif [ "$status" -ne 0 ]; then
-              echo "::error::Launch $1 exited with status $status; log follows."; tail -n 40 window.log; crash_report; lldb_rerun "$1" "${2:-}"; forget; exit 1
-            fi
-            line="$(grep -E '^HERMES_WINDOW ' window.log | head -n 1 || true)"
+            touch "$marker"
+            if env $2 perl -e 'alarm 60; exec @ARGV' "$bin" \
+              -ApplePersistenceIgnoreState YES > quit.log 2>&1; then status=0; else status=$?; fi
+            echo "$1: launch took $(( SECONDS - start )) s, exit status $status"
+            head -n 40 quit.log
+            if [ "$status" -eq 142 ]; then fail "$2" "$1: the app did not quit within 60 s (SIGALRM); log follows."; fi
+            if [ "$status" -ne 0 ]; then fail "$2" "$1: the app exited with status $status on quit (139 is SIGSEGV); log follows."; fi
+            grep -q "^$3\$" quit.log || fail "$2" "$1: the app exited before its quit hook ran; log follows."
+            # A crash after the exit status was decided still leaves a report.
+            sleep 5
+            if [ -n "$(reports)" ]; then fail "$2" "$1: the app left a crash report: $(reports | head -n 1)"; fi
+            echo "$1: the app quit normally."
+          }
+          quit_launch "quit without SoLoud" HERMES_QUIT_AFTER_LAUNCH=1 "HERMES_QUIT terminating"
+          # SoLoud started the way a call starts it (lib/src/voice/calls/soloud_quit_probe.dart),
+          # then the app's own terminate. Only two outcomes pass: a stream played, or the one
+          # named no-playback-device error (a runner without an audio device still has the
+          # library loaded). Any other failure of the probe fails here.
+          quit_launch "quit after SoLoud" HERMES_SOLOUD_QUIT_PROBE=1 "HERMES_PROBE terminating"
+          grep -E "^HERMES_PROBE" quit.log || true
+          if ! grep -q "^HERMES_PROBE soloud played\$" quit.log && ! grep -q "^HERMES_PROBE soloud no audio device\$" quit.log; then
+            echo "::error::quit after SoLoud: SoLoud neither played nor reported 'no audio device', so the quit did not run with the library in use."
+            exit 1
+          fi
+          # The window: the same launch and quit with the report on. It prints the
+          # HERMES_WINDOW line or fails (quit_launch also fails on a crash).
+          window_launch() { # <label> [WxH to resize to before quitting]
+            assignments="HERMES_QUIT_AFTER_LAUNCH=1 HERMES_REPORT_WINDOW=1"
+            if [ -n "${2:-}" ]; then assignments="$assignments HERMES_REPORT_WINDOW_SET=$2"; fi
+            quit_launch "$1" "$assignments" "HERMES_QUIT terminating"
+            line="$(grep -E '^HERMES_WINDOW ' quit.log | head -n 1 || true)"
             if [ -z "$line" ]; then
-              echo "::error::Launch $1 printed no HERMES_WINDOW line (crashed, or the window never appeared); log follows."
-              tail -n 40 window.log
-              forget; exit 1
+              echo "::error::$1: no HERMES_WINDOW line (the window never appeared); log follows."; head -n 40 quit.log; exit 1
             fi
-            echo "launch $1: $line"
+            echo "$1: $line"
             if [[ "$line" =~ ^HERMES_WINDOW\ frame=([0-9]+)x([0-9]+)\ chrome=([0-9]+)\ min=([0-9]+x[0-9]+)\ full=(true|false)\ screen=([0-9]+x[0-9]+)$ ]]; then
               frame="${BASH_REMATCH[1]}x${BASH_REMATCH[2]}"
               content="${BASH_REMATCH[1]}x$(( BASH_REMATCH[2] - BASH_REMATCH[3] ))"
@@ -475,28 +513,26 @@ jobs:
               fw="${BASH_REMATCH[1]}"; fh="${BASH_REMATCH[2]}"; chrome="${BASH_REMATCH[3]}"
               sw="${screen%x*}"; sh="${screen#*x}"
             else
-              echo "::error::Unreadable HERMES_WINDOW line: $line"; forget; exit 1
+              echo "::error::$1: unreadable or unsettled HERMES_WINDOW line (settleFrame must run within 10 s): $line"; exit 1
             fi
-            # The gate is settleFrame: the report waits up to 10 s for frameSettled
-            # and prints an "unsettled" line (rejected above) when it never comes.
             # full=true is a cheap sanity check that awakeFromNib's insert of the
-            # full-size content view is still there; it cannot fail otherwise.
+            # full-size content view is still there; settleFrame is the real gate.
             if [ "$full" != "true" ]; then
-              echo "::error::Launch $1: the window never got the full-size content view: $line"; forget; exit 1
+              echo "::error::$1: the window never got the full-size content view: $line"; exit 1
             fi
             if [ "$min" != "640x480" ]; then
-              echo "::error::Launch $1: minimum content size is $min, expected 640x480 (screen $screen): $line"; forget; exit 1
+              echo "::error::$1: minimum content size is $min, expected 640x480 (screen $screen): $line"; exit 1
             fi
           }
           forget   # nothing may depend on what the runner remembered
           # frame minus the title bar is the xib's content size
-          launch 1 900x600
+          window_launch "window 1" 900x600
           # screen is the main screen's visibleFrame (menu bar and Dock excluded),
           # which is what AppKit fits a window to. A runner screen smaller than the
           # default frame constrains the window, so the default is then not measured.
           if [ "$sw" -ge 1100 ] && [ "$sh" -ge $(( 760 + chrome )) ]; then
             if [ "$content" != "1100x760" ]; then
-              echo "::error::Launch 1: default content size is $content, expected 1100x760 (screen $screen): $line"; forget; exit 1
+              echo "::error::window 1: default content size is $content, expected 1100x760 (screen $screen): $line"; exit 1
             fi
           else
             echo "::notice::The runner's screen ($screen) is smaller than the default window (1100x$(( 760 + chrome ))), so the default size was not measured: $line"
@@ -505,36 +541,35 @@ jobs:
             # smaller (an xib below the default, or the minimum used as the default).
             # 64 is a margin over the 35 pt gap measured on the runner (642 vs 677).
             if [ "$fw" -lt 640 ] || [ "$fh" -lt 480 ]; then
-              echo "::error::Launch 1: the $frame frame is below the 640x480 minimum: $line"; forget; exit 1
+              echo "::error::window 1: the $frame frame is below the 640x480 minimum: $line"; exit 1
             fi
             if [ "$sw" -ge 1100 ]; then want_w=1100; else want_w="$sw"; fi
             if [ "$fw" -ne "$want_w" ]; then
-              echo "::error::Launch 1: frame width is $fw, expected $want_w on a ${sw}-wide screen: $line"; forget; exit 1
+              echo "::error::window 1: frame width is $fw, expected $want_w on a ${sw}-wide screen: $line"; exit 1
             fi
             if [ "$sh" -ge $(( 760 + chrome )) ]; then
               if [ "$fh" -ne $(( 760 + chrome )) ]; then
-                echo "::error::Launch 1: frame height is $fh, expected $(( 760 + chrome )): $line"; forget; exit 1
+                echo "::error::window 1: frame height is $fh, expected $(( 760 + chrome )): $line"; exit 1
               fi
             elif [ "$fh" -gt "$sh" ] || [ "$fh" -lt $(( sh - 64 )) ]; then
-              echo "::error::Launch 1: frame height is $fh, expected the screen's $sh or at most 64 below it: $line"; forget; exit 1
+              echo "::error::window 1: frame height is $fh, expected the screen's $sh or at most 64 below it: $line"; exit 1
             fi
           fi
-          launch 2
+          window_launch "window 2"
           # AppKit must have written the frame to the sandbox container's defaults.
           if ! defaults read "$prefs" "$key"; then
-            echo "::error::No '$key' in $prefs after launch 2; the frame was not saved there."; ls -la "$(dirname "$prefs")" || true; forget; exit 1
+            echo "::error::No '$key' in $prefs after window 2; the frame was not saved there."; ls -la "$(dirname "$prefs")" || true; exit 1
           fi
           if [ "$frame" != "900x600" ]; then
-            echo "::error::Launch 2: the window came back as a $frame frame, expected the 900x600 it was resized to (screen $screen): $line"; forget; exit 1
+            echo "::error::window 2: the window came back as a $frame frame, expected the 900x600 it was resized to (screen $screen): $line"; exit 1
           fi
           # A frame at the minimum must come back as saved too: under the titled
           # mask alone AppKit would hold it to the minimum plus a title bar.
-          launch 3 640x480
-          launch 4
+          window_launch "window 3" 640x480
+          window_launch "window 4"
           if [ "$frame" != "640x480" ]; then
-            echo "::error::Launch 4: the window came back as a $frame frame, expected the 640x480 it was resized to (screen $screen): $line"; forget; exit 1
+            echo "::error::window 4: the window came back as a $frame frame, expected the 640x480 it was resized to (screen $screen): $line"; exit 1
           fi
-          forget
 
   # The only test of the real libmpv decoder path in lib/src/voice/. It runs
   # for every code pull request, not only when a platform build does.
@@ -595,13 +630,29 @@ jobs:
       - name: Build release bundle
         run: |
           set -o pipefail
-          mkdir -p build
+          mkdir -p build build/linux/x64/release
+          # Leave the cache a failed first configure leaves (a stale install
+          # prefix), so the build reconfigures over it; without the forced prefix
+          # in linux/CMakeLists.txt the prefix check below fails.
+          echo 'CMAKE_INSTALL_PREFIX:PATH=/usr/local' > build/linux/x64/release/CMakeCache.txt
           flutter build linux --release -v 2>&1 | tee build/flutter_build_linux.log
 
       - name: Check flutter_soloud fetched no Xiph or VST3 library
         run: |
           scripts/check-soloud-build-log.sh build/flutter_build_linux.log
           test -f build/linux/x64/release/bundle/lib/libflutter_soloud_plugin.so
+
+      # The build above started from a cache holding /usr/local, as after a failed
+      # first configure. linux/CMakeLists.txt must have forced it back.
+      - name: Check the install prefix is the bundle directory
+        run: |
+          cache=$(ls build/linux/*/release/CMakeCache.txt)
+          prefix=$(sed -n 's/^CMAKE_INSTALL_PREFIX:[A-Z]*=//p' $cache)
+          echo "CMAKE_INSTALL_PREFIX=$prefix"
+          case "$prefix" in
+            "$PWD"/build/linux/*/release/bundle) ;;
+            *) echo "install prefix escapes the build tree" >&2; exit 1 ;;
+          esac
 
       - name: Package tar.gz and .deb
         run: scripts/package-linux.sh 0.0.0-ci
@@ -618,7 +669,16 @@ jobs:
     name: Builds
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [changes, analyze-and-test, build-android, build-windows, build-ios, build-macos, build-linux]
+    needs:
+      [
+        changes,
+        analyze-and-test,
+        build-android,
+        build-windows,
+        build-ios,
+        build-macos,
+        build-linux,
+      ]
     if: always()
     steps:
       - name: Check results

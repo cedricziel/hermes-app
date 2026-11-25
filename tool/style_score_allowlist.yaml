@@ -29,3 +29,27 @@ allow:
     category: d.string
     match: "title: 'Hermes'"
     reason: The dictation engine option is named after the product, which is not translated.
+  - path: lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart
+    category: b.dialog
+    match: "showModalBottomSheet<void>("
+    reason: showKanbanDetentSheet is hand-built on purpose, since showAdaptiveSheet cannot express its half-open and full detents, and the Activity panel shares it.
+  - path: lib/src/kanban/widgets/task_panel/kanban_task_sheet.dart
+    category: b.dialog
+    match: "showDialog<void>("
+    reason: showKanbanFormSheet is hand-built on purpose, since it is a fixed 560 x 720 frame with its own corner radius, which showAdaptiveSheet cannot set.
+  - path: lib/src/kanban/widgets/kanban_task_panel.dart
+    category: b.dialog
+    match: "showDialog<void>("
+    reason: The Android, Windows and Linux task panel switches between this dialog and the sheet below at kKanbanColumnsBreakpoint (720 pt), while showAdaptiveSheet switches at isWideLayout (900 pt); converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. The dialog is also capped at 560 x 720 (maxWidth and maxHeight), which showAdaptiveSheet cannot set.
+  - path: lib/src/kanban/widgets/kanban_task_panel.dart
+    category: b.dialog
+    match: "showModalBottomSheet<void>("
+    reason: The phone sheet of the task panel opens below kKanbanColumnsBreakpoint (720 pt), not at showAdaptiveSheet's isWideLayout (900 pt), so converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. Its height is capped at 0.92 of the screen, which showAdaptiveSheet cannot set.
+  - path: lib/src/messaging/widgets/qr_code_card.dart
+    category: a.color
+    match: "Color(0xFFFFFFFF)"
+    reason: A scanner needs the code black on white whatever the theme, so the tile never takes a theme colour (design brief whatsapp-onboarding, QR tile).
+  - path: lib/src/messaging/widgets/qr_code_card.dart
+    category: a.color
+    match: "Color(0xFF000000)"
+    reason: The code's modules are always black on the white tile, in both themes, so a scanner can read it.

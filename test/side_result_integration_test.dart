@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -17,6 +17,7 @@ import 'package:hermes_app/src/chat/session_usage/usage_snapshot.dart';
 import 'package:hermes_app/src/chat/session_usage/session_usage_controller.dart';
 import 'package:hermes_app/src/chat/process_output_state.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -129,7 +130,7 @@ void main() {
     () async {
       await open();
       final thread = chat.selectedThread!;
-      chat.submit('Foreground', const []);
+      await chat.submit('Foreground', const []);
       await pumpEventQueue();
       result('background.complete', 'Background answer');
       result('btw.complete', 'Side answer');
@@ -179,7 +180,7 @@ void main() {
       hasLength(submitsBefore),
     );
     final state = chat.sideResultsIn(thread);
-    chat.submit('Same owned runtime', const []);
+    await chat.submit('Same owned runtime', const []);
     await pumpEventQueue();
     expect(chat.sideResultsIn(thread), same(state));
     expect(state!.results, hasLength(2));
@@ -595,7 +596,7 @@ void main() {
           'total': 5,
         };
         await open();
-        chat.submit('Synthetic advisor prompt', const []);
+        await chat.submit('Synthetic advisor prompt', const []);
         await pumpEventQueue();
         gateway.event('message.start', 'rt-1');
         gateway.event('agent.terminal.output', 'rt-1', {
@@ -649,6 +650,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: chatWithActivity(
               chat,
@@ -727,6 +729,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: chatWithActivity(
             chat,

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/app_icons.dart';
@@ -7,14 +7,20 @@ import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../tool_result.dart';
 import 'memory_tool_body.dart';
+import 'tool_body_registry.dart';
 
-/// What an opened [ToolCall] card shows for the tools that have a view of
-/// their own — assistant-ui's per-tool renderers. Null for any other tool,
-/// and for a call whose arguments or result are not the shape its view
-/// expects, which then falls back to the generic input and result.
-///
-/// A call that changed a file shows its diff, whatever the tool.
-Widget? toolCallBody(ToolCall call) {
+/// The views the standard tools have, tried in this order. The diff comes
+/// first: a call that changed a file shows its diff, whatever the tool.
+const standardToolBodyEntries = <ToolBodyEntry>[
+  ToolBodyEntry(build: _diffBody),
+  ToolBodyEntry(names: {'message_agent'}, build: BotHandoffBody.of),
+  ToolBodyEntry(names: {'terminal'}, build: TerminalToolBody.of),
+  ToolBodyEntry(names: {'web_search'}, build: WebSearchToolBody.of),
+  ToolBodyEntry(names: {'todo_list', 'todo'}, build: TodoToolBody.of),
+  ToolBodyEntry(names: {'memory'}, build: MemoryToolBody.of),
+];
+
+Widget? _diffBody(ToolCall call) {
   // Live calls carry Hermes' rendered diff; a patch read from history has
   // only the plain one in its result.
   final diff = call.diff.trim().isNotEmpty
@@ -23,16 +29,18 @@ Widget? toolCallBody(ToolCall call) {
           {'diff': final String diff} when diff.trim().isNotEmpty => diff,
           _ => '',
         };
-  if (diff.isNotEmpty) return ToolDiffBody(diff: diff);
-  return switch (call.name) {
-    'message_agent' => BotHandoffBody.of(call),
-    'terminal' => TerminalToolBody.of(call),
-    'web_search' => WebSearchToolBody.of(call),
-    'todo_list' || 'todo' => TodoToolBody.of(call),
-    'memory' => MemoryToolBody.of(call),
-    _ => null,
-  };
+  return diff.isEmpty ? null : ToolDiffBody(diff: diff);
 }
+
+const standardToolBodyRegistry = ToolBodyRegistry(standardToolBodyEntries);
+
+/// What an opened [ToolCall] card shows for the tools that have a view of
+/// their own — assistant-ui's per-tool renderers. Null for any other tool,
+/// and for a call whose arguments or result are not the shape its view
+/// expects, which then falls back to the generic input and result.
+///
+/// A new view is an entry in [standardToolBodyEntries].
+Widget? toolCallBody(ToolCall call) => standardToolBodyRegistry.bodyFor(call);
 
 const _mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
 

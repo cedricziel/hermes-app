@@ -18,11 +18,21 @@
 # then the ones that import anything under a touched lib/src/<dir>/.
 # PREMERGE_TEST_BUDGET (600 s), PREMERGE_TEST_CAP (150 files),
 # PREMERGE_TEST_CONCURRENCY (4), PREMERGE_TEST_BATCH (20 files per flutter test).
+# test/widgetbook_test.dart never goes into a batch (one process runs a 15 GB
+# machine out of memory): it runs last in CATALOG_PARTS (6) sequential
+# `--total-shards` parts, as scripts/test-shard.sh does for CI.
+# A theme-wide or helper-wide selection (a change to lib/src/theme/ or to
+# test/support/fake_hermes_server.dart) needs PREMERGE_TEST_CAP and
+# PREMERGE_TEST_BUDGET raised; one recent run needed a budget of 3000 s.
+# PREMERGE_ALLOW_CAPPED=1 accepts a capped run as a pass (exit 0).
 #
 # Exit: 0 pass | 1 usage or fetch error, a selection error, or the PR is already
 #       in the base | 2 merge conflict | 3 pub get or analyze failed
 #       4 architecture tests failed | 5 affected tests failed
 #       6 affected tests cut short by the budget (not a pass)
+#       7 PASS (CAPPED: ...): the cap dropped (c2) directory-wide tests, so the
+#         run is not the full selection; exit 0 only with PREMERGE_ALLOW_CAPPED=1.
+#         A failure (5) or a budget cut (6) wins over capped.
 #
 # Uses git only. PREMERGE_LIST_OPEN=1 also asks `gh` (GraphQL, so not in cloud
 # sessions) for the open PRs that have auto-merge armed and adds them to
@@ -125,6 +135,14 @@ TEST_BUDGET="$(positive_setting PREMERGE_TEST_BUDGET 600)"
 TEST_CAP="$(positive_setting PREMERGE_TEST_CAP 150)"
 TEST_CONCURRENCY="$(positive_setting PREMERGE_TEST_CONCURRENCY 4)"
 TEST_BATCH="$(positive_setting PREMERGE_TEST_BATCH 20)"
+# The Widgetbook test is ~17,500 cases and grows one process past 11 GB, so it
+# never goes into a batch: it runs in this many sequential parts, as in
+# scripts/test-shard.sh (the same CATALOG_PARTS).
+CATALOG_PARTS="$(positive_setting CATALOG_PARTS 6)"
+if [ "$CATALOG_PARTS" -gt 99 ]; then
+  die_usage "CATALOG_PARTS must be a whole number from 1 to 99, got '$CATALOG_PARTS'"
+fi
+CATALOG_TEST=test/widgetbook_test.dart
 
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || die_usage "not inside a git repository"
 NOHOOKS=(-c core.hooksPath=/dev/null)
@@ -548,6 +566,16 @@ while IFS= read -r -d '' f; do TEST_FILES+=("$f"); done <"$TMP/select/selected"
 CAPPED_DIRS="$(tr '\n' ' ' <"$TMP/select/capped")"
 CAPPED_DIRS="${CAPPED_DIRS% }"
 N_SEL=${#TEST_FILES[@]}
+# The catalog file moves to the end and out of the batches (see CATALOG_PARTS).
+HAS_CATALOG=0
+BATCHABLE=()
+for f in ${TEST_FILES[@]+"${TEST_FILES[@]}"}; do
+  if [ "$f" = "$CATALOG_TEST" ]; then HAS_CATALOG=1; else BATCHABLE+=("$f"); fi
+done
+if [ "$HAS_CATALOG" = 1 ]; then
+  TEST_FILES=(${BATCHABLE[@]+"${BATCHABLE[@]}"} "$CATALOG_TEST")
+fi
+N_BATCH=${#BATCHABLE[@]}
 step_done "selection ($N_SEL files)"
 
 # run_limited <seconds> <command...>: run it, output shown and kept in
@@ -582,10 +610,10 @@ I=0
 if [ "$N_SEL" -gt 0 ]; then
   step_start "affected tests ($N_SEL files, budget ${TEST_BUDGET}s)"
   DEADLINE=$((SECONDS + TEST_BUDGET))
-  while [ "$I" -lt "$N_SEL" ]; do
+  while [ "$I" -lt "$N_BATCH" ]; do
     REMAINING=$((DEADLINE - SECONDS))
     if [ "$REMAINING" -le 0 ]; then CUT=1; break; fi
-    BATCH_FILES=("${TEST_FILES[@]:$I:$TEST_BATCH}")
+    BATCH_FILES=("${BATCHABLE[@]:$I:$TEST_BATCH}")
     run_limited "$REMAINING" flutter test --no-pub --concurrency="$TEST_CONCURRENCY" "${BATCH_FILES[@]}"
     if [ "$LIM_CUT" = 1 ]; then CUT=1; break; fi
     if [ "$LIM_RC" -ne 0 ]; then
@@ -604,14 +632,34 @@ if [ "$N_SEL" -gt 0 ]; then
     RAN=$((RAN + ${#BATCH_FILES[@]}))
     I=$((I + TEST_BATCH))
   done
+  if [ "$CUT" = 0 ]; then I=$N_BATCH; fi
+  if [ "$HAS_CATALOG" = 1 ] && [ "$CUT" = 0 ]; then
+    # One part after the other; every part runs even after one failed.
+    CATALOG_BAD=0
+    for ((part = 0; part < CATALOG_PARTS; part++)); do
+      REMAINING=$((DEADLINE - SECONDS))
+      if [ "$REMAINING" -le 0 ]; then CUT=1; break; fi
+      echo "Catalog part $((part + 1)) of $CATALOG_PARTS"
+      run_limited "$REMAINING" flutter test --no-pub --total-shards "$CATALOG_PARTS" --shard-index "$part" "$CATALOG_TEST"
+      if [ "$LIM_CUT" = 1 ]; then CUT=1; break; fi
+      if [ "$LIM_RC" -ne 0 ]; then CATALOG_BAD=1; fi
+    done
+    if [ "$CUT" = 0 ]; then
+      if [ "$CATALOG_BAD" = 1 ]; then FAILED+=("$CATALOG_TEST"); fi
+      RAN=$((RAN + 1))
+      I=$N_SEL
+    fi
+  fi
   step_done "affected tests"
 else
   echo "no affected tests selected; nothing to run"
 fi
 
 CAPNOTE=""
+PASS_LABEL="PASS"
 if [ -n "$CAPPED_DIRS" ]; then
   CAPNOTE=" (CAPPED: (c2) tests skipped for $CAPPED_DIRS)"
+  PASS_LABEL="PASS (CAPPED: directory-wide tests skipped for $CAPPED_DIRS)"
   echo "affected tests: CAPPED at $TEST_CAP files; (c2) tests skipped for: $CAPPED_DIRS"
 fi
 if [ "$CUT" = 1 ]; then
@@ -635,7 +683,7 @@ if [ "$CUT" = 1 ]; then
 fi
 
 echo
-echo "PASS: origin/$BASE ($BASE_SHA) + ${STACK_DESC:+stacked $STACK_DESC + }#$PR ($PR_SHA) analyzes, passes the architecture tests and the affected tests."
+echo "$PASS_LABEL: origin/$BASE ($BASE_SHA) + ${STACK_DESC:+stacked $STACK_DESC + }#$PR ($PR_SHA) analyzes, passes the architecture tests and the affected tests."
 echo "affected tests: $RAN files run$CAPNOTE"
 if [ -n "$STACK_DESC" ]; then
   echo "stacked: $STACK_DESC (merge them first, bottom-up, then #$PR)"
@@ -644,6 +692,13 @@ echo "checked against: head #$PR $PR_SHA, base origin/$BASE $BASE_SHA"
 echo "RULE: merge or arm only while origin/$BASE still equals $BASE_SHA; rerun otherwise."
 if [ "$OVERLAP" = 1 ]; then
   echo "WARNING: overlap reported above. Arm #$PR only if no overlapping PR is armed."
+fi
+if [ -n "$CAPPED_DIRS" ] && [ "${PREMERGE_ALLOW_CAPPED:-}" != 1 ]; then
+  {
+    echo "CAPPED: the cap of $TEST_CAP files skipped the directory-wide tests for $CAPPED_DIRS. This is NOT a full pass: exit 7."
+    echo "Rerun with PREMERGE_TEST_CAP and PREMERGE_TEST_BUDGET raised (a theme-wide selection needed 3000 s), or set PREMERGE_ALLOW_CAPPED=1 to accept the skipped tests."
+  } >&2
+  exit 7
 fi
 echo "Next: safe to arm #$PR at exactly $PR_SHA: arm with a head-SHA match (\`gh pr merge --auto --squash --match-head-commit $PR_SHA\` locally, or the auto-merge route with that sha); rerun after ANY push to the PR or to main."
 exit 0

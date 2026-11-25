@@ -1,8 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_widget_parts.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../../macos/menu_selection_area.dart';
 
 /// Where the output read stands.
 enum AgentOutputStatus { loading, ready, none, never }
@@ -250,8 +252,8 @@ class _OutputBoxState extends State<_OutputBox> {
                     ],
                     stops: [0, (24 / rect.height).clamp(0.0, 1.0)],
                   ).createShader(rect),
-                  child: SelectionArea(
-                    key: _selection,
+                  child: MenuSelectionArea(
+                    selectionKey: _selection,
                     onSelectionChanged: (content) {
                       _selected = content != null && content.plainText != '';
                       _report();

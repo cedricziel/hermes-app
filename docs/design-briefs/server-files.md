@@ -138,3 +138,26 @@ By kind:
 ## Deliverables from the design pass
 
 Widgetbook use cases for every state above, both themes, at phone, iPad and desktop width and at the largest text size; the code palette for light and dark; the row, path bar and preview header as plain-model widgets in `lib/src/files/widgets/`.
+
+## Read-only Markdown task box
+
+Recorded after the fact on 2026-11-24; describes what #1121 built. Read from `lib/src/widgets/markdown_task_box.dart` and `lib/src/files/widgets/file_previews.dart` on main.
+
+What it is: in a rendered Markdown file (the "Rendered" side of the Rendered / Source control), a task-list item (`- [x] done`, `- [ ] to do`) draws as a state, not a control. Before #1121 such an item threw "No Material widget found" from the markdown package's own checkbox. `readOnlyTaskBox` is passed as the package's `checkboxBuilder`, and its twin `readOnlyRadioOption` as `radioOptionBuilder` (`- ( ) option`, `(x) chosen`).
+
+Look:
+
+- A row of icon and item text, top-aligned. The icon is 20 pt: `check_box` when checked, `check_box_outline_blank` when not; for the radio form `radio_button_checked` and `radio_button_unchecked`. The icon has 5 pt before it and 8 pt after it; the item's content takes the rest of the width and wraps.
+- Colours, from the colour scheme: checked is `primary`, unchecked is `onSurfaceVariant`. Dark follows the theme; there is no branch of its own.
+- The box cannot be tapped or focused. The row is one semantics node (`MergeSemantics`) with `checked` set, so a screen reader reads the item's text and "checked" or "not checked"; the icon itself is excluded.
+- The inert preview rules are unchanged: no network image, a link asks "Open <host>?" first.
+- Large text: the enclosing text span scales the icon once, so its drawn size is 20 pt times the text scale (the test pins this at 1x and at 3x); the item text wraps beside it.
+
+The same builders are passed in the skill detail panel (`SkillMarkdownPanel`), the skill editor's preview and Bot Mode group messages. Chat messages do not pass them: chat sits under `FlyerMaterialScope`, which supplies the Material the package's checkbox needs.
+
+Use cases and tests:
+
+- `widgetbook/files_use_cases.dart`, component "FilePreviewView": `Markdown with a task list` (`# Plan`, one checked and one open item)
+- `test/files/widgets/markdown_task_list_test.dart` (light and dark, phone, desktop and 3x text: no exception, read-only, state announced, drawn size 20 pt times the scale)
+- `test/widgets/markdown_task_box_test.dart` (skill panel, radio options, group message, skill editor preview)
+- `test/workflows/files_workflow_test.dart`, the "markdown" step, which saves a screenshot per phone and desktop

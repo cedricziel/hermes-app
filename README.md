@@ -265,6 +265,10 @@ Refresh both integrations with the version used to generate them:
 npm exec --yes --package @fission-ai/openspec@1.14.0 -- openspec init --tools claude,codex --profile core --no-animation
 ```
 
+The generated skills in both directories carry nothing hand-written; project
+guidance for proposals, such as how to validate a change, lives in
+`openspec/config.yaml`, which the refresh leaves alone.
+
 ### Component catalog
 
 Every widget and screen is shown in each of its states, in light and dark, on

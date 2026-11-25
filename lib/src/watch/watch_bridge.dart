@@ -21,6 +21,7 @@ import '../voice/on_device_speech.dart';
 import 'watch_complication.dart';
 import 'watch_context.dart';
 import 'watch_send_journal.dart';
+import 'watch_status_source.dart';
 import 'watch_request_handler.dart';
 import 'watch_request_actions.dart';
 import '../telemetry/report_bug.dart';
@@ -404,7 +405,9 @@ class WatchBridge {
         return api == null ? null : HermesChatRepository(api.raw);
       },
       transport: () => gatewayTransportFor(auth, events: events),
-      statusTransport: () => gatewayTransportFor(auth, events: events),
+      statusSource: WatchStatusSource(
+        () => gatewayTransportFor(auth, events: events),
+      ),
       serverUrl: () {
         final url = auth.baseUrl;
         return url == null ? null : HandoffActivity.server(url);
@@ -415,7 +418,7 @@ class WatchBridge {
           return null;
         }
         try {
-          return (await HermesProfilesRepository(api.raw).loadActive()).active;
+          return await watchProfile(api);
         } on Object catch (e, stack) {
           reportBug(e, stack, 'the watch active profile');
           return null;
@@ -486,6 +489,7 @@ class WatchBridge {
     _auth?.removeListener(_sessionChanged);
     _requestActions?.clear();
     unawaited(_departure?.cancel());
+    unawaited(_handler.statusSource?.dispose());
     _channel.setMethodCallHandler(null);
   }
 
@@ -549,3 +553,9 @@ class WatchBridge {
     return {...reply}..remove('engine');
   }
 }
+
+/// The profile the watch's chats belong to: the one the dashboard was
+/// launched with (`current`), the same the phone's chat resolves; null when
+/// the server has none or it cannot be read.
+Future<String?> watchProfile(HermesApiClient api) =>
+    HermesProfilesRepository(api.raw).resolver.load();

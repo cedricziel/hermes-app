@@ -1,4 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'dart:io';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/tap_targets.dart';
@@ -64,15 +66,103 @@ void main() {
       ], 'linux'),
     ]);
     expect(report.unlabeled(), hasLength(1));
-    expect(report.skippedByPlatform, {'linux': 1});
   });
 
-  test('a workflow screen is judged by what it rendered as, or by macOS', () {
-    expect(judgedPlatform(TargetPlatform.android, 390), 'android');
-    expect(judgedPlatform(TargetPlatform.iOS, 390), 'ios');
-    expect(judgedPlatform(TargetPlatform.android, 1280), 'macos');
-    expect(judgedPlatform(TargetPlatform.macOS, 1280), 'macos');
-    expect(judgedPlatform(TargetPlatform.macOS, 390), 'skip');
+  test('every theme platform has its own rule', () {
+    expect(platformKey(TargetPlatform.android), 'android');
+    expect(platformKey(TargetPlatform.fuchsia), 'android');
+    expect(platformKey(TargetPlatform.iOS), 'ios');
+    expect(platformKey(TargetPlatform.macOS), 'macos');
+    expect(platformKey(TargetPlatform.windows), 'windows');
+    expect(platformKey(TargetPlatform.linux), 'linux');
+    expect(tapThresholds['windows'], 28);
+    expect(windowClass(1280), 'desktop');
+    expect(windowClass(390), 'phone');
+  });
+
+  Future<TapSample> measureAt(
+    WidgetTester tester,
+    TargetPlatform platform,
+    Size size, [
+    double box = 40,
+  ]) async {
+    tester.view
+      ..physicalSize = size
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: platform),
+        home: Scaffold(
+          body: Center(
+            child: Semantics(
+              label: 'Small',
+              button: true,
+              onTap: () {},
+              child: SizedBox(width: box, height: box),
+            ),
+          ),
+        ),
+      ),
+    );
+    return measureWorkflowScreen(tester, 'flow/01-x');
+  }
+
+  testWidgets('a desktop-width screen with an Android theme is judged as '
+      'Android, not as macOS', (tester) async {
+    final sample = await measureAt(
+      tester,
+      TargetPlatform.android,
+      const Size(1280, 800),
+    );
+    expect(sample.platform, 'android');
+    expect(sample.window, 'desktop');
+    final report = TapReport([sample]);
+    expect(report.violations('android'), hasLength(1));
+    expect(report.violations('macos'), isEmpty);
+    expect(report.inflated(), isEmpty);
+  });
+
+  testWidgets('a macOS-themed screen is judged by 28 and the inflated check, '
+      'even in a narrow window', (tester) async {
+    final small = await measureAt(
+      tester,
+      TargetPlatform.macOS,
+      const Size(600, 800),
+      24,
+    );
+    expect(small.platform, 'macos');
+    expect(small.window, 'phone');
+    expect(TapReport([small]).violations('macos'), hasLength(1));
+    expect(TapReport([small]).violations('android'), isEmpty);
+    final inflated = await measureAt(
+      tester,
+      TargetPlatform.macOS,
+      const Size(1280, 800),
+      48,
+    );
+    expect(inflated.platform, 'macos');
+    expect(TapReport([inflated]).violations('macos'), isEmpty);
+    expect(TapReport([inflated]).inflated(), hasLength(1));
+  });
+
+  testWidgets('a phone window with a desktop theme is judged by its theme and '
+      'keeps its window class', (tester) async {
+    final sample = await measureAt(
+      tester,
+      TargetPlatform.linux,
+      const Size(390, 844),
+    );
+    expect(sample.platform, 'linux');
+    expect(sample.window, 'phone');
+    expect(TapReport([sample]).violations('linux'), isEmpty);
+  });
+
+  test('window class survives the JSON round trip', () {
+    final back = TapSample.fromJson(
+      const TapSample('a', 'android', [], 'android', null, 'desktop').toJson(),
+    );
+    expect(back.window, 'desktop');
   });
 
   test('theme suffix is stripped from the flow only', () {
@@ -102,13 +192,117 @@ void main() {
     expect(pinnedPlatform(both, TargetPlatform.macOS), 'android');
   });
 
-  test('skipped passes are counted by reason, apart from skipped screens', () {
+  test('skipped passes are counted by reason', () {
     final report = TapReport([
       const TapSample('u', 'skip', [], 'android', 'pins android'),
       const TapSample('v', 'skip', [], 'android', 'pins android'),
-      const TapSample('w', 'skip', [], 'macos'),
     ]);
     expect(report.skippedPasses, {'pins android': 2});
-    expect(report.skippedByPlatform, {'macos': 1});
+  });
+
+  Future<void> pumpAt(WidgetTester tester, TargetPlatform platform) async {
+    tester.view
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: platform),
+        home: Scaffold(
+          body: Center(
+            child: Semantics(
+              label: 'Small',
+              button: true,
+              onTap: () {},
+              child: const SizedBox(width: 40, height: 40),
+            ),
+          ),
+        ),
+      ),
+    );
+    // The theme animates between platforms.
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('samples of every run folder are read back', (tester) async {
+    final dir = Directory.systemTemp.createTempSync('tap_runs');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await pumpAt(tester, TargetPlatform.android);
+    await recordWorkflowScreen(
+      tester,
+      'a',
+      '01',
+      dir: dir.path,
+      run: defaultRun,
+    );
+    await pumpAt(tester, TargetPlatform.macOS);
+    await recordWorkflowScreen(tester, 'a', '02', dir: dir.path, run: 'macOS');
+    final samples = readWorkflowSamples(dir: dir.path);
+    expect(samples.map((s) => s.source).toList()..sort(), ['a/01', 'a/02']);
+    expect(samples.map((s) => s.platform).toSet(), {'android', 'macos'});
+  });
+
+  testWidgets('a WORKFLOW_PLATFORM run records only screens of that platform', (
+    tester,
+  ) async {
+    final dir = Directory.systemTemp.createTempSync('tap_runs');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await pumpAt(tester, TargetPlatform.android);
+    await recordWorkflowScreen(tester, 'a', '01', dir: dir.path, run: 'macOS');
+    expect(readWorkflowSamples(dir: dir.path), isEmpty);
+    await pumpAt(tester, TargetPlatform.macOS);
+    await recordWorkflowScreen(tester, 'a', '02', dir: dir.path, run: 'macOS');
+    expect(readWorkflowSamples(dir: dir.path), hasLength(1));
+  });
+
+  testWidgets('a screen a test pins to macOS counts once across both runs', (
+    tester,
+  ) async {
+    final dir = Directory.systemTemp.createTempSync('tap_runs');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await pumpAt(tester, TargetPlatform.macOS);
+    await recordWorkflowScreen(
+      tester,
+      'mac',
+      '01',
+      dir: dir.path,
+      run: defaultRun,
+    );
+    await recordWorkflowScreen(
+      tester,
+      'mac',
+      '01',
+      dir: dir.path,
+      run: 'macOS',
+    );
+    expect(readWorkflowSamples(dir: dir.path), hasLength(1));
+  });
+
+  testWidgets('one source rendered as Android and as macOS keeps both', (
+    tester,
+  ) async {
+    final dir = Directory.systemTemp.createTempSync('tap_runs');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    await pumpAt(tester, TargetPlatform.android);
+    await recordWorkflowScreen(
+      tester,
+      'chat',
+      '01',
+      dir: dir.path,
+      run: defaultRun,
+    );
+    await pumpAt(tester, TargetPlatform.macOS);
+    await recordWorkflowScreen(
+      tester,
+      'chat',
+      '01',
+      dir: dir.path,
+      run: 'macOS',
+    );
+    final samples = readWorkflowSamples(dir: dir.path);
+    expect(samples.map((s) => s.platform).toList()..sort(), [
+      'android',
+      'macos',
+    ]);
   });
 }

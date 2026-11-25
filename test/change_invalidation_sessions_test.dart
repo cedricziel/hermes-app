@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -108,8 +108,8 @@ void main() {
     });
     await chat.loadThreads('work');
     chat.select('s1');
-    chat.submit('Current turn', const []);
-    chat.submit('Queued prompt', const []);
+    await chat.submit('Current turn', const []);
+    await chat.submit('Queued prompt', const []);
     final target = chat.selectedThread!;
     final generation = chat.threadListGeneration;
     expect(

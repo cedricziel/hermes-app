@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/anchored_popover.dart';
 
@@ -98,5 +100,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('body'), findsNothing);
+  });
+
+  testWidgets('Escape closes a popover after a mouse click inside it took '
+      'focus off its field', (tester) async {
+    tester.view
+      ..physicalSize = const Size(900, 800)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showAnchoredPopover<void>(
+              context,
+              anchor: const Rect.fromLTWH(100, 600, 80, 30),
+              semanticLabel: 'Popover',
+              builder: (_) => const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [Text('heading'), TextField(autofocus: true)],
+              ),
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'typed');
+    await tester.pump();
+
+    final at = tester.getCenter(find.text('heading'));
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: at);
+    await mouse.down(at);
+    await mouse.up();
+    await mouse.removePointer();
+    await tester.pump();
+    expect(find.text('heading'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isFalse,
+      reason: 'the click took focus off the field',
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.text('heading'), findsNothing);
   });
 }

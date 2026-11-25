@@ -1,6 +1,6 @@
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../memory/memory_decisions.dart';
 import '../../memory/memory_tool_outcome.dart';

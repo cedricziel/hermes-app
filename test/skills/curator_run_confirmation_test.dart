@@ -1,9 +1,14 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/skills/widgets/curator_run_confirmation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../support/test_localizations.dart';
 
 class _Calls {
   var cancels = 0;
@@ -32,7 +37,7 @@ Widget _host(
       child: child!,
     ),
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     theme: buildHermesLightTheme(platform: platform),
     home: Scaffold(body: wrap == null ? body : wrap(body)),
@@ -279,7 +284,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Builder(
@@ -368,7 +373,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Scaffold(
@@ -423,7 +428,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Scaffold(
@@ -502,7 +507,7 @@ void main() {
         addTearDown(tester.view.reset);
         await tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: TargetPlatform.android),
             home: Builder(
@@ -581,10 +586,125 @@ void main() {
       }
     });
 
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      testWidgets('$platform Cancel draws no filled overlay, focused or not', (
+        tester,
+      ) async {
+        await pump(
+          tester,
+          _known,
+          platform: platform,
+          dialog: platform == TargetPlatform.macOS,
+        );
+        final cancel = tester.widget<ButtonStyleButton>(_cancel);
+        for (final states in [
+          {WidgetState.focused},
+          {WidgetState.hovered},
+          {WidgetState.pressed},
+          {WidgetState.focused, WidgetState.hovered},
+        ]) {
+          final overlay = cancel.style!.overlayColor!.resolve(states);
+          expect(overlay?.a ?? 0, 0, reason: '$states');
+        }
+        expect(cancel.style!.backgroundColor?.resolve({}), isNull);
+        // The focus stays visible, as an underline, and Cancel stays bold.
+        final focused = cancel.style!.textStyle!.resolve({
+          WidgetState.focused,
+        })!;
+        expect(focused.decoration, TextDecoration.underline);
+        expect(focused.fontWeight, FontWeight.w700);
+        final idle = cancel.style!.textStyle!.resolve({})!;
+        expect(idle.decoration, isNot(TextDecoration.underline));
+      });
+    }
+
+    testWidgets('the autofocused Mac Cancel is underlined and still the '
+        'default and focused button for a screen reader', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, _known, platform: TargetPlatform.macOS, dialog: true);
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () => FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.automatic,
+      );
+      await tester.pumpAndSettle();
+      final text = tester.widget<Text>(
+        find.descendant(of: _cancel, matching: find.byType(Text)),
+      );
+      final style = DefaultTextStyle.of(
+        tester.element(
+          find.descendant(of: _cancel, matching: find.byType(Text)),
+        ),
+      ).style;
+      expect(text.data, 'Cancel');
+      expect(style.decoration, TextDecoration.underline);
+      final node = tester.getSemantics(_cancel);
+      expect(node.flagsCollection.isFocused.toString(), contains('isTrue'));
+      expect(node.flagsCollection.isButton, isTrue);
+      handle.dispose();
+      // Return still cancels.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(calls.cancels, 1);
+      expect(calls.runs, 0);
+    });
+
+    for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
+      testWidgets('$platform is a desktop dialog: Cancel text, Run now '
+          'outlined in the link colour, not a touch size', (tester) async {
+        await pump(tester, _known, platform: platform, dialog: true);
+        expect(tester.widget(_cancel), isA<TextButton>());
+        expect(tester.widget(_run), isA<OutlinedButton>());
+        final run = tester.widget<ButtonStyleButton>(_run);
+        final link = tester.element(_run).hermesColors.link;
+        expect(run.style!.foregroundColor!.resolve({}), link);
+        expect(run.style!.side!.resolve({})!.color, link);
+        for (final button in [_cancel, _run]) {
+          final size = tester.getSize(button);
+          expect(size.height, greaterThanOrEqualTo(36));
+          expect(size.height, lessThan(48));
+        }
+        expect(find.byType(FilledButton), findsNothing);
+        expect(tester.getTopLeft(_cancel).dy, tester.getTopLeft(_run).dy);
+        expect(
+          tester.getTopLeft(_cancel).dx,
+          lessThan(tester.getTopLeft(_run).dx),
+        );
+      });
+    }
+
+    testWidgets('Android keeps two text buttons', (tester) async {
+      await pump(tester, _known, platform: TargetPlatform.android);
+      expect(tester.widget(_cancel), isA<TextButton>());
+      expect(tester.widget(_run), isA<TextButton>());
+    });
+
     testWidgets('Apple Cancel is plain text, Run now outlined', (tester) async {
       await pump(tester, _known);
       expect(tester.widget(_cancel), isA<TextButton>());
       expect(tester.widget(_run), isA<OutlinedButton>());
+    });
+  });
+
+  group('German spelling', () {
+    testWidgets('the title says Kurator, like the rest of the feature', (
+      tester,
+    ) async {
+      await pump(tester, _known, locale: const Locale('de'));
+      expect(find.text('Kurator jetzt ausführen?'), findsOneWidget);
+      expect(find.textContaining('Curator'), findsNothing);
+    });
+
+    test('no German curator string spells it Curator', () {
+      final arb = jsonDecode(
+        File('lib/l10n/arb/app_de.arb').readAsStringSync(),
+      ) as Map<String, dynamic>;
+      final keys = arb.keys.where((k) => k.startsWith('skillsCurator'));
+      expect(keys, isNotEmpty);
+      for (final key in keys) {
+        expect(arb[key], isNot(contains('Curator')), reason: key);
+      }
     });
   });
 

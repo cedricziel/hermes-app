@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -22,6 +23,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/test_localizations.dart';
 
 final _rlo = String.fromCharCode(0x202E);
 const _placeholder = r'<U\+[0-9A-F]{4,6}>';
@@ -34,7 +36,7 @@ void _expectWholePlaceholders(String text) {
 }
 
 Widget _app(Widget child) => MaterialApp(
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: buildHermesLightTheme(),
   home: Scaffold(body: child),
@@ -224,6 +226,7 @@ void main() {
           'scan_enabled': false,
         });
       chat = ChatController(
+        profileResolver: ProfileResolver.known('default'),
         repository: HermesChatRepository(server.client().raw),
         transport: FakeChatTransport(),
         workspaces: HermesWorkspacesRepository(

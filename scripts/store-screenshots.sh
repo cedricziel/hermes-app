@@ -21,6 +21,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RAW_DIR="$ROOT_DIR/build/screenshots"
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
 PORT="${SHOT_PORT:-45777}"
 IPHONE="${SHOT_IPHONE:-iPhone 17 Pro Max}"
 IPAD="${SHOT_IPAD:-iPad Pro 13-inch (M5)}"
@@ -53,13 +55,30 @@ sys.exit(f"no simulator named {name} for {runtime}")
 }
 
 start_backend() {
-  local home="$ROOT_DIR/.dart_tool/hermes-dev/home"
+  local state where
+  # The state directory is the one dev-backend.sh uses (HERMES_DEV_STATE_DIR,
+  # else .dart_tool/hermes-dev). Its home is checked here, before the delete
+  # below and before the seeding gets it as HERMES_HOME: Hermes expands `$` and
+  # `~` in it, and a symlinked home could lead into the real ~/.hermes.
+  state="${HERMES_DEV_STATE_DIR:-$ROOT_DIR/.dart_tool/hermes-dev}"
+  if [[ -L "$state/home" ]]; then
+    echo "refusing: $state/home is a symlink" >&2
+    exit 3
+  fi
+  SCREENSHOT_HOME_CANON="$(canonical_resolved_path "$state/home")" || {
+    echo "refusing: $state/home is not a canonical absolute path once resolved (no //, ., .., ~, \$ or backtick)" >&2
+    exit 3
+  }
+  if where="$(inside_real_hermes_home "$SCREENSHOT_HOME_CANON")"; then
+    echo "refusing: $SCREENSHOT_HOME_CANON is at or under $where, a real Hermes home" >&2
+    exit 3
+  fi
   "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
-  rm -f "$home"/state.db*
+  rm -f "$SCREENSHOT_HOME_CANON"/state.db*
   "$ROOT_DIR/scripts/dev-backend.sh" start >&2 || exit 1
   # Runs inside $(...), where a failure would not stop the script.
   DEMO_SERVER_URL="$("$ROOT_DIR/scripts/dev-backend.sh" url)" \
-    HERMES_HOME="$home" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
+    HERMES_HOME="$SCREENSHOT_HOME_CANON" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
   "$ROOT_DIR/scripts/dev-backend.sh" url
 }
 

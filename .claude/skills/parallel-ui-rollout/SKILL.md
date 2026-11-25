@@ -41,8 +41,9 @@ the rework.
   switch row that no longer flips on a row tap), flows (a picker sheet became
   an Add button) and added buttons (Done). Either forbid behaviour changes
   outright or require them under a "Behaviour changes" heading in the PR body.
-- **Size the load, not just the count.** Every agent runs only the tests for
-  the files it touched (`flutter test <files>`) and leaves the full suite to
+- **Size the load, not just the count.** Every agent runs the tests for the
+  files it touched plus every test that names what the change alters
+  (`flutter test <files>`; `fleet-rules`) and leaves the full suite to
   CI. Keep about four agents at once and launch more as earlier ones finish.
   Check `df -h /` before each wave; seven agents at once drove the load average
   to ~200 and the free disk under 500 MB.
@@ -145,8 +146,9 @@ reports to the orchestrator, who arms auto-merge.
   are green on the head. Never push to an armed PR; ask the orchestrator to
   disarm first. A superseded commit's cancelled run shows as a failure: compare
   the run's head sha with the PR's head before acting.
-- **Release PR.** Each merge regenerates the release-please PR. Do not touch it
-  until the rollout is done.
+- **Release PR.** Each merge regenerates the release-please PR. The orchestrator
+  may cut a pre-release between waves at its discretion (`release` skill); never
+  arm or merge it while rollout PRs are armed or about to merge.
 
 ## Afterwards
 

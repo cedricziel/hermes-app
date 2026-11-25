@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/skills/curator/curator_config.dart';
@@ -14,6 +14,7 @@ import 'package:hermes_app/src/skills/curator/curator_telemetry.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'curator_fixtures.dart';
+import '../support/test_localizations.dart';
 
 /// `askToRunCurator` on its own, with a real controller against the fake
 /// dashboard: a question that the controller drops (a profile switch) closes
@@ -53,10 +54,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: [
-          ...AppLocalizations.localizationsDelegates,
-          ...kMaterialUiLocalizationsDelegates,
-        ],
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
@@ -19,6 +19,7 @@ import 'package:widgetbook/widgetbook.dart';
 import '../test/support/fake_attachment_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 WidgetbookNode quickPanelNode() => WidgetbookFolder(
   name: 'Quick panel',
@@ -103,7 +104,7 @@ WidgetbookUseCase _panel(
 }) => WidgetbookUseCase(
   name: name,
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: Align(
       alignment: Alignment.topLeft,
       child: SizedBox(
@@ -256,7 +257,7 @@ class _ChatState extends State<_Chat> {
 /// The setting only exists on a Mac.
 Widget _row({required String? chord, double maxWidth = 460}) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: frame(
       GroupedSection(
         children: [

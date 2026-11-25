@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/checkpoints/widgets/restore_file_confirmatio
 import 'package:hermes_app/src/chat/checkpoints/widgets/restore_outcome_note.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
+
+import '../../../support/test_localizations.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -24,7 +26,7 @@ Future<void> _pump(
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, app) => MediaQuery(
         data: MediaQuery.of(context)

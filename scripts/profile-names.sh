@@ -84,6 +84,19 @@ resolve_path() {
   echo "$physical$rest"
 }
 
+# Prints the physical path of $1 and returns 0, or returns 1 when $1 or the
+# resolved path is not canonical (canonical_abs_path): a symlink can resolve to
+# a name Hermes would expand. Every HERMES_HOME a script sets, other than
+# dev-backend.sh's own bound state directory, takes its value from this
+# (scripts/test_hermes_home_guard.py enforces it).
+canonical_resolved_path() {
+  local resolved
+  canonical_abs_path "$1" || return 1
+  resolved="$(resolve_path "$1")"
+  canonical_abs_path "$resolved" || return 1
+  printf '%s\n' "$resolved"
+}
+
 # $1 in lower case, for the comparisons below: macOS volumes are usually case
 # insensitive, so `.HERMES` is the real home there.
 lower() {

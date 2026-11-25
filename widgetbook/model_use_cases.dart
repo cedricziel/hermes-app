@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/models/widgets/model_setup_dialog.dart';
 import 'package:hermes_app/src/settings/widgets/helper_model_list.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _longModel = ModelChoice(
   'openrouter',
@@ -250,7 +252,7 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: 'Desktop popover: $label',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: platform),
+              data: platformTheme(context, platform),
               child: Builder(
                 builder: (context) => MediaQuery(
                   data: MediaQuery.of(context).copyWith(size: Size(width, 700)),
@@ -486,7 +488,10 @@ class _PopoverHostState extends State<_PopoverHost> {
           FocusHighlightStrategy.alwaysTraditional;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _open();
+      if (!mounted) return;
+      // A click on an earlier example must not hide the focused row's ring.
+      if (widget.state == _State.focused) markFocusRingKeyboardInput();
+      _open();
     });
   }
 

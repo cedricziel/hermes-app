@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart' show RequestOptions;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 
@@ -19,6 +19,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// The MCP servers screen and everything reached from it: the detail with its
 /// tools, sign-in, the catalog and install, the add-server form, the JSON
@@ -176,7 +177,7 @@ void main() {
   }
 
   Future<void> openAddMenu(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('Add server'));
+    await tester.tap(find.tooltip('Add server'));
     await tester.pumpAndSettle();
   }
 
@@ -193,7 +194,7 @@ void main() {
   }
 
   Future<void> openJsonEditor(WidgetTester tester) async {
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.tooltip('More'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit as JSON'));
     await tester.pumpAndSettle();
@@ -652,7 +653,7 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       see('MCP servers');
       notSeen('No MCP servers');
-      expect(find.byTooltip('Add server'), findsNothing);
+      expect(find.tooltip('Add server'), findsNothing);
       answer.complete((status: 200, body: mcpServerListBody([])));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'empty');
@@ -664,7 +665,7 @@ void main() {
       );
       see('Browse the catalog');
       see('Add a custom server');
-      expect(find.byTooltip('Add server'), findsOneWidget);
+      expect(find.tooltip('Add server'), findsOneWidget);
 
       server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
       await pumpMcp(tester, shots, size: size);
@@ -672,7 +673,7 @@ void main() {
       see('Could not load MCP servers');
       see('Retry');
       notSeen('No MCP servers on "work"');
-      expect(find.byTooltip('Add server'), findsNothing);
+      expect(find.tooltip('Add server'), findsNothing);
     });
   }
 

@@ -1,4 +1,8 @@
 import 'files_use_cases.dart';
+import 'markdown_use_cases.dart';
+import 'desktop_menu_bar_use_cases.dart';
+import 'keyboard_shortcuts_use_cases.dart';
+import 'focus_ring_use_cases.dart';
 import 'server_care_logs_use_cases.dart';
 import 'workspaces_use_cases.dart';
 import 'tools_use_cases.dart';
@@ -48,6 +52,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'grouped_dialog_use_cases.dart';
 import 'grouped_form_use_cases.dart';
+import 'grouped_row_value_width_use_cases.dart';
 import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
 import 'adaptive_chrome_use_cases.dart';
@@ -59,6 +64,8 @@ import 'conversation_window_use_cases.dart';
 import 'dialogs_use_cases.dart';
 import 'kanban_use_cases.dart';
 import 'kanban_form_use_cases.dart';
+import 'kanban_dialog_use_cases.dart';
+import 'thread_rename_plugin_env_dialog_use_cases.dart';
 import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
@@ -84,8 +91,10 @@ import 'skills_messaging_use_cases.dart';
 import 'skills_curator_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
+import 'bot_screen_header_use_cases.dart';
 import 'bot_screen_use_cases.dart';
 import 'soul_use_cases.dart';
+import 'whatsapp_use_cases.dart';
 import 'busy_bar_use_cases.dart';
 import 'menu_bar_extra_use_cases.dart';
 import 'spotlight_use_cases.dart';
@@ -119,6 +128,7 @@ final List<WidgetbookNode> directories = [
   botScreenNode(),
   sudoPasswordPromptNode(),
   botScreenViewerNode(),
+  botScreenViewerHeaderNode(),
   activityButtonNode(),
   activityLineNode(),
   macToolbarSubtitleNode(),
@@ -135,6 +145,9 @@ final List<WidgetbookNode> directories = [
   stateMessageNode(),
   busyBarNode(),
   groupedRowValueNode(),
+  focusRingNode(),
+  keyboardShortcutsNode(),
+  desktopMenuBarNode(),
   ...serverCareStatusNodes(),
   ...serverCareSplitNodes(),
   ...serverCareGatewayNodes(),
@@ -147,6 +160,7 @@ final List<WidgetbookNode> directories = [
   adaptiveChromeNode(),
   settingsChromeNode(),
   groupedFormNode(),
+  groupedRowValueWidthNode(),
   groupedDialogNode(),
   macToolbarNode(),
   menuBarExtraNode(),
@@ -191,6 +205,8 @@ final List<WidgetbookNode> directories = [
   modelNode(),
   kanbanNode(),
   kanbanFormFieldsNode(),
+  kanbanDialogsNode(),
+  threadRenamePluginEnvDialogsNode(),
   schedulesNode(),
   schedulesScreensNode(),
   schedulesMacNode(),
@@ -214,4 +230,6 @@ final List<WidgetbookNode> directories = [
   settingsScreensNode(),
   toolsNode(),
   soulNode(),
+  whatsappNode(),
+  markdownNode(),
 ];

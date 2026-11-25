@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_board_menu.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_board_toolbar.dart';
@@ -17,6 +17,7 @@ import 'fixtures.dart';
 import 'frame.dart';
 import 'kanban_screen_use_cases.dart';
 import 'kanban_task_use_cases.dart';
+import 'platform_theme.dart';
 
 WidgetbookUseCase _card(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card, maxWidth: 320));
@@ -29,17 +30,13 @@ Widget _scaled(double scale, Widget child) => Builder(
 );
 
 Widget _material(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.android),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.android), child: child),
 );
 
 Widget _mac(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.macOS), child: child),
 );
 
 KanbanMacToolbar _macToolbar({

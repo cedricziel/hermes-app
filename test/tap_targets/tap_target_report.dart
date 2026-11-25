@@ -9,7 +9,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -19,6 +19,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../../widgetbook/directories.dart';
 import '../support/tap_targets.dart';
+import '../support/test_localizations.dart';
 
 Iterable<(String, WidgetbookUseCase)> _useCases(
   Iterable<WidgetbookNode> nodes, [
@@ -64,7 +65,7 @@ void main() {
         try {
           await tester.pumpWidget(
             MaterialApp(
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: kTestLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               theme: buildHermesLightTheme(platform: platform),
               home: Scaffold(body: Builder(builder: useCase.builder)),

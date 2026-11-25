@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:hermes_app/src/chat/connector_operation_state.dart';
@@ -21,6 +21,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/session_chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/connector_operation_card.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -31,6 +32,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/recording_tracer.dart';
 import '../support/fake_chat_transport.dart';
 import 'connector_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   late FakeGateway gateway;
@@ -204,7 +206,7 @@ void main() {
   test('actual session requests offer scoped responses without settling the main turn', () async {
     await open();
     final thread = chat.selectedThread!;
-    chat.submit('Foreground', const []);
+    await chat.submit('Foreground', const []);
     await pumpEventQueue();
     request();
     update();
@@ -457,7 +459,7 @@ void main() {
     expect(old.operations.single.targets.single.connectUrl, isNull);
     expect(old.canRespond(operation.key), isFalse);
     expect(chat.connectorOperationsIn(thread), same(old));
-    chat.submit('Reconnect through normal send', const []);
+    await chat.submit('Reconnect through normal send', const []);
     await pumpEventQueue();
     request();
     await pumpEventQueue();
@@ -644,7 +646,8 @@ void main() {
     addTearDown(queue.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        builder: (_, child) => AppThemeScopes(child: child!),
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: boundChatThreadView(
@@ -691,6 +694,7 @@ void main() {
       addTearDown(latest.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: chatWithActivity(
               chat,

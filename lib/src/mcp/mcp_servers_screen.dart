@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import '../theme/app_icons.dart';
@@ -20,12 +20,12 @@ import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
 import 'widgets/mcp_server_row.dart';
 
-/// Lists the MCP servers of the active profile and switches, tests and removes
+/// Lists the MCP servers of [profile] and switches, tests and removes
 /// them. Below [wideBreakpoint] a tapped server opens as a page; at or above
 /// it the detail sits beside the list.
 ///
-/// The profile is the sticky active one, learned from [profiles] on every
-/// visit and named in the header, so a switch is never flipped on another
+/// Without a [profile] it is the launch profile, learned from [profiles] and
+/// named in the header, so a switch is never flipped on another
 /// profile than the one shown.
 class McpServersScreen extends StatefulWidget {
   const McpServersScreen({

@@ -251,7 +251,9 @@ ChatThreadView boundChatThreadView({
     onRetry: t == null || chat.lastPromptText(t) == null
         ? null
         : () => chat.retry(t),
-    onEdit: !editable || t == null || !chat.canEditLastPrompt(t)
+    // A held turn still offers Edit, dimmed with the reason (turnActionStatus).
+    onEdit:
+        !editable || t == null || !chat.canEditLastPrompt(t, ignoringHold: true)
         ? null
         : () => chat.editLastPrompt(t),
     onBranch: !branchable || t == null || !chat.canBranch(t)

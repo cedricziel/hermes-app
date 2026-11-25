@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -16,6 +16,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_conversation_window_host.dart';
+import 'support/tooltip_finder.dart';
 
 const _macLabel = 'Export Chat as JSON…';
 const _materialLabel = 'Export chat as JSON…';
@@ -37,10 +38,13 @@ PopupMenuItem<ThreadAction> _row(List<PopupMenuEntry<ThreadAction>> items) =>
       (item) => item.value == ThreadAction.exportJson,
     );
 
+final _l10n = lookupAppLocalizations(const Locale('en'));
+
 void main() {
   group('macThreadMenuItems', () {
     test('lists the row right after Copy Transcript', () {
       final items = macThreadMenuItems(
+        _l10n,
         pinned: false,
         manageable: true,
         exportJson: ExportJsonOffer(onSelected: () {}),
@@ -58,13 +62,14 @@ void main() {
 
     test('has no row without an offer', () {
       expect(
-        _labels(macThreadMenuItems(pinned: false, manageable: true)),
+        _labels(macThreadMenuItems(_l10n, pinned: false, manageable: true)),
         isNot(contains(_macLabel)),
       );
     });
 
     test('keeps the row but disables it while an export runs', () {
       final items = macThreadMenuItems(
+        _l10n,
         pinned: false,
         manageable: true,
         exportJson: ExportJsonOffer(onSelected: () {}, enabled: false),
@@ -138,7 +143,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.byTooltip('Chat actions'));
+      await tester.tap(find.tooltip('Chat actions'));
       await tester.pumpAndSettle();
     }
 
@@ -328,7 +333,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.byTooltip('More'));
+      await tester.tap(find.tooltip('More'));
       await tester.pumpAndSettle();
       return calls;
     }

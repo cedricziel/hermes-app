@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/subagents/widgets/agent_note_field.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_output_view.dart';
 import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
+
+import '../../../support/test_localizations.dart';
 
 const _goal =
     'Audit the dependency tree for packages with known vulnerabilities';
@@ -61,7 +63,7 @@ Future<void> _pump(
     MaterialApp(
       theme: ThemeData(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)
@@ -401,7 +403,7 @@ void main() {
       ValueChanged<String>? onShowDetails,
     }) => tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SubagentGroupCard(

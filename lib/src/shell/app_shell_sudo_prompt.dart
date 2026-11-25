@@ -4,7 +4,7 @@ extension _AppShellSudoPrompt on _AppShellState {
   /// The sudo password of the Hermes host, asked over whatever page is up.
   /// Nothing is asked once the session is gone; the answer is then a decline.
   Future<String?> _askSudoPassword(
-    String host,
+    String? host,
     String profile,
     Future<void> ended,
   ) async {

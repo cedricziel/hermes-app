@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart' show CupertinoRadio;
+import 'package:material_ui/material_ui.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoRadio;
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -52,9 +52,7 @@ void main() {
       ..physicalSize = const Size(400, 400)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final theme = buildHermesLightTheme().copyWith(
-      platform: TargetPlatform.macOS,
-    );
+    final theme = buildHermesLightTheme(platform: TargetPlatform.macOS);
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
@@ -145,7 +143,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.macOS),
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,

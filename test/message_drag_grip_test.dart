@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
@@ -13,9 +13,11 @@ import 'package:hermes_app/src/chat/widgets/message_drag_grip.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 
 import 'support/fake_drag_out_source.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeDragOutSource source;
@@ -26,7 +28,7 @@ void main() {
     mouse = null;
   });
 
-  Finder grip() => find.byTooltip('Drag message text');
+  Finder grip() => find.tooltip('Drag message text');
 
   Future<void> hover(WidgetTester tester, Finder target, {Offset? at}) async {
     final to = at ?? tester.getCenter(target);
@@ -54,6 +56,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(),
         home: Scaffold(
           body: Center(
@@ -170,6 +173,7 @@ void main() {
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: Provider<DragOutSource?>.value(
             value: source,

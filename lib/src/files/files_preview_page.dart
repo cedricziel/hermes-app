@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/l10n.dart';
 import '../chat/widgets/quick_look_target.dart';
@@ -8,6 +8,7 @@ import '../drag_out/sanitize_drag_file_name.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/settings_scaffold.dart';
+import '../widgets/zoom_keyboard_shortcuts.dart';
 import 'files_controller.dart';
 import 'files_models.dart';
 import 'files_state.dart';
@@ -142,11 +143,13 @@ class FilesPreviewPane extends StatelessWidget {
             ),
             Expanded(
               child: mac
-                  ? QuickLookTarget(
-                      onToggle: actions.quickLook,
-                      onShow: actions.quickLook,
-                      onSave: actions.save,
-                      child: body,
+                  ? ZoomKeyRelay(
+                      child: QuickLookTarget(
+                        onToggle: actions.quickLook,
+                        onShow: actions.quickLook,
+                        onSave: actions.save,
+                        child: body,
+                      ),
                     )
                   : body,
             ),
@@ -237,7 +240,7 @@ class FilesPreviewPage extends StatelessWidget {
         child: SettingsScaffold(
           title: name,
           subtitle: subtitle,
-          previousTitle: previousTitle,
+          previousTitle: previousTitle ?? context.l10n.widgetsBack,
           actions: [
             if (ios) ?shareAction,
             saveAction,

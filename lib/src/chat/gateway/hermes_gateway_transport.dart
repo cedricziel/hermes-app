@@ -11,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import '../../api/session_source.dart';
 import '../../models/model_provider_option.dart';
+import '../../telemetry/diagnosis_buckets.dart';
 import '../../workspaces/workspace_models.dart';
 import '../chat_models.dart';
 import '../checkpoints/checkpoint_models.dart';
@@ -29,6 +30,7 @@ import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
 import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
+import 'reconnect_diagnosis.dart';
 import 'unmapped_events.dart';
 
 part 'hermes_gateway_transport_helpers.dart';
@@ -514,7 +516,11 @@ class HermesGatewayTransport
       _followUps(threadId, profile: profile);
 
   @override
-  Future<Map<String, String>> activeStatuses({String? profile}) async {
+  Future<Map<String, String>> activeStatuses({String? profile}) async =>
+      await activeStatusesAnswered(profile: profile) ?? const {};
+
+  @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) async {
     final GatewayRpcClient client;
     final Map<String, Object?> result;
     try {
@@ -523,8 +529,22 @@ class HermesGatewayTransport
         'profile': ?profile,
       });
     } on Exception {
-      // Offline or an older server: no statuses. A bug is not hidden.
-      return const {};
+      // Offline or an older server: no answer. A bug is not hidden.
+      return null;
+    }
+    // An answer without its list, or with a row it cannot read, says nothing
+    // of the sessions it fails to name: a missing session would read as not
+    // running. An empty list is a real answer, and so is a row that names no
+    // stored session at all (a live id only), which belongs to no chat here.
+    if (result['sessions'] case final List<Object?> rows) {
+      for (final row in rows) {
+        if (row is! Map<String, Object?>) return null;
+        final key = row['session_key'];
+        if (key == null || key == '') continue;
+        if (key is! String || row['status'] is! String) return null;
+      }
+    } else {
+      return null;
     }
     return _statusesOf(result);
   }

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/tools/tools_asker.dart';
@@ -13,6 +13,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import '../support/protected_catalog_auth.dart';
 import 'tools_setup_harness.dart';
 import 'tools_setup_world.dart';
+import '../support/test_localizations.dart';
 
 class _Auth extends ProtectedCatalogAuth {
   _Auth(super.server);
@@ -484,7 +485,7 @@ void main() {
     late BuildContext host;
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Builder(
           builder: (context) {

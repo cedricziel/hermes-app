@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/files/widgets/files_notes.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
+
+import 'support/test_localizations.dart';
 
 Widget _host(Widget child, {ThemeData? theme}) => MaterialApp(
   theme: theme ?? buildHermesLightTheme(),
@@ -117,8 +118,7 @@ void main() {
       Locale? locale,
       double width = 360,
     }) {
-      final theme = buildHermesLightTheme().copyWith(
-        platform: platform,
+      final theme = buildHermesLightTheme(platform: platform).copyWith(
         // A Mac theme draws compact buttons; the banner must not inherit that.
         visualDensity: platform == TargetPlatform.macOS
             ? VisualDensity.compact
@@ -127,7 +127,7 @@ void main() {
       return MaterialApp(
         theme: theme,
         locale: locale,
-        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: const [Locale('en'), Locale('de')],
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -179,7 +179,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           home: Scaffold(
             body: AppBanner(
               tone: AppBannerTone.neutral,
@@ -259,7 +259,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: const Locale('de'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Scaffold(
               body: AppBanner(
@@ -295,9 +295,9 @@ void main() {
       TargetPlatform platform = TargetPlatform.iOS,
       TextDirection direction = TextDirection.ltr,
     }) => MaterialApp(
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -463,9 +463,9 @@ void main() {
         'at the normal size', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+          theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
           locale: const Locale('de'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(

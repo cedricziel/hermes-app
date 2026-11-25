@@ -1,11 +1,13 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_failure.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/busy_bar.dart';
+
+import 'support/test_localizations.dart';
 
 Widget _host(
   SessionExportPhase phase, {
@@ -14,7 +16,7 @@ Widget _host(
   List<String>? log,
 }) => MaterialApp(
   locale: locale,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: ThemeData(platform: platform),
   home: Scaffold(

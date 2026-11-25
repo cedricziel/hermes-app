@@ -45,6 +45,17 @@ is in `CLAUDE.md` under "Fleet rules".
   row saying why there is none.
 - The right thing is the shortest path. Prefer a shared building block over a
   raw API; a guard that bans a raw API names its replacement.
+- Run every test that names what you change. Before pushing, search `test/`,
+  `widgetbook/` and `integration_test/` for each user-visible string, ARB key,
+  public symbol or file name the change alters, and run every test file that
+  names one, not only the files the change touches. Say which in `## Proof`.
+  `scripts/premerge_affected_tests.py` already selects test files by import
+  (one level) and for an ARB change by l10n entry point; it does not see which
+  strings a test reads, so the grep is still yours. A `widgetbook/` match runs
+  as `flutter test test/widgetbook_test.dart -j 1 --name '^<Folder> / <Component> '`
+  (`component-catalog` skill), never the whole file. An `integration_test/`
+  match runs only through `scripts/verify.sh app` or the `store-screenshots`
+  skill. Never the full suite; CI runs it.
 - Fast local feedback. Prefer checks that run in the pre-commit hook or in
   `flutter test test/architecture` (the ratchet from #1144; see the
   `architecture-guards` skill; under a second) over CI-only checks.
@@ -75,6 +86,8 @@ useful when it:
 - Never rebase or force-push a pushed branch. Merge main in.
 - No `git stash` (the stash list is shared between worktrees). Commit or use a
   patch file.
+- No `git worktree prune` (it deletes records of trees other sessions use). Remove one
+  tree with `git worktree remove <path>` once it is clean and merged.
 - Stage files by name, never `git add -A`.
 - Never delete remote branches.
 - After editing a Markdown file, diff it and revert any line you did not mean
@@ -97,8 +110,9 @@ Sections in this order:
 
 1. `## Behaviour changes`
 2. `## Proof`: the mutation or reverted fix that the new test kills, the
-   screenshots looked at, the `verify` run line, and the design canvas link
-   where relevant. A `fix:` PR also answers "What would have caught this
+   screenshots looked at, the `verify` run line, the test files run because
+   they name what the change alters, and the design canvas link where
+   relevant. A `fix:` PR also answers "What would have caught this
    earlier?" here.
 3. `## Not verified on a device` (write "Nothing" if nothing)
 4. `## Review`: reviewer kind, the full head SHA reviewed, findings and how
@@ -116,6 +130,22 @@ unchanged. Paste the block as plain lines,
 not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
 push, review the pushed head, paste.
 
+Catalog first (`PR policy`): a PR that adds a public widget class under
+`lib/src/**/widgets/` fails unless a line it adds names one of the new
+classes, in a widgetbook `.dart` file. Fix: add the use case
+(`component-catalog`). Only when none applies (no state or layout to show, or
+"shown through the `<Parent>` use case"), the isolated reviewer emits
+`Catalog-first: not applicable, <reason>` in its block, pasted unchanged with
+the rest of the block. Only a line inside that pasted block counts, which
+relies on the block being pasted unchanged, like the `Reviewer:` line; details in
+`flutter-ci`.
+
+Design line (advisory): a PR that changes a file under `lib/src/**/widgets/`,
+a `lib/**/*_screen.dart` or `lib/src/theme/` names its design record in the PR
+body with `Design: <canvas link or design record path>` or `Design: not needed,
+<reason>`. The isolated reviewer confirms it and emits `Design: confirmed ...`
+or a finding. It is a reviewer finding, not a `PR policy` failure, for now.
+
 ## READY and merging
 
 A session reports READY to the orchestrator when all of these hold:
@@ -130,16 +160,21 @@ A session reports READY to the orchestrator when all of these hold:
   again in a shared file, provided (1) `git merge-tree` against current
   origin/main is clean, (2) the later main commits do not change the same
   functions, classes or doc section the PR changes, (3) `Analyze & test` is
-  green on the reviewed head, and (4) for a Dart PR, the trial check below
-  passes (once `scripts/premerge_check.sh` (not yet on main) is on main, it does this). The READY
-  report names the later main commits checked for (2). If (2) fails, re-merge
-  and get a scoped merge-only review.
+  green on the reviewed head. The READY report names the later main commits
+  checked for (2). If
+  (2) fails, re-merge and get a scoped merge-only review.
 
 A "Dart PR" is one that touches any `.dart` file, `pubspec.*`,
-`analysis_options.yaml` or `l10n.yaml`. The "trial check" is a trial merge with
-current origin/main in a scratch worktree, then `flutter pub get`, then
-`flutter analyze` and `flutter test test/architecture` there (the second catches two PRs that each
-lower a ratchet baseline).
+`analysis_options.yaml` or `l10n.yaml`.
+
+The trial merge (`scripts/premerge_check.sh`) is not a merge gate. Decision of
+the owner, 2026-11-24 21:55 UTC, asked what to stop: "Drop trial merges". READY
+is the list above, with the required checks green on the head; the trial is not
+part of it. After a merge,
+the orchestrator reads main's push run, and a break is fixed forward at once (or
+the merge reverted). The script stays as an optional tool for a risky pair of
+PRs, such as two PRs touching the same files, or a stack (`premerge-check`
+skill).
 
 A READY report names the directories the PR touches under `lib/`, `test/`,
 `widgetbook/` and `packages/` (or "none").
@@ -149,16 +184,13 @@ the required checks on the head. Read check state with `status-reader`
 or `pull_request_read`; pending, queued and in-progress are not green.
 
 The orchestrator has at most one armed or hand-merged Dart PR at a time, until
-it has merged. (The overlap report of `scripts/premerge_check.sh` (not yet on main) is information only.)
-Exception: a hand merge may proceed while another Dart PR is armed, if the trial
-check runs with BOTH heads (merge the armed PR's head and this PR's head into a
-scratch worktree of current origin/main) and passes there.
+it has merged.
 
-Every hand merge needs a READY report, a clean recorded review for the exact
-head, and every required check green on that head, except the per-shard checks
-in the docs-only case. It is a squash merge, and the orchestrator does it. A
-Dart PR is hand-merged only when auto-merge cannot merge it (the
-one-armed-Dart-PR limit), and then only after the trial check.
+Every hand merge but the release-please PR's (below) needs a READY report, a
+clean recorded review for the exact head, and every required check green on
+that head, except the per-shard checks in the docs-only case. It is a squash
+merge, and the orchestrator does it. A Dart PR (the release-please PR aside) is
+hand-merged only when auto-merge cannot merge it (the one-armed-Dart-PR limit).
 
 - HARD RULE: never push to a PR with auto-merge armed. The push would merge
   without a review of that commit. Ask the orchestrator to disarm first, then
@@ -170,8 +202,16 @@ one-armed-Dart-PR limit), and then only after the trial check.
   green and it still has not merged after about 15 minutes, disarm, then
   re-arm.
 - Exception: the release-please PR is generated and has no isolated review.
-  It is armed only when the owner asks, after its five builds are green, with
-  the asked-for version in its title, and last (see the `release` skill).
+  The orchestrator arms it at its discretion, an interim cut as well as one
+  that closes a wave, once main's tip has a full green run (the five builds
+  included) and the release PR's current head has its five builds green; it
+  disarms it when a new head arrives, and arms it last (see the `release`
+  skill). When every one of those conditions holds, no other PR is armed or
+  about to merge, and GitHub refuses to arm auto-merge because the PR is
+  already clean (every required check green, nothing pending), the orchestrator
+  squash-merges it directly with the head SHA pinned (`expectedHeadSha`, or the
+  merge API's `sha`). Otherwise, once those conditions hold, it is armed (and
+  disarmed when a new head arrives).
 - Docs-only PRs cannot auto-merge while the ruleset requires the individual
   test shards (they never report on a docs-only PR). Docs-only means the
   `Changes` job output `code=false` on the exact head, so the shards show

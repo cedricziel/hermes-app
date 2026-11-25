@@ -1,7 +1,11 @@
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 
 void main() {
+  final en = lookupAppLocalizations(const Locale('en'));
+
   group('ModelOptions.fromJson', () {
     test('reads the ready providers, their models and the current one', () {
       final options = ModelOptions.fromJson({
@@ -325,7 +329,7 @@ void main() {
 
   test('effortLabel names every level the way the dashboard does', () {
     expect(
-      [for (final effort in kReasoningEfforts) effortLabel(effort)],
+      [for (final effort in kReasoningEfforts) effortLabel(en, effort)],
       ['Off', 'Minimal', 'Low', 'Medium', 'High', 'Extra High', 'Max', 'Ultra'],
     );
   });

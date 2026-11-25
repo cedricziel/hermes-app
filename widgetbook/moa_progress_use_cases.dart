@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/moa_progress_state.dart';
 import 'package:hermes_app/src/chat/widgets/moa_progress_card.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -10,9 +10,7 @@ WidgetbookNode moaProgressNode() => WidgetbookComponent(
   useCases: [
     ...onEachPlatform(
       'Reported counts',
-      (_) => _card(
-        const MoaProgress(turn: 'sample', phase: 'Advisors', done: 1, total: 3),
-      ),
+      (_) => _card(const MoaProgress(turn: 'sample', done: 1, total: 3)),
     ),
     ...onEachPlatform(
       'Aggregation',

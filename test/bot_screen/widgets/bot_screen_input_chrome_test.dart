@@ -1,12 +1,14 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/input/screen_gesture_layer.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_key_bar.dart';
 import 'package:hermes_app/src/bot_screen/widgets/takeover_confirmation.dart';
 import 'package:hermes_app/src/bot_screen/widgets/trackpad_cursor.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../support/tooltip_finder.dart';
 
 Widget _app(Widget child, {TargetPlatform platform = TargetPlatform.android}) =>
     MaterialApp(
@@ -52,10 +54,10 @@ void main() {
       await tester.tap(find.text('Tab'));
       await tester.tap(find.text('Ctrl'));
       await tester.tap(find.text('Alt'));
-      await tester.tap(find.byTooltip('Left arrow'));
-      await tester.tap(find.byTooltip('Right arrow'));
-      await tester.tap(find.byTooltip('Keyboard'));
-      await tester.tap(find.byTooltip('Paste'));
+      await tester.tap(find.tooltip('Left arrow'));
+      await tester.tap(find.tooltip('Right arrow'));
+      await tester.tap(find.tooltip('Keyboard'));
+      await tester.tap(find.tooltip('Paste'));
 
       expect(taps, [
         'esc',
@@ -71,10 +73,10 @@ void main() {
 
     testWidgets('the mode switch offers the other mode', (tester) async {
       await tester.pumpWidget(_app(bar()));
-      await tester.tap(find.byTooltip('Use Trackpad mode'));
+      await tester.tap(find.tooltip('Use Trackpad mode'));
 
       await tester.pumpWidget(_app(bar(mode: ScreenGestureMode.trackpad)));
-      await tester.tap(find.byTooltip('Use Touch mode'));
+      await tester.tap(find.tooltip('Use Touch mode'));
 
       expect(taps, ['mode trackpad', 'mode touch']);
     });
@@ -135,7 +137,7 @@ void main() {
         final box = tester.getRect(
           find
               .ancestor(
-                of: find.byTooltip(tooltip),
+                of: find.tooltip(tooltip),
                 matching: find.byType(Material),
               )
               .first,
