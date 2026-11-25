@@ -32,6 +32,18 @@ void main() {
     expect(result.warning, 'File is large');
   });
 
+  test('keeps _warning and hint', () {
+    final result = WriteFileResult.of(
+      writeCall({
+        'bytes_written': 1,
+        '_warning': 'The path resolved to /srv/notes.',
+        'hint': 'Prefer patch for small edits.',
+      }),
+    )!;
+    expect(result.warning, 'The path resolved to /srv/notes.');
+    expect(result.hint, 'Prefer patch for small edits.');
+  });
+
   test('a lint that is ok or skipped says nothing', () {
     for (final status in ['ok', 'skipped']) {
       final result = WriteFileResult.of(

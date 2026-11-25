@@ -152,6 +152,10 @@ const _noPlural = <String, _Reason>{
   'chatWidgetsCodeCutShortLines': _Reason('line numbers, no noun after them'),
   'chatWidgetsCodeCutShortLinesNoTotal': _Reason('line numbers, no noun after'),
   'chatWidgetsCodeCutShortNext': _Reason('a line number'),
+  'chatWidgetsCodeLineOne': _Reason('a line number'),
+  'chatWidgetsCodeLineOneOf': _Reason(
+    'a line number and a count, no noun after',
+  ),
   'chatWidgetsCodeLines': _Reason('line numbers, no noun after them'),
   'chatWidgetsCodeLinesNoTotal': _Reason('line numbers, no noun after them'),
   'chatWidgetsProgramStateExited': _Reason('an exit code'),

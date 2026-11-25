@@ -182,6 +182,27 @@ void main() {
       expect(result.hint, 'The file has merge conflict markers.');
     });
 
+    test('keeps hint for a read that was not cut short', () {
+      final plain = _parse(
+        readCall(
+          readAnswer(
+            content: numbered(['a']),
+            extra: {'hint': 'Read the file at a.txt instead.'},
+          ),
+        ),
+      )!;
+      expect(plain.hint, 'Read the file at a.txt instead.');
+      final cut = _parse(
+        readCall(
+          readAnswer(
+            content: numbered(['a']),
+            extra: {'truncated': true, 'hint': 'Use offset=2 to continue.'},
+          ),
+        ),
+      )!;
+      expect(cut.hint, isEmpty);
+    });
+
     test('keeps the path out of its text', () {
       final result = _parse(
         readCall(

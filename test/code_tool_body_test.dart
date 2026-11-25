@@ -278,6 +278,34 @@ void main() {
     expect(budget.used, 0);
   });
 
+  testWidgets('a single line reads Line n, not Lines n–n', (tester) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(content: numbered(['only'], first: 5), totalLines: 90),
+          args: const {'path': 'a.txt', 'offset': 5},
+        ),
+      ),
+    );
+    expect(find.text('Line 5 of 90'), findsOneWidget);
+  });
+
+  testWidgets('a write shows its hint and path warning', (tester) async {
+    await _pump(
+      tester,
+      WriteFileToolBody.of(
+        writeCall({
+          'bytes_written': 1,
+          '_warning': 'Resolved to /srv.',
+          'hint': 'Prefer patch.',
+        }),
+      )!,
+    );
+    expect(find.text('Resolved to /srv.'), findsOneWidget);
+    expect(find.text('Prefer patch.'), findsOneWidget);
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,

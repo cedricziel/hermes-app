@@ -11,7 +11,11 @@ import 'code_tool_body.dart';
 String? _languageOf(String path) => toolValueLanguage('', path: path);
 
 String _lines(AppLocalizations l10n, int first, int last, int? total) =>
-    total == null
+    first == last
+    ? (total == null
+          ? l10n.chatWidgetsCodeLineOne(first)
+          : l10n.chatWidgetsCodeLineOneOf(first, total))
+    : total == null
     ? l10n.chatWidgetsCodeLinesNoTotal(first, last)
     : l10n.chatWidgetsCodeLines(first, last, total);
 
@@ -215,6 +219,7 @@ class WriteFileToolBody extends StatelessWidget {
             ),
           if (result.warning.isNotEmpty)
             CodeNote(CodeNoteTone.warning, result.warning),
+          if (result.hint.isNotEmpty) CodeNote(CodeNoteTone.info, result.hint),
         ],
       ],
     );

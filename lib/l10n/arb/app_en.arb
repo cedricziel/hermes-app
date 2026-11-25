@@ -2285,6 +2285,30 @@
   "@chatWidgetsCodeEmpty": {
     "description": "Shown under a file's path when Hermes read it and it holds no text."
   },
+  "chatWidgetsCodeLineOne": "Line {line}",
+  "@chatWidgetsCodeLineOne": {
+    "description": "Line under a file's text when one line is shown and the file's line count is not known.",
+    "placeholders": {
+      "line": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeLineOneOf": "Line {line} of {total}",
+  "@chatWidgetsCodeLineOneOf": {
+    "description": "Line under a file's text when one line is shown: which line, and how many the file has.",
+    "placeholders": {
+      "line": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
   "chatWidgetsCodeLines": "Lines {first}–{last} of {total}",
   "@chatWidgetsCodeLines": {
     "description": "Line under a file's text: which lines are shown and how many the file has.",

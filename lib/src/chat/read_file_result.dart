@@ -93,7 +93,8 @@ class ReadFileResult {
   final String error;
   final List<String> similarFiles;
 
-  /// Hermes' own `_warning` and `_hint` texts, shown as they came.
+  /// Hermes' own `_warning` and `_hint` (or, for a read that was not cut
+  /// short, `hint`) texts, shown as they came.
   final String warning;
   final String hint;
 
@@ -160,7 +161,9 @@ class ReadFileResult {
       extractedDocument: data['extracted_document'] == true,
       maskedText: _maskMarkers.any(content.contains),
       warning: _text(data['_warning']),
-      hint: _text(data['_hint']),
+      hint: _text(data['_hint']).isNotEmpty
+          ? _text(data['_hint'])
+          : (data['truncated'] == true ? '' : _text(data['hint'])),
     );
   }
 

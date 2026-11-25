@@ -475,6 +475,8 @@
   "chatWidgetsCodeDiagnostics": "Diagnose",
   "chatWidgetsCodeDocument": "Text aus dem Dokument entnommen.",
   "chatWidgetsCodeEmpty": "Diese Datei ist leer.",
+  "chatWidgetsCodeLineOne": "Zeile {line}",
+  "chatWidgetsCodeLineOneOf": "Zeile {line} von {total}",
   "chatWidgetsCodeLines": "Zeilen {first}–{last} von {total}",
   "chatWidgetsCodeLinesNoTotal": "Zeilen {first}–{last}",
   "chatWidgetsCodeLongLinesCut": "Hermes hat einige lange Zeilen gekürzt.",

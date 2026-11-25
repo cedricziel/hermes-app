@@ -18,6 +18,7 @@ class WriteFileResult {
     this.lintOutput,
     this.diagnostics = '',
     this.warning = '',
+    this.hint = '',
   });
 
   final String path;
@@ -38,6 +39,9 @@ class WriteFileResult {
   final String? lintOutput;
   final String diagnostics;
   final String warning;
+
+  /// Hermes' `_warning` (where the path resolved to) and `hint` texts.
+  final String hint;
 
   bool get refused => error.isNotEmpty;
 
@@ -77,7 +81,11 @@ class WriteFileResult {
         _ => null,
       },
       diagnostics: text('lsp_diagnostics'),
-      warning: text('warning'),
+      warning: [
+        text('warning'),
+        text('_warning'),
+      ].where((part) => part.isNotEmpty).join('\n'),
+      hint: text('hint'),
     );
   }
 }
