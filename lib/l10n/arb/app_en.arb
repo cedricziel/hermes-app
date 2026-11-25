@@ -4358,16 +4358,6 @@
           }
       }
   },
-  "messagingWhatsappCountdownExpiring": "Setup closes in {time}.",
-  "@messagingWhatsappCountdownExpiring": {
-      "description": "Title of the warning banner in the last minute of the setup.",
-      "placeholders": {
-          "time": {
-              "type": "String",
-              "example": "0:42"
-          }
-      }
-  },
   "messagingWhatsappEndErrorNoText": "The server gave no reason.",
   "@messagingWhatsappEndErrorNoText": {
       "description": "Detail when the setup ended with an error and the server sent no text."
@@ -4423,6 +4413,10 @@
   "messagingWhatsappExpiringDetail": "Scan now, or start again after it closes.",
   "@messagingWhatsappExpiringDetail": {
       "description": "Detail of the warning banner in the last minute of the setup."
+  },
+  "messagingWhatsappExpiringTitle": "Setup closes soon.",
+  "@messagingWhatsappExpiringTitle": {
+      "description": "Title of the warning banner in the last minute of the setup. It holds no time: the changing countdown sits outside the banner, which a screen reader reads as a live region."
   },
   "messagingWhatsappFinish": "Finish",
   "@messagingWhatsappFinish": {
@@ -4577,6 +4571,10 @@
   "messagingWhatsappQrCannotDraw": "Couldn't draw the code.",
   "@messagingWhatsappQrCannotDraw": {
       "description": "Line on the tile when the code text is too long to draw as a QR code."
+  },
+  "messagingWhatsappQrCannotDrawLabel": "QR code could not be drawn",
+  "@messagingWhatsappQrCannotDrawLabel": {
+      "description": "Accessibility label of the tile when the code text is too long to draw as a QR code."
   },
   "messagingWhatsappQrHidden": "Hidden",
   "@messagingWhatsappQrHidden": {

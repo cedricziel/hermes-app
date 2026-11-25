@@ -296,6 +296,26 @@ void main() {
     expect(find.text("Couldn't draw the code."), findsOneWidget);
   });
 
+  testWidgets('a payload too long to draw is labelled as such, not as hidden', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await pumpWa(
+      tester,
+      QrCodeTile(
+        visibility: QrCodeVisibility.shown,
+        payload: 'DEMO-NOT-A-REAL-QR-' * 400,
+      ),
+    );
+    expect(find.bySemanticsLabel('QR code could not be drawn'), findsOneWidget);
+    expect(find.bySemanticsLabel('QR code hidden'), findsNothing);
+
+    await pumpWa(tester, const QrCodeTile(visibility: QrCodeVisibility.hidden));
+    expect(find.bySemanticsLabel('QR code hidden'), findsOneWidget);
+    expect(find.bySemanticsLabel('QR code could not be drawn'), findsNothing);
+    semantics.dispose();
+  });
+
   group('the status lines', () {
     testWidgets('waiting and the countdown', (tester) async {
       await pumpWa(
@@ -313,10 +333,38 @@ void main() {
       await pumpWa(tester, const QrScanStatus(timeLeft: Duration(seconds: 42)));
       final banner = tester.widget<AppBanner>(find.byType(AppBanner));
       expect(banner.tone, AppBannerTone.warning);
-      expect(banner.title, 'Setup closes in 0:42.');
+      expect(banner.title, 'Setup closes soon.');
       expect(banner.detail, 'Scan now, or start again after it closes.');
-      // The countdown is not shown twice.
-      expect(find.text('Setup closes in 0:42'), findsNothing);
+      // The time is a line of its own, outside the banner.
+      expect(find.text('Setup closes in 0:42'), findsOneWidget);
+    });
+
+    testWidgets('no live region changes its label from one second to the next '
+        'in the last minute', (tester) async {
+      final semantics = tester.ensureSemantics();
+      List<String> liveLabels() {
+        final labels = <String>[];
+        void visit(SemanticsNode node) {
+          if (node.flagsCollection.isLiveRegion) labels.add(node.label);
+          node.visitChildren((child) {
+            visit(child);
+            return true;
+          });
+        }
+
+        visit(tester.getSemantics(find.byType(Scaffold)));
+        return labels;
+      }
+
+      await pumpWa(tester, const QrScanStatus(timeLeft: Duration(seconds: 42)));
+      final before = liveLabels();
+      expect(before, isNotEmpty, reason: 'the banner is a live region');
+      await pumpWa(tester, const QrScanStatus(timeLeft: Duration(seconds: 41)));
+      final after = liveLabels();
+      expect(after, before);
+      expect(after.join(' '), isNot(contains(':')));
+      expect(find.text('Setup closes in 0:41'), findsOneWidget);
+      semantics.dispose();
     });
 
     testWidgets('no countdown while the deadline is unknown', (tester) async {

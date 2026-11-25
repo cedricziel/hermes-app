@@ -202,6 +202,42 @@ void main() {
       );
     });
 
+    testWidgets('a hidden or needs-tap stand-in at 1.75x text keeps the status '
+        'column beside it on a tablet or a computer', (tester) async {
+      for (final locale in const [Locale('en'), Locale('de')]) {
+        for (final width in const [660.0, 800.0, 1280.0]) {
+          for (final visibility in const [
+            QrCodeVisibility.hidden,
+            QrCodeVisibility.needsTap,
+          ]) {
+            await _pump(
+              tester,
+              _view(
+                WhatsAppViewPhase.waiting,
+                handset: false,
+                visibility: visibility,
+              ),
+              size: Size(width, 900),
+              locale: locale,
+              textScaler: const TextScaler.linear(1.75),
+            );
+            final reason = '$locale $width $visibility';
+            expect(tester.takeException(), isNull, reason: reason);
+            expect(
+              tester.getSize(find.byType(QrCodeTile)).width,
+              kQrTileSizeWide,
+              reason: reason,
+            );
+            expect(
+              tester.getSize(find.byType(QrScanStatus)).width,
+              greaterThan(100),
+              reason: reason,
+            );
+          }
+        }
+      }
+    });
+
     testWidgets('the last minute shows the warning banner and keeps the code', (
       tester,
     ) async {
@@ -209,9 +245,52 @@ void main() {
         tester,
         _view(WhatsAppViewPhase.waiting, timeLeft: const Duration(seconds: 42)),
       );
-      expect(find.text('Setup closes in 0:42.'), findsOneWidget);
+      expect(find.text('Setup closes soon.'), findsOneWidget);
+      expect(find.text('Setup closes in 0:42'), findsOneWidget);
       expect(find.byType(QrCodePattern), findsOneWidget);
     });
+  });
+
+  group('Cancel setup without a callback', () {
+    testWidgets('is disabled while preparing and while a code shows', (
+      tester,
+    ) async {
+      for (final phase in [
+        WhatsAppViewPhase.working,
+        WhatsAppViewPhase.waiting,
+      ]) {
+        await _pump(
+          tester,
+          WhatsAppPairingView(
+            phase: phase,
+            handset: false,
+            mode: WhatsAppMode.bot,
+            numbers: TextEditingController(),
+            codeVisibility: QrCodeVisibility.hidden,
+          ),
+          size: const Size(800, 900),
+        );
+        final button = tester.widget<OutlinedButton>(
+          find.ancestor(
+            of: find.text('Cancel setup'),
+            matching: find.byType(OutlinedButton),
+          ),
+        );
+        expect(button.onPressed, isNull, reason: '$phase');
+      }
+    });
+  });
+
+  testWidgets('German Start again differs from the restart button words', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _view(WhatsAppViewPhase.startLost),
+      locale: const Locale('de'),
+    );
+    expect(find.text('Erneut starten'), findsOneWidget);
+    expect(find.text('Neu starten'), findsNothing);
   });
 
   group('the notes above the body', () {

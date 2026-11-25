@@ -835,6 +835,17 @@ WidgetbookNode whatsappNode() => WidgetbookFolder(
             handset: false,
           ),
         ),
+        _case(
+          'D. QR hidden, 175% text (tablet or computer)',
+          () => _at(
+            1.75,
+            _page(
+              phase: WhatsAppViewPhase.waiting,
+              visibility: QrCodeVisibility.hidden,
+              handset: false,
+            ),
+          ),
+        ),
         ..._pageCases(
           'D. QR expiring',
           () => _page(phase: WhatsAppViewPhase.waiting, timeLeft: _expiring),

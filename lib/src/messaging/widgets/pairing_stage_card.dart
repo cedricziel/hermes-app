@@ -22,7 +22,7 @@ class PairingStageCard extends StatelessWidget {
   });
 
   final WhatsAppWorkStage stage;
-  final VoidCallback onCancel;
+  final VoidCallback? onCancel;
   final bool handset;
 
   @override

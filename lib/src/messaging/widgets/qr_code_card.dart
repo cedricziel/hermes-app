@@ -164,7 +164,8 @@ class _QrPainter extends CustomPainter {
 /// [QrCodeVisibility.shown] (the constructor drops it otherwise), appears in
 /// no label, tooltip, key or `toString`, and is never offered for copying. The
 /// whole tile is one accessibility node: "QR code to scan with WhatsApp" or
-/// "QR code hidden", and in the second case "Show QR code" is the only target.
+/// "QR code hidden" ("QR code could not be drawn" for a payload too long), and
+/// in the second case "Show QR code" is the only target.
 class QrCodeTile extends StatefulWidget {
   const QrCodeTile({
     super.key,
@@ -250,63 +251,73 @@ class _QrCodeTileState extends State<QrCodeTile> {
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
     // Align loosens the parent's constraints, so the tile is its own size
     // (and taller only when the text needs it) inside a tight box too.
-    return Align(
-      widthFactor: 1,
-      heightFactor: 1,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minWidth: widget.size,
-          // At a large text size the stand-in takes the room it is given, so
-          // its words do not break inside a word. It is not a scan target.
-          maxWidth: largeText ? double.infinity : widget.size,
-          minHeight: widget.size,
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHighest,
-            border: outline,
-            borderRadius: radius,
+    return LayoutBuilder(
+      builder: (context, box) => Align(
+        widthFactor: 1,
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minWidth: widget.size,
+            // At a large text size the stand-in takes the room it is given, so
+            // its words do not break inside a word. It is not a scan target.
+            // Only a bounded room: in a Row beside the status the width is
+            // unbounded, and the tile would take the whole screen.
+            maxWidth: largeText && box.hasBoundedWidth
+                ? double.infinity
+                : widget.size,
+            minHeight: widget.size,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              heightFactor: 1,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                spacing: 8,
-                children: [
-                  Semantics(
-                    label: l10n.messagingWhatsappQrHiddenLabel,
-                    container: true,
-                    child: ExcludeSemantics(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 4,
-                        children: [
-                          AppIcon(AppIcons.eyeOff, size: 32, color: muted),
-                          Text(
-                            tooLong
-                                ? l10n.messagingWhatsappQrCannotDraw
-                                : l10n.messagingWhatsappQrHidden,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest,
+              border: outline,
+              borderRadius: radius,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                heightFactor: 1,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 8,
+                  children: [
+                    Semantics(
+                      label: tooLong
+                          ? l10n.messagingWhatsappQrCannotDrawLabel
+                          : l10n.messagingWhatsappQrHiddenLabel,
+                      container: true,
+                      child: ExcludeSemantics(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 4,
+                          children: [
+                            AppIcon(AppIcons.eyeOff, size: 32, color: muted),
+                            Text(
+                              tooLong
+                                  ? l10n.messagingWhatsappQrCannotDraw
+                                  : l10n.messagingWhatsappQrHidden,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (tap)
-                    PairingButton.filled(
-                      label: l10n.messagingWhatsappShowQr,
-                      onPressed: widget.onShow,
-                    )
-                  else if (!tooLong)
-                    Text(
-                      l10n.messagingWhatsappQrShowsAgain,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: muted),
-                    ),
-                ],
+                    if (tap)
+                      PairingButton.filled(
+                        label: l10n.messagingWhatsappShowQr,
+                        onPressed: widget.onShow,
+                      )
+                    else if (!tooLong)
+                      Text(
+                        l10n.messagingWhatsappQrShowsAgain,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: muted),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -319,8 +330,9 @@ class _QrCodeTileState extends State<QrCodeTile> {
 /// "Waiting for a scan" (a spinner and the words, a polite live region) and
 /// the setup's countdown under it: "Setup closes in 8:42". The countdown counts
 /// the setup's ten minutes, not the code's rotation. In the last minute it is
-/// a warning banner with the time left in its title. A screen reader gets it at
-/// 60, 30 and 10 seconds left, never every second.
+/// a warning banner with a fixed title ("Setup closes soon.") and the countdown
+/// line under it, outside the banner's live region. A screen reader gets the
+/// time at 60, 30 and 10 seconds left, never every second.
 class QrScanStatus extends StatefulWidget {
   const QrScanStatus({super.key, this.timeLeft});
 
@@ -389,12 +401,10 @@ class _QrScanStatusState extends State<QrScanStatus> {
         if (left != null && left <= kQrExpiringWindow)
           AppBanner(
             tone: AppBannerTone.warning,
-            title: l10n.messagingWhatsappCountdownExpiring(
-              formatQrTimeLeft(left),
-            ),
+            title: l10n.messagingWhatsappExpiringTitle,
             detail: l10n.messagingWhatsappExpiringDetail,
-          )
-        else if (left != null)
+          ),
+        if (left != null)
           Text(
             l10n.messagingWhatsappCountdown(formatQrTimeLeft(left)),
             style: TextStyle(color: muted),

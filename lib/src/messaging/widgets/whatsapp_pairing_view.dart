@@ -198,7 +198,7 @@ class WhatsAppPairingView extends StatelessWidget {
       WhatsAppViewPhase.working => [
         PairingStageCard(
           stage: workStage,
-          onCancel: onCancel ?? _noop,
+          onCancel: onCancel,
           handset: handset,
         ),
       ],
