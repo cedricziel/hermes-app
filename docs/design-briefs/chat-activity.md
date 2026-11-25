@@ -265,6 +265,18 @@ This extends an existing designed surface (the action bar under a reply, `Messag
 
 **Not checked.** VoiceOver and TalkBack output on a device, the contrast of the dimmed glyphs on the dark surface beyond an eye check, the German sentences read by a German speaker.
 
+## Addendum: a regenerated reply
+
+This extends an existing designed surface (the action bar under a reply, `MessageActions`) with one label. It adds a state, not a screen, and needs no new canvas.
+
+**What the person sees.** A reply that replaced one a Retry or an Edit took back starts its action bar with a refresh icon and "Regenerated" (German: "Neu erstellt"), before Copy. It is the same small subtle-text label as "Stopped" (16 pt icon, 12.5 pt text, subtle text colour, 8 pt gap to the actions), on one line that ends with an ellipsis rather than wrapping, so it cannot push the actions off a 320 pt screen. Both labels can show together on a reply that was regenerated and then stopped. The icon is never the only signal: the word is always there. A reply that failed shows no mark, and a chat reloaded from history shows none, since Hermes does not store it.
+
+**Widgets (plain models).** `MessageActions(regenerated:)`; no new widget.
+
+**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions): "Regenerated reply" (with every action and Read aloud) and "Regenerated and stopped". Light and dark, phone and desktop come from the catalog's addons.
+
+**Not checked.** A rendered look of the label next to the actions on a device, VoiceOver and TalkBack output, the German word read by a German speaker.
+
 ## Composer recipient chip
 
 Recorded after the fact on 2026-11-24; describes what #1114 built. The chip is not part of the activity line or the Needs-you dock; it sits in the same composer area and was recorded here by the audit. Read from `lib/src/chat/chat_screen_layout.dart`, `lib/src/chat/chat_thread_bindings.dart`, `lib/src/profiles/widgets/recipient_picker.dart` and `lib/src/widgets/composer_selector_chip.dart` on main. The spec scenario is "Existing conversation shows no recipient selector" in `openspec/specs/messenger-navigation/spec.md`.

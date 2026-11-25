@@ -163,4 +163,48 @@ void main() {
     expect(replies().single.content, 'From elsewhere');
     expect(replies().single.regenerated, isFalse);
   });
+
+  test('a pending Edit mark does not survive the activity going off', () async {
+    await firstTurn();
+    await chat.editLastPrompt(thread);
+
+    activity.value = false;
+    activity.value = true;
+    await pumpEventQueue();
+    await chat.submit('Something else', const []);
+    await answerLast('Unrelated answer');
+
+    expect(replies().single.regenerated, isFalse);
+  });
+
+  test(
+    'a pending Edit mark does not survive reopening a reclaimed session',
+    () async {
+      await firstTurn();
+      await chat.editLastPrompt(thread);
+
+      transport.followUpStreams['s1']!.emit(
+        const SessionReclaimed('runtime-a', 's1', 'Another client took over'),
+      );
+      await pumpEventQueue();
+      chat.reopenSession(thread);
+      await chat.submit('Something else', const []);
+      await answerLast('Unrelated answer');
+
+      expect(replies().single.regenerated, isFalse);
+    },
+  );
+
+  test('a regenerated reply that fails carries no marker', () async {
+    await firstTurn();
+    await chat.retry(thread);
+
+    transport.sends.last
+      ..emit(const ReplyDelta('Half an answer'))
+      ..fail(StateError('boom'));
+    await pumpEventQueue();
+
+    expect(replies().single.status, MessageStatus.error);
+    expect(lastReplyMeta()?[kMetaRegenerated], isNull);
+  });
 }

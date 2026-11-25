@@ -246,11 +246,14 @@ List<Message> chatMessageToFlyer(
   return messages;
 }
 
-/// [meta] with the regenerated mark of [m], if it has one.
+/// [meta] with the regenerated mark of [m], if it has one and did not fail: a
+/// failed reply replaced nothing the person can read.
 Map<String, dynamic>? _withRegenerated(
   ChatMessage m,
   Map<String, dynamic>? meta,
-) => m.regenerated ? {...?meta, kMetaRegenerated: true} : meta;
+) => m.regenerated && m.status != MessageStatus.error
+    ? {...?meta, kMetaRegenerated: true}
+    : meta;
 
 List<Message> chatThreadToFlyer(ChatThread t) =>
     chatMessagesToFlyer(t.messages);
