@@ -1382,6 +1382,100 @@ class PremergeTest(unittest.TestCase):
                                       "test/kanban_direct_test.dart"])
         self.assert_clean_up()
 
+    # the catalog test -----------------------------------------------------
+
+    CATALOG = "test/widgetbook_test.dart"
+
+    def catalog_calls(self):
+        """The flutter test lines that name the catalog file."""
+        return [l.split(" ", 1)[1] for l in self.log.read_text().splitlines()
+                if self.CATALOG in l and " test " in f" {l.split(' ', 1)[1]} "]
+
+    def catalog_pr(self):
+        self.fixture()
+        self.pr(10, {self.CATALOG: "void main() {}\n",
+                     "test/unrelated_test.dart": "// pr\n"})
+
+    def test_the_catalog_file_runs_in_sequential_parts_never_in_a_batch(self):
+        self.catalog_pr()
+        r = self.run_check(10, CATALOG_PARTS="3")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        calls = self.catalog_calls()
+        self.assertEqual(
+            [c.split("test ", 1)[1] for c in calls],
+            [f"--no-pub --total-shards 3 --shard-index {i} {self.CATALOG}"
+             for i in range(3)],
+        )
+        # No call mixes it with another file, and no call lacks the split.
+        for c in calls:
+            self.assertEqual(c.count("_test.dart"), 1, c)
+        self.assertIn("unrelated_test.dart", self.log.read_text())
+        self.assertIn("affected tests: 2 files run", r.stdout)
+
+    def test_the_catalog_defaults_to_six_parts_and_runs_after_the_batches(self):
+        self.catalog_pr()
+        r = self.run_check(10)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(len(self.catalog_calls()), 6)
+        self.assertEqual(self.ran()[-1], self.CATALOG)
+        self.assertEqual(self.ran().count(self.CATALOG), 6)
+
+    def test_only_the_catalog_selected_runs_it_in_parts_and_passes(self):
+        # BATCHABLE is empty here; an unguarded expansion aborts bash 3.2.
+        self.fixture()
+        self.pr(10, {self.CATALOG: "void main() {}\n"})
+        r = self.run_check(10, CATALOG_PARTS="2")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.ran(), [self.CATALOG] * 2)
+        self.assertEqual(len(self.catalog_calls()), 2)
+        self.assertIn("affected tests: 1 files run", r.stdout)
+
+    def test_no_empty_array_is_expanded_bare_under_set_u(self):
+        # bash 3.2 (macOS) treats "${A[@]}" of an empty array as unbound under
+        # set -u. TEST_FILES and BATCHABLE are empty when nothing, or only the
+        # catalog test, is selected; use ${A[@]+"${A[@]}"} or a length guard.
+        import re
+        text = SCRIPT.read_text()
+        bare = re.findall(r'(?<!\+)"\$\{(?:TEST_FILES|BATCHABLE)\[@\]\}"', text)
+        self.assertEqual(bare, [], "bare expansion of an array that can be empty")
+
+    def test_a_bad_catalog_parts_value_exits_1(self):
+        self.catalog_pr()
+        for bad in ("abc", "0", "-1", "100"):
+            r = self.run_check(10, CATALOG_PARTS=bad)
+            self.assertEqual(r.returncode, 1, (bad, r.stdout, r.stderr))
+            self.assertIn("CATALOG_PARTS", r.stdout + r.stderr)
+
+    def test_a_failing_catalog_part_exits_5_and_the_other_parts_still_run(self):
+        self.catalog_pr()
+        stub = self.bin / "flutter"
+        stub.write_text(stub.read_text().replace(
+            "  test)\n",
+            "  test)\n    [ \"${STUB_FAIL_SHARD:-}\" != \"\" ] && "
+            "case \"$*\" in *\"--shard-index $STUB_FAIL_SHARD \"*) "
+            "echo \"00:01 +0 -1: loading x [E]\"; exit 1;; esac\n", 1))
+        r = self.run_check(10, CATALOG_PARTS="3", STUB_FAIL_SHARD="1")
+        self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
+        self.assertEqual(len(self.catalog_calls()), 3)
+        block = r.stderr.split("affected tests failed")[1]
+        self.assertIn(self.CATALOG, block)
+        self.assertNotIn("unrelated_test.dart", block)
+        self.assertNotIn("PASS", r.stdout)
+
+    def test_a_cut_inside_the_catalog_parts_lists_it_as_not_run(self):
+        self.catalog_pr()
+        r = self.run_check(
+            10, CATALOG_PARTS="3", PREMERGE_TEST_BUDGET="2",
+            STUB_SLEEP_FILE=self.CATALOG)
+        out = r.stdout + r.stderr
+        self.assertEqual(r.returncode, 6, out)
+        self.assertIn("CUT SHORT after 1/2 files", out)
+        self.assertIn(self.CATALOG, out.split("files not run:")[1])
+        self.assertNotIn("unrelated_test.dart", out.split("files not run:")[1])
+        self.assertEqual(len(self.catalog_calls()), 1, "a cut stops the later parts")
+        self.assertNotIn("PASS", r.stdout)
+        self.assert_clean_up()
+
     def test_budget_cut_kills_the_whole_process_tree(self):
         pidfile = self.root / "grandchild.pid"
         self.cut_run(STUB_GRANDCHILD=str(pidfile))

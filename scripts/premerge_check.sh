@@ -18,6 +18,9 @@
 # then the ones that import anything under a touched lib/src/<dir>/.
 # PREMERGE_TEST_BUDGET (600 s), PREMERGE_TEST_CAP (150 files),
 # PREMERGE_TEST_CONCURRENCY (4), PREMERGE_TEST_BATCH (20 files per flutter test).
+# test/widgetbook_test.dart never goes into a batch (one process runs a 15 GB
+# machine out of memory): it runs last in CATALOG_PARTS (6) sequential
+# `--total-shards` parts, as scripts/test-shard.sh does for CI.
 # A theme-wide or helper-wide selection (a change to lib/src/theme/ or to
 # test/support/fake_hermes_server.dart) needs PREMERGE_TEST_CAP and
 # PREMERGE_TEST_BUDGET raised; one recent run needed a budget of 3000 s.
@@ -132,6 +135,14 @@ TEST_BUDGET="$(positive_setting PREMERGE_TEST_BUDGET 600)"
 TEST_CAP="$(positive_setting PREMERGE_TEST_CAP 150)"
 TEST_CONCURRENCY="$(positive_setting PREMERGE_TEST_CONCURRENCY 4)"
 TEST_BATCH="$(positive_setting PREMERGE_TEST_BATCH 20)"
+# The Widgetbook test is ~17,500 cases and grows one process past 11 GB, so it
+# never goes into a batch: it runs in this many sequential parts, as in
+# scripts/test-shard.sh (the same CATALOG_PARTS).
+CATALOG_PARTS="$(positive_setting CATALOG_PARTS 6)"
+if [ "$CATALOG_PARTS" -gt 99 ]; then
+  die_usage "CATALOG_PARTS must be a whole number from 1 to 99, got '$CATALOG_PARTS'"
+fi
+CATALOG_TEST=test/widgetbook_test.dart
 
 REPO="$(git rev-parse --show-toplevel 2>/dev/null)" || die_usage "not inside a git repository"
 NOHOOKS=(-c core.hooksPath=/dev/null)
@@ -555,6 +566,16 @@ while IFS= read -r -d '' f; do TEST_FILES+=("$f"); done <"$TMP/select/selected"
 CAPPED_DIRS="$(tr '\n' ' ' <"$TMP/select/capped")"
 CAPPED_DIRS="${CAPPED_DIRS% }"
 N_SEL=${#TEST_FILES[@]}
+# The catalog file moves to the end and out of the batches (see CATALOG_PARTS).
+HAS_CATALOG=0
+BATCHABLE=()
+for f in ${TEST_FILES[@]+"${TEST_FILES[@]}"}; do
+  if [ "$f" = "$CATALOG_TEST" ]; then HAS_CATALOG=1; else BATCHABLE+=("$f"); fi
+done
+if [ "$HAS_CATALOG" = 1 ]; then
+  TEST_FILES=(${BATCHABLE[@]+"${BATCHABLE[@]}"} "$CATALOG_TEST")
+fi
+N_BATCH=${#BATCHABLE[@]}
 step_done "selection ($N_SEL files)"
 
 # run_limited <seconds> <command...>: run it, output shown and kept in
@@ -589,10 +610,10 @@ I=0
 if [ "$N_SEL" -gt 0 ]; then
   step_start "affected tests ($N_SEL files, budget ${TEST_BUDGET}s)"
   DEADLINE=$((SECONDS + TEST_BUDGET))
-  while [ "$I" -lt "$N_SEL" ]; do
+  while [ "$I" -lt "$N_BATCH" ]; do
     REMAINING=$((DEADLINE - SECONDS))
     if [ "$REMAINING" -le 0 ]; then CUT=1; break; fi
-    BATCH_FILES=("${TEST_FILES[@]:$I:$TEST_BATCH}")
+    BATCH_FILES=("${BATCHABLE[@]:$I:$TEST_BATCH}")
     run_limited "$REMAINING" flutter test --no-pub --concurrency="$TEST_CONCURRENCY" "${BATCH_FILES[@]}"
     if [ "$LIM_CUT" = 1 ]; then CUT=1; break; fi
     if [ "$LIM_RC" -ne 0 ]; then
@@ -611,6 +632,24 @@ if [ "$N_SEL" -gt 0 ]; then
     RAN=$((RAN + ${#BATCH_FILES[@]}))
     I=$((I + TEST_BATCH))
   done
+  if [ "$CUT" = 0 ]; then I=$N_BATCH; fi
+  if [ "$HAS_CATALOG" = 1 ] && [ "$CUT" = 0 ]; then
+    # One part after the other; every part runs even after one failed.
+    CATALOG_BAD=0
+    for ((part = 0; part < CATALOG_PARTS; part++)); do
+      REMAINING=$((DEADLINE - SECONDS))
+      if [ "$REMAINING" -le 0 ]; then CUT=1; break; fi
+      echo "Catalog part $((part + 1)) of $CATALOG_PARTS"
+      run_limited "$REMAINING" flutter test --no-pub --total-shards "$CATALOG_PARTS" --shard-index "$part" "$CATALOG_TEST"
+      if [ "$LIM_CUT" = 1 ]; then CUT=1; break; fi
+      if [ "$LIM_RC" -ne 0 ]; then CATALOG_BAD=1; fi
+    done
+    if [ "$CUT" = 0 ]; then
+      if [ "$CATALOG_BAD" = 1 ]; then FAILED+=("$CATALOG_TEST"); fi
+      RAN=$((RAN + 1))
+      I=$N_SEL
+    fi
+  fi
   step_done "affected tests"
 else
   echo "no affected tests selected; nothing to run"
