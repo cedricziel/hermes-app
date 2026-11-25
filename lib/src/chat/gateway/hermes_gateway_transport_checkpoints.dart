@@ -115,12 +115,17 @@ extension _Checkpoints on HermesGatewayTransport {
     }
     try {
       // Sent once. A lost answer is never a reason to send it again.
-      result = await client.requestWithin('rollback.restore', {
-        'session_id': runtimeId,
-        'profile': ?profile,
-        'hash': hash,
-        'file_path': ?filePath,
-      }, timeout: longTimeout);
+      result = await client.requestWithin(
+        'rollback.restore',
+        {
+          'session_id': runtimeId,
+          'profile': ?profile,
+          'hash': hash,
+          'file_path': ?filePath,
+        },
+        timeout: longTimeout,
+        acceptLate: true,
+      );
     } on GatewayRpcException catch (error) {
       return _restoreError(error);
     } on Object {
@@ -245,11 +250,16 @@ extension _Checkpoints on HermesGatewayTransport {
     }
     try {
       return parseCompression(
-        await client.requestWithin('session.compress', {
-          'session_id': runtimeId,
-          'profile': ?profile,
-          if (topic != null && topic.isNotEmpty) 'focus_topic': topic,
-        }, timeout: longTimeout),
+        await client.requestWithin(
+          'session.compress',
+          {
+            'session_id': runtimeId,
+            'profile': ?profile,
+            if (topic != null && topic.isNotEmpty) 'focus_topic': topic,
+          },
+          timeout: longTimeout,
+          acceptLate: true,
+        ),
       );
     } on GatewayRpcException catch (error) {
       return switch (error.code) {

@@ -4,10 +4,13 @@ import 'dart:typed_data';
 import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/checkpoints/checkpoint_models.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/owned_session_transport.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/fake_gateway.dart';
@@ -320,6 +323,181 @@ void main() {
 
       expect(error, isNull);
       expect(answered, isTrue);
+    });
+  });
+
+  group(
+    'an answer read after the app slept past the deadline still settles',
+    () {
+      /// Opens a session, leaves [method] unanswered, starts [act], sleeps past
+      /// the deadline and then delivers [answer].
+      void late<T>(
+        String method,
+        Map<String, Object?> answer,
+        Future<T> Function(HermesGatewayTransport transport) act,
+        void Function(T? result, Object? error) check,
+      ) {
+        run((async, gateway, transport, tracer, jump, now, events) {
+          gateway.turn = (g, sid) => g.event('message.complete', sid, {
+            'text': 'Main',
+            'status': 'complete',
+          });
+          transport.send(text: 'First', profile: 'work').listen((_) {});
+          async.flushMicrotasks();
+          gateway.silent.add(method);
+          T? result;
+          Object? error;
+          act(transport).then<void>(
+            (r) => result = r,
+            onError: (Object e) {
+              error = e;
+            },
+          );
+          async.flushMicrotasks();
+
+          jump(const Duration(minutes: 10));
+          gateway.replyTo(gateway.requestOf(method), answer);
+          async.flushMicrotasks();
+
+          check(result, error);
+        });
+      }
+
+      test('request.answer', () {
+        late<bool>(
+          'request.answer',
+          {'status': 'ok'},
+          (t) => t.answerOpenRequest(
+            'req-1',
+            const ApprovalChoiceAnswer('once'),
+            threadId: 'stored-1',
+            profile: 'work',
+          ),
+          (result, error) {
+            expect(error, isNull);
+            expect(result, isTrue);
+          },
+        );
+      });
+
+      test('approval.respond raised as an event', () {
+        late<bool>(
+          'approval.respond',
+          {'resolved': 1},
+          (t) => t.answerOpenRequest(
+            'req-1',
+            const ApprovalChoiceAnswer('once'),
+            threadId: 'stored-1',
+            profile: 'work',
+            raisedAsEvent: true,
+          ),
+          (result, error) {
+            expect(error, isNull);
+            expect(result, isTrue);
+          },
+        );
+      });
+
+      test('clarify.respond raised as an event', () {
+        late<bool>(
+          'clarify.respond',
+          {'status': 'ok'},
+          (t) => t.answerOpenRequest(
+            'req-1',
+            const QuestionAnswer(
+              questionId: 'q',
+              values: ['yes'],
+              multiSelect: false,
+            ),
+            threadId: 'stored-1',
+            profile: 'work',
+            raisedAsEvent: true,
+          ),
+          (result, error) {
+            expect(error, isNull);
+            expect(result, isTrue);
+          },
+        );
+      });
+
+      test('rollback.restore', () {
+        late<CheckpointRestore>(
+          'rollback.restore',
+          {'success': true, 'restored_to': 'aaaaaaaa', 'history_removed': 3},
+          (t) =>
+              t.restoreCheckpoint('stored-1', profile: 'work', hash: 'a' * 40),
+          (result, error) => expect(result, isA<Restored>()),
+        );
+      });
+
+      test('session.compress', () {
+        late<CompressionResult>(
+          'session.compress',
+          {'status': 'compressed', 'before_messages': 42, 'after_messages': 9},
+          (t) => t.compressSession('stored-1', profile: 'work'),
+          (result, error) => expect(result, isA<Compressed>()),
+        );
+      });
+    },
+  );
+
+  group('an owned-session answer read after the app slept still settles', () {
+    void owned(
+      String method,
+      Map<String, Object?> answer,
+      Future<Map<String, Object?>> Function(
+        HermesGatewayTransport transport,
+        OwnedSessionBinding binding,
+      )
+      act,
+    ) {
+      run((async, gateway, transport, tracer, jump, now, events) {
+        gateway.turn = (g, sid) => g.event('message.complete', sid, {
+          'text': 'Main',
+          'status': 'complete',
+        });
+        transport.send(text: 'First', profile: 'work').listen((_) {});
+        async.flushMicrotasks();
+        final binding = transport.ownedSessionFor('stored-1', profile: 'work')!;
+        gateway.silent.add(method);
+        Map<String, Object?>? result;
+        Object? error;
+        act(
+          transport,
+          binding,
+        ).then<void>((r) => result = r, onError: (Object e) => error = e);
+        async.flushMicrotasks();
+
+        jump(const Duration(minutes: 20));
+        gateway.replyTo(gateway.requestOf(method), answer);
+        async.flushMicrotasks();
+
+        expect(error, isNull);
+        expect(result, answer);
+      });
+    }
+
+    test('connection.respond', () {
+      owned(
+        'connection.respond',
+        {'status': 'ok', 'settled': false},
+        (t, binding) => t.respondToConnectorOperation(binding, {
+          'owner': {'type': 'session', 'session_id': 'rt-1'},
+          'op_id': 'operation',
+          'profile': 'work',
+          'result': {
+            'targets': [
+              {'name': 'connector', 'status': 'skipped'},
+            ],
+          },
+        }, authorize: () => true),
+      );
+    });
+
+    test('billing.step_up', () {
+      owned('billing.step_up', {
+        'granted': true,
+      }, (t, binding) => t.stepUpBilling(binding, authorize: () => true));
     });
   });
 }
