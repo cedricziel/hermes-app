@@ -44,6 +44,7 @@ import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/skill_job.dart';
 import 'package:hermes_app/src/skills/skill_job_sheet.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:hermes_app/src/widgets/hermes_code_block.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:material_ui/material_ui.dart';
@@ -65,6 +66,7 @@ import '../support/tooltip_finder.dart';
 /// text (and no English one).
 Widget _de(Widget home, {TargetPlatform platform = TargetPlatform.android}) =>
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(platform: platform),
       locale: const Locale('de'),
       localizationsDelegates: kTestLocalizationsDelegates,
