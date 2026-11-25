@@ -65,6 +65,39 @@ void main() {
       expect(migrate(before), before);
     });
 
+    test('leaves a directive-looking line inside a multi-line string', () {
+      const before =
+          "const src = '''\n"
+          "import '$_material';\n"
+          "export '$_cupertino';\n"
+          "''';\n"
+          "import '$_material';\n";
+      expect(
+        migrate(before),
+        "const src = '''\n"
+        "import '$_material';\n"
+        "export '$_cupertino';\n"
+        "''';\n"
+        "import '$_materialUi';\n",
+      );
+    });
+
+    test('a string line does not make a real import a duplicate', () {
+      const before =
+          "const src = '''\n"
+          "import '$_materialUi';\n"
+          "''';\n"
+          "import '$_material';\n";
+      expect(migrate(before), contains("\nimport '$_materialUi';\n"));
+      expect(migrate(before), isNot(contains("\n\nimport '$_materialUi'")));
+      expect(RegExp(_materialUi).allMatches(migrate(before)), hasLength(2));
+    });
+
+    test('rewrites a raw-string URI and keeps the r prefix', () {
+      const before = "import r'$_material' show Scaffold;\n";
+      expect(migrate(before), "import r'$_materialUi' show Scaffold;\n");
+    });
+
     test('is idempotent', () {
       const before =
           "import '$_material';\n"

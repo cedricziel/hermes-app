@@ -1056,11 +1056,34 @@ List<Hit> _englishDefaultHits() => [
     if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
 ];
 
-/// An `import` or `export` of a Flutter barrel that starts a line.
+/// An `import` or `export` of a Flutter barrel, or of a file under
+/// `package:flutter/src/material` or `src/cupertino`, that starts a line. The
+/// URI may be a raw string (`r'...'`).
 final _flutterBarrelImport = RegExp(
-  r'''^[ \t]*(?:import|export)\s+['"]package:flutter/(?:material|cupertino)\.dart['"]''',
+  r'''^[ \t]*(import|export)\s+r?['"]package:flutter/'''
+  r'''(?:(?:material|cupertino)\.dart|src/(?:material|cupertino)/[^'"\n]*)['"]''',
   multiLine: true,
 );
+
+/// Imports and exports of the Flutter Material or Cupertino libraries in
+/// [file]. The pattern runs on the text view, so a line inside a multi-line
+/// string that merely looks like a directive is dropped: its keyword is blank
+/// in the code view.
+List<Hit> flutterBarrelImportHitsIn(SourceFile file) {
+  final code = file.code;
+  return [
+    for (final m in _flutterBarrelImport.allMatches(file.text))
+      if (code.startsWith(
+        m.group(1)!,
+        m.start + m.group(0)!.indexOf(m.group(1)!),
+      ))
+        Hit(
+          file.path,
+          file.lineOf(m.start),
+          file.lineText(file.lineOf(m.start)),
+        ),
+  ];
+}
 
 /// Dart roots the barrel guard reads; `packages/hermes_api` is generated.
 const _barrelRoots = [
@@ -1077,12 +1100,9 @@ const _barrelRoots = [
 
 List<Hit> _flutterBarrelImports() => [
   for (final root in _barrelRoots)
-    ...scanPattern(
-      root,
-      _flutterBarrelImport,
-      view: _text,
-      where: (f) => !f.path.startsWith('packages/hermes_api/'),
-    ),
+    for (final file in dartFiles(root))
+      if (!file.path.startsWith('packages/hermes_api/'))
+        ...flutterBarrelImportHitsIn(file),
 ];
 
 /// Every guard of this file.
@@ -1290,9 +1310,11 @@ final guardRules = <Rule>[
     message:
         'import package:material_ui/material_ui.dart and '
         'package:cupertino_ui/cupertino_ui.dart, not package:flutter/material.dart '
-        'or package:flutter/cupertino.dart (deprecated since Flutter 3.50). '
-        'Rewrite the files with: dart run tool/migrate_material_ui_imports.dart '
-        '<file ...>',
+        'or package:flutter/cupertino.dart (deprecated since Flutter 3.50), and '
+        'not a deep package:flutter/src/material or src/cupertino file. '
+        'Rewrite the barrel imports with: dart run '
+        'tool/migrate_material_ui_imports.dart <file ...>; a deep import needs '
+        'the matching public library of those packages by hand.',
     hits: _flutterBarrelImports,
   ),
 
@@ -1574,6 +1596,58 @@ void main() {
       expect(found, hasLength(1));
       expect(found.single.line, 3);
     });
+  });
+
+  group('material-ui-imports scan', () {
+    int hits(String source) =>
+        flutterBarrelImportHitsIn(SourceFile('test/x.dart', source)).length;
+
+    test('catches the barrels, deep imports and raw-string URIs', () {
+      for (final bad in [
+        "import 'package:flutter/material.dart';",
+        'export "package:flutter/cupertino.dart" show CupertinoIcons;',
+        "import 'package:flutter/src/material/app_bar.dart';",
+        "import 'package:flutter/src/cupertino/colors.dart' as c;",
+        "import r'package:flutter/material.dart';",
+        'import r"package:flutter/src/material/scaffold.dart";',
+        "  import 'package:flutter/material.dart';",
+      ]) {
+        expect(hits(bad), 1, reason: bad);
+      }
+    });
+
+    test('ignores other flutter libraries, comments and lookalikes', () {
+      for (final fine in [
+        "import 'package:flutter/widgets.dart';",
+        "import 'package:flutter/src/widgets/framework.dart';",
+        "import 'package:flutter/src/materialish/x.dart';",
+        "import 'package:material_ui/material_ui.dart';",
+        "// import 'package:flutter/material.dart';",
+        "final s = \"import 'package:flutter/material.dart';\";",
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test(
+      'a directive-looking line in a multi-line string is not an import',
+      () {
+        const inString =
+            "const src = '''\n"
+            "import 'package:flutter/material.dart';\n"
+            "export 'package:flutter/src/cupertino/x.dart';\n"
+            "''';\n"
+            "const raw = r'''\n"
+            "import r'package:flutter/material.dart';\n"
+            "''';\n";
+        expect(hits(inString), 0);
+        final real = SourceFile(
+          'test/x.dart',
+          "$inString\nimport 'package:flutter/material.dart';\n",
+        );
+        expect(flutterBarrelImportHitsIn(real).single.line, 9);
+      },
+    );
   });
 
   test('the keyboard-override pattern catches a call and a tear-off', () {
