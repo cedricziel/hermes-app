@@ -124,7 +124,8 @@ void main() {
       server.on('POST', '/api/plugins/kanban/boards/default/export', {
         'board': 'default',
         'archive': '/srv/hermes/exports/default.tar.gz',
-        'size': 3072,
+        // Over a thousand kilobytes: a comma, and no thousands separator.
+        'size': 1299968,
       });
       await pump(tester);
       await openMenu(tester, 'Exportieren…');
@@ -132,8 +133,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Board exportiert'), findsOneWidget);
-      expect(find.text('3,0 KB'), findsOneWidget);
-      expect(find.text('3.0 KB'), findsNothing);
+      expect(find.text('1269,5 KB'), findsOneWidget);
+      expect(find.text('1269.5 KB'), findsNothing);
+      expect(find.text('1.269,5 KB'), findsNothing);
     });
 
     testWidgets('the archive question is German', (tester) async {

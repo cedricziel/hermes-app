@@ -177,7 +177,8 @@ void main() {
     server.on('POST', '/api/plugins/kanban/boards/ops/export', {
       'board': 'ops',
       'archive': '/srv/hermes/exports/ops.tar.gz',
-      'size': 3072,
+      // Over a thousand kilobytes: the size has no thousands separator.
+      'size': 1299968,
     });
     await pump(tester);
 
@@ -191,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('/srv/hermes/exports/ops.tar.gz'), findsOneWidget);
-    expect(find.text('3.0 KB'), findsOneWidget);
+    expect(find.text('1269.5 KB'), findsOneWidget);
     expect(
       jsonBody(
         server
