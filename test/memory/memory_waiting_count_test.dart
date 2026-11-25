@@ -111,6 +111,30 @@ void main() {
     },
   );
 
+  test(
+    'a replaced read that ends first leaves its successor joinable',
+    () async {
+      final stale = Completer<String>();
+      final newer = Completer<String>();
+      transport.script['/memory pending'] = stale;
+      final first = count.refresh(resolvedProfile('work'));
+      transport.script['/memory pending'] = newer;
+      final second = count.refresh(resolvedProfile('work'), supersede: true);
+      stale.complete(_two);
+      await first;
+
+      final third = count.refresh(resolvedProfile('work'));
+      newer.complete(noPendingMemory);
+      await Future.wait([second, third]);
+
+      expect(count.waiting, 0);
+      expect(
+        transport.slashRuns.where((c) => c == '/memory pending'),
+        hasLength(2),
+      );
+    },
+  );
+
   test('a read asked for after the last one ended is made', () async {
     await count.refresh(resolvedProfile('work'));
     await count.refresh(resolvedProfile('work'));
