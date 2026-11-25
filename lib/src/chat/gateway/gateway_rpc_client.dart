@@ -343,21 +343,40 @@ class GatewayRpcClient {
   /// An answer that comes after the deadline is a timeout too, also when it
   /// was read before the overdue timer ran (the app slept past the deadline).
   /// [onLateResult] is told the result of such an answer, for a request that
-  /// changed something on the server which the caller must now undo.
+  /// changed something on the server which the caller must now undo. With
+  /// [acceptLate] such an answer settles the request instead, for a call whose
+  /// answer confirms something the caller cannot take back.
   Future<Map<String, Object?>> requestWithin(
     String method,
     Map<String, Object?> params, {
     required Duration timeout,
     void Function(Map<String, Object?> result)? onLateResult,
-  }) => _request(method, params, timeout: timeout, onLateResult: onLateResult);
+    bool acceptLate = false,
+  }) => _request(
+    method,
+    params,
+    timeout: timeout,
+    onLateResult: onLateResult,
+    acceptLate: acceptLate,
+  );
 
   /// Rechecks ownership after instrumentation, before sending the request frame.
+  /// With [acceptLate], an answer read after the deadline but before the
+  /// overdue timer ran still settles the request, for a call whose answer
+  /// confirms something the caller cannot take back.
   Future<Map<String, Object?>> requestGuarded(
     String method,
     Map<String, Object?> params, {
     required bool Function() authorize,
     Duration? timeout,
-  }) => _request(method, params, authorize: authorize, timeout: timeout);
+    bool acceptLate = false,
+  }) => _request(
+    method,
+    params,
+    authorize: authorize,
+    timeout: timeout,
+    acceptLate: acceptLate,
+  );
 
   Future<Map<String, Object?>> _request(
     String method,

@@ -278,4 +278,27 @@ void main() {
       expect(gateway.queuedImages, isEmpty);
     });
   });
+
+  test('a prompt the server accepted is not thrown away because the app slept '
+      'past the request timeout before reading the answer', () {
+    run((async, gateway, transport, tracer, jump, now, events) {
+      gateway.silent.add('prompt.submit');
+      final seen = <ChatEvent>[];
+      Object? error;
+      transport
+          .send(text: 'Hello')
+          .listen(seen.add, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+      final submit = gateway.requestOf('prompt.submit');
+
+      jump(const Duration(minutes: 10));
+      gateway.replyTo(submit, {'status': 'streaming'});
+      async.flushMicrotasks();
+
+      expect(error, isNull);
+      expect(transport.promptAccepted, isTrue);
+      expect(transport.gatewayConnection, isNotNull);
+      expect(span(tracer, 'prompt.submit').attributes['error.type'], isNull);
+    });
+  });
 }
