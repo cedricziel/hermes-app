@@ -173,7 +173,9 @@ void main() {
     );
     expect(current.checked, isTrue);
 
-    await tester.tap(find.text('Ops (1)'));
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<String>, 'Ops (1)'),
+    );
     await settle(tester);
 
     expect(lastBoardQuery()['board'], 'ops');

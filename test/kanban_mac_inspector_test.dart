@@ -172,7 +172,9 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Filter by profile'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('coder').last);
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<({String? profile})>, 'coder'),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Default · coder · 1 task'), findsOneWidget);
