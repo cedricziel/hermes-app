@@ -657,7 +657,6 @@ extension _ChatControllerBranchParent on ChatController {
     final wanted =
         data.run == run &&
         _currentActivity(epoch) &&
-        _profile == profile &&
         selectedId == thread.id &&
         !(appLock?.locked ?? false);
     if (data.run == run) data.reads.remove(key);

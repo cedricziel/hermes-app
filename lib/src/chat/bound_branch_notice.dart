@@ -26,7 +26,20 @@ class BoundBranchNotice extends StatefulWidget {
 }
 
 class _BoundBranchNoticeState extends State<BoundBranchNotice> {
-  BranchParentStatus? _announced;
+  /// The state last seen, spoken or not: a chat opened while its original is
+  /// already deleted or unreachable says nothing; only a change seen here, which
+  /// a tap caused, is announced.
+  late BranchParentStatus? _announced = widget.chat.branchParentStatusOf(
+    widget.thread,
+  );
+
+  @override
+  void didUpdateWidget(BoundBranchNotice old) {
+    super.didUpdateWidget(old);
+    if (old.thread.id != widget.thread.id) {
+      _announced = widget.chat.branchParentStatusOf(widget.thread);
+    }
+  }
 
   void _announce(BranchParentStatus? status) {
     if (status == _announced) return;

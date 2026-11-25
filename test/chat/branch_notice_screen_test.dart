@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart' show TargetPlatform;
+
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/accessibility_announcements.dart';
 import '../support/pump_chat.dart';
 
 String _descendant(String id) => '/api/sessions/$id/latest-descendant';
@@ -86,6 +90,32 @@ void main() {
       expect(server.requestsTo('GET', _descendant('p1')), hasLength(1));
       expect(find.byType(ChatBranchNotice), findsNothing);
       expect(commands.handlerFor(MacCommand.openParentChat)?.enabled, isFalse);
+    });
+
+    testWidgets('a tap is announced as it opens and fails, and coming back to '
+        'a failed one says nothing', (tester) async {
+      final answer = Completer<FakeResponse>();
+      final server = _server()
+        ..onRequest('GET', _descendant('p1'), (_) => answer.future);
+      final said = captureAnnouncements(tester);
+      await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Try another way');
+      expect(said, isEmpty);
+
+      await tester.tap(find.byType(ChatBranchNotice));
+      await tester.pump();
+      expect(said.map((a) => a.message), ['Opening the original chat…']);
+
+      answer.complete((status: 404, body: {'detail': 'Session not found'}));
+      await tester.pumpAndSettle();
+      expect(said.map((a) => a.message), [
+        'Opening the original chat…',
+        'The original chat was deleted.',
+      ]);
+
+      await openThread(tester, 'A plain chat');
+      await openThread(tester, 'Try another way');
+      expect(said, hasLength(2));
     });
 
     testWidgets('the command is off once Hermes said the original is gone', (
