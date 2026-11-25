@@ -211,4 +211,33 @@ void main() {
       expect(events.named('gateway.send_failed').single['cause'], 'timeout');
     });
   });
+
+  test('billing verification, a device flow that waits for the user, is not '
+      'abandoned at the default deadline', () {
+    run((async, gateway, transport, tracer, jump, now, events) {
+      gateway.turn = (g, sid) => g.event('message.complete', sid, {
+        'text': 'Main',
+        'status': 'complete',
+      });
+      gateway.silent.add('billing.step_up');
+      transport.send(text: 'First', profile: 'work').listen((_) {});
+      async.flushMicrotasks();
+      final binding = transport.ownedSessionFor('stored-1', profile: 'work')!;
+      Map<String, Object?>? granted;
+      Object? error;
+      transport
+          .stepUpBilling(binding, authorize: () => true)
+          .then<void>((r) => granted = r, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+
+      async.elapse(transport.longTimeout + const Duration(minutes: 5));
+      async.flushMicrotasks();
+      expect(error, isNull);
+      expect(span(tracer, 'billing.step_up').ended, isFalse);
+
+      gateway.replyTo(gateway.requestOf('billing.step_up'), {'granted': true});
+      async.flushMicrotasks();
+      expect(granted, {'granted': true});
+    });
+  });
 }

@@ -22,10 +22,12 @@ extension _OwnedSessions on HermesGatewayTransport {
     }
     try {
       final client = binding.connection as GatewayRpcClient;
-      final result = await client.requestGuarded('billing.step_up', {
-        'session_id': binding.runtimeId,
-        'profile': binding.profile,
-      }, authorize: () => _ownsBinding(binding) && authorize());
+      final result = await client.requestGuarded(
+        'billing.step_up',
+        {'session_id': binding.runtimeId, 'profile': binding.profile},
+        authorize: () => _ownsBinding(binding) && authorize(),
+        timeout: HermesGatewayTransport.billingStepUpTimeout,
+      );
       if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
       return result;
     } on GatewayRpcException catch (error) {
