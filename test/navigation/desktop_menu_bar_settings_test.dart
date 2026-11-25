@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/navigation/desktop_menu_bar_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../support/unreadable_prefs.dart';
 
 /// A store whose reads wait for the test to release them.
 base class _SlowReads extends InMemorySharedPreferencesAsync {
@@ -21,6 +24,17 @@ base class _SlowReads extends InMemorySharedPreferencesAsync {
 }
 
 void main() {
+  test('stays off when the saved choice is unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final settings = DesktopMenuBarSettings(prefs: SharedPreferencesAsync());
+    addTearDown(settings.dispose);
+
+    final reported = await reportedErrors(settings.load);
+
+    expect(settings.enabled, isFalse);
+    expect(reported.single.exception, isA<PlatformException>());
+  });
+
   test('a choice made while the saved one loads is not overwritten', () async {
     final store = _SlowReads();
     SharedPreferencesAsyncPlatform.instance = store;

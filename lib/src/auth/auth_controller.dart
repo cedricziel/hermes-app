@@ -11,6 +11,7 @@ import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
 import '../network/network_signals.dart';
+import '../settings/report_unreadable_prefs.dart';
 import '../telemetry/telemetry.dart';
 import 'account_key.dart';
 import 'connect_failure.dart';
@@ -226,7 +227,12 @@ class AuthController extends ChangeNotifier {
       await connect(_devServerUrl, remember: false, restoring: true);
       return;
     }
-    final savedUrl = await _prefs.getString(kSavedServerUrlKey);
+    // An unreadable store asks for the address again; the stored session is
+    // left alone.
+    final savedUrl = await readSaved(
+      () => _prefs.getString(kSavedServerUrlKey),
+      'the saved server address',
+    );
     if (savedUrl == null || savedUrl.isEmpty) {
       _setState(HermesConnectionState.needsServerUrl);
       return;

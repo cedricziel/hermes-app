@@ -6,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_lock/app_lock_controller.dart';
+import '../settings/report_unreadable_prefs.dart';
 import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import '../surfaces/surface_snapshot.dart';
 import '../surfaces/surface_snapshot_store.dart';
@@ -106,7 +107,7 @@ class ChatSpotlightIndexer {
   /// Reads what the last run left behind, then starts following changes.
   Future<void> start() async {
     final generation = _generation;
-    _holding = _persisted = await _prefs.getBool(_prefsHoldingKey) ?? false;
+    _holding = _persisted = await _savedHolding();
     final stored = await store.read();
     if (generation == _generation) {
       _latest = stored;
@@ -196,7 +197,7 @@ class ChatSpotlightIndexer {
       // A background run may have indexed since this one last looked; only the
       // saved flag knows.
       if (!_holding) {
-        _holding = _persisted = await _prefs.getBool(_prefsHoldingKey) ?? false;
+        _holding = _persisted = await _savedHolding();
       }
       if (!_holding || !await index.isAvailable()) return;
       _indexed = null;
@@ -234,6 +235,16 @@ class ChatSpotlightIndexer {
     if (changed.isEmpty && dropped.isEmpty) return Future.value(true);
     return index.update(kChatSpotlightDomain, upsert: changed, remove: dropped);
   }
+
+  /// The saved flag. One that cannot be read counts as set, so the removal that
+  /// may be owed still happens.
+  Future<bool> _savedHolding() async =>
+      await readSaved(
+        () => _prefs.getBool(_prefsHoldingKey),
+        'the saved Spotlight flag',
+        ifUnreadable: true,
+      ) ??
+      false;
 
   /// Saves [_holding] unless it is saved already. A save that fails is logged
   /// and tried again with the next change; the flag is in memory meanwhile.

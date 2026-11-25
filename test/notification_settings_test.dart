@@ -1,8 +1,11 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/unreadable_prefs.dart';
 
 /// Reads preferences like the real thing, but runs [onDenied] while the
 /// permission flags are read and always reports the scheduled task values as
@@ -36,6 +39,21 @@ void main() {
     await settings.load();
     return settings;
   }
+
+  test('keeps the defaults when the saved settings are unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final settings = NotificationSettings();
+
+    final reported = await reportedErrors(settings.load);
+
+    expect(settings.loaded, isTrue);
+    expect(settings.enabled, isTrue);
+    expect(settings.permissionAsked, isFalse);
+    expect(settings.permissionDenied, isFalse);
+    expect(settings.scheduleAlerts, isTrue);
+    expect(settings.agentMessages, isTrue);
+    expect(reported.single.exception, isA<PlatformException>());
+  });
 
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();

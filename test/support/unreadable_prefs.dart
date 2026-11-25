@@ -22,6 +22,20 @@ base class UnreadablePrefs extends InMemorySharedPreferencesAsync {
   @override
   Future<bool?> getBool(String key, SharedPreferencesOptions options) =>
       Future.error(_failure);
+
+  @override
+  Future<int?> getInt(String key, SharedPreferencesOptions options) =>
+      Future.error(_failure);
+
+  @override
+  Future<double?> getDouble(String key, SharedPreferencesOptions options) =>
+      Future.error(_failure);
+
+  @override
+  Future<List<String>?> getStringList(
+    String key,
+    SharedPreferencesOptions options,
+  ) => Future.error(_failure);
 }
 
 /// Runs [body] and returns the errors it handed to `FlutterError.reportError`.

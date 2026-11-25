@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
+
 const _prefsEnabledKey = 'hermes.notifications_enabled';
 const _prefsAskedKey = 'hermes.notifications_permission_asked';
 const _prefsDeniedKey = 'hermes.notifications_permission_denied';
@@ -62,13 +64,21 @@ class NotificationSettings extends ChangeNotifier {
     final mutedEditsBefore = _mutedEdits;
     final liveActivityEditsBefore = _liveActivityEdits;
     final agentMessageEditsBefore = _agentMessageEdits;
-    final enabled = await _prefs.getBool(_prefsEnabledKey);
-    final asked = await _prefs.getBool(_prefsAskedKey);
-    final denied = await _prefs.getBool(_prefsDeniedKey);
-    final schedules = await _prefs.getBool(_prefsSchedulesKey);
-    final muted = await _prefs.getStringList(_prefsMutedKey);
-    final liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
-    final agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
+    bool? enabled, asked, denied, schedules, liveActivities, agentMessages;
+    List<String>? muted;
+    try {
+      enabled = await _prefs.getBool(_prefsEnabledKey);
+      asked = await _prefs.getBool(_prefsAskedKey);
+      denied = await _prefs.getBool(_prefsDeniedKey);
+      schedules = await _prefs.getBool(_prefsSchedulesKey);
+      muted = await _prefs.getStringList(_prefsMutedKey);
+      liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
+      agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
+    } on Object catch (error, stack) {
+      // An unreadable store keeps the defaults for what was not read: the
+      // system's own permission still decides whether anything is shown.
+      reportUnreadablePrefs(error, stack, 'the saved notification settings');
+    }
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
     if (_permissionEdits == permissionEditsBefore) {
       _asked = asked ?? false;

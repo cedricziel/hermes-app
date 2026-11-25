@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ValueNotifier;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/spotlight/chat_spotlight_indexer.dart';
@@ -19,6 +20,7 @@ import '../support/fake_device_authenticator.dart';
 import '../support/fake_spotlight_index.dart';
 import '../support/fake_surface_storage.dart';
 import '../support/recorded_events.dart';
+import '../support/unreadable_prefs.dart';
 
 const _flagKey = 'hermes.spotlight.dirty';
 
@@ -624,6 +626,36 @@ void main() {
   });
 
   group('the flag that a removal is owed', () {
+    test(
+      'counts as set when it cannot be read, so chats are removed',
+      () async {
+        await settings.setEnabled(false);
+        index.items['chat'] = const [
+          SpotlightItem(
+            domain: 'chat',
+            id: 'default/a',
+            title: 'Trip plan',
+            text: '',
+            url: 'hermes://chat?profile=default&id=a',
+          ),
+        ];
+        SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+        prefs = SharedPreferencesAsync();
+        indexer.dispose();
+        indexer = newIndexer();
+
+        final reported = await reportedErrors(() async {
+          await indexer.start();
+          await settle();
+        });
+
+        expect(index.calls, ['deleteAll']);
+        expect(index.items, isEmpty);
+        expect(reported, isNotEmpty);
+        expect(reported.first.exception, isA<PlatformException>());
+      },
+    );
+
     test('survives a failed write and is saved by a later change', () async {
       final flaky = _FlakyPrefs();
       SharedPreferencesAsyncPlatform.instance = flaky;
