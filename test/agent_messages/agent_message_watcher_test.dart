@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart' show RequestOptions;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -846,6 +847,57 @@ void main() {
           'error_type': 'TimeoutException',
           'background': false,
         });
+      });
+    });
+
+    testWidgets('a listing that times out is closed, not left to its receive '
+        'timeout', (tester) async {
+      await tester.runAsync(() async {
+        final held = Completer<FakeResponse>();
+        RequestOptions? asked;
+        server.onRequest('GET', '/api/sessions', (request) {
+          asked = request;
+          return held.future;
+        }, query: {'source': 'hermes_app', 'profile': 'default'});
+        await setUpWatcher(lookup: const Duration(milliseconds: 100));
+
+        await watcher!.check();
+
+        expect(asked!.cancelToken!.isCancelled, isTrue);
+        held.complete((status: 200, body: sessionListBody([])));
+      });
+    });
+
+    testWidgets('leaving the front cancels the listing in flight, so a look '
+        'after coming back is the only one asking', (tester) async {
+      restoreLifecycle(tester);
+      await tester.runAsync(() async {
+        var asking = 0, mostAsking = 0;
+        final first = Completer<void>();
+        server.onRequest('GET', '/api/sessions', (request) async {
+          asking++;
+          if (asking > mostAsking) mostAsking = asking;
+          if (!first.isCompleted) {
+            first.complete();
+            await request.cancelToken!.whenCancel;
+          }
+          asking--;
+          return (status: 200, body: sessionListBody([]));
+        }, query: {'source': 'hermes_app', 'profile': 'default'});
+        await setUpWatcher();
+        final look = watcher!.check();
+        await untilStarted(first);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await look;
+        await watcher!.check();
+
+        expect(mostAsking, 1);
       });
     });
 

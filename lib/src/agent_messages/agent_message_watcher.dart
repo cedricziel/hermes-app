@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_otel/flutter_otel.dart';
@@ -144,6 +145,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
   int _postEpoch = 0;
   Timer? _timer;
 
+  /// Closes the requests of the look in flight when it is made stale, so that
+  /// nothing outlives the app's time in front to time out later.
+  var _reads = CancelToken();
+
   /// The user's choice, whether or not it has loaded yet: only a change of
   /// it starts from a new record, not the load itself.
   bool get _switchOn => settings.enabled && settings.agentMessages;
@@ -208,7 +213,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     if (!_current(_epoch)) return Future.value();
     if (_inflight case final pending?) return pending;
     late final Future<void> pending;
-    pending = _look(_epoch).whenComplete(() {
+    pending = _look(_epoch, _reads).whenComplete(() {
       if (identical(_inflight, pending)) _inflight = null;
     });
     return _inflight = pending;
@@ -234,15 +239,21 @@ class AgentMessageWatcher with WidgetsBindingObserver {
     _epoch++;
     if (posts) _postEpoch++;
     _inflight = null;
+    _reads.cancel('look made stale');
+    _reads = CancelToken();
   }
 
-  Future<void> _look(int epoch) async {
+  Future<void> _look(int epoch, CancelToken stop) async {
     Object? failure;
     try {
       final List<String> names;
       try {
         names = [
-          for (final profile in await profiles.list().timeout(lookup))
+          for (final profile in await readWithin(
+            lookup,
+            stop,
+            (token) => profiles.list(cancelToken: token),
+          ))
             profile.name,
         ];
         // A server that lists no profile at all is not readable either.
@@ -267,6 +278,7 @@ class AgentMessageWatcher with WidgetsBindingObserver {
         clock: _clock,
         lookup: lookup,
         onFailure: (error) => failure ??= error,
+        stop: stop,
       );
       if (!_current(epoch)) return;
 
@@ -277,7 +289,10 @@ class AgentMessageWatcher with WidgetsBindingObserver {
       var locked = appLock();
       final reads = found.messages.isNotEmpty && !summary && !locked;
       final (texts, shown) = reads
-          ? await (readMessageTexts(chat, found, lookup), _shownProfile()).wait
+          ? await (
+              readMessageTexts(chat, found, lookup, stop: stop),
+              _shownProfile(),
+            ).wait
           : (const <({String profile, String id}), String>{}, null);
       if (!_current(epoch)) return;
 

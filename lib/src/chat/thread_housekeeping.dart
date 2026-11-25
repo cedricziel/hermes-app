@@ -290,11 +290,19 @@ class ThreadHousekeeping {
   }
 
   /// A refusal the dashboard explains (a title already taken, say) carries
-  /// that explanation along.
+  /// that explanation along. A 409 is Hermes guarding a session its turn is
+  /// still writing to; it passes once the turn ends, so the user is told to
+  /// wait, and nothing asks again.
   static String _failure(String what, Object error) {
-    if (error is DioException && error.response?.statusCode == 400) {
-      if (error.response?.data case {'detail': final String detail}) {
-        return '$what: $detail';
+    if (error is DioException) {
+      switch (error.response?.statusCode) {
+        case 400:
+          if (error.response?.data case {'detail': final String detail}) {
+            return '$what: $detail';
+          }
+        case 409:
+          return '$what: Hermes is still working in it. '
+              'Try again when it is done.';
       }
     }
     return what;
