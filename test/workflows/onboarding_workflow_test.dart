@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
@@ -12,6 +12,7 @@ import '../support/local_dashboard.dart';
 import '../support/memory_token_store.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// First launch to first chat: the whole app against a gated dashboard, with
 /// a screenshot at every screen the user passes through.
@@ -100,9 +101,9 @@ void main() {
         userId: 'u1',
       ),
     );
-    await pumpUntilFound(tester, find.byTooltip('New message'));
+    await pumpUntilFound(tester, find.tooltip('New message'));
     await shots.capture(tester, 'chats-home');
-    await tester.tap(find.byTooltip('New message'));
+    await tester.tap(find.tooltip('New message'));
     final recipient = find.descendant(
       of: find.byType(Dialog),
       matching: find.text('work'),

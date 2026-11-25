@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/l10n/l10n.dart';
@@ -13,6 +13,7 @@ import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -94,6 +95,52 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Migrate webhooks'), findsOneWidget);
+  });
+
+  testWidgets('the page and its states are in German', (tester) async {
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'workers': [worker()],
+    });
+    await pump(tester, locale: const Locale('de'));
+
+    expect(find.text('Aktive Worker'), findsOneWidget);
+    expect(find.text('1 laufen'), findsOneWidget);
+
+    server.on('GET', '/api/plugins/kanban/workers/active', {'workers': []});
+    await tester.drag(find.byType(ListView).first, const Offset(0, 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Es laufen keine Worker'), findsOneWidget);
+  });
+
+  testWidgets('a failed load and its Retry are in German', (tester) async {
+    server.on(
+      'GET',
+      '/api/plugins/kanban/workers/active',
+      <String, Object?>{},
+      status: 500,
+    );
+    await pump(tester, locale: const Locale('de'));
+
+    expect(
+      find.text('Die Worker konnten nicht geladen werden'),
+      findsOneWidget,
+    );
+    expect(find.text('Erneut versuchen'), findsOneWidget);
+  });
+
+  testWidgets('the Terminate question is in German', (tester) async {
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'workers': [worker()],
+    });
+    await pump(tester, locale: const Locale('de'));
+
+    await tester.tap(find.byType(PopupMenuButton<RowAction>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Terminate'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lauf #7 beenden?'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Beenden'), findsOneWidget);
   });
 
   testWidgets('shows a worker process\'s figures', (tester) async {
@@ -249,11 +296,32 @@ void main() {
     server.on('GET', '/api/plugins/kanban/workers/active', {
       'detail': 'gateway timeout',
     }, status: 504);
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
 
     expect(find.text('Migrate webhooks'), findsOneWidget);
     expect(find.textContaining('Could not refresh'), findsOneWidget);
+  });
+
+  testWidgets('a failed refresh says so in German and keeps the reason', (
+    tester,
+  ) async {
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'workers': [worker()],
+    });
+    await pump(tester, locale: const Locale('de'));
+
+    server.on('GET', '/api/plugins/kanban/workers/active', {
+      'detail': 'gateway timeout',
+    }, status: 504);
+    await tester.tap(find.tooltip('Aktualisieren'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Migrate webhooks'), findsOneWidget);
+    expect(
+      find.text('Aktualisieren fehlgeschlagen: gateway timeout'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('an older load that finishes late does not replace a newer one', (
@@ -282,9 +350,9 @@ void main() {
     await pump(tester);
     expect(find.text('Migrate webhooks'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pump();
-    await tester.tap(find.byTooltip('Refresh'));
+    await tester.tap(find.tooltip('Refresh'));
     await tester.pumpAndSettle();
     slow.complete();
     await tester.pumpAndSettle();

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -21,6 +21,7 @@ import '../support/fake_queue_transport.dart';
 import '../support/fake_share_inbox.dart';
 import '../support/pump_chat.dart';
 import '../support/queue_store_dir.dart';
+import '../support/tooltip_finder.dart';
 
 class _Queues extends QueuePersistence {
   _Queues(PromptQueueStore store)
@@ -181,7 +182,7 @@ void main() {
           tester.widget<EditableText>(composerField).controller.text,
           'retained draft',
         );
-        expect(find.byTooltip('Remove synthetic.txt'), findsOneWidget);
+        expect(find.tooltip('Remove synthetic.txt'), findsOneWidget);
         expect(transport.sends, hasLength(1));
         expect(find.text('Queueing…'), findsOneWidget);
         release.complete();
@@ -192,7 +193,7 @@ void main() {
           fail ? 'retained draft' : '',
         );
         expect(
-          find.byTooltip('Remove synthetic.txt'),
+          find.tooltip('Remove synthetic.txt'),
           fail ? findsOneWidget : findsNothing,
         );
         expect(transport.sends, hasLength(1));

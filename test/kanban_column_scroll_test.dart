@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -14,6 +14,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/tooltip_finder.dart';
 
 /// Running cards animate forever, so pumpAndSettle never returns.
 Future<void> settle(WidgetTester tester) async {
@@ -164,7 +165,7 @@ void main() {
   ) async {
     await openRunningAtBottom(tester);
 
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
     await tester.tap(find.text('Ops (24)'));
     await settle(tester);
@@ -270,14 +271,14 @@ void main() {
       query: {'board': 'ops'},
     );
 
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
     await tester.tap(find.text('Ops (24)'));
     await settle(tester);
     expect(lastBoardQuery()['board'], 'ops');
     expect(find.text('Running job 0'), findsNothing);
 
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
     await tester.tap(find.text('Default (24)'));
     await settle(tester);
@@ -304,11 +305,11 @@ void main() {
       )
       ..on('POST', '/api/plugins/kanban/boards', {'board': {}});
 
-    await tester.tap(find.byTooltip('Switch board'));
+    await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
     await tester.tap(find.text('Manage boards…'));
     await settle(tester);
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await settle(tester);
     await tester.enterText(find.byType(TextField), 'Extra');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));

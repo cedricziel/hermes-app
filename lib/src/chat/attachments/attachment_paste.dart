@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Lets the composer's text field paste images and files, which its own
 /// Paste cannot: [AttachmentSurface] provides it around the chat.

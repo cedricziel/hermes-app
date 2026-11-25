@@ -33,6 +33,14 @@ List<Hit> _delegateHits() => [
     ),
 ];
 
+/// `find.byTooltip`, also when the call is split over lines.
+final _byTooltipPattern = RegExp(r'\bfind\s*\.\s*byTooltip\s*\(');
+
+List<Hit> _byTooltipHits() => [
+  for (final root in const ['test', 'integration_test', 'benchmark'])
+    ...scanPattern(root, _byTooltipPattern, view: (f) => f.code),
+];
+
 /// A geometry case is one in a test file that checks a focus ring's shape
 /// (`expectRingHugs`, `expectInsideClip` or `expectInsideRow`).
 final _geometryFile = RegExp(
@@ -97,6 +105,8 @@ void main() {
   List<Hit>? hits;
   List<Hit> run() => hits ??= _delegateHits();
   List<Hit>? focusHits;
+  List<Hit>? tooltipHits;
+  List<Hit> runTooltip() => tooltipHits ??= _byTooltipHits();
   List<Hit> runFocus() => focusHits ??= _geometryFocusHits();
   ratchetTests([
     Rule(
@@ -107,6 +117,16 @@ void main() {
           'delegates, so a non-English locale finds MaterialLocalizations.',
       scan: () => countByPath(run()),
       locate: (path) => hitLines(run(), path),
+    ),
+    Rule(
+      id: 'test.material-ui-tooltip-finder',
+      message:
+          'use find.tooltip (test/support/tooltip_finder.dart), not '
+          'find.byTooltip: Flutter\'s finder reads a tooltip that excludes '
+          'itself from semantics (NamedIconButton\'s) only when it is '
+          'Flutter\'s own Tooltip class, so it never finds material_ui\'s.',
+      scan: () => countByPath(runTooltip()),
+      locate: (path) => hitLines(runTooltip(), path),
     ),
     Rule(
       id: 'test.geometry-focus-by-tab',

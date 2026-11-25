@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../macos/mac_sidebar.dart';
@@ -99,7 +99,7 @@ class MacChatToolbar extends StatelessWidget {
         ?callButton,
         MacToolbarButton(
           key: const Key('toolbar-new-chat'),
-          label: 'New Chat',
+          label: context.l10n.chatWidgetsMacToolbarNewChat,
           shortcut: '⌘N',
           icon: AppIcons.compose,
           onPressed: onNewChat,
@@ -160,7 +160,7 @@ class MacChatToolbar extends StatelessWidget {
         else
           MacToolbarButton(
             key: const Key('toolbar-search'),
-            label: 'Search',
+            label: context.l10n.chatWidgetsMacToolbarSearch,
             shortcut: '⌘F',
             icon: AppIcons.search,
             onPressed: onSearchBegin,

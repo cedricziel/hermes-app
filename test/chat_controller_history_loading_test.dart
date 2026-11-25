@@ -269,7 +269,7 @@ void main() {
       await flush();
       s2Reads.first.complete(failure());
       await flush();
-      chat.submit('a new question', const []);
+      await chat.submit('a new question', const []);
       await flush();
     }
 
@@ -282,7 +282,7 @@ void main() {
       expect(status('s2'), ChatHistoryStatus.failed);
       expect(earlier(), isNull);
 
-      chat.submit('a new question', const []);
+      await chat.submit('a new question', const []);
       await flush();
 
       expect(thread('s2').messages, isNotEmpty);

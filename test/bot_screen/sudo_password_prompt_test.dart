@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoTextField;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoTextField;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/widgets/sudo_password_prompt.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';

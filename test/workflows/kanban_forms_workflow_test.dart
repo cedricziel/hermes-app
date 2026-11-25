@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
@@ -11,6 +11,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../../widgetbook/kanban_screen_use_cases.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   for (final (label, size, platform, brightness) in [
@@ -44,7 +45,7 @@ void main() {
       await shots.capture(tester, 'export');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Import a board'));
+      await tester.tap(find.tooltip('Import a board'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'import');
       await tester.tap(find.text('Cancel'));
@@ -88,7 +89,7 @@ void main() {
         platform: platform,
         brightness: brightness,
       );
-      await tester.tap(find.byTooltip('Edit'));
+      await tester.tap(find.tooltip('Edit'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'edit-task');
       await tester.tap(find.text('Cancel'));

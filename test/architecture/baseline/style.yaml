@@ -345,7 +345,7 @@ style.string:
   lib/src/chat/widgets/composer_stop_button.dart: 2
   lib/src/chat/widgets/connector_operation_card.dart: 9
   lib/src/chat/widgets/image_viewer.dart: 3
-  lib/src/chat/widgets/mac_chat_toolbar.dart: 4
+  lib/src/chat/widgets/mac_chat_toolbar.dart: 2
   lib/src/chat/widgets/mac_search_results.dart: 3
   lib/src/chat/widgets/mac_thread_row.dart: 3
   lib/src/chat/widgets/memory_tool_body.dart: 3
@@ -374,7 +374,6 @@ style.string:
   lib/src/kanban/kanban_create_screen.dart: 8
   lib/src/kanban/kanban_errors.dart: 1
   lib/src/kanban/kanban_screen.dart: 13
-  lib/src/kanban/kanban_workers_screen.dart: 5
   lib/src/kanban/widgets/kanban_board_menu.dart: 3
   lib/src/kanban/widgets/kanban_board_toolbar.dart: 4
   lib/src/kanban/widgets/kanban_card.dart: 1

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   final rows = <Map<String, Object?>>[
@@ -90,12 +91,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'roster');
-      await tester.tap(find.byTooltip('Edit bot').first);
+      await tester.tap(find.tooltip('Edit bot').first);
       await tester.pumpAndSettle();
       await shots.capture(tester, 'editor');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Create bot'));
+      await tester.tap(find.tooltip('Create bot'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'create');
       await tester.tap(find.text('Advanced'));

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +25,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/fake_voice_player.dart';
 import '../support/real_async.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -121,7 +122,7 @@ void main() {
 
   Future<void> tapAndWait(WidgetTester tester, String label) async {
     await tester.runAsync(() async {
-      await tester.tap(find.byTooltip(label));
+      await tester.tap(find.tooltip(label));
       // `toggle` raises `loading` synchronously and drops it when the
       // download and the player calls are done, so this waits for the end of
       // the action itself, not for a guess at how long it takes.
@@ -132,7 +133,7 @@ void main() {
 
   Future<void> tapSave(WidgetTester tester) async {
     await tester.runAsync(() async {
-      await tester.tap(find.byTooltip('Save voice message'));
+      await tester.tap(find.tooltip('Save voice message'));
       await waitForReal(() => actions.saved.isNotEmpty, what: 'the save');
     });
     await tester.pumpAndSettle();

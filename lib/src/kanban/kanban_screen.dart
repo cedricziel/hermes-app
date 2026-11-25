@@ -5,7 +5,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 

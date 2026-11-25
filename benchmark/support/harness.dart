@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart' show SyncTransformer;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
@@ -26,6 +26,7 @@ import '../../test/support/screenshot_recorder.dart'
     show desktopSize, phoneSize, withScreenshotFont;
 import 'fonts.dart';
 import 'frame_stats.dart';
+import '../../test/support/tooltip_finder.dart';
 
 export '../../test/support/fake_chat_transport.dart';
 export '../../test/support/fake_hermes_server.dart' show sessionRow;
@@ -65,7 +66,7 @@ class BenchChat {
   Future<void> submit(String text) async {
     composer.setText(text);
     await tester.pump();
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.tooltip('Send'));
     await tester.pump();
     // On a real clock the send starts a few frames later.
     for (var i = 0; i < 50 && transport.sends.isEmpty; i++) {

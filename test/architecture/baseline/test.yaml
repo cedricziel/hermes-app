@@ -9,13 +9,6 @@
 # `UPDATE_BASELINE=1 flutter test test/architecture` lowers it for you and
 # never raises it. A rule with no violations has no entry.
 
-# Files that open pull requests change (#1119, #1182); switch each to
-# kTestLocalizationsDelegates once that PR has merged: mac_menu_bar_test
-# (#1119) and pump_chat (#1182).
-test.localization-delegates:
-  test/macos/mac_menu_bar_test.dart: 1
-  test/support/pump_chat.dart: 1
-
 # Focus ring geometry cases that reach focus with the _focus or _focusInk
 # helper or with requestFocus instead of tabTo (test/support/tab_to.dart):
 # 34 = 30 _focus calls + 2 _focusInk calls + 2 direct requestFocus calls.

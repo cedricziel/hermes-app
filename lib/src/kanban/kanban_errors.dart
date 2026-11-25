@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -7,6 +7,7 @@ import '../telemetry/report_bug.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/route_dismissal.dart';
 import 'kanban_repository.dart';
+import 'widgets/kanban_text_dialog.dart';
 
 /// Runs a write, and tells the user why when the plugin refuses it. Returns
 /// whether it went through.
@@ -71,7 +72,7 @@ Future<String?> askKanbanText(
   barrierDismissible: platformChromeOf(context) == PlatformChrome.macos
       ? false
       : null,
-  builder: (_) => _TextDialog(
+  builder: (_) => KanbanTextDialog(
     title: title,
     hint: hint,
     initial: initial,
@@ -79,64 +80,6 @@ Future<String?> askKanbanText(
     multiline: multiline,
   ),
 );
-
-class _TextDialog extends StatefulWidget {
-  const _TextDialog({
-    required this.title,
-    required this.multiline,
-    this.confirm,
-    this.hint,
-    this.initial,
-  });
-
-  final String title;
-  final String? hint;
-  final String? initial;
-  final String? confirm;
-  final bool multiline;
-
-  @override
-  State<_TextDialog> createState() => _TextDialogState();
-}
-
-class _TextDialogState extends State<_TextDialog> {
-  late final _controller = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final dialog = AppAlertDialog(
-      title: Text(widget.title),
-      content: AppDialogTextField(
-        controller: _controller,
-        hint: widget.hint,
-        minLines: widget.multiline ? 3 : 1,
-        maxLines: widget.multiline ? 6 : 1,
-      ),
-      actions: [
-        AppDialogAction(
-          onPressed: () => Navigator.pop(context),
-          child: Text(context.l10n.widgetsCancel),
-        ),
-        AppDialogAction(
-          isDefault: true,
-          onPressed: () => Navigator.pop(context, _controller.text.trim()),
-          child: Text(widget.confirm ?? context.l10n.widgetsOk),
-        ),
-      ],
-    );
-    // The macOS barrier is inert here, which also turns Esc off; the other
-    // platforms keep what they had. The field autofocuses.
-    return platformChromeOf(context) == PlatformChrome.macos
-        ? DismissOnEscape(child: dialog)
-        : dialog;
-  }
-}
 
 Future<bool> confirmKanban(
   BuildContext context, {
