@@ -593,6 +593,19 @@ void main() {
       }
     });
 
+    test('a 502, 503 or 504 without a detail on apply is lostAnswer', () async {
+      for (final status in const [502, 503, 504]) {
+        for (final body in <Object?>['gateway', '', <String, Object?>{}]) {
+          server.on('POST', waApplyPath, body, status: status);
+          expect(
+            await failureOf(repository.applyWhatsAppPairing(id)),
+            WhatsAppPairingFailureKind.lostAnswer,
+            reason: '$status $body',
+          );
+        }
+      }
+    });
+
     test('the detail of a 400, 409 or 500 is kept for the screen', () async {
       for (final (status, body) in <(int, Map<String, Object?>)>[
         (400, waBadMode),
