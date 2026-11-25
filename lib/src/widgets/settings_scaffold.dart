@@ -105,17 +105,32 @@ class SettingsFormAction {
     child: busy ? _progress(12) : Text(label),
   );
 
-  Widget _phone(BuildContext context, {required bool ios}) => TextButton(
-    key: key,
-    onPressed: _onPressed,
-    style: _barTextButtonStyle(
-      context,
-      fontSize: ios ? 17 : 16,
-      fontWeight: FontWeight.w600,
+  /// Never wider than [_maxPhoneWidthFactor] of the window, so the label
+  /// shrinks to fit at the largest text sizes instead of pushing the button
+  /// out of the bar or the title away.
+  Widget _phone(BuildContext context, {required bool ios}) => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxWidth: MediaQuery.sizeOf(context).width * _maxPhoneWidthFactor,
     ),
-    child: busy ? _progress(18) : Text(label),
+    child: TextButton(
+      key: key,
+      onPressed: _onPressed,
+      style: _barTextButtonStyle(
+        context,
+        fontSize: ios ? 17 : 16,
+        fontWeight: FontWeight.w600,
+      ),
+      child: busy
+          ? _progress(18)
+          : FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(label, maxLines: 1, softWrap: false),
+            ),
+    ),
   );
 }
+
+const double _maxPhoneWidthFactor = 0.42;
 
 /// A text button in a phone's bar, such as Cancel or Save.
 ButtonStyle _barTextButtonStyle(
@@ -409,7 +424,11 @@ class SettingsScaffold extends StatelessWidget {
         automaticallyImplyLeading: false,
         leading: cancel ? _cancelButton(context, ios) : leading,
         leadingWidth: cancel
-            ? (ios ? scaledLeadingWidth(context, 88) : null)
+            ? (ios
+                  ? (largeBarText(context)
+                        ? kCollapsedLeadingWidth
+                        : scaledLeadingWidth(context, 88))
+                  : null)
             : back
             ? adaptiveBackLeadingWidth(context)
             : null,
@@ -454,6 +473,14 @@ class SettingsScaffold extends StatelessWidget {
 
   Widget _cancelButton(BuildContext context, bool ios) {
     if (!ios) return const CloseButton();
+    if (largeBarText(context)) {
+      return CollapsedBarIconButton(
+        label: context.l10n.widgetsCancel,
+        icon: AppIcons.close,
+        iconSize: 24,
+        onPressed: () => Navigator.maybePop(context),
+      );
+    }
     return TextButton(
       onPressed: () => Navigator.maybePop(context),
       style: _barTextButtonStyle(
