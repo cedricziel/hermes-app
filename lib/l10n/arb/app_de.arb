@@ -909,16 +909,16 @@
   "memoryLearningFooter": "„Vor dem Speichern fragen“ gilt sofort, der Rest ab dem nächsten Chat.",
   "memoryLearningHeader": "Lernen",
   "memoryLearningIntervalEvery": "{turns, plural, =1{Nach jeder Nachricht} other{Nach jeweils {turns} Nachrichten}}",
-  "memoryLearningReadingSettings": "Speicher-Einstellungen werden gelesen",
+  "memoryLearningReadingSettings": "Gedächtnis-Einstellungen werden gelesen",
   "memoryLearningReportDetailed": "Mit Details",
   "memoryLearningReportShort": "Kurze Notiz",
   "memoryLearningReviewInterval": "Chats überprüfen",
-  "memoryLearningUnreadable": "Speicher-Einstellungen konnten nicht gelesen werden",
-  "memoryLearningUpdatesInChat": "Speicher-Updates im Chat",
+  "memoryLearningUnreadable": "Gedächtnis-Einstellungen konnten nicht gelesen werden",
+  "memoryLearningUpdatesInChat": "Gedächtnis-Updates im Chat",
   "memoryLearningUserProfile": "Dinge über mich merken",
   "memoryLearningUserProfileDetail": "Deine Vorlieben, dein Name und deine Gewohnheiten",
   "memoryLearningWriteApproval": "Vor dem Speichern fragen",
-  "memoryLearningWriteApprovalDetail": "Hermes fragt dich, bevor er den Speicher ändert",
+  "memoryLearningWriteApprovalDetail": "Hermes fragt dich, bevor er das Gedächtnis ändert",
   "memoryLeaveDiscard": "Entwurf verwerfen",
   "memoryLeaveKeepDraft": "Entwurf behalten",
   "memoryLeaveMessagePending": "Die Anfrage kann im ursprünglichen Profil noch abgeschlossen werden. Wenn du gehst, wird dieser Entwurf verworfen.",
@@ -937,7 +937,6 @@
   "memoryTabAgentNotes": "Agent-Notizen",
   "memoryTitle": "Gedächtnis",
   "memoryWaitingTitle": "Wartet auf dich",
-
 
   "@@x-area-messaging": "",
   "messagingSetUp": "Einrichten",
@@ -1874,7 +1873,6 @@
   "skillsTrustCommunity": "Community",
   "skillsTrustOfficial": "Offiziell",
   "skillsTrustTrusted": "Vertrauenswürdig",
-
 
   "@@x-area-spotlight": "",
 

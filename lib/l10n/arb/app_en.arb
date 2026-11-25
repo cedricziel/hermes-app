@@ -4398,7 +4398,6 @@
     "description": "Title of the page that lists the memory and skill changes Hermes holds for approval."
   },
 
-
   "@@x-area-messaging": "",
   "messagingSetUp": "Set up",
   "@messagingSetUp": {
@@ -9099,7 +9098,6 @@
   "@skillsTrustTrusted": {
     "description": "Trust badge of a hub skill from a publisher Hermes trusts; also the word before a hub skill's description. Keep it short."
   },
-
 
   "@@x-area-spotlight": "",
 

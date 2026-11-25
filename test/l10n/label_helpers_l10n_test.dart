@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
 import 'package:hermes_app/src/memory/memory_settings.dart';
+import 'package:hermes_app/src/memory/widgets/memory_proposals_list.dart';
 import 'package:hermes_app/src/memory/widgets/memory_learning_section.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_widgets.dart';
@@ -158,11 +160,34 @@ void main() {
     );
     // Mutation: put 'Short note' back in reportLabel.
     expect(find.text('Kurze Notiz'), findsOneWidget);
-    await tester.tap(find.text('Speicher-Updates im Chat'));
+    await tester.tap(find.text('Gedächtnis-Updates im Chat'));
     await tester.pumpAndSettle();
     // Mutation: put 'With details' back in reportLabel.
     expect(find.text('Mit Details'), findsOneWidget);
     expect(find.text('With details'), findsNothing);
+  });
+
+  testWidgets("the proposals list's Ask before saving switch is German", (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      german(
+        MemoryProposalsList(
+          snapshot: const ProposalsSnapshot(
+            memory: KindRead(ProposalReadStatus.ok, []),
+            skills: KindRead(ProposalReadStatus.ok, []),
+          ),
+          askBeforeSaving: true,
+          onAskBeforeSaving: (_) {},
+          onOpen: (_) {},
+          onRetry: () {},
+          onRejectAll: () {},
+        ),
+      ),
+    );
+    // Mutation: title the switch with the English MemorySetting label again.
+    expect(find.text('Vor dem Speichern fragen'), findsOneWidget);
+    expect(find.text('Ask before saving'), findsNothing);
   });
 
   testWidgets('the Learning section is German in every state', (tester) async {
@@ -187,9 +212,9 @@ void main() {
       'Agent-Notizen führen',
       'Fakten zu deinem Setup, deinen Tools und Konventionen',
       'Vor dem Speichern fragen',
-      'Hermes fragt dich, bevor er den Speicher ändert',
+      'Hermes fragt dich, bevor er das Gedächtnis ändert',
       'Chats überprüfen',
-      'Speicher-Updates im Chat',
+      'Gedächtnis-Updates im Chat',
       '„Vor dem Speichern fragen“ gilt sofort, der Rest ab dem nächsten Chat.',
     ]) {
       expect(find.text(text), findsOneWidget, reason: text);
@@ -223,8 +248,8 @@ void main() {
       expect(
         find.text(
           unreadable
-              ? 'Speicher-Einstellungen konnten nicht gelesen werden'
-              : 'Speicher-Einstellungen werden gelesen',
+              ? 'Gedächtnis-Einstellungen konnten nicht gelesen werden'
+              : 'Gedächtnis-Einstellungen werden gelesen',
         ),
         findsOneWidget,
       );
