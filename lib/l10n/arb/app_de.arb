@@ -990,6 +990,7 @@
   "messagingWhatsappOfflineCode": "Dieser Code ist möglicherweise veraltet.",
   "messagingWhatsappOfflineTitle": "Du bist offline.",
   "messagingWhatsappOpenServer": "Server öffnen",
+  "messagingWhatsappOrEnterYourself": "Oder gib die Angaben selbst ein.",
   "messagingWhatsappPausedDetail": "Es wird jetzt erneut geprüft. Der Code kann sich geändert haben.",
   "messagingWhatsappPausedTitle": "Pausiert, während die App im Hintergrund war.",
   "messagingWhatsappPreparingDetail": "Beim ersten Mal kann das ein paar Minuten dauern. Du kannst diesen Bildschirm verlassen; dabei wird die Einrichtung abgebrochen.",

@@ -154,9 +154,9 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
             : const AppIcon(AppIcons.magic),
         label: Text(context.l10n.messagingWhatsappTitle),
       ),
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('Or enter the details yourself.'),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(context.l10n.messagingWhatsappOrEnterYourself),
       ),
     ];
   }

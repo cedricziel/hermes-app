@@ -4623,6 +4623,10 @@
   "@messagingWhatsappOpenServer": {
       "description": "Banner button that opens the Server screen."
   },
+  "messagingWhatsappOrEnterYourself": "Or enter the details yourself.",
+  "@messagingWhatsappOrEnterYourself": {
+      "description": "Line under the Link WhatsApp button in the WhatsApp setup form, before the fields the user can fill in by hand. Product name WhatsApp is not in it."
+  },
   "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
   "@messagingWhatsappPausedDetail": {
       "description": "Detail of the paused banner."
