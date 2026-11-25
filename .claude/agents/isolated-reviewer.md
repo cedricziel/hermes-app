@@ -59,8 +59,11 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    alters and run every test file that names one, not only the files the diff
    touches (never `test/widgetbook_test.dart` whole, never the full suite). A
    `widgetbook/` match runs as `flutter test test/widgetbook_test.dart -j 1
-   --name '^<Folder> / <Component> '`; an `integration_test/` match runs only
-   through `scripts/verify.sh app`. A failure there is a finding. Name the
+   --name '^<Folder> / <Component> '`; a match in
+   `integration_test/verify_flow_test.dart` runs through `scripts/verify.sh
+   app`; any other `integration_test/` match you list on the `Proof
+   reproduced:` line as not run, with the reason. A failure there is a
+   finding. Name the
    files you ran on the `Proof reproduced:` line.
 9. Catalog first. If the diff adds a public widget class (`class X extends
    StatelessWidget` or `StatefulWidget`) under `lib/src/**/widgets/` and no
