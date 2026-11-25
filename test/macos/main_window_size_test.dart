@@ -260,7 +260,7 @@ void main() {
       if (RegExp(r'^ {10}\S').hasMatch(line) && start == null) function = '';
       final t = line.trim();
       if (t.startsWith('#')) continue;
-      final touchesApp = RegExp(r'\$bin|\$app').hasMatch(line);
+      final touchesApp = RegExp(r'\$\{?(bin|app)\b').hasMatch(line);
       final setup =
           t.startsWith('bin=') ||
           t.startsWith('app=') ||
