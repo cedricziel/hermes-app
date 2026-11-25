@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'report_unreadable_prefs.dart';
+
 const _prefsThemeModeKey = 'hermes.theme_mode';
 
 /// The user's light/dark choice. Follows the system until they pick one, and
@@ -19,7 +21,13 @@ class ThemeController extends ChangeNotifier {
 
   Future<void> load() async {
     final picksBefore = _picks;
-    final saved = await _prefs.getString(_prefsThemeModeKey);
+    String? saved;
+    try {
+      saved = await _prefs.getString(_prefsThemeModeKey);
+    } on Object catch (error, stack) {
+      // An unreadable store keeps the system mode instead of failing startup.
+      reportUnreadablePrefs(error, stack, 'the saved theme mode');
+    }
     if (_picks != picksBefore) return;
     final mode = ThemeMode.values.asNameMap()[saved] ?? ThemeMode.system;
     if (mode == _mode) return;
