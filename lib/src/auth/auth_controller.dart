@@ -836,7 +836,13 @@ class AuthController extends ChangeNotifier {
     final url = _baseUrl!;
     _dio = _buildAuthenticatedDio(url, gated: _status?.authRequired ?? true);
     _apiOwnerEpoch = _ownerEpoch;
-    _api = HermesApiClient(_dio!);
+    _api = HermesApiClient(
+      _dio!,
+      // The token changes with a refresh, and is gone when the session ends:
+      // either ends a wait the ticket gate began under the earlier one.
+      sessionEpoch: () => _session?.accessToken,
+      sessionEnded: () => _session == null,
+    );
   }
 
   void _acceptIdentity(HermesIdentity identity) {

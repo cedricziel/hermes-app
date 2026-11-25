@@ -19,6 +19,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'catch_all_scan.dart';
+import 'gateway_request_timeout_scan.dart';
 import 'ratchet.dart';
 import 'source_scan.dart';
 
@@ -1680,6 +1681,22 @@ List<Hit> _chatCatchAllHits() {
 
 /// Every guard of this file.
 final guardRules = <Rule>[
+  // docs/architecture/gateway.md, "Request deadlines": a deadline belongs to
+  // the request, not to the caller waiting for it.
+  _custom(
+    name: 'gateway-request-timeout',
+    message:
+        '.timeout(...) on a gateway RPC future abandons the caller and leaves '
+        'the request, its pending entry and its span open until the socket '
+        'ends: pass the deadline to the request instead, '
+        'GatewayRpcClient.requestWithin(method, params, timeout: d) (or '
+        'requestGuarded, the timeout: of requestKeepingConnection, or the '
+        'third argument of BackgroundContext.request), which '
+        'settles the request and ends its span '
+        '(lib/src/chat/gateway/gateway_rpc_client.dart).',
+    hits: gatewayRequestTimeoutHits,
+  ),
+
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
   _guard(
     name: 'deep-link-literal',
@@ -2178,10 +2195,171 @@ final guardRules = <Rule>[
         'under flutter test gets phone sizing.',
     hits: _themePlatformCopies,
   ),
+
+  // docs/architecture/gateway.md, "Tickets and a refused credential": every
+  // socket mints its single-use ticket through the gate, so a loop that
+  // retries cannot repeat a refused request for hours.
+  _guard(
+    name: 'ws-ticket-outside-gate',
+    message:
+        'mint a socket ticket through hermesSocketConnect / '
+        'hermesGatewayConnect / hermesMixedSocketConnect '
+        '(lib/src/chat/gateway/gateway_connection.dart), which run '
+        'authWsTicketApiAuthWsTicketPost inside TicketMintGate.run '
+        '(lib/src/chat/gateway/ticket_mint_gate.dart); a direct call has no '
+        'wait after a refusal and no stop on a refused or cancelled ticket.',
+    pattern: RegExp(r'\bauthWsTicketApiAuthWsTicketPost\b'),
+    view: _code,
+    allow: {
+      'lib/src/chat/gateway/gateway_connection.dart':
+          'the one place that mints a ticket, inside TicketMintGate.run',
+    },
+  ),
 ];
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  group('gateway request timeout scan', () {
+    int hits(String source, {String path = 'lib/src/x.dart'}) =>
+        gatewayRequestTimeoutHitsIn(SourceFile(path, source)).length;
+
+    test('flags a timeout wrapped around a request call', () {
+      expect(hits("f() => client.request('session.resume', p).timeout(t);"), 1);
+      expect(hits('f() async => await t.request(method, p).timeout(d);'), 1);
+      expect(
+        hits(
+          "f() => (c.requestWithin('a.b', p, timeout: d)).timeout(t, onTimeout: g);",
+        ),
+        1,
+      );
+      expect(hits('f() => t.requestKeepingConnection(m, p).timeout(d);'), 1);
+      expect(
+        hits("f() => c.request('x.y', {}).then((r) => r).timeout(t);"),
+        1,
+        reason: 'a chain after the call',
+      );
+    });
+
+    test('flags a variable that holds a request, in the same member', () {
+      expect(
+        hits(
+          'f() async {\n'
+          "  final pending = client.request('session.resume', p);\n"
+          '  return await pending.timeout(t);\n'
+          '}',
+        ),
+        1,
+      );
+    });
+
+    test('flags the transport helpers only inside the gateway directory', () {
+      const source = 'f() => _call(client, m, p).timeout(t);';
+      expect(hits(source, path: 'lib/src/chat/gateway/x.dart'), 1);
+      expect(hits(source), 0);
+    });
+
+    test('leaves other futures and other request APIs alone', () {
+      for (final fine in [
+        'f() => connect().timeout(t);',
+        'f() => pending.timeout(t);',
+        'f() => permission.request().timeout(t);',
+        'f() => queue.request(open).timeout(t);',
+        "f() => dio.request('/x').timeout(t);",
+        "f() => client.request('session.resume', p);",
+        'f() async {\n  final x = other();\n  return x.timeout(t);\n}',
+        "// client.request('a.b', p).timeout(t)\nf() => 1;",
+        "f() => 'client.request(a.b).timeout(t)';",
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test('a same-named local of another block is not followed', () {
+      expect(
+        hits(
+          'f() async {\n'
+          "  { final pending = client.request('session.resume', {}); "
+          'await pending; }\n'
+          '  { final pending = other(); await pending.timeout(t); }\n'
+          '}',
+        ),
+        0,
+      );
+      expect(
+        hits(
+          'f() async {\n'
+          '  { final pending = other(); await pending; }\n'
+          "  { final pending = client.request('session.resume', {}); "
+          'await pending.timeout(t); }\n'
+          '}',
+        ),
+        1,
+      );
+    });
+
+    test('a local shadowed in a closed inner block is not the one used '
+        'after it', () {
+      expect(
+        hits(
+          'f() async {\n'
+          '  final pending = other();\n'
+          "  { final pending = client.request('session.resume', {}); "
+          'await pending; }\n'
+          '  await pending.timeout(t);\n'
+          '}',
+        ),
+        0,
+      );
+    });
+
+    test('a local reassigned before the timeout holds what it was given '
+        'last', () {
+      expect(
+        hits(
+          'f() async {\n'
+          "  var pending = client.request('session.resume', {});\n"
+          '  await pending;\n'
+          '  pending = other();\n'
+          '  await pending.timeout(t);\n'
+          '}',
+        ),
+        0,
+      );
+      expect(
+        hits(
+          'f() async {\n'
+          '  var pending = other();\n'
+          "  pending = client.request('session.resume', {});\n"
+          '  await pending.timeout(t);\n'
+          '}',
+        ),
+        1,
+      );
+    });
+
+    test('a local in a constructor body is followed', () {
+      expect(
+        hits(
+          'class A { A() {\n'
+          "  final pending = client.request('session.resume', {});\n"
+          '  pending.timeout(t);\n'
+          '} }',
+        ),
+        1,
+      );
+    });
+
+    test('a variable of another member is not followed', () {
+      expect(
+        hits(
+          "g() { final pending = client.request('a.b', p); }\n"
+          'f() => pending.timeout(t);',
+        ),
+        0,
+      );
+    });
+  });
 
   group('prefs-read-unhandled scan', () {
     int hits(String source) =>

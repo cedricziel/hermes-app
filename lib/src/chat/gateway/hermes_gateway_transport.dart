@@ -32,6 +32,7 @@ import 'gateway_event_mapper.dart';
 import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
 import 'reconnect_diagnosis.dart';
+import 'ticket_mint_gate.dart';
 import 'unmapped_events.dart';
 
 part 'hermes_gateway_transport_helpers.dart';

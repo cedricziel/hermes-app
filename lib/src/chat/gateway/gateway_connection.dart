@@ -8,6 +8,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../api/hermes_api_client.dart';
 import 'gateway_rpc_client.dart';
 import 'hermes_gateway_transport.dart';
+import 'ticket_mint_gate.dart';
 
 /// The WebSocket URL of [path] (the gateway's `/api/ws` unless told
 /// otherwise) on the dashboard at [baseUrl], with the credential [query]
@@ -104,10 +105,15 @@ _dashboardSocketConnect<T>({
   required String path,
   required MessagingConnectionTracer? telemetry,
   required Future<StreamChannel<T>> Function(Uri uri) open,
+  TicketMintGate? ticketGate,
 }) {
+  final gate = ticketGate ?? TicketMintGate.of(api);
+
   Future<Map<String, String>> credential() async {
     if (authRequired) {
-      final response = await api.raw.authWsTicketApiAuthWsTicketPost();
+      // Every caller that retries mints through the same gate, so a refused
+      // ticket is asked for again after a growing wait, not on every attempt.
+      final response = await gate.run(api.raw.authWsTicketApiAuthWsTicketPost);
       final data = response.data;
       final ticket = data is Map ? data['ticket'] : null;
       if (ticket is! String) throw const GatewayCredentialUnavailable();
@@ -139,6 +145,7 @@ SocketConnect hermesSocketConnect({
   String path = '/api/ws',
   MessagingConnectionTracer? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = openWebSocket,
+  TicketMintGate? ticketGate,
 }) => _dashboardSocketConnect(
   baseUrl: baseUrl,
   authRequired: authRequired,
@@ -146,6 +153,7 @@ SocketConnect hermesSocketConnect({
   path: path,
   telemetry: telemetry,
   open: open,
+  ticketGate: ticketGate,
 );
 
 /// Connects to a dashboard WebSocket of text and binary frames, such as
@@ -173,6 +181,7 @@ GatewayConnect hermesGatewayConnect({
   required HermesApiClient api,
   MessagingConnectionTracer? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = openWebSocket,
+  TicketMintGate? ticketGate,
 }) {
   final connect = hermesSocketConnect(
     baseUrl: baseUrl,
@@ -180,6 +189,7 @@ GatewayConnect hermesGatewayConnect({
     api: api,
     telemetry: telemetry,
     open: open,
+    ticketGate: ticketGate,
   );
   return () => connect();
 }

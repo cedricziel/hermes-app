@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/ticket_mint_gate.dart';
 import 'package:hermes_app/src/voice/calls/call_readiness_checker.dart';
 import 'package:hermes_app/src/voice/calls/call_telemetry.dart';
 import 'package:hermes_app/src/voice/calls/voice_call.dart';
@@ -53,6 +54,15 @@ void main() {
       expect(callErrorKind(MissingPluginException('no')), 'missing_plugin');
       expect(callErrorKind(const SocketException('host')), 'socket');
       expect(callErrorKind(StateError('private')), 'state');
+      expect(
+        callErrorKind(
+          const GatewayCredentialBackedOff(
+            refused: true,
+            retryAfter: Duration(seconds: 1),
+          ),
+        ),
+        'credential',
+      );
       expect(callErrorKind(Exception('private')), 'other');
     });
 
