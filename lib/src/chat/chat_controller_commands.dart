@@ -441,7 +441,8 @@ extension _ChatControllerCommands on ChatController {
             ?.deleteThread(error.thread.id, profile: profile)
             .catchError((Object _) {}),
       );
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a chat branch');
       failure = error;
     } finally {
       if (_currentActivity(epoch) &&

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_reply.dart';
@@ -1200,6 +1201,39 @@ void main() {
         ]);
         expect(attemptsAt.length, greaterThan(5));
         expect(seen.error, isA<GatewayConnectionClosed>());
+      });
+    });
+
+    test('A bug that fails a reconnect attempt is reported, and the reply '
+        'ends as it does for any failed attempt', () {
+      fake((async) {
+        final reported = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
+        var opened = 0;
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          connect: () async {
+            if (opened++ == 0) return gateway.connect();
+            throw TypeError();
+          },
+        );
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(reported, isNotEmpty);
+        expect(
+          reported.map((d) => d.exception),
+          everyElement(isA<TypeError>()),
+        );
+        expect(
+          reported.map((d) => d.context.toString()),
+          everyElement('a reconnect attempt connect'),
+        );
       });
     });
 

@@ -1648,12 +1648,6 @@ const _chatCatchAllSwallows = <String, ExactAllow>{
       ),
   'lib/src/chat/thread_list_preferences.dart#ThreadListPreferences._save':
       ExactAllow(1, 'preferences are optional; chats work without storage'),
-  'lib/src/chat/thread_list_preferences.dart#ThreadListPreferences.load':
-      ExactAllow(1, 'preferences are optional; chats work without storage'),
-  'lib/src/chat/thread_search.dart#ThreadSearch._loadRecent': ExactAllow(
-    1,
-    'no stored searches is the same as none',
-  ),
   'lib/src/chat/widgets/relative_time.dart#_format': ExactAllow(
     1,
     'an unloaded locale falls back to en_US',
