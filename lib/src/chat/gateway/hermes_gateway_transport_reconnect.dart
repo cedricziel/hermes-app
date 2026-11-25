@@ -211,7 +211,8 @@ extension _Reconnect on HermesGatewayTransport {
     final GatewayRpcClient client;
     try {
       client = await _client();
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a reconnect attempt connect');
       attempt.error = error;
       return null;
     }
@@ -247,9 +248,10 @@ extension _Reconnect on HermesGatewayTransport {
         );
       }
       return null;
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
       // No answer in time (the socket is dropped by the call) or a closed
       // socket: nothing was heard from the server.
+      reportChatBug(error, stack, 'a reconnect attempt resume');
       tap.close();
       attempt.error = error;
       return null;
@@ -286,7 +288,8 @@ extension _Reconnect on HermesGatewayTransport {
           attempt.error = error;
           return null;
         }
-      } on Object catch (error) {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a reconnect attempt replay');
         tap.close();
         attempt.error = error;
         return null;

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_models.dart';
 import 'hermes_chat_repository.dart';
+import 'report_chat_bug.dart';
 
 /// Rename, pin, archive and delete for the sidebar's server-backed threads,
 /// plus loading further pages of the list.
@@ -25,6 +26,7 @@ class ThreadHousekeeping {
     this.canWork,
     this.prepareDelete,
     this.branch,
+    this.branchSupported,
   });
 
   final HermesChatRepository repository;
@@ -44,6 +46,12 @@ class ThreadHousekeeping {
   /// Copies a thread into a new chat and opens it; null where chats cannot
   /// be branched.
   final Future<void> Function(ChatThread thread)? branch;
+
+  /// Whether the server may branch; false once it has said it cannot.
+  final bool Function()? branchSupported;
+
+  /// Whether the thread menu offers "Branch in New Chat".
+  bool get canBranch => branch != null && (branchSupported?.call() ?? true);
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;
@@ -115,7 +123,8 @@ class ThreadHousekeeping {
             if (known.add(thread.id)) thread,
         ]),
       );
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'loading more chats');
       if (!_workAllowed || generation != _generation) return;
       report(_failure('Could not load more chats', error));
     }
@@ -149,7 +158,8 @@ class ThreadHousekeeping {
         thread
           ..title = stored
           ..named = stored.trim().isNotEmpty;
-      } on Object catch (error) {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a chat rename');
         if (!current()) return;
         thread
           ..title = previous.title
@@ -167,7 +177,8 @@ class ThreadHousekeeping {
         if (!current()) return;
         try {
           await repository.setPinned(thread.id, pinned, profile: profile);
-        } on Object catch (error) {
+        } on Object catch (error, stack) {
+          reportChatBug(error, stack, 'a chat pin');
           if (!current()) return;
           thread.pinned = !pinned;
           _sort();
@@ -210,7 +221,8 @@ class ThreadHousekeeping {
     final cleanup = deleted ? prepareDelete?.call(thread) : null;
     try {
       await call(profile);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a chat removal');
       if (!current()) return;
       _fail(failure, error);
       return;

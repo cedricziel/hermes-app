@@ -162,6 +162,13 @@ extension _ChatScreenNavigation on _ChatScreenState {
         MacCommand.find: MacCommandHandler(
           _chat.search == null ? null : _beginSearch,
         ),
+      // Disabled without a parent, while it is being read and once Hermes said
+      // it is gone.
+      MacCommand.openParentChat: MacCommandHandler(
+        thread != null && _chat.canOpenBranchParent(thread, ignoringLock: true)
+            ? () => unawaited(_chat.openBranchParent(thread))
+            : null,
+      ),
       MacCommand.pinThread: MacCommandHandler(
         on(ThreadAction.pin, when: managed),
         title: thread?.pinned ?? false
@@ -369,7 +376,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
       // Not read yet, or the read failed earlier: ask once more.
       try {
         await resolver.load();
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a soul profile load');
         // Left unresolved: nothing is opened.
       }
       if (!mounted) return;
@@ -419,7 +427,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
       // Not read yet, or the read failed earlier: ask once more.
       try {
         await resolver.load();
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a tools profile load');
         // Left unresolved: nothing is opened.
       }
       if (!mounted) return;

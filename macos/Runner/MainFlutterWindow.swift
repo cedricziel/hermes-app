@@ -39,6 +39,7 @@ class MainFlutterWindow: NSWindow {
     self.center()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    SoloudTerminationGuard.disarm(in: flutterViewController)
     QueueStorageDirectory.install(messenger: flutterViewController.engine.binaryMessenger)
 
     Self.registerClipboard(messenger: flutterViewController.engine.binaryMessenger)
@@ -153,6 +154,59 @@ class MainFlutterWindow: NSWindow {
       guard let url = object as? NSURL, url.isFileURL else { return nil }
       return url.path
     }
+  }
+}
+
+/// Keeps flutter_soloud's quit handler from calling into a library that is not loaded.
+///
+/// flutter_soloud 5.3.0 and 5.3.1 add every plugin instance (one per Flutter engine) as an
+/// NSApplicationWillTerminate observer. Its handler retires the engine's Dart callback
+/// registrations and then calls `soloud_vst3HostUnloadAll()`, symbols of the native-assets
+/// library that loads only when Dart first uses SoLoud. Audio stays unbuilt until a call
+/// starts, so on every other quit the call jumps to null (EXC_BAD_ACCESS at 0x0).
+///
+/// `disarm` removes the plugin's own observer and puts one of the Runner's in its place that
+/// calls the plugin's handler only when the library's symbol resolves in the global
+/// namespace, the lookup that binds the plugin's `-undefined dynamic_lookup` references. So
+/// after audio was used the plugin still runs its cleanup (callbacks retired, VST3 hosts
+/// unloaded), and without audio nothing is called. The observer holds the plugin weakly, so
+/// the plugin's teardown in `dealloc` is not delayed. Nothing loads or builds audio here.
+///
+/// The Runner calls it after its own `RegisterGeneratedPlugins`, so a regenerated
+/// GeneratedPluginRegistrant.swift (flutter pub get, a macOS build) cannot drop it.
+/// Call it after every `RegisterGeneratedPlugins` (one engine each). It fails closed: an
+/// instance it cannot find (missing, NSNull, or without the handler) is logged once and
+/// launch goes on.
+enum SoloudTerminationGuard {
+  static let pluginKey = "FlutterSoloudPlugin"
+  static let librarySymbol = "soloud_vst3HostUnloadAll"
+  static let terminateSelector = NSSelectorFromString("applicationWillTerminate:")
+  private static var logged = false
+
+  static func disarm(in registry: FlutterPluginRegistry) {
+    // `valuePublished(byPlugin:)` answers NSNull for a plugin that published nothing.
+    guard let instance = registry.valuePublished(byPlugin: pluginKey),
+      !(instance is NSNull), instance.responds(to: terminateSelector)
+    else {
+      if !logged {
+        logged = true
+        NSLog("flutter_soloud quit handler not disarmed: plugin instance not found")
+      }
+      return
+    }
+    NotificationCenter.default.removeObserver(
+      instance, name: NSApplication.willTerminateNotification, object: nil)
+    NotificationCenter.default.addObserver(
+      forName: NSApplication.willTerminateNotification, object: nil, queue: nil
+    ) { [weak instance] notification in
+      guard libraryLoaded() else { return }
+      _ = instance?.perform(terminateSelector, with: notification)
+    }
+  }
+
+  /// True once the native-assets library is in the process. RTLD_DEFAULT is (void *)-2.
+  static func libraryLoaded() -> Bool {
+    dlsym(UnsafeMutableRawPointer(bitPattern: -2), librarySymbol) != nil
   }
 }
 

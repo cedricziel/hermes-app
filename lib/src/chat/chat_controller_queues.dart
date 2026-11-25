@@ -125,7 +125,8 @@ extension _ChatControllerQueues on ChatController {
         if (current()) setThreadListAvailability(thread, available: true);
         return fresh;
       }
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a queued chat recovery');
       // An unreadable target cannot vouch for sending into its old session.
     }
     if (_queues[thread]?.any((prompt) => prompt.durable != null) ?? false) {
@@ -284,7 +285,8 @@ extension _ChatControllerQueues on ChatController {
       }
       notifyListeners();
       return true;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the protected queue read');
       if (_currentActivity(activityEpoch) &&
           epoch == _queueEpoch &&
           generation == _loadGeneration) {
@@ -388,7 +390,8 @@ extension _ChatControllerQueues on ChatController {
             ? _drainQueue(thread)
             : _awaitSettle(thread);
       }
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a queued prompt removal');
       _queueErrors[thread] =
           'Could not remove this queued prompt. Its protected record was kept.';
     } finally {
@@ -527,7 +530,8 @@ extension _ChatControllerQueues on ChatController {
       );
       send.restored = true;
       _replaceQueueState(thread, send, QueueRecordState.queued);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a queued prompt restore');
       _replaceQueueState(thread, send, QueueRecordState.submissionStarted);
       _restoredQueues.add(thread);
       _queueErrors[thread] = 'Protected queue state could not be updated. Inspect the conversation before sending again.';
@@ -556,7 +560,8 @@ extension _ChatControllerQueues on ChatController {
           send.id,
           QueueRecordState.accepted,
         );
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'an accepted queue cleanup');
         if (active) {
           report(
             'Hermes accepted this prompt, but local cleanup could not finish. Do not send it again.',
@@ -644,7 +649,8 @@ extension _ChatControllerQueues on ChatController {
         readyOutgoing: outgoing,
         protectedSend: send,
       );
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a queued prompt dispatch');
       _queueErrors[thread] =
           'Could not send this queued prompt. Its protected record was kept.';
       if (active) notifyListeners();
@@ -778,7 +784,8 @@ extension _ChatControllerQueues on ChatController {
         }
       }
       return true;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a prompt enqueue');
       if (active) {
         report('Could not queue this prompt. Your draft was kept.');
       }

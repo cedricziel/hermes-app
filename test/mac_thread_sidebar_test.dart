@@ -253,6 +253,23 @@ void main() {
     );
   });
 
+  testWidgets('the Mac menu offers no Branch in New Chat once the server '
+      'cannot branch, and still offers it while that is unknown', (
+    tester,
+  ) async {
+    final transport = FakeChatTransport()..branchSupported = false;
+    await pump(tester, transport: transport);
+    await rightClick(tester, 's2');
+    expect(find.text('Copy Transcript'), findsOneWidget);
+    expect(find.text('Branch in New Chat'), findsNothing);
+
+    transport.branchSupported = null;
+    await tester.tapAt(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    await rightClick(tester, 's2');
+    expect(find.text('Branch in New Chat'), findsOneWidget);
+  });
+
   testWidgets('a pinned thread offers Unpin', (tester) async {
     await pump(tester);
     await rightClick(tester, 'p1');

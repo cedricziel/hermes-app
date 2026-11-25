@@ -25,6 +25,7 @@ import '../connector_operation_transport.dart';
 import '../connector_operation_state.dart';
 import '../billing_verification_transport.dart';
 import '../agent_work_transport.dart';
+import '../report_chat_bug.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
@@ -303,6 +304,13 @@ class HermesGatewayTransport
   );
   final _billingPending = <OwnedSessionBinding>{};
   final _billingUnavailable = <Object>{};
+
+  /// What the server answered to a branch on this connection: false when it
+  /// knew neither branch method, true once one worked. Forgotten with the
+  /// connection, as a server may be updated between two.
+  bool? _branchSupported;
+  @override
+  bool? get branchSupported => _branchSupported;
   @override
   bool billingVerificationSupported(OwnedSessionBinding binding) =>
       _ownsBinding(binding) &&
@@ -640,7 +648,13 @@ class HermesGatewayTransport
     String threadId, {
     String? profile,
     int dropTurns = 0,
-  }) => _branchThread(threadId, profile: profile, dropTurns: dropTurns);
+    String? idempotencyKey,
+  }) => _branchThread(
+    threadId,
+    profile: profile,
+    dropTurns: dropTurns,
+    idempotencyKey: idempotencyKey,
+  );
 
   @override
   Future<CheckpointList> listCheckpoints(OwnedSessionBinding binding) =>

@@ -883,7 +883,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         canonical: thread.isCanonicalBotChat,
         manageable: housekeeping != null,
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
-        canBranch: housekeeping?.branch != null && thread.remote,
+        canBranch: (housekeeping?.canBranch ?? false) && thread.remote,
         changeFolder: changeFolder,
         exportJson: exportJson,
       ),

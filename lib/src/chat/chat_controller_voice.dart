@@ -80,7 +80,8 @@ final class _VoiceTurn {
   void answer(VoiceTurnAnswer answer) {
     try {
       onAnswer?.call(answer);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a voice answer');
       // The call's own bookkeeping must not break the chat.
     }
   }

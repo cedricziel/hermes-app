@@ -150,7 +150,16 @@ class TappedTransport implements ChatTransport {
     String threadId, {
     String? profile,
     int dropTurns = 0,
-  }) => _inner.branchThread(threadId, profile: profile, dropTurns: dropTurns);
+    String? idempotencyKey,
+  }) => _inner.branchThread(
+    threadId,
+    profile: profile,
+    dropTurns: dropTurns,
+    idempotencyKey: idempotencyKey,
+  );
+
+  @override
+  bool? get branchSupported => _inner.branchSupported;
 
   @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) =>

@@ -5,6 +5,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../telemetry/report_bug.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -217,7 +218,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             canonical: _thread.isCanonicalBotChat,
             manageable: housekeeping != null,
             canOpenInNewWindow: widget.onOpenInNewWindow != null,
-            canBranch: housekeeping?.branch != null && _thread.remote,
+            canBranch: (housekeeping?.canBranch ?? false) && _thread.remote,
             changeFolder: widget.changeFolder,
             exportJson: widget.exportJson,
           )
@@ -353,7 +354,9 @@ Future<void> _copyTranscript(
   final String text;
   try {
     text = threadTranscript(await threadHistory(thread, housekeeping));
-  } on Object {
+  } on Object catch (e, stack) {
+    // The chat's epoch refusals (suspended, cancelled) are StateErrors.
+    if (e is! StateError) reportBug(e, stack, 'a transcript copy');
     messenger?.showSnackBar(
       SnackBar(content: Text(l10n.chatWidgetsThreadMenuCopyFailed)),
     );

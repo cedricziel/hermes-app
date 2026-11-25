@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/thread_list_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,5 +38,26 @@ void main() {
     expect(ios.isCollapsed('folder:/code/app'), isTrue);
     expect(mac.grouping, ThreadGrouping.recent);
     expect(mac.isCollapsed('folder:/code/app'), isFalse);
+  });
+
+  test('a stored value of the wrong type falls back to the defaults and is '
+      'reported once', () async {
+    final prefs = SharedPreferencesAsync();
+    await prefs.setStringList('chat.thread-list.iOS.grouping', ['folder']);
+    final reported = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = reported.add;
+    addTearDown(() => FlutterError.onError = previous);
+    final controller = ThreadListPreferences(platform: 'iOS', prefs: prefs);
+    addTearDown(controller.dispose);
+
+    await controller.load();
+
+    expect(controller.grouping, ThreadGrouping.recent);
+    expect(reported, hasLength(1));
+    expect(
+      reported.single.context.toString(),
+      'reading the saved thread list view',
+    );
   });
 }

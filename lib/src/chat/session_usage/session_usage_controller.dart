@@ -4,6 +4,7 @@ import 'package:flutter_otel/flutter_otel.dart' show Span;
 import '../../telemetry/breadcrumbs.dart';
 import '../../telemetry/telemetry.dart';
 import '../gateway/gateway_rpc_client.dart';
+import '../report_chat_bug.dart';
 import 'usage_snapshot.dart';
 
 typedef UsageRequest = Future<Map<String, Object?>> Function(
@@ -151,7 +152,8 @@ class SessionUsageController extends ChangeNotifier {
       failure = null;
       freshness = UsageFreshness.current;
       outcome = 'success';
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the session usage');
       if (!_current(generation, scope)) return;
       final category = error is UsageFailure
           ? error

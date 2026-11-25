@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 
+import '../report_chat_bug.dart';
 import 'change_signal.dart';
 
 class ChangeInvalidationScope {
@@ -214,7 +215,8 @@ class ChangeInvalidationController extends ChangeNotifier {
       if (!_eligible(entry, scope, epoch)) return;
       try {
         reader.failure?.call(error);
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a change failure callback');
         return;
       }
     } finally {

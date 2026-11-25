@@ -40,6 +40,7 @@ import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import 'report_chat_bug.dart';
 import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
@@ -128,6 +129,7 @@ import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
 import '../telemetry/report_bug.dart';
+import 'bound_branch_notice.dart';
 import 'chat_controller.dart';
 import 'queue_storage/queue_persistence.dart';
 import 'chat_models.dart';

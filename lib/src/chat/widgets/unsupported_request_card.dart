@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../telemetry/report_bug.dart';
 import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'approval_card.dart' show kAnswerFailedMessage;
@@ -33,7 +34,8 @@ class _UnsupportedRequestCardState extends State<UnsupportedRequestCard> {
     });
     try {
       await widget.onSkip!();
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'an unsupported request skip');
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);

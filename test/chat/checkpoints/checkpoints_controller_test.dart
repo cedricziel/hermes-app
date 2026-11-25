@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show FlutterError, FlutterErrorDetails;
+
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/checkpoints/action_telemetry.dart';
@@ -532,6 +534,36 @@ void main() {
         expect(s.transport.count('restore'), 2);
       },
     );
+
+    test(
+      'a bug in the restore is reported and still ends as may have happened',
+      () async {
+        final previous = FlutterError.onError;
+        final reported = <FlutterErrorDetails>[];
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
+        final s = _Setup();
+        await s.openWithChanges();
+        s.transport.restoreFails = () => throw TypeError();
+        await s.controller.confirmRestore(s.controller.beginRestore(_h1)!);
+        expect(s.controller.outcome!.kind, RestoreOutcomeKind.mayHaveHappened);
+        expect(reported.single.exception, isA<TypeError>());
+        expect(reported.single.context.toString(), 'a checkpoint restore');
+      },
+    );
+
+    test('a refusal of the chat in the restore is not reported', () async {
+      final previous = FlutterError.onError;
+      final reported = <FlutterErrorDetails>[];
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = previous);
+      final s = _Setup();
+      await s.openWithChanges();
+      s.transport.restoreFails = () => throw StateError('suspended');
+      await s.controller.confirmRestore(s.controller.beginRestore(_h1)!);
+      expect(s.controller.outcome!.kind, RestoreOutcomeKind.mayHaveHappened);
+      expect(reported, isEmpty);
+    });
 
     test(
       'history rewind failed: files restored, chat re-read, composer untouched',
