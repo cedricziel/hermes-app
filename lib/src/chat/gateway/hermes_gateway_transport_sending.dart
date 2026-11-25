@@ -173,8 +173,12 @@ extension _Sending on HermesGatewayTransport {
     late Map<String, Object?> session;
     var retriedWithoutExplicit = false;
     Object? usageResumeToken;
+    var gateWait = Duration.zero;
     for (var attempt = 0; ; attempt++) {
-      if (attempt > 0) await _sleep(reconnectDelay(attempt, _random));
+      if (attempt > 0) {
+        final backoff = reconnectDelay(attempt, _random);
+        await _sleep(backoff > gateWait ? backoff : gateWait);
+      }
       if (stopped.value) return;
       // Each attempt decides on its own whether the flag was dropped.
       retriedWithoutExplicit = false;
@@ -226,12 +230,15 @@ extension _Sending on HermesGatewayTransport {
         final answered =
             error is GatewayRpcException ||
             error is ProfileUnavailableException;
+        // The ticket gate's wait after a server error is sat out when it is
+        // short; opening again inside it would only fail locally.
+        gateWait = error is GatewayCredentialBackedOff
+            ? error.retryAfter
+            : Duration.zero;
         if (answered ||
             _closed ||
-            // A send waits for no one: its three opens would burn inside the
-            // gate's wait, so it fails now and the user sends again.
             isCredentialStop(error) ||
-            error is GatewayCredentialBackedOff ||
+            gateWait > _sendGateWait ||
             attempt + 1 >= _sendOpenAttempts) {
           rethrow;
         }

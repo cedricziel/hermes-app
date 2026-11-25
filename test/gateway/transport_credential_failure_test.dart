@@ -49,6 +49,7 @@ void main() {
   late FakeGateway gateway;
   late HermesGatewayTransport transport;
   late FakeHermesServer server;
+  late TicketMintGate gate;
   late List<Duration> mintTimes;
 
   int count(String method) => gateway.methods.where((m) => m == method).length;
@@ -88,7 +89,7 @@ void main() {
         baseUrl: 'http://hermes.test',
         authRequired: true,
         api: api,
-        ticketGate: TicketMintGate(random: _HalfRandom()),
+        ticketGate: gate = TicketMintGate(random: _HalfRandom()),
         open: (_) => gateway.connect(),
       ),
     );
@@ -184,23 +185,59 @@ void main() {
     },
   );
 
-  group('a send during the wait after the server answered with errors', () {
-    test('fails at once instead of opening three sockets inside the wait', () {
-      fake(answer: () => (status: 503, body: {'detail': 'restarting'}), (
-        async,
-      ) {
-        _listen(transport.send(text: 'hi'));
-        async.elapse(const Duration(seconds: 1));
-        final before = mints();
+  group('a send meeting the wait after the server answered with errors', () {
+    test('sits out a short wait and opens again, so one 503 does not end '
+        'it', () {
+      var asked = 0;
+      fake(
+        firstMintOk: false,
+        answer: () => asked++ == 0
+            ? (status: 503, body: {'detail': 'restarting'})
+            : (status: 200, body: {'ticket': 'tkt'}),
+        (async) {
+          final seen = _listen(transport.send(text: 'hi'));
+          async.elapse(const Duration(seconds: 10));
 
-        final second = _listen(transport.send(text: 'again'));
-        // Before a retry would have waited out its first backoff (300 ms).
-        async.elapse(const Duration(milliseconds: 100));
+          expect(seen.error, isNull);
+          expect(count('prompt.submit'), 1);
+          expect(mints(), greaterThanOrEqualTo(2));
+        },
+      );
+    });
 
-        expect(second.error, isA<GatewayCredentialBackedOff>());
-        expect(mints(), before);
-        expect(count('prompt.submit'), 1);
-      });
+    test('fails at once when the wait is long, and the user sends again', () {
+      fake(
+        firstMintOk: false,
+        answer: () => (status: 200, body: {'ticket': 'tkt'}),
+        (async) {
+          // Four server errors in a row: the wait is now 12 s.
+          for (var i = 0; i < 4; i++) {
+            unawaited(
+              gate
+                  .run<void>(() async {
+                    throw DioException.badResponse(
+                      statusCode: 503,
+                      requestOptions: RequestOptions(path: '/x'),
+                      response: Response<Object?>(
+                        requestOptions: RequestOptions(path: '/x'),
+                        statusCode: 503,
+                      ),
+                    );
+                  })
+                  .then<void>((_) {}, onError: (Object _) {}),
+            );
+            async.flushMicrotasks();
+            if (i < 3) async.elapse(const Duration(seconds: 20));
+          }
+
+          final seen = _listen(transport.send(text: 'hi'));
+          // Before any retry would have waited out its first backoff.
+          async.elapse(const Duration(milliseconds: 100));
+
+          expect(seen.error, isA<GatewayCredentialBackedOff>());
+          expect(count('prompt.submit'), 0);
+        },
+      );
     });
   });
 

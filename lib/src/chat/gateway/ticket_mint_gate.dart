@@ -7,11 +7,16 @@ import '../../api/hermes_api_client.dart';
 
 /// The gate gave up on a ticket mint without asking the server: its last
 /// answer to one was a refusal or an error, and the wait after it has not
-/// run out. Nothing was sent. [refused] says the answer was a 401 or 403.
+/// run out. Nothing was sent. [refused] says the answer was a 401 or 403;
+/// [retryAfter] is what is left of the wait.
 class GatewayCredentialBackedOff implements Exception {
-  const GatewayCredentialBackedOff({required this.refused});
+  const GatewayCredentialBackedOff({
+    required this.refused,
+    required this.retryAfter,
+  });
 
   final bool refused;
+  final Duration retryAfter;
 
   @override
   String toString() => 'Minting a ticket is paused after the server refused';
@@ -48,11 +53,11 @@ bool isCredentialStop(Object? error) =>
 /// A request that never reached the server (cancelled by the HTTP client, no
 /// network) is not counted: the reconnect loops pace those themselves.
 class TicketMintGate {
-  TicketMintGate({Random? random, int Function()? sessionEpoch})
+  TicketMintGate({Random? random, Object? Function()? sessionEpoch})
     : _random = random ?? Random(),
       _sessionEpoch = sessionEpoch ?? _noEpoch;
 
-  static int _noEpoch() => 0;
+  static Object? _noEpoch() => 0;
 
   static final _gates = Expando<TicketMintGate>('TicketMintGate');
 
@@ -69,8 +74,8 @@ class TicketMintGate {
   static const _errorCap = Duration(minutes: 1);
 
   final Random _random;
-  final int Function() _sessionEpoch;
-  var _epoch = 0;
+  final Object? Function() _sessionEpoch;
+  Object? _epoch = 0;
   var _failures = 0;
   var _refused = false;
   DateTime? _until;
@@ -88,7 +93,10 @@ class TicketMintGate {
       _failures = 0;
       _until = null;
     }
-    if (_cooling) throw GatewayCredentialBackedOff(refused: _refused);
+    final left = _until?.difference(clock.now());
+    if (left != null && left > Duration.zero) {
+      throw GatewayCredentialBackedOff(refused: _refused, retryAfter: left);
+    }
     try {
       final minted = await mint();
       _failures = 0;

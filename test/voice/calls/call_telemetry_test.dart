@@ -55,7 +55,12 @@ void main() {
       expect(callErrorKind(const SocketException('host')), 'socket');
       expect(callErrorKind(StateError('private')), 'state');
       expect(
-        callErrorKind(const GatewayCredentialBackedOff(refused: true)),
+        callErrorKind(
+          const GatewayCredentialBackedOff(
+            refused: true,
+            retryAfter: Duration(seconds: 1),
+          ),
+        ),
         'credential',
       );
       expect(callErrorKind(Exception('private')), 'other');

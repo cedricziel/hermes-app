@@ -266,6 +266,58 @@ void main() {
       });
     });
 
+    test('a refusal that lands after a newer mint began under the new epoch '
+        'sets no wait', () {
+      fake((async) {
+        final late = Completer<void>();
+        // Began under epoch 0, still waiting for its answer.
+        unawaited(
+          gate
+              .run(() async {
+                mints++;
+                await late.future;
+                throw failure!;
+              })
+              .then<void>((_) {}, onError: (Object _) {}),
+        );
+        async.flushMicrotasks();
+
+        epoch++;
+        failure = null;
+        unawaited(mint());
+        async.flushMicrotasks();
+
+        failure = _answered(401);
+        late.complete();
+        async.flushMicrotasks();
+        failure = null;
+        unawaited(mint());
+        async.flushMicrotasks();
+
+        expect(mints, 3);
+      });
+    });
+
+    test('a renewed access token ends a wait too, so a refusal after a lost '
+        'refresh does not outlast the session that works again', () {
+      fake((async) {
+        failure = _answered(401);
+        unawaited(mint());
+        async.flushMicrotasks();
+        unawaited(mint());
+        async.flushMicrotasks();
+        expect(mints, 1);
+
+        // The epoch of the real client carries the token: a new one differs.
+        epoch++;
+        failure = null;
+        unawaited(mint());
+        async.flushMicrotasks();
+
+        expect(mints, 2);
+      });
+    });
+
     test('a wait that began under an earlier session is over once the epoch '
         'changed', () {
       fake((async) {
@@ -342,11 +394,21 @@ void main() {
       expect(isCredentialRefusal(_answered(401)), isTrue);
       expect(isCredentialRefusal(_answered(403)), isTrue);
       expect(
-        isCredentialRefusal(const GatewayCredentialBackedOff(refused: true)),
+        isCredentialRefusal(
+          const GatewayCredentialBackedOff(
+            refused: true,
+            retryAfter: Duration(seconds: 1),
+          ),
+        ),
         isTrue,
       );
       expect(
-        isCredentialRefusal(const GatewayCredentialBackedOff(refused: false)),
+        isCredentialRefusal(
+          const GatewayCredentialBackedOff(
+            refused: false,
+            retryAfter: Duration(seconds: 1),
+          ),
+        ),
         isFalse,
       );
       expect(isCredentialRefusal(_answered(503)), isFalse);
