@@ -1,12 +1,15 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 /// Thread rows follow the platform: swipe actions, a long-press sheet and 44pt
 /// rows on iOS; the "more" button stays on macOS and Material.
@@ -47,7 +50,7 @@ void main() {
     ) async {
       await pump(tester);
 
-      expect(find.byTooltip('Chat actions'), findsNothing);
+      expect(find.tooltip('Chat actions'), findsNothing);
       expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
     });
 
@@ -55,6 +58,8 @@ void main() {
       tester,
     ) async {
       await pump(tester);
+      tester.view.physicalSize = const Size(393, 852);
+      await tester.pumpAndSettle();
 
       await tester.longPress(title);
       await tester.pumpAndSettle();
@@ -155,7 +160,7 @@ void main() {
     });
   });
 
-  testWidgets('on Android the more button stays and rows stay compact', (
+  testWidgets('on Android the more button stays and rows are 48dp tall', (
     tester,
   ) async {
     await pumpChatScreen(
@@ -164,8 +169,9 @@ void main() {
       platform: TargetPlatform.android,
     );
 
-    expect(find.byTooltip('Chat actions'), findsOneWidget);
-    expect(tester.getSize(row).height, lessThan(44));
+    expect(find.tooltip('Chat actions'), findsOneWidget);
+    expect(tester.getSize(row).height, greaterThanOrEqualTo(48));
+    expect(tester.getSize(find.tooltip('Chat actions')).width, 48);
   });
 
   testWidgets('on macOS rows are 28pt with a More button', (tester) async {
@@ -175,17 +181,22 @@ void main() {
       platform: TargetPlatform.macOS,
     );
 
-    expect(find.byTooltip('More'), findsOneWidget);
+    expect(find.tooltip('More'), findsOneWidget);
     expect(tester.getSize(row).height, 28);
   });
 
   testWidgets('a sheet left open after its row is gone runs nothing', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final actions = <Object>[];
     final present = ValueNotifier(true);
     await tester.pumpWidget(
       MaterialApp(
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         theme: ThemeData(platform: TargetPlatform.iOS),
         home: Scaffold(
           body: ValueListenableBuilder(

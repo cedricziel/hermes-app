@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoDialogAction;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/messaging/widgets/whatsapp_finish_question.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';

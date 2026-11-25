@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/screens/login_screen.dart';
 import 'package:hermes_app/src/screens/server_setup_screen.dart';
 import 'package:hermes_app/src/server_care/hermes_update_run.dart';
@@ -311,7 +312,7 @@ void main() {
     final repository = HermesRepositories.forAuth(
       auth,
       null,
-    )!.tools.forProfile('work');
+    )!.tools.forProfile(resolvedProfile('work'));
     final navigator = rootNavigator(tester);
     unawaited(
       navigator.push(

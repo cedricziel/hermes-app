@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/process_output_state.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -86,7 +87,7 @@ void main() {
   test('process output during a main turn stays grouped without changing its prose or settlement', () async {
     await open();
     final thread = chat.selectedThread!;
-    chat.submit('Foreground', const []);
+    await chat.submit('Foreground', const []);
     await pumpEventQueue();
     output('one', 'first');
     output('two', 'other');
@@ -130,7 +131,7 @@ void main() {
       gateway.methods.where((method) => method == 'prompt.submit'),
       hasLength(submits),
     );
-    chat.submit('Same owned runtime', const []);
+    await chat.submit('Same owned runtime', const []);
     await pumpEventQueue();
     expect(chat.processOutputsIn(thread), same(state));
     expect(state.cards.single.text, 'late output');
@@ -407,6 +408,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: Row(
               children: [

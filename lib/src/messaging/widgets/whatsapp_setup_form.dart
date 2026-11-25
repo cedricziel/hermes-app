@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
@@ -150,7 +150,7 @@ class WhatsAppSetupForm extends StatelessWidget {
                   metrics.rowPadding,
                   0,
                   metrics.rowPadding,
-                  10,
+                  8,
                 ),
                 child: GroupedStatusLine(
                   icon: AppIcons.error,

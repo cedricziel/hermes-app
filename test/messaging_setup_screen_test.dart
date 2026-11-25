@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/messaging/messaging_screen.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
 
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// Setting a platform up from its row on the messaging screen, against a fake
 /// dashboard through the real generated client.
@@ -243,7 +244,7 @@ void main() {
     await openSetup(tester);
     await tester.enterText(field(token), 'secret-token');
 
-    await tester.tap(find.byTooltip('Clear $users'));
+    await tester.tap(find.tooltip('Clear $users'));
     await tester.pumpAndSettle();
     await save(tester);
 
@@ -256,10 +257,10 @@ void main() {
   testWidgets('a cleared value can be kept after all', (tester) async {
     await openSetup(tester);
     await tester.enterText(field(token), 'secret-token');
-    await tester.tap(find.byTooltip('Clear $users'));
+    await tester.tap(find.tooltip('Clear $users'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Keep $users'));
+    await tester.tap(find.tooltip('Keep $users'));
     await tester.pumpAndSettle();
     await save(tester);
 

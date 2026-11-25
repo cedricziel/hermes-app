@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../../l10n/l10n.dart';
 
 import '../widgets/grouped_dialog.dart';
 
@@ -325,7 +327,8 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                         builder: (context) => AlertDialog(
                           title: const Text('Confirm model change'),
                           content: Text(
-                            result.confirmMessage ?? 'This model may cost more. Use it as the default?',
+                            result.confirmMessage ??
+                                context.l10n.botModeRosterConfirmModelCost,
                           ),
                           actions: [
                             TextButton(
@@ -434,7 +437,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
       subtitle: mac && ready
           ? (roster.bots.length == 1 ? '1 bot' : '${roster.bots.length} bots')
           : null,
-      previousTitle: null,
+      previousTitle: context.l10n.widgetsBack,
       search: ready && roster.bots.isNotEmpty
           ? SettingsSearch(
               query: _query,

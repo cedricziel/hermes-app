@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -37,7 +38,10 @@ void main() {
       ],
     };
 
-    final result = await repository.complete('/srv/', profile: 'work');
+    final result = await repository.complete(
+      '/srv/',
+      profile: resolvedProfile('work'),
+    );
 
     final got = (result as WorkspacesOk<PathSuggestions>).value;
     expect(got.folders.single.text, '/srv/src/');
@@ -51,7 +55,11 @@ void main() {
       'branch': 'main',
       'git_repo_root': '/srv/demo',
     };
-    final moved = await repository.moveWorkspace('s1', '/srv/demo');
+    final moved = await repository.moveWorkspace(
+      profile: resolvedProfile('default'),
+      's1',
+      '/srv/demo',
+    );
     expect((moved as WorkspacesOk<MovedWorkspace>).value.branch, 'main');
 
     for (final (code, kind) in <(int, WorkspacesFailure)>[
@@ -64,7 +72,11 @@ void main() {
     ]) {
       gateway.handlers['session.workspace.move'] = (_) =>
           throw FakeRpcError(code, 'working directory does not exist: /raw');
-      final result = await repository.moveWorkspace('s1', '/srv/demo');
+      final result = await repository.moveWorkspace(
+        profile: resolvedProfile('default'),
+        's1',
+        '/srv/demo',
+      );
       expect(
         result,
         isA<WorkspacesFailed<MovedWorkspace>>().having(
@@ -81,7 +93,11 @@ void main() {
         throw const FakeRpcError(-32601, 'unknown method');
 
     expect(
-      await repository.moveWorkspace('s1', '/srv/demo'),
+      await repository.moveWorkspace(
+        profile: resolvedProfile('default'),
+        's1',
+        '/srv/demo',
+      ),
       isA<WorkspacesUnsupported<MovedWorkspace>>(),
     );
   });
@@ -90,7 +106,11 @@ void main() {
       'connection open', () async {
     gateway.silent.add('session.workspace.move');
 
-    final result = await repository.moveWorkspace('s1', '/srv/demo');
+    final result = await repository.moveWorkspace(
+      profile: resolvedProfile('default'),
+      's1',
+      '/srv/demo',
+    );
 
     expect(
       result,
@@ -103,7 +123,7 @@ void main() {
     expect(sent('session.workspace.move'), hasLength(1));
     gateway.handlers['complete.path'] = (_) => {'items': []};
     expect(
-      await repository.complete('/'),
+      await repository.complete(profile: resolvedProfile('default'), '/'),
       isA<WorkspacesOk<PathSuggestions>>(),
     );
   });

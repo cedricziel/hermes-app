@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:widgetbook/widgetbook.dart';
+
+import 'platform_theme.dart';
 
 /// Places a widget the way a chat thread or a board column would: a bounded
 /// column at the top left, in a list, so its height is not stretched.
@@ -36,7 +38,7 @@ List<WidgetbookUseCase> onEachPlatform(
     WidgetbookUseCase(
       name: '$state ($name)',
       builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
+        data: platformTheme(context, platform),
         child: Builder(builder: builder),
       ),
     ),

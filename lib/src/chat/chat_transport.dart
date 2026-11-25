@@ -412,10 +412,16 @@ final class UnsolicitedEvent extends ChatEvent {
 
 /// The reply text as the server now holds it. It replaces what streamed since
 /// the last seal, because the streamed deltas were lost or are out of date.
+///
+/// [continued]: the server was restarted and re-runs the turn this reply
+/// showed, so what the reply had is the interrupted attempt's: its calls that
+/// never reported an end ended with the process, and the text that streams now
+/// is the re-run's.
 final class ReplyRebuilt extends ChatEvent {
-  const ReplyRebuilt(this.text);
+  const ReplyRebuilt(this.text, {this.continued = false});
 
   final String text;
+  final bool continued;
 }
 
 /// The thread's history changed in a way the stream cannot carry, so the
@@ -878,6 +884,13 @@ abstract interface class ChatTransport {
   /// cannot ask returns an empty map. With [profile], the sessions of that
   /// profile.
   Future<Map<String, String>> activeStatuses({String? profile});
+
+  /// Like [activeStatuses], but null unless the server really answered: an
+  /// offline socket, an older server without the method, an error answer and
+  /// an unreadable one are null, never an empty map. Only a real answer says a
+  /// session is not running, so only a real answer may release what waits for
+  /// that (Retry and Edit of a reply whose turn may still run).
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile});
 
   /// Makes sure the connection still works, for when the app comes back from
   /// sleep: iOS and Android drop sockets then, often without saying so. A

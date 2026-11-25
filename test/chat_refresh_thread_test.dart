@@ -116,7 +116,7 @@ void main() {
   });
 
   test('leaves a chat alone while a reply streams into it', () async {
-    chat.submit('More', const []);
+    await chat.submit('More', const []);
     final before = server.requests.length;
 
     await chat.refreshThread('s1');

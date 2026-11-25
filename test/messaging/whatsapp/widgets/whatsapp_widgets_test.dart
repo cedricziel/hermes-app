@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/messaging/whatsapp/whatsapp_pairing.dart';
 import 'package:hermes_app/src/messaging/widgets/handset_qr_notice.dart';
@@ -12,6 +12,7 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/app_banner.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 
+import '../../../support/tooltip_finder.dart';
 import 'whatsapp_widget_host.dart';
 
 /// Control and bidi characters, made at run time so no tool rewrites them in
@@ -537,7 +538,7 @@ void main() {
       expect(find.text('Open Server'), findsNothing);
       final banner = tester.widget<AppBanner>(find.byType(AppBanner));
       expect(banner.detail, endsWith(' refused<U+202E>'));
-      expect(find.byTooltip('Close'), findsOneWidget);
+      expect(find.tooltip('Close'), findsOneWidget);
     });
   });
 }

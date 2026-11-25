@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/messaging/whatsapp/whatsapp_pairing.dart';
@@ -16,6 +16,8 @@ import 'package:hermes_app/src/messaging/widgets/whatsapp_setup_form.dart';
 import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
+
+import 'platform_theme.dart';
 
 import 'frame.dart';
 import 'host.dart';
@@ -73,10 +75,8 @@ Widget _german(Widget child) => Builder(
 
 /// The Material look whatever the viewport's platform.
 Widget _material(Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.android),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, TargetPlatform.android), child: child),
 );
 
 bool _isHandset(BuildContext context) =>

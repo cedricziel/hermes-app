@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../../theme/app_icons.dart';
 import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
@@ -59,7 +60,7 @@ class ToolBodyFrame extends StatelessWidget {
         children: [
           if (label != null) ...[
             Text(
-              label,
+              wellFormedText(label),
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -129,7 +130,7 @@ class TerminalToolBody extends StatelessWidget {
                   style: TextStyle(color: subtle),
                 ),
                 TextSpan(
-                  text: command,
+                  text: wellFormedText(command),
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
               ],
@@ -139,14 +140,14 @@ class TerminalToolBody extends StatelessWidget {
           if (output.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
             SelectableText(
-              output.trimRight(),
+              wellFormedText(output.trimRight()),
               style: _mono.copyWith(color: scheme.onSurface),
             ),
           ],
           if (error.isNotEmpty) ...[
             const SizedBox(height: 6),
             SelectableText(
-              error,
+              wellFormedText(error),
               style: TextStyle(fontSize: 12, color: scheme.error),
             ),
           ],
@@ -212,7 +213,7 @@ class WebSearchToolBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hit.title,
+                    wellFormedText(hit.title),
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -220,13 +221,13 @@ class WebSearchToolBody extends StatelessWidget {
                     ),
                   ),
                   SelectableText(
-                    hit.url,
+                    wellFormedText(hit.url),
                     maxLines: 1,
                     style: TextStyle(fontSize: 11.5, color: scheme.primary),
                   ),
                   if (hit.description.isNotEmpty)
                     Text(
-                      hit.description,
+                      wellFormedText(hit.description),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, color: subtle),
@@ -310,7 +311,7 @@ class TodoToolBody extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      item.content,
+                      wellFormedText(item.content),
                       style: TextStyle(
                         fontSize: 12.5,
                         color: item.status == 'cancelled'
@@ -349,7 +350,7 @@ class ToolDiffBody extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final success = context.hermesColors.success;
-    final lines = diff
+    final lines = wellFormedText(diff)
         .replaceAll(_ansi, '')
         .trimRight()
         .split('\n')

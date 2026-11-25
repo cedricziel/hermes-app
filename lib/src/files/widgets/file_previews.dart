@@ -1,15 +1,17 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../theme/hermes_code_colors.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_tab_bar.dart';
+import '../../widgets/app_markdown_theme.dart';
 import '../../widgets/markdown_links.dart';
 import '../../widgets/markdown_task_box.dart';
 import '../../theme/platform_chrome.dart';
@@ -19,6 +21,8 @@ import 'files_notes.dart';
 import 'files_questions.dart';
 import 'markdown_inert.dart';
 import 'safe_path_text.dart';
+import '../../macos/menu_selection_area.dart';
+import '../../widgets/zoom_keyboard_shortcuts.dart';
 
 /// A text file the server cut short: how much came and how much there is.
 class FileTruncation {
@@ -346,23 +350,11 @@ class _HighlightedCodeState extends State<HighlightedCode> {
   Widget build(BuildContext context) {
     final base = filesCodeStyle(context);
     final palette = context.codeColors;
-    TextStyle? styleOf(CodeToken? token) => switch (token) {
-      null => null,
-      CodeToken.keyword => TextStyle(color: palette.keyword),
-      CodeToken.string => TextStyle(color: palette.string),
-      CodeToken.comment => TextStyle(
-        color: palette.comment,
-        fontStyle: FontStyle.italic,
-      ),
-      CodeToken.number => TextStyle(color: palette.number),
-      CodeToken.function => TextStyle(color: palette.function),
-      CodeToken.type => TextStyle(color: palette.typeName),
-    };
     final span = TextSpan(
       style: base,
       children: [
         for (final (text, token) in _runs)
-          TextSpan(text: text, style: styleOf(token)),
+          TextSpan(text: text, style: codeTokenStyle(token, palette)),
       ],
     );
     return widget.selectable ? SelectableText.rich(span) : Text.rich(span);
@@ -439,10 +431,9 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
       onDownloadFull: onDownloadFull,
       body: (note) => _Scrolling(
         note: note,
-        child: SelectionArea(
-          child: _themed(
-            context,
-            GptMarkdown(
+        child: MenuSelectionArea(
+          child: AppMarkdownTheme(
+            child: GptMarkdown(
               // The reference pass runs last: inertMarkdown collapses links and
               // images to their text and can join an unfinished reference to a
               // semicolon.
@@ -471,33 +462,6 @@ class _MarkdownPreviewState extends State<MarkdownPreview> {
       ),
     );
   }
-}
-
-/// [markdown] under a markdown theme from the app's: headings in the on-
-/// surface colour (the package takes them from its own light or dark text
-/// theme, which is near-invisible on a dark page) and links in the app's link
-/// colour.
-Widget _themed(BuildContext context, Widget markdown) {
-  final theme = Theme.of(context);
-  final ink = theme.colorScheme.onSurface;
-  TextStyle heading(double size, FontWeight weight) =>
-      TextStyle(fontSize: size, fontWeight: weight, color: ink, height: 1.3);
-  final link = context.hermesColors.link;
-  return GptMarkdownTheme(
-    gptThemeData: GptMarkdownThemeData(
-      brightness: theme.brightness,
-      h1: heading(26, FontWeight.w700),
-      h2: heading(22, FontWeight.w700),
-      h3: heading(19, FontWeight.w600),
-      h4: heading(17, FontWeight.w600),
-      h5: heading(15, FontWeight.w600),
-      h6: heading(14, FontWeight.w600),
-      hrLineColor: theme.colorScheme.outline,
-      linkColor: link,
-      linkHoverColor: link,
-    ),
-    child: markdown,
-  );
 }
 
 /// A fenced code block: monospace on the highest surface of the theme,
@@ -555,28 +519,31 @@ class MarkdownModeControl extends StatelessWidget {
     };
     final files = FilesMetrics.of(context);
     final control = platformChromeOf(context).isApple
-        ? CupertinoSlidingSegmentedControl<bool>(
-            groupValue: showSource,
-            backgroundColor: scheme.surfaceContainerHighest,
-            thumbColor: scheme.surface,
-            padding: const EdgeInsets.all(2),
-            children: {
-              for (final MapEntry(:key, :value) in labels.entries)
-                key: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    value,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: files.pointer ? 12 : null,
-                      color: scheme.onSurface,
+        ? FocusRing.outside(
+            radius: 9,
+            child: CupertinoSlidingSegmentedControl<bool>(
+              groupValue: showSource,
+              backgroundColor: scheme.surfaceContainerHighest,
+              thumbColor: scheme.surface,
+              padding: const EdgeInsets.all(2),
+              children: {
+                for (final MapEntry(:key, :value) in labels.entries)
+                  key: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: files.pointer ? 12 : null,
+                        color: scheme.onSurface,
+                      ),
                     ),
                   ),
-                ),
-            },
-            onValueChanged: (value) {
-              if (value != null) onChanged(value);
-            },
+              },
+              onValueChanged: (value) {
+                if (value != null) onChanged(value);
+              },
+            ),
           )
         : PillSegmentedControl<bool>(
             value: showSource,
@@ -596,7 +563,8 @@ class MarkdownModeControl extends StatelessWidget {
 }
 
 /// A picture fitted to the room with a 16 pt margin, never enlarged past its
-/// own size, with pinch, pan and double tap to zoom. A checkerboard shows
+/// own size, with pinch, pan and double tap to zoom, and keyboard zoom and pan
+/// (`ZoomKeyboardShortcuts`). A checkerboard shows
 /// through transparency, drawn only inside the picture's bounds, on a page
 /// background that follows the theme.
 class ImagePreview extends StatefulWidget {
@@ -616,6 +584,7 @@ class ImagePreview extends StatefulWidget {
 
 class _ImagePreviewState extends State<ImagePreview> {
   static const _margin = 16.0;
+  static const _maxScale = 8.0;
 
   final _transform = TransformationController();
   ImageStream? _stream;
@@ -710,26 +679,30 @@ class _ImagePreviewState extends State<ImagePreview> {
           return GestureDetector(
             onDoubleTapDown: (d) => _tapAt = d.localPosition,
             onDoubleTap: _toggleZoom,
-            child: InteractiveViewer(
-              transformationController: _transform,
-              maxScale: 8,
-              child: SizedBox(
-                width: box.maxWidth,
-                height: box.maxHeight,
-                child: Center(
-                  child: SizedBox.fromSize(
-                    size: fitted,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CustomPaint(painter: _Checkerboard(dark: dark)),
-                        Image(
-                          image: widget.image,
-                          fit: BoxFit.fill,
-                          semanticLabel: widget.label,
-                          filterQuality: FilterQuality.medium,
-                        ),
-                      ],
+            child: ZoomKeyboardShortcuts(
+              controller: _transform,
+              maxScale: _maxScale,
+              child: InteractiveViewer(
+                transformationController: _transform,
+                maxScale: _maxScale,
+                child: SizedBox(
+                  width: box.maxWidth,
+                  height: box.maxHeight,
+                  child: Center(
+                    child: SizedBox.fromSize(
+                      size: fitted,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CustomPaint(painter: _Checkerboard(dark: dark)),
+                          Image(
+                            image: widget.image,
+                            fit: BoxFit.fill,
+                            semanticLabel: widget.label,
+                            filterQuality: FilterQuality.medium,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

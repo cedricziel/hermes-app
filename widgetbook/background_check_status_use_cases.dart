@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/background/background_check_status.dart';
 import 'package:hermes_app/src/notifications/background_check_section.dart';
 import 'package:widgetbook/widgetbook.dart';

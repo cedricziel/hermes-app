@@ -1,17 +1,19 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 import 'safe_path_text.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../macos/mac_commands.dart';
+import '../../navigation/keyboard_shortcuts.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/named_icon_button.dart';
 import '../server_path.dart';
 import 'files_metrics.dart';
-import 'middle_ellipsis.dart';
+import '../../widgets/middle_ellipsis.dart';
 
 /// A segment longer than this many characters is cut in the middle.
 const int kPathSegmentMaxChars = 24;
@@ -204,7 +206,13 @@ class _FilePathBarState extends State<FilePathBar> {
                   NamedIconButton(
                     key: const Key('path-bar-up'),
                     label: l10n.filesActionUp,
-                    tooltip: files.pointer ? l10n.filesActionUpTooltip : null,
+                    tooltip: files.pointer
+                        ? withChordHint(
+                            context,
+                            l10n.filesActionUpTooltip,
+                            MacCommand.enclosingFolder,
+                          )
+                        : null,
                     icon: const AppIconSet(
                       Icons.arrow_upward,
                       CupertinoIcons.arrow_up,

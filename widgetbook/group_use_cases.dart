@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';

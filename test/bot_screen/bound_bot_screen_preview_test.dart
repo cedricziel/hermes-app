@@ -1,13 +1,13 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bound_bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 
 import '../support/fake_gateway.dart';
 import 'bot_screen_repository_test.dart' show jpeg, statusJson;
@@ -32,7 +32,7 @@ void main() {
     controller = BotScreenController(
       BotScreenRepository(transport.requestKeepingConnection),
       transport.connectionEvents,
-      profile: 'work',
+      profile: resolvedProfile('work'),
     );
   });
 

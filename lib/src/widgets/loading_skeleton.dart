@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../theme/hermes_theme.dart';
 import 'busy_bar.dart';
@@ -110,12 +110,20 @@ class _LoadingSkeletonState extends State<LoadingSkeleton>
             );
             // A box shorter than one line clips that line instead of
             // overflowing.
+            // The box is sized to its lines (OverflowBox alone would take the
+            // parent's biggest size, filling a Center or a fixed area).
             return bounded
-                ? ClipRect(
-                    child: OverflowBox(
-                      alignment: Alignment.topCenter,
-                      maxHeight: double.infinity,
-                      child: body,
+                ? SizedBox(
+                    height: math.min(
+                      constraints.maxHeight,
+                      lines * (barHeight + 2 * gap),
+                    ),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.topCenter,
+                        maxHeight: double.infinity,
+                        child: body,
+                      ),
                     ),
                   )
                 : body;

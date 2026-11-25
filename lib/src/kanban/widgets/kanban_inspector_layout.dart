@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/inspector_layout.dart';
 import '../../widgets/state_message.dart';
@@ -42,9 +43,9 @@ class KanbanInspectorPlaceholder extends StatelessWidget {
   const KanbanInspectorPlaceholder({super.key});
 
   @override
-  Widget build(BuildContext context) => const StateMessage(
+  Widget build(BuildContext context) => StateMessage(
     icon: AppIcons.inspector,
-    title: 'No task selected',
-    detail: 'Click a card to see its details here.',
+    title: context.l10n.kanbanInspectorEmptyTitle,
+    detail: context.l10n.kanbanInspectorEmptyDetail,
   );
 }

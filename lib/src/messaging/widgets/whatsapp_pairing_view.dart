@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
@@ -340,7 +340,7 @@ class WhatsAppPairingView extends StatelessWidget {
     if (refreshing) {
       return [
         Row(
-          spacing: 10,
+          spacing: 8,
           children: [
             const MotionSpinner(),
             Expanded(child: Text(l10n.messagingWhatsappRefreshingAccount)),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -8,6 +8,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 void main() {
   const diagnosticTitle =
@@ -101,10 +102,10 @@ void main() {
       );
       await shots.capture(tester, 'metadata');
       await tester.ensureVisible(
-        find.byTooltip('Remove dependency parent-example'),
+        find.tooltip('Remove dependency parent-example'),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Remove dependency parent-example'));
+      await tester.tap(find.tooltip('Remove dependency parent-example'));
       await tester.pumpAndSettle();
       expect(
         server

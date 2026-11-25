@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
+import '../../macos/mac_commands.dart';
+import '../../navigation/keyboard_shortcuts.dart';
 import '../../theme/app_icons.dart';
 import '../../workspaces/ui/bound_working_directory.dart'
     show FolderLineBuilder;
@@ -20,6 +23,7 @@ class ChatHeader extends StatelessWidget {
     this.avatar,
     this.callButton,
     this.onShowFiles,
+    this.exportJson,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
@@ -42,6 +46,9 @@ class ChatHeader extends StatelessWidget {
 
   /// Opens the chat's Files page; null while the server has none.
   final VoidCallback? onShowFiles;
+
+  /// "Export chat as JSON…" in the … menu; null leaves it out.
+  final ExportJsonOffer? exportJson;
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
@@ -84,6 +91,7 @@ class ChatHeader extends StatelessWidget {
           housekeeping: housekeeping,
           includeCopyTranscript: true,
           onShowFiles: onShowFiles,
+          exportJson: exportJson,
         ),
       if (onToggleActivity case final toggle?)
         ActivityButton(
@@ -127,7 +135,12 @@ class NewChatButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => NamedIconButton(
     key: const Key('header-new-chat'),
-    label: 'New chat',
+    label: context.l10n.chatWidgetsNewChat,
+    tooltip: withChordHint(
+      context,
+      context.l10n.chatWidgetsNewChat,
+      MacCommand.newChat,
+    ),
     icon: AppIcons.compose,
     onPressed: onPressed,
   );

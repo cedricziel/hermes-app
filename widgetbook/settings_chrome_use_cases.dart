@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
+import 'package:hermes_app/src/widgets/adaptive_segmented_control.dart';
 import 'package:hermes_app/src/widgets/grouped_choice_row.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
@@ -9,6 +10,8 @@ import 'package:hermes_app/src/widgets/settings_search_field.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'keyboard_focused.dart';
+import 'platform_theme.dart';
 
 WidgetbookNode settingsChromeNode() => WidgetbookFolder(
   name: 'Settings pages',
@@ -35,6 +38,10 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
           (context) => _list(_statusSections(context)),
         ),
         ...onEachPlatform('Switches', (_) => _list(_switchSections())),
+        ...onEachPlatform(
+          'Switch states: off, on, disabled',
+          (_) => _list(_switchStateSections()),
+        ),
         ...onEachPlatform(
           'Meta, warning and selection',
           (_) => _list(_metaSection()),
@@ -71,6 +78,42 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
           'Filter in use',
           (_) => _searchField(query: '', filterActive: true),
         ),
+        for (final (name, platform) in [
+          ('iPhone', TargetPlatform.iOS),
+          ('Material', TargetPlatform.android),
+        ])
+          WidgetbookUseCase(
+            name: 'Clear button with keyboard focus ($name)',
+            builder: (context) => Theme(
+              data: platformTheme(context, platform),
+              child: const KeyboardFocused(
+                target: Key('settings-search-clear'),
+                child: _SearchHostFocused(),
+              ),
+            ),
+          ),
+        WidgetbookUseCase(
+          name: 'Clear button with keyboard focus at largest text (Material)',
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.android),
+            child: MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: const TextScaler.linear(3.1)),
+              child: const KeyboardFocused(
+                target: Key('settings-search-clear'),
+                child: _SearchHostFocused(),
+              ),
+            ),
+          ),
+        ),
+        ...onEachPlatform(
+          'Largest text',
+          (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3.1)),
+            child: _searchField(query: '', filterActive: true),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -80,6 +123,36 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
           name: 'Three segments',
           builder: (_) => frame(const _Pill(), maxWidth: 360),
         ),
+        WidgetbookUseCase(
+          name: 'Compact',
+          builder: (_) => frame(const _Compact(), maxWidth: 360),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'AdaptiveSegmentedControl',
+      useCases: [
+        for (final (name, platform) in _controlPlatforms)
+          for (final selected in [false, true])
+            WidgetbookUseCase(
+              name: '$name, ${selected ? 'Tree' : 'Text'} selected',
+              builder: (_) => frame(
+                _ControlOn(platform: platform, tree: selected),
+                maxWidth: 360,
+              ),
+            ),
+        for (final (name, platform) in _controlPlatforms)
+          WidgetbookUseCase(
+            name: '$name, text scale 2x',
+            builder: (_) => frame(
+              MediaQuery.withClampedTextScaling(
+                minScaleFactor: 2,
+                maxScaleFactor: 2,
+                child: _ControlOn(platform: platform, tree: false),
+              ),
+              maxWidth: 360,
+            ),
+          ),
       ],
     ),
   ],
@@ -229,6 +302,28 @@ List<Widget> _switchSections() => [
   ),
 ];
 
+/// Every state of the switch, so an off switch can be checked against the row
+/// in both themes (WCAG 1.4.11: 3:1 for its boundary and its thumb).
+List<Widget> _switchStateSections() => [
+  GroupedSection(
+    header: 'Switch states',
+    children: [
+      GroupedSwitchRow(title: 'Off', value: false, onChanged: (_) {}),
+      GroupedSwitchRow(title: 'On', value: true, onChanged: (_) {}),
+      const GroupedSwitchRow(
+        title: 'Disabled, off',
+        value: false,
+        onChanged: null,
+      ),
+      const GroupedSwitchRow(
+        title: 'Disabled, on',
+        value: true,
+        onChanged: null,
+      ),
+    ],
+  ),
+];
+
 List<Widget> _metaSection() => [
   GroupedSection(
     header: 'Installed',
@@ -321,6 +416,89 @@ class _SearchHostState extends State<_SearchHost> {
           ),
       ],
     ),
+  );
+}
+
+/// The search field with a query, so its clear button is there to focus.
+class _SearchHostFocused extends StatelessWidget {
+  const _SearchHostFocused();
+
+  @override
+  Widget build(BuildContext context) => frame(
+    const _SearchHost(query: 'calendar', filterActive: false),
+    maxWidth: 360,
+  );
+}
+
+const _controlPlatforms = [
+  ('iPhone', TargetPlatform.iOS),
+  ('Mac', TargetPlatform.macOS),
+  ('Android', TargetPlatform.android),
+  ('Windows', TargetPlatform.windows),
+  ('Linux', TargetPlatform.linux),
+];
+
+/// The switch on [platform], on the card's own fill, with its hit area shown
+/// as a faint band so the room around the control can be seen.
+class _ControlOn extends StatefulWidget {
+  const _ControlOn({required this.platform, required this.tree});
+
+  final TargetPlatform platform;
+  final bool tree;
+
+  @override
+  State<_ControlOn> createState() => _ControlOnState();
+}
+
+class _ControlOnState extends State<_ControlOn> {
+  late var _tree = widget.tree;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: platformTheme(context, widget.platform),
+    child: Builder(
+      builder: (context) {
+        final scheme = Theme.of(context).colorScheme;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            border: Border.all(color: scheme.outline),
+          ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            widthFactor: 1,
+            child: ColoredBox(
+              color: scheme.primary.withValues(alpha: 0.08),
+              child: AdaptiveSegmentedControl<bool>(
+                value: _tree,
+                semanticLabel: 'Show result as',
+                segments: const {false: 'Text', true: 'Tree'},
+                onChanged: (v) => setState(() => _tree = v),
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class _Compact extends StatefulWidget {
+  const _Compact();
+
+  @override
+  State<_Compact> createState() => _CompactState();
+}
+
+class _CompactState extends State<_Compact> {
+  var _value = 0;
+
+  @override
+  Widget build(BuildContext context) => PillSegmentedControl<int>(
+    compact: true,
+    value: _value,
+    segments: const {0: 'Text', 1: 'Tree'},
+    onChanged: (v) => setState(() => _value = v),
   );
 }
 

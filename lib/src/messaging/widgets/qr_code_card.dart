@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:qr/qr.dart';
 
@@ -220,7 +220,7 @@ class _QrCodeTileState extends State<QrCodeTile> {
     final l10n = context.l10n;
     final scheme = Theme.of(context).colorScheme;
     final outline = Border.all(color: scheme.outline);
-    final radius = BorderRadius.circular(8);
+    final radius = BorderRadius.circular(6);
     if (widget.visibility == QrCodeVisibility.shown) {
       final matrix = _matrix;
       if (matrix != null) {
@@ -378,7 +378,7 @@ class _QrScanStatusState extends State<QrScanStatus> {
           label: l10n.messagingWhatsappWaitingForScan,
           child: ExcludeSemantics(
             child: Row(
-              spacing: 10,
+              spacing: 8,
               children: [
                 const MotionSpinner(),
                 Expanded(child: Text(l10n.messagingWhatsappWaitingForScan)),

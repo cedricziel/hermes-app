@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import '../../widgets/disclosure_tile.dart';
 
 /// Asks whether to add the app's note to Hermes, which tells the agent this
@@ -249,16 +250,18 @@ class _ProfileChecklist extends StatelessWidget {
         children: [
           for (final (i, profile) in profiles.indexed) ...[
             if (i > 0) Divider(height: 1, color: scheme.outline),
-            CheckboxListTile.adaptive(
-              key: ValueKey('platform-hint-profile-$profile'),
-              value: saved.contains(profile) || selected.contains(profile),
-              onChanged: onToggle == null || saved.contains(profile)
-                  ? null
-                  : (value) => onToggle!(profile, value ?? false),
-              controlAffinity: ListTileControlAffinity.leading,
-              dense: true,
-              title: Text(profile),
-              subtitle: _status(profile, scheme),
+            FocusRing(
+              child: CheckboxListTile.adaptive(
+                key: ValueKey('platform-hint-profile-$profile'),
+                value: saved.contains(profile) || selected.contains(profile),
+                onChanged: onToggle == null || saved.contains(profile)
+                    ? null
+                    : (value) => onToggle!(profile, value ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                title: Text(profile),
+                subtitle: _status(profile, scheme),
+              ),
             ),
           ],
         ],

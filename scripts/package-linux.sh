@@ -42,9 +42,10 @@ cat > "$pkg/usr/share/applications/$APP_ID.desktop" <<EOF
 Type=Application
 Name=Hermes
 Comment=Client for the Hermes Agent dashboard
-Exec=hermes-app
+Exec=hermes-app %u
 Icon=$APP_ID
 Categories=Network;Chat;
+MimeType=x-scheme-handler/hermes;
 Terminal=false
 EOF
 

@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/chat/subagents/agent_models.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_state_glyph.dart';
+
+import '../../../support/test_localizations.dart';
 
 Widget _app(
   Widget child, {
@@ -14,7 +16,7 @@ Widget _app(
   bool reduceMotion = false,
 }) => MaterialApp(
   locale: locale,
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   theme: ThemeData(platform: platform),
   builder: (context, home) => MediaQuery(

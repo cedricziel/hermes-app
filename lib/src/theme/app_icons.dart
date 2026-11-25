@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 
 /// An icon with a Material glyph and the SF Symbols-style glyph Apple
@@ -45,6 +45,9 @@ abstract final class AppIcons {
     Icons.error_outline,
     CupertinoIcons.exclamationmark_circle,
   );
+
+  /// The connection to the server is lost; [cloud] reads as online.
+  static const wifiOff = AppIconSet(Icons.wifi_off, CupertinoIcons.wifi_slash);
   static const errorFilled = AppIconSet(
     Icons.error,
     CupertinoIcons.exclamationmark_circle_fill,
@@ -172,6 +175,10 @@ abstract final class AppIcons {
   static const tune = AppIconSet(
     Icons.tune,
     CupertinoIcons.slider_horizontal_3,
+  );
+  static const settings = AppIconSet(
+    Icons.settings_outlined,
+    CupertinoIcons.settings,
   );
   static const stop = AppIconSet(
     Icons.stop_circle_outlined,
@@ -519,6 +526,7 @@ abstract final class AppIcons {
     'undo': undo,
     'redo': redo,
     'tune': tune,
+    'settings': settings,
     'stop': stop,
     'mic': mic,
     'stopRecording': stopRecording,
@@ -599,6 +607,7 @@ abstract final class AppIcons {
     'warningFilled': warningFilled,
     'key': key,
     'cloud': cloud,
+    'wifiOff': wifiOff,
     'crossCircleFilled': crossCircleFilled,
     'questionCircleFilled': questionCircleFilled,
     'lockOpen': lockOpen,

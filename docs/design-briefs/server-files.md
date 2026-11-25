@@ -22,7 +22,7 @@ Decisions taken in the design pass:
 - Downloads (`FileDownloadProgress`): a `BusyBar` with a value, "Downloading… 14 of 30 MB" and a text Cancel; without a length a spinner, "Downloaded 12 MB" and Cancel. Both are live regions.
 - Saved: after the system save dialog a snack bar "Saved export.zip." Share and Open with… show nothing afterwards; the system sheet is their answer.
 - Questions: the size question is a bottom sheet on phones (the sentence, Cancel as text, Download filled) and an alert on iPad and the Mac (the sentence as the title, Download the default). The secret question is an alert titled with the file's name, "This file may contain passwords or keys. Continue anyway?", Cancel (the default) and Continue, asked before preview, Save, Share and Open with…; on Android a Material dialog with two text buttons, Cancel first.
-- Code colours: six proposed tokens, `--h-code-keyword`, `-string`, `-comment`, `-number`, `-function`, `-type`, light #a626a4, #0b6e2f, #5f6670, #a3480b, #1d4ed8, #8a5a00 and dark #e08ef0, #7ee2a8, #a1a1aa, #fdba74, #93c5fd, #fcd34d. Each is at least 5.2:1 on `--h-bg` and `--h-surface-high` in its theme; comments are italic as well. Text and code use 13 pt monospace (12 pt Mac), 20 pt lines, wrapping without a hanging indent.
+- Code colours (the proposal at design time; since replaced by the canvas palette, see `openspec/changes/server-files/design.md` "Colours for code"): six proposed tokens, `--h-code-keyword`, `-string`, `-comment`, `-number`, `-function`, `-type`, light #a626a4, #0b6e2f, #5f6670, #a3480b, #1d4ed8, #8a5a00 and dark #e08ef0, #7ee2a8, #a1a1aa, #fdba74, #93c5fd, #fcd34d. Each is at least 5.2:1 on `--h-bg` and `--h-surface-high` in its theme; comments are italic as well. Text and code use 13 pt monospace (12 pt Mac), 20 pt lines, wrapping without a hanging indent.
 - Markdown: Rendered / Source is the page's segmented control (`SettingsScaffold` tabs on phones, a centred compact control in the pane).
 - Image: fitted with a 16 pt margin; the checkerboard is drawn only inside the picture's bounds; the page background follows the theme.
 - Entry points: "Files" (folder icon) leads the chat's … menu, above a divider and the thread actions. The Activity row is a `GroupedRow` with the folder icon, "Files", the folder's name as value and a chevron.
@@ -138,3 +138,26 @@ By kind:
 ## Deliverables from the design pass
 
 Widgetbook use cases for every state above, both themes, at phone, iPad and desktop width and at the largest text size; the code palette for light and dark; the row, path bar and preview header as plain-model widgets in `lib/src/files/widgets/`.
+
+## Read-only Markdown task box
+
+Recorded after the fact on 2026-11-24; describes what #1121 built. Read from `lib/src/widgets/markdown_task_box.dart` and `lib/src/files/widgets/file_previews.dart` on main.
+
+What it is: in a rendered Markdown file (the "Rendered" side of the Rendered / Source control), a task-list item (`- [x] done`, `- [ ] to do`) draws as a state, not a control. Before #1121 such an item threw "No Material widget found" from the markdown package's own checkbox. `readOnlyTaskBox` is passed as the package's `checkboxBuilder`, and its twin `readOnlyRadioOption` as `radioOptionBuilder` (`- ( ) option`, `(x) chosen`).
+
+Look:
+
+- A row of icon and item text, top-aligned. The icon is 20 pt: `check_box` when checked, `check_box_outline_blank` when not; for the radio form `radio_button_checked` and `radio_button_unchecked`. The icon has 5 pt before it and 8 pt after it; the item's content takes the rest of the width and wraps.
+- Colours, from the colour scheme: checked is `primary`, unchecked is `onSurfaceVariant`. Dark follows the theme; there is no branch of its own.
+- The box cannot be tapped or focused. The row is one semantics node (`MergeSemantics`) with `checked` set, so a screen reader reads the item's text and "checked" or "not checked"; the icon itself is excluded.
+- The inert preview rules are unchanged: no network image, a link asks "Open <host>?" first.
+- Large text: the enclosing text span scales the icon once, so its drawn size is 20 pt times the text scale (the test pins this at 1x and at 3x); the item text wraps beside it.
+
+The same builders are passed in the skill detail panel (`SkillMarkdownPanel`), the skill editor's preview and Bot Mode group messages. Chat messages do not pass them: chat sits under `FlyerMaterialScope`, which supplies the Material the package's checkbox needs.
+
+Use cases and tests:
+
+- `widgetbook/files_use_cases.dart`, component "FilePreviewView": `Markdown with a task list` (`# Plan`, one checked and one open item)
+- `test/files/widgets/markdown_task_list_test.dart` (light and dark, phone, desktop and 3x text: no exception, read-only, state announced, drawn size 20 pt times the scale)
+- `test/widgets/markdown_task_box_test.dart` (skill panel, radio options, group message, skill editor preview)
+- `test/workflows/files_workflow_test.dart`, the "markdown" step, which saves a screenshot per phone and desktop

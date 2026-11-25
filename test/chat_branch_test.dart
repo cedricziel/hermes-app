@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -10,6 +10,7 @@ import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -18,6 +19,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 /// Branching a chat from one of its replies into a new chat.
 void main() {
@@ -82,6 +84,7 @@ void main() {
             ),
           ],
           child: MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             theme: buildHermesLightTheme(),
             home: ChatScreen(
               repository: HermesChatRepository(server.client().raw),
@@ -97,7 +100,7 @@ void main() {
     });
   }
 
-  final branch = find.byTooltip('Branch in new chat');
+  final branch = find.tooltip('Branch in new chat');
   Finder inTranscript(String text) => find.descendant(
     of: find.byType(Chat),
     matching: find.textContaining(text, findRichText: true),

@@ -1,13 +1,20 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
+import '../navigation/desktop_command_shortcuts.dart';
+import '../navigation/keyboard_shortcuts.dart';
+import '../navigation/modal_route_observer.dart';
 import '../settings/about_dialog.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
+import 'edit_menu_state.dart';
 import 'ipad_menu_bridge.dart';
 import 'mac_commands.dart';
 import 'mac_window.dart';
@@ -26,11 +33,16 @@ class MacMenuBar extends StatefulWidget {
   const MacMenuBar({
     super.key,
     required this.navigatorKey,
+    this.modalRoutes,
     required this.child,
   });
 
   /// Gives dialogs opened from the menu a context under the navigator.
   final GlobalKey<NavigatorState> navigatorKey;
+
+  /// The app's [ModalRouteObserver], which keeps the Windows and Linux chords
+  /// from running commands behind a dialog.
+  final ModalRouteObserver? modalRoutes;
   final Widget child;
 
   @override
@@ -39,9 +51,11 @@ class MacMenuBar extends StatefulWidget {
 
 class _MacMenuBarState extends State<MacMenuBar> {
   final _registry = MacCommandRegistry();
+  final _edit = EditMenuState();
   late final _rootCommands = {
     MacCommand.about: MacCommandHandler(_about),
     MacCommand.help: MacCommandHandler(_help),
+    MacCommand.keyboardShortcuts: MacCommandHandler(_keyboardShortcuts),
     MacCommand.closeWindow: const MacCommandHandler(MacWindow.close),
     MacCommand.showMainWindow: const MacCommandHandler(MacWindow.orderFront),
   };
@@ -50,6 +64,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
   /// platform whenever it gets a new list, so the list is only rebuilt when
   /// the registry changes, not when a theme animation rebuilds this widget.
   List<PlatformMenuItem>? _menus;
+  AppLocalizations? _l10n;
 
   IpadMenuBridge? _ipad;
 
@@ -57,15 +72,25 @@ class _MacMenuBarState extends State<MacMenuBar> {
   void initState() {
     super.initState();
     _registry.addListener(_registryChanged);
+    _edit.addListener(_registryChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final l10n = context.l10n;
+    if (_l10n != l10n) {
+      // A new language: the menus are built again, and the iPad gets the
+      // layout again with its new labels.
+      _l10n = l10n;
+      _menus = null;
+      _ipad?.l10n = l10n;
+    }
     final ios = platformChromeOf(context) == PlatformChrome.ios;
     if (ios && _ipad == null) {
       _ipad = IpadMenuBridge(
         registry: _registry,
+        localizations: l10n,
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
         events: () =>
             HermesRepositories.maybeOf(context)?.telemetry.events ??
@@ -90,6 +115,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
   @override
   void dispose() {
     _ipad?.dispose();
+    _edit.dispose();
     _registry.dispose();
     super.dispose();
   }
@@ -97,6 +123,11 @@ class _MacMenuBarState extends State<MacMenuBar> {
   void _about() {
     final context = widget.navigatorKey.currentContext;
     if (context != null) showAppAboutDialog(context);
+  }
+
+  void _keyboardShortcuts() {
+    final context = widget.navigatorKey.currentContext;
+    if (context != null) unawaited(showKeyboardShortcuts(context));
   }
 
   Future<void> _help() async {
@@ -109,16 +140,22 @@ class _MacMenuBarState extends State<MacMenuBar> {
 
   @override
   Widget build(BuildContext context) {
-    final content = MacCommandScope.root(
-      registry: _registry,
-      child: MacCommandScope(commands: _rootCommands, child: widget.child),
+    final content = InheritedProvider<EditMenuState>.value(
+      value: _edit,
+      child: MacCommandScope.root(
+        registry: _registry,
+        child: DesktopCommandShortcuts(
+          modalRoutes: widget.modalRoutes,
+          child: MacCommandScope(commands: _rootCommands, child: widget.child),
+        ),
+      ),
     );
     if (!MacWindow.enabled ||
         platformChromeOf(context) != PlatformChrome.macos) {
       return content;
     }
     return PlatformMenuBar(
-      menus: _menus ??= macMenus(_registry),
+      menus: _menus ??= macMenus(_registry, context.l10n, _edit),
       child: content,
     );
   }
@@ -126,7 +163,15 @@ class _MacMenuBarState extends State<MacMenuBar> {
 
 /// The menus of the Mac menu bar, each item enabled while [registry] has a
 /// handler for its command.
-List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
+///
+/// The Edit items follow [editMenu]: each is off while what has focus cannot
+/// take it, and all are off without one.
+List<PlatformMenuItem> macMenus(
+  MacCommandRegistry registry,
+  AppLocalizations l10n, [
+  EditMenuState? editMenu,
+]) {
+  final available = editMenu?.value ?? EditAvailability.none;
   PlatformMenuItem item(
     MacCommand command,
     String label, {
@@ -145,7 +190,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
 
   PlatformMenuItem entryItem(MenuEntry entry) => item(
     entry.command,
-    entry.label,
+    entry.label(l10n),
     shortcut: entry.shortcutOn(MenuPlatform.mac),
     run: entry.command == MacCommand.deleteThread
         ? _deleteThreadOrLine(registry)
@@ -154,12 +199,13 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
 
   PlatformMenuItem edit(
     String label,
-    Intent intent,
-    MenuSerializableShortcut shortcut,
-  ) => PlatformMenuItem(
+    MenuSerializableShortcut shortcut, {
+    required bool enabled,
+    required VoidCallback run,
+  }) => PlatformMenuItem(
     label: label,
     shortcut: shortcut,
-    onSelected: () => _invokeOnFocus(intent),
+    onSelected: enabled ? run : null,
   );
 
   PlatformProvidedMenuItem provided(PlatformProvidedMenuItemType type) =>
@@ -174,7 +220,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
   }) {
     final section = menuLayout.firstWhere((s) => s.id == id);
     return PlatformMenu(
-      label: section.label,
+      label: section.label(l10n),
       menus: [
         for (final entries in section.groupsOn(MenuPlatform.mac))
           group([for (final entry in entries) entryItem(entry)]),
@@ -199,40 +245,47 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
     ),
     section('file'),
     PlatformMenu(
-      label: 'Edit',
+      label: l10n.macosMenuEdit,
+      onOpen: editMenu?.refreshClipboard,
       menus: [
         group([
           edit(
-            'Undo',
-            const UndoTextIntent(cause),
+            l10n.macosMenuUndo,
             metaActivator(LogicalKeyboardKey.keyZ),
+            enabled: available.undo,
+            run: () => editMenu?.undo(),
           ),
           edit(
-            'Redo',
-            const RedoTextIntent(cause),
+            l10n.macosMenuRedo,
             metaActivator(LogicalKeyboardKey.keyZ, shift: true),
+            enabled: available.redo,
+            run: () => editMenu?.redo(),
           ),
         ]),
         group([
           edit(
-            'Cut',
-            const CopySelectionTextIntent.cut(cause),
+            l10n.macosMenuCut,
             metaActivator(LogicalKeyboardKey.keyX),
+            enabled: available.cut,
+            run: () => _invokeOnFocus(const CopySelectionTextIntent.cut(cause)),
           ),
           edit(
-            'Copy',
-            CopySelectionTextIntent.copy,
+            l10n.macosMenuCopy,
             metaActivator(LogicalKeyboardKey.keyC),
+            enabled: available.copy,
+            run: () => _invokeOnFocus(CopySelectionTextIntent.copy),
           ),
           edit(
-            'Paste',
-            const PasteTextIntent(cause),
+            l10n.macosMenuPaste,
             metaActivator(LogicalKeyboardKey.keyV),
+            enabled: available.paste,
+            run: () => _invokeOnFocus(const PasteTextIntent(cause)),
           ),
           edit(
-            'Select All',
-            const SelectAllTextIntent(cause),
+            l10n.macosMenuSelectAll,
             metaActivator(LogicalKeyboardKey.keyA),
+            enabled: available.selectAll,
+            run: () => _invokeOnFocus(const SelectAllTextIntent(cause)),
           ),
         ]),
       ],
@@ -245,7 +298,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
     ),
     section('chat'),
     PlatformMenu(
-      label: 'Window',
+      label: l10n.macosMenuWindow,
       menus: [
         group([
           provided(PlatformProvidedMenuItemType.minimizeWindow),
@@ -288,12 +341,6 @@ VoidCallback _deleteThreadOrLine(MacCommandRegistry registry) => () {
   }
 };
 
-bool _editingText() =>
-    FocusManager.instance.primaryFocus?.context
-        ?.findAncestorStateOfType<EditableTextState>() !=
-    null;
+bool _editingText() => EditMenuState.focusedField() != null;
 
-void _invokeOnFocus(Intent intent) {
-  final context = FocusManager.instance.primaryFocus?.context;
-  if (context != null) Actions.maybeInvoke(context, intent);
-}
+void _invokeOnFocus(Intent intent) => EditMenuState.invokeOnFocus(intent);

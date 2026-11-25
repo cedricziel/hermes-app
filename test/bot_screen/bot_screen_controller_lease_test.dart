@@ -7,6 +7,7 @@ import 'package:hermes_app/src/bot_screen/bot_screen_models.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_viewer_ids.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 
 import '../support/fake_gateway.dart';
 import 'bot_screen_repository_test.dart' show statusJson;
@@ -57,7 +58,7 @@ void main() {
           pinnedRpc: transport.requestOn,
         ),
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         viewerIds: ids,
         events: (name, [attributes = const {}]) =>
             logged.add('$name $attributes'),
@@ -108,6 +109,7 @@ void main() {
         final bare = BotScreenController(
           BotScreenRepository((method, params, {required timeout}) async => {}),
           const Stream.empty(),
+          profile: resolvedProfile('work'),
         );
 
         expect(bare.inControlHere, isFalse);
@@ -233,6 +235,7 @@ void main() {
         final bare = BotScreenController(
           BotScreenRepository((method, params, {required timeout}) async => {}),
           const Stream.empty(),
+          profile: resolvedProfile('work'),
         );
 
         bare.adoptLease(const BotScreenLease(holder: BotScreenHolder.human));

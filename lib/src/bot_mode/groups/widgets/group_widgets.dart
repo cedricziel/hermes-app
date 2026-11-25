@@ -1,7 +1,8 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../widgets/app_markdown_theme.dart';
 import '../../../widgets/bounded_markdown.dart';
 
 import '../../../chat/chat_models.dart' show ApprovalRequest;
@@ -14,6 +15,7 @@ import '../../../widgets/markdown_links.dart';
 import '../../../widgets/markdown_task_box.dart';
 import '../../../widgets/settings_search_field.dart';
 import '../../group_protocol/hermes_groups_repository.dart';
+import '../../../../l10n/l10n.dart';
 
 String groupMemberName(List<GroupMember> members, String id) {
   for (final member in members) {
@@ -262,7 +264,7 @@ class GroupEventRow extends StatelessWidget {
                 ),
                 if (thread is String)
                   Text(
-                    threadLabel ?? 'Discussion thread',
+                    threadLabel ?? context.l10n.botModeGroupThreadLabel,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: scheme.onSurface.withValues(alpha: 0.62),
                     ),
@@ -271,11 +273,13 @@ class GroupEventRow extends StatelessWidget {
             ),
             if (prose) ...[
               const SizedBox(height: 10),
-              BoundedMarkdown(
-                event.payload['text'] as String,
-                onLinkTap: markdownLinkHandler(),
-                checkboxBuilder: readOnlyTaskBox,
-                radioOptionBuilder: readOnlyRadioOption,
+              AppMarkdownTheme(
+                child: BoundedMarkdown(
+                  event.payload['text'] as String,
+                  onLinkTap: markdownLinkHandler(),
+                  checkboxBuilder: readOnlyTaskBox,
+                  radioOptionBuilder: readOnlyRadioOption,
+                ),
               ),
               if (onReply != null && thread is String)
                 TextButton.icon(
@@ -313,6 +317,7 @@ String? _actionText(Object? value) =>
 
 ApprovalRequest _approvalRequest(
   GroupPendingAction action, {
+  required AppLocalizations l10n,
   bool allowOnce = true,
 }) {
   final details = action.details['approval'] is Map
@@ -322,8 +327,7 @@ ApprovalRequest _approvalRequest(
     requestId: action.requestId!,
     command: _actionText(details['command']) ?? '',
     description:
-        _actionText(details['description']) ??
-        'This member is waiting for your approval.',
+        _actionText(details['description']) ?? l10n.botModeGroupApprovalWaiting,
     choices: allowOnce ? const ['once', 'deny'] : const ['deny'],
   );
 }
@@ -413,6 +417,7 @@ class GroupActivity extends StatelessWidget {
                       ),
                       request: _approvalRequest(
                         action,
+                        l10n: context.l10n,
                         allowOnce: unavailableReason == null,
                       ),
                       onAnswer: pending
@@ -427,7 +432,7 @@ class GroupActivity extends StatelessWidget {
                   else
                     Text(
                       _actionText(action.details['reason']) ??
-                          'Pending ${action.kind}',
+                          context.l10n.botModeGroupPendingKind(action.kind),
                     ),
                   if (!{'approval', 'retry'}.contains(action.kind))
                     const Text(

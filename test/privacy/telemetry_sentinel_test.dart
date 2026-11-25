@@ -1,15 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -34,6 +39,18 @@ import '../support/local_dashboard.dart';
 import '../support/memory_token_store.dart';
 import '../support/pump_chat.dart';
 import '../support/recording_tracer.dart';
+
+/// A [Random] whose draws are fixed, so reconnect backoff is known.
+class _FixedRandom implements Random {
+  @override
+  bool nextBool() => true;
+
+  @override
+  double nextDouble() => 0.5;
+
+  @override
+  int nextInt(int max) => max ~/ 2;
+}
 
 /// The privacy guard for telemetry: breadcrumbs, app events, request logs,
 /// spans, `debugPrint` and `print` carry fixed names, counts, flags and
@@ -450,6 +467,138 @@ void main() {
     });
 
     expect(sinks.tracer.all, isNotEmpty);
+    expectClean();
+  });
+
+  test('reply loss: socket close, reconnect attempts, reattach', () {
+    fakeAsync((async) {
+      final gateway = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..createResult = {
+          'session_id': _runtimeSession,
+          'stored_session_id': _storedSession,
+        }
+        ..resumeResult = {'session_id': _runtimeSession, 'running': true}
+        ..turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.delta', sid, {'text': 'echo $_msg'});
+          g.drop();
+        };
+      final connection = sinks.connection(_serverAttributes);
+      var opened = 0;
+      var unreachable = true;
+      final transport = HermesGatewayTransport(
+        connect: () async {
+          // The first socket is the chat's; until the recovery window runs
+          // out every later one fails with a message that quotes the server's
+          // address. After that the server answers, but never the resume.
+          if (opened++ > 0 && unreachable) {
+            throw StateError('cannot reach $_host with $_token');
+          }
+          return gateway.connect();
+        },
+        telemetry: connection.gateway(),
+        events: connection.events,
+        random: _FixedRandom(),
+      );
+
+      unawaited(
+        sinks.capturingPrint(() async {
+          final seen = transport
+              .send(text: _msg, profile: _profile)
+              .listen((_) {}, onError: (Object _) {});
+          // The recovery window (60 s of fake time) runs out.
+          await Future<void>.delayed(const Duration(seconds: 70));
+          unawaited(seen.cancel());
+          unreachable = false;
+          gateway.silent.add('session.resume');
+          // A pick-up of the thread the reply lost.
+          final follow = transport
+              .followUps(_storedSession, profile: _profile)
+              .listen((_) {}, onError: (Object _) {});
+          await Future<void>.delayed(const Duration(seconds: 30));
+          await follow.cancel();
+          await transport.close();
+        }),
+      );
+      async.elapse(const Duration(seconds: 110));
+      async.flushMicrotasks();
+
+      for (final name in [
+        'gateway.socket_closed',
+        'gateway.reconnect_attempt',
+        'gateway.reattach',
+      ]) {
+        expect(
+          sinks.records.any((r) => r.text.contains(name)),
+          isTrue,
+          reason: '$name was captured',
+        );
+      }
+      expectClean();
+    });
+  });
+
+  testWidgets('reply loss: lifecycle, ended, late event, queue', (
+    tester,
+  ) async {
+    final connection = sinks.connection(_serverAttributes);
+    final transport = FakeChatTransport();
+    final attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    final chat = ChatController(
+      transport: transport,
+      attention: attention,
+      report: (_) {},
+      events: connection.events,
+      breadcrumbs: sinks.breadcrumbs,
+      reconnectRetry: const Duration(hours: 1),
+    );
+    addTearDown(() {
+      chat.dispose();
+      attention.dispose();
+    });
+
+    await sinks.capturingPrint(() async {
+      await tester.runAsync(() async {
+        chat.newThread();
+        await chat.submit(_msg, const []);
+        transport.sends.single
+          ..emit(const ThreadBound(_storedSession))
+          ..emit(const PromptAcknowledged(1))
+          ..emit(ReplyDelta('echo $_msg'));
+        await pumpEventQueue();
+        await chat.submit('queued $_msg', const []);
+        chat.appLifecycleChanged(AppLifecycleState.paused);
+        transport.sends.single.fail(const GatewayReplyLost());
+        await pumpEventQueue();
+        chat.appLifecycleChanged(AppLifecycleState.resumed);
+        chat.checkConnection();
+        await pumpEventQueue();
+        transport.followUpStreams[_storedSession]!
+          ..emit(const ReplyStarted())
+          ..emit(ReplyDelta('late $_msg'))
+          ..emit(ReplyCompleted('done $_msg'));
+        await pumpEventQueue();
+        // A reply the server could not confirm, settled as lost.
+        chat.newThread();
+        await chat.submit('again $_msg', const []);
+        transport.sends.last
+          ..emit(const ThreadBound(_session))
+          ..emit(const PromptAcknowledged(2))
+          ..fail(const GatewayReplyUnconfirmed());
+        await pumpEventQueue();
+      });
+    });
+
+    expect(
+      sinks.records.any((r) => r.text.contains('chat.reply.ended')),
+      isTrue,
+    );
     expectClean();
   });
 

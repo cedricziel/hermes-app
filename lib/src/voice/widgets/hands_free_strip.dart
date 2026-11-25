@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 
 /// What the microphone is doing while a hands-free call runs.
 enum HandsFreeMicrophone {
@@ -118,12 +119,17 @@ class HandsFreeStrip extends StatelessWidget {
                   ),
                   child: TextButton(
                     onPressed: onEnd,
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.standard,
-                      minimumSize: const Size(44, 44),
-                      tapTargetSize: MaterialTapTargetSize.padded,
-                      shape: const StadiumBorder(),
-                    ),
+                    style:
+                        TextButton.styleFrom(
+                          visualDensity: VisualDensity.standard,
+                          minimumSize: const Size(44, 44),
+                          tapTargetSize: MaterialTapTargetSize.padded,
+                        ).copyWith(
+                          shape: focusRingShapeOf(
+                            context,
+                            const StadiumBorder(),
+                          ),
+                        ),
                     child: Text(endLabel, semanticsLabel: endSemantics),
                   ),
                 ),

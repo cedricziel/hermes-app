@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/process_output_state.dart';
@@ -7,6 +7,8 @@ import 'package:hermes_app/src/chat/widgets/confirm_stop_program.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
+
+import '../support/test_localizations.dart';
 
 Future<void> pump(
   WidgetTester tester, {
@@ -19,9 +21,9 @@ Future<void> pump(
   double textScale = 1,
 }) => tester.pumpWidget(
   MaterialApp(
-    theme: buildHermesLightTheme().copyWith(platform: platform),
+    theme: buildHermesLightTheme(platform: platform),
     locale: locale,
-    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    localizationsDelegates: kTestLocalizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
     builder: (context, child) => MediaQuery(
       data: MediaQuery.of(context).copyWith(
@@ -321,7 +323,7 @@ void main() {
         MaterialApp(
           theme: ThemeData(platform: platform),
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => TextButton(
@@ -360,7 +362,7 @@ void main() {
       bool? answer;
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => TextButton(
@@ -441,7 +443,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: Builder(
               builder: (context) => TextButton(

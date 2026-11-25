@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 const _homeIndicator = 34.0;
 const _keyboard = 336.0;
@@ -39,7 +40,8 @@ Future<void> _pump(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: buildHermesLightTheme().copyWith(platform: TargetPlatform.iOS),
+      builder: (_, child) => AppThemeScopes(child: child!),
+      theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
       home: Scaffold(
         body: FlyerMaterialScope(
           child: Chat(

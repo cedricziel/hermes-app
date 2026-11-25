@@ -9,16 +9,30 @@ extension _Connection on HermesGatewayTransport {
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
+    Duration? timeout,
   }) async {
     try {
       final request = authorize == null
           ? client.request(method, params)
           : client.requestGuarded(method, params, authorize: authorize);
-      return await request.timeout(requestTimeout);
+      return await request.timeout(timeout ?? requestTimeout);
     } on TimeoutException {
       _drop(client);
-      throw const GatewayConnectionClosed();
+      throw const GatewayCallTimedOut();
     }
+  }
+
+  /// Logs that a socket ended: why, with what close code, and whether a reply
+  /// was running on the connection. Fixed names only.
+  void _reportSocketClosed(String reason, int? closeCode, Duration lived) {
+    _record('gateway.socket_closed', {
+      'reason': reason == 'local_close'
+          ? (_closed ? 'app_closed' : 'local_drop')
+          : reason,
+      'close_code': closeCodeBucket(closeCode),
+      'lived': durationBucket(lived),
+      'reply_running': _replying.isNotEmpty,
+    });
   }
 
   /// Forgets [client] and closes it. Not awaited: closing a channel whose peer
@@ -67,7 +81,7 @@ extension _Connection on HermesGatewayTransport {
             onError: (Object _) {},
           ),
         );
-        throw const GatewayConnectionClosed();
+        throw const GatewayCallTimedOut();
       },
     );
   }
@@ -85,6 +99,7 @@ extension _Connection on HermesGatewayTransport {
       channel,
       telemetry: _telemetry,
       heartbeat: true,
+      onSocketClosed: _reportSocketClosed,
     );
     // Not awaited: a gateway that predates the call answers with an error and
     // carries on with events, and none of them may hold up the first send.

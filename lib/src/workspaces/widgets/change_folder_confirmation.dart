@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 
 import '../../files/widgets/safe_path_text.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../widgets/adaptive_dialog.dart';

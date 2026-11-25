@@ -2,6 +2,73 @@ part of 'chat_controller.dart';
 
 /// Thread loading, message pagination, and history reconciliation.
 extension _ChatControllerHistory on ChatController {
+  Future<ThreadListRefreshResult> _pullRefreshThreadList() async {
+    final profile = _profile;
+    if (!active || repository == null || profile == null) {
+      return ThreadListRefreshResult.skipped;
+    }
+    var cancelled = false;
+    void Function()? waiter;
+    Future<ThreadListRefreshResult> attempt() async {
+      while (true) {
+        if (threadListInvalidationBlocked) {
+          final settled = Completer<void>();
+          void check() {
+            if (!threadListInvalidationBlocked && !settled.isCompleted) {
+              settled.complete();
+            }
+          }
+
+          waiter = check;
+          addListener(check);
+          try {
+            await settled.future;
+          } finally {
+            removeListener(check);
+            waiter = null;
+          }
+        }
+        if (cancelled || !active || _profile != profile) {
+          return ThreadListRefreshResult.skipped;
+        }
+        final generation = _loadGeneration;
+        final page = await readThreadListPage(profile);
+        if (cancelled) return ThreadListRefreshResult.skipped;
+        if (applyInvalidatedThreads(
+          page,
+          profile: profile,
+          generation: generation,
+        )) {
+          return ThreadListRefreshResult.refreshed;
+        }
+        // A change started during the read: wait for it and read again.
+        if (!active || _profile != profile) {
+          return ThreadListRefreshResult.skipped;
+        }
+      }
+    }
+
+    var result = ThreadListRefreshResult.failed;
+    try {
+      result = await attempt().timeout(threadListRefreshTimeout);
+    } on Object catch (e, stack) {
+      cancelled = true;
+      final stale = waiter;
+      if (stale != null) removeListener(stale);
+      if (e is! DioException && e is! TimeoutException) {
+        reportBug(e, stack, 'the chat list pull to refresh');
+      }
+    }
+    if (disposed) return result;
+    final failed = result == ThreadListRefreshResult.failed;
+    if (failed != _listRefreshFailed &&
+        result != ThreadListRefreshResult.skipped) {
+      _listRefreshFailed = failed;
+      notifyListeners();
+    }
+    return result;
+  }
+
   Future<void> _loadThreads(
     String? profile, {
     bool Function()? valid,
@@ -29,6 +96,7 @@ extension _ChatControllerHistory on ChatController {
     _listRefreshPending = false;
     _loadingThreads = true;
     _threadsFailed = false;
+    _listRefreshFailed = false;
     notifyListeners();
     try {
       if (!active || generation != _loadGeneration) return;
@@ -221,7 +289,11 @@ extension _ChatControllerHistory on ChatController {
       unawaited(_loadModelOptions(profile, generation, notifyLoading: false));
       _threads = [...local, ...threads];
       _ChatControllerCheckpoints(this)._actionsAfterLoad();
-      _historyFailed.clear();
+      // A chat kept for its send keeps its failed first page: its row stays
+      // and Retry still reads. The others are read again when selected.
+      _historyFailed.retainWhere(liveIds.contains);
+      _pageReadToken.removeWhere((id, _) => !liveIds.contains(id));
+      _historyRetrying.retainWhere(liveIds.contains);
       _unloaded
         ..clear()
         ..addAll(
@@ -230,7 +302,8 @@ extension _ChatControllerHistory on ChatController {
               .map((t) => t.id),
         )
         // A first page cut off by this read is read again.
-        ..addAll(live.map((t) => t.id).where(_loadingMessages.containsKey));
+        ..addAll(live.map((t) => t.id).where(_loadingMessages.containsKey))
+        ..addAll(_historyFailed);
       final keptOlder = {for (final t in kept) t.id: ?_olderRows[t.id]};
       _olderRows
         ..clear()
@@ -368,17 +441,11 @@ extension _ChatControllerHistory on ChatController {
     }
   }
 
-  /// The sticky active profile, or null when the server has none to report:
-  /// no repository, or a server without the profiles route (404). Any other
-  /// failure throws, so the caller does not list or send unscoped.
-  Future<String?> _activeProfile() async {
-    try {
-      return (await profiles?.loadActive())?.active;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
-      rethrow;
-    }
-  }
+  /// The profile the dashboard was launched with, or null when the server has
+  /// none to report: no repository, or a server without the profiles route
+  /// (404). Any other failure throws, so the caller does not list or send
+  /// unscoped. It is `current`, not the sticky `active` one.
+  Future<String?> _activeProfile() async => await profiles?.resolver.load();
 
   Future<void> _loadModelOptions(
     String? profile,
@@ -449,23 +516,57 @@ extension _ChatControllerHistory on ChatController {
   }
 
   Future<void> _loadMessages(String id) {
-    if (!active || !_unloaded.remove(id)) return Future.value();
-    _historyFailed.remove(id);
-    final load = _readFirstPage(id);
+    if (!active) return Future.value();
+    // Already read, or being read: a caller waits for that read, so a
+    // reselect during Retry does not act on a chat still without its page.
+    if (!_unloaded.remove(id)) return _loadingMessages[id] ?? Future.value();
+    // A read that starts while the failure shows is a retry of it.
+    if (_historyFailed.remove(id)) _historyRetrying.add(id);
+    final token = _pageReadToken[id] = ++_pageReadSeq;
+    final load = _readFirstPage(id, token);
     _loadingMessages[id] = load;
     return load.whenComplete(() {
-      if (identical(_loadingMessages[id], load)) _loadingMessages.remove(id);
+      if (identical(_loadingMessages[id], load)) {
+        _loadingMessages.remove(id);
+        _historyRetrying.remove(id);
+      }
     });
   }
 
-  Future<void> _readFirstPage(String id) async {
+  /// A read of [id]'s first page that the list reloading made stale is not
+  /// lost: unless a newer read started, the chat is unread again, and one
+  /// that was a Retry shows its failure again, so the row keeps its Retry.
+  void _restoreStaleRead(String id, int token, {required bool retried}) {
+    if (!active ||
+        _pageReadToken[id] != token ||
+        !_threads.any((t) => t.id == id)) {
+      return;
+    }
+    _unloaded.add(id);
+    if (retried) _historyFailed.add(id);
+    _historyRetrying.remove(id);
+    notifyListeners();
+  }
+
+  Future<void> _readFirstPage(String id, int token) async {
     final generation = _loadGeneration;
+    final retried = _historyRetrying.contains(id);
     final reading = _threads.where((t) => t.id == id).firstOrNull;
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
-      if (!active || generation != _loadGeneration) return;
+      if (!active) return;
+      if (generation != _loadGeneration) {
+        return _restoreStaleRead(id, token, retried: retried);
+      }
       final thread = _threads.where((t) => t.id == id).firstOrNull;
-      if (thread == null) return _readAgainUnderNewId(reading, id);
+      if (thread == null) {
+        _historyRetrying.remove(id);
+        return _readAgainUnderNewId(reading, id);
+      }
+      // A newer read or a page landed another way meanwhile: this one is
+      // overtaken and decides nothing.
+      if (_pageReadToken[id] != token) return;
+      _firstPageLanded(id);
       final merged = _mergedWithPage(thread.messages, id, page.messages);
       thread.messages
         ..clear()
@@ -477,7 +578,18 @@ extension _ChatControllerHistory on ChatController {
       await controllerFor(thread)
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
     } on Object {
-      if (generation != _loadGeneration) return;
+      if (generation != _loadGeneration) {
+        return _restoreStaleRead(id, token, retried: retried);
+      }
+      if (_pageReadToken[id] != token) {
+        // Overtaken, or the chat was stored under a new id meanwhile and is
+        // read again under it.
+        if (active && !_threads.any((t) => t.id == id)) {
+          _readAgainUnderNewId(reading, id);
+        }
+        return;
+      }
+      _historyRetrying.remove(id);
       _unloaded.add(id);
       if (!active) return;
       _historyFailed.add(id);
@@ -770,6 +882,8 @@ extension _ChatControllerHistory on ChatController {
     String id, {
     bool strict = false,
     bool historyRemoved = false,
+    bool releasing = false,
+    int? sendGeneration,
   }) async {
     Never notRead() => throw StateError('The chat was not read again');
     if (!active) return strict ? notRead() : null;
@@ -782,8 +896,14 @@ extension _ChatControllerHistory on ChatController {
       return strict ? notRead() : null;
     }
     final generation = _loadGeneration;
+    // [sendGeneration]: the read was asked for the turn that stood there; a
+    // send made since is another turn's, and nothing of this read is its.
     bool stale() =>
-        !active || generation != _loadGeneration || thread.isReplying;
+        !active ||
+        generation != _loadGeneration ||
+        thread.isReplying ||
+        (sendGeneration != null &&
+            sendGeneration != (_generations[thread] ?? 0));
     try {
       final fresh = await repository.loadThread(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
@@ -802,7 +922,7 @@ extension _ChatControllerHistory on ChatController {
       }
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return strict ? notRead() : null;
-      var failed = _failedTurn(thread, page.messages);
+      var failed = _failedTurn(thread, page.messages, releasing: releasing);
       // After a full restore took history away, a failed turn whose prompt
       // the server no longer holds is gone with it, not put back. Any other
       // read keeps it, with its Retry.
@@ -839,7 +959,15 @@ extension _ChatControllerHistory on ChatController {
   /// A prompt repeats earlier ones, so it is found by its place among the user
   /// messages of the same text: with n of them before it here, the history
   /// holds it only when it has more than n, and its occurrence is the next.
-  List<ChatMessage> _failedTurn(ChatThread thread, List<ChatMessage> history) {
+  ///
+  /// A reply the server may still run (`serverMayRun`) is kept whatever the
+  /// history holds, except for the read that [releasing] it: that read is the
+  /// one that lets a stored answer replace the bubble.
+  List<ChatMessage> _failedTurn(
+    ChatThread thread,
+    List<ChatMessage> history, {
+    bool releasing = false,
+  }) {
     final messages = thread.messages;
     final reply = messages.lastOrNull;
     if (reply == null ||
@@ -858,6 +986,9 @@ extension _ChatControllerHistory on ChatController {
         if (same(history[i])) i,
     ];
     if (occurrences.length <= before) return [prompt, reply];
+    // The server may still run this turn and has already stored a row of it:
+    // the reply stays, so Retry and Edit do not come back on that row.
+    if (reply.serverMayRun && !releasing) return [reply];
     final answered = history
         .skip(occurrences[before] + 1)
         .any((m) => m.role == ChatRole.assistant);

@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/widgets/working_dot.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -167,14 +169,18 @@ void main() {
   testWidgets('MacThreadRow shows the working mark when busy', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: MacThreadRow(
             title: 'Run failure',
             selected: false,
             busy: true,
             onTap: () {},
-            menuItems: (_) =>
-                macThreadMenuItems(pinned: false, manageable: false),
+            menuItems: (context) => macThreadMenuItems(
+              context.l10n,
+              pinned: false,
+              manageable: false,
+            ),
             onAction: (_) {},
           ),
         ),

@@ -2,12 +2,53 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/painting.dart';
 import 'package:val_highlight/languages/all.dart';
 import 'package:val_highlight/val_highlight.dart';
 
+import '../theme/hermes_code_colors.dart';
+
 /// The classes of token the code palette tells apart. A token the grammar
-/// names but the palette does not (an operator, a bracket) stays plain.
-enum CodeToken { keyword, string, comment, number, function, type }
+/// names but the palette does not (an operator) stays plain.
+///
+/// `key` is a JSON or YAML key (the grammars' `property` scope); `literal` is
+/// `true`, `false`, `null` and the like (the `literal` scope), drawn in the
+/// number colour and semibold; `punctuation` is a brace, a colon or a comma,
+/// drawn in the muted colour.
+enum CodeToken {
+  keyword,
+  string,
+  comment,
+  number,
+  function,
+  type,
+  key,
+  literal,
+  punctuation,
+}
+
+/// The style of a run of class [token] under [palette]; null is plain text,
+/// which inherits the code's own colour. The one place the palette meets the
+/// token classes, for the Files preview and the chat's code blocks alike.
+TextStyle? codeTokenStyle(CodeToken? token, HermesCodeColors palette) =>
+    switch (token) {
+      null => null,
+      CodeToken.keyword => TextStyle(color: palette.keyword),
+      CodeToken.string => TextStyle(color: palette.string),
+      CodeToken.comment => TextStyle(
+        color: palette.comment,
+        fontStyle: FontStyle.italic,
+      ),
+      CodeToken.number => TextStyle(color: palette.number),
+      CodeToken.function => TextStyle(color: palette.function),
+      CodeToken.type => TextStyle(color: palette.typeName),
+      CodeToken.key => TextStyle(color: palette.key),
+      CodeToken.literal => TextStyle(
+        color: palette.number,
+        fontWeight: FontWeight.w600,
+      ),
+      CodeToken.punctuation => TextStyle(color: palette.comment),
+    };
 
 /// A stretch of code and its token class; `null` is plain text. Plain data, so
 /// a list of them crosses an isolate boundary.
@@ -87,12 +128,23 @@ const int kCodeHighlightMaxRuns = 1000;
 /// joined, is unchanged.
 List<CodeRun> capRuns(List<CodeRun> runs, {int max = kCodeHighlightMaxRuns}) {
   final out = <CodeRun>[];
+  // The text of the last run in [out] while it is still being merged into,
+  // so a long chain of one token is joined once and not copied per run.
+  StringBuffer? open;
+  void close() {
+    if (open != null) {
+      out[out.length - 1] = (open.toString(), out.last.$2);
+      open = null;
+    }
+  }
+
   for (var i = 0; i < runs.length; i++) {
     final run = runs[i];
     if (out.isNotEmpty && out.last.$2 == run.$2) {
-      out[out.length - 1] = (out.last.$1 + run.$1, run.$2);
+      (open ??= StringBuffer(out.last.$1)).write(run.$1);
       continue;
     }
+    close();
     if (out.length == max - 1) {
       final rest = StringBuffer();
       for (var j = i; j < runs.length; j++) {
@@ -103,6 +155,7 @@ List<CodeRun> capRuns(List<CodeRun> runs, {int max = kCodeHighlightMaxRuns}) {
     }
     out.add(run);
   }
+  close();
   return out;
 }
 
@@ -133,7 +186,14 @@ bool isColourable(String text) {
 /// Every grammar `val_highlight` ships, by name and alias (`python`, `py`,
 /// `shell`, `sh`, `yml` ...). The server's `language` is a name from its own
 /// fixed map; a name not here is shown plain. There is no fallback grammar.
-final LanguageRegistry _registry = LanguageRegistry(allLanguages);
+final LanguageRegistry _registry = LanguageRegistry(allLanguages)
+  ..add(pythonLanguage, aliases: const ['python3'])
+  ..add(bashLanguage, aliases: const ['shellscript']);
+
+/// Shares [_registry] so Markdown and HTML resolve the languages embedded in
+/// them (a fenced block in a Markdown file, a `<script>` in HTML), as
+/// `gpt_markdown`'s own code block did. Built in each isolate that needs it.
+final Highlighter _highlighter = Highlighter(registry: _registry);
 
 /// Whether [language] names a grammar the app has.
 bool hasCodeGrammar(String? language) => _grammarOf(language) != null;
@@ -156,31 +216,49 @@ List<CodeRun> highlightCode(String text, String? language) {
     return plain;
   }
   try {
-    final result = const Highlighter().highlight(text, language: grammar);
+    final result = _highlighter.highlight(text, language: grammar);
     final table = result.scopes;
     final runs = <CodeRun>[];
+    // The last run's text while tokens of its class keep arriving, so a long
+    // chain of one class is joined once and not copied per token.
+    StringBuffer? open;
+    void close() {
+      if (open != null) {
+        runs[runs.length - 1] = (open.toString(), runs.last.$2);
+        open = null;
+      }
+    }
+
     final cache = <int, CodeToken?>{};
     for (var i = 0; i < result.tokenCount; i++) {
       final slice = text.substring(result.tokenStart(i), result.tokenEnd(i));
       if (slice.isEmpty) continue;
       final token = cache.putIfAbsent(result.tokenStack(i), () {
         // The innermost scope the palette knows: a `punctuation` inside a
-        // `string` is part of the string.
+        // `string` is part of the string, so punctuation counts only when no
+        // enclosing scope is coloured.
         var stack = result.tokenStack(i);
+        var punctuation = false;
         while (stack != ScopeTable.root) {
           final scope = table.scopeOf(stack);
           final mapped = scope == null ? null : tokenOfScope(scope);
-          if (mapped != null) return mapped;
+          if (mapped == CodeToken.punctuation) {
+            punctuation = true;
+          } else if (mapped != null) {
+            return mapped;
+          }
           stack = table.parentOf(stack);
         }
-        return null;
+        return punctuation ? CodeToken.punctuation : null;
       });
       if (runs.isNotEmpty && runs.last.$2 == token) {
-        runs[runs.length - 1] = (runs.last.$1 + slice, token);
+        (open ??= StringBuffer(runs.last.$1)).write(slice);
       } else {
+        close();
         runs.add((slice, token));
       }
     }
+    close();
     // A grammar that drops or repeats text is worse than none.
     return runs.map((run) => run.$1).join() == text ? capRuns(runs) : plain;
   } on Object {
@@ -271,15 +349,15 @@ class CodeHighlightWorker {
 CodeToken? tokenOfScope(String scope) {
   final dot = scope.indexOf('.');
   return switch (dot < 0 ? scope : scope.substring(0, dot)) {
-    Scopes.keyword ||
-    Scopes.literal ||
-    Scopes.meta ||
-    Scopes.tag => CodeToken.keyword,
+    Scopes.keyword || Scopes.meta || Scopes.tag => CodeToken.keyword,
+    Scopes.literal => CodeToken.literal,
     Scopes.string || Scopes.regexp || Scopes.addition => CodeToken.string,
     Scopes.comment || Scopes.quote || Scopes.deletion => CodeToken.comment,
     Scopes.number => CodeToken.number,
     Scopes.function || Scopes.heading => CodeToken.function,
-    Scopes.type || Scopes.property || Scopes.attribute => CodeToken.type,
+    Scopes.property => CodeToken.key,
+    Scopes.type || Scopes.attribute => CodeToken.type,
+    Scopes.punctuation => CodeToken.punctuation,
     _ => null,
   };
 }

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
@@ -11,6 +11,7 @@ import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// The catalog screen, reached from the MCP servers screen, against a fake
 /// dashboard through the real generated client.
@@ -92,7 +93,7 @@ void main() {
     Size size = const Size(420, 900),
   }) async {
     await pumpServers(tester, size: size);
-    await tester.tap(find.byTooltip('Add server'));
+    await tester.tap(find.tooltip('Add server'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Browse the catalog'));
     await tester.pumpAndSettle();
@@ -127,9 +128,13 @@ void main() {
       );
     });
 
-    testWidgets('the subtitle follows the profile the servers learn', (
-      tester,
-    ) async {
+    testWidgets('the subtitle names the launch profile the servers learn, '
+        'not the sticky default', (tester) async {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'home', current: 'work'),
+      );
       final servers = McpServersController(
         repository: HermesMcpRepository(server.client().raw),
         profiles: HermesProfilesRepository(server.client().raw),
@@ -139,17 +144,9 @@ void main() {
         MaterialApp(home: McpCatalogScreen(servers: servers)),
       );
       await tester.pumpAndSettle();
+
       expect(find.text('Installing into: work'), findsOneWidget);
-
-      server.on(
-        'GET',
-        '/api/profiles/active',
-        activeProfileBody(active: 'home'),
-      );
-      unawaited(servers.load());
-      await tester.pumpAndSettle();
-
-      expect(find.text('Installing into: home'), findsOneWidget);
+      expect(find.text('Installing into: home'), findsNothing);
     });
 
     testWidgets('the empty state has a button to the catalog', (tester) async {
@@ -170,7 +167,7 @@ void main() {
       await pumpServers(tester);
 
       expect(find.text('Could not load MCP servers'), findsOneWidget);
-      expect(find.byTooltip('Add server'), findsNothing);
+      expect(find.tooltip('Add server'), findsNothing);
     });
   });
 
@@ -180,7 +177,7 @@ void main() {
       server.onRequest('GET', '/api/mcp/catalog', (_) => answer.future);
       await pumpServers(tester);
 
-      await tester.tap(find.byTooltip('Add server'));
+      await tester.tap(find.tooltip('Add server'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Browse the catalog'));
       for (var i = 0; i < 4; i++) {

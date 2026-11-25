@@ -78,7 +78,7 @@ void main() {
 
   Future<ChatThread> delegate() async {
     chat.newThread();
-    chat.submit('Launch', const []);
+    await chat.submit('Launch', const []);
     transport.sends.last
       ..emit(const ThreadBound('s1'))
       ..emit(const ReplyStarted())

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
@@ -52,7 +52,7 @@ class PairingStageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Padding(
-                  padding: EdgeInsets.only(top: 3),
+                  padding: EdgeInsets.only(top: 4),
                   child: MotionSpinner(),
                 ),
                 const SizedBox(width: 12),

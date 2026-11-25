@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app.dart';
@@ -13,6 +13,7 @@ import 'package:hermes_app/src/settings/theme_controller.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -23,6 +24,7 @@ import 'fake_notification_service.dart';
 import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
 import 'screenshot_recorder.dart';
+import 'test_localizations.dart';
 
 final workflowPlatform = Platform.environment['WORKFLOW_PLATFORM'] == null
     ? null
@@ -151,8 +153,9 @@ Future<void> pumpScreen(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           locale: locale,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
+          builder: (context, child) => AppThemeScopes(child: child!),
           theme: withScreenshotFont(
             dark
                 ? buildHermesDarkTheme(platform: platform)

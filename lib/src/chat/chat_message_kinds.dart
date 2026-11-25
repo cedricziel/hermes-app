@@ -15,6 +15,16 @@ const String kKindReasoning = 'reasoning';
 const String kKindSubagents = 'subagents';
 const String kKindReviewSummary = 'review_summary';
 
+/// "Connection lost. Reconnecting…" at the end of a reply whose connection
+/// dropped while the server may still run its turn (`ChatMessage.reconnecting`).
+/// It carries `episode` (int), which loss this is, so a screen reader hears
+/// each loss once.
+const String kKindReconnecting = 'reconnecting';
+const String kMetaReconnectEpisode = 'episode';
+
+/// With `episode`: whether nothing is trying any more (`reconnectIdle`).
+const String kMetaReconnectIdle = 'idle';
+
 /// A line between messages after a compress or a restore settled ("Conversation
 /// compressed · 42 → 9 messages"). It exists only in this app, beside the
 /// chat's messages and never among them, so it is no prompt, no reply and
@@ -95,5 +105,19 @@ const String kMetaReviewItems = 'items';
 const String kMetaError = 'error';
 const String kMetaStreaming = 'streaming';
 const String kMetaStopped = 'stopped';
+
+/// On a failed reply's `TextMessage` that carries no `error`: the reply was
+/// settled because the server no longer has its turn or could not say how it
+/// ended (`ChatMessage.loss`). The value is the `ReplyLoss` name; the note
+/// under the reply says which, in words.
+const String kMetaLoss = 'loss';
+
+/// On a failed reply's `TextMessage` that carries neither `error` nor `loss`:
+/// the server gave no explanation, so the widget layer words it. The value is
+/// a `ReplyFailure` name, or [kFailureMayStillRun] for a generic failure whose
+/// turn the server may still be running (`ChatMessage.serverMayRun`), which
+/// must not invite a retry.
+const String kMetaFailure = 'failure';
+const String kFailureMayStillRun = 'mayStillRun';
 
 const String kMetaCanonicalRow = 'canonical_reaction_row';

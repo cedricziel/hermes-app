@@ -1,10 +1,14 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/model_options_state.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/test_localizations.dart';
+import 'support/tooltip_finder.dart';
 
 const _options = ModelOptions(
   current: ModelChoice('anthropic', 'claude-opus-4'),
@@ -27,6 +31,7 @@ Future<List<ModelChoice>> _pumpPill(
   ModelOptionsState? state,
   VoidCallback? onRetry,
   VoidCallback? onSetup,
+  TargetPlatform? platform,
 }) async {
   final picked = <ModelChoice>[];
   tester.view
@@ -36,7 +41,9 @@ Future<List<ModelChoice>> _pumpPill(
   ModelChoice? choice;
   await tester.pumpWidget(
     MaterialApp(
-      theme: buildHermesLightTheme(),
+      theme: platform == null
+          ? buildHermesLightTheme()
+          : buildHermesLightTheme(platform: platform),
       home: Scaffold(
         body: StatefulBuilder(
           builder: (context, setState) => ComposerModelPill(
@@ -108,6 +115,74 @@ void main() {
     expect(find.byType(Dialog), findsOneWidget);
   });
 
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.windows,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('pressing the pill on ${platform.name} at 700 pt opens a '
+        'popover on the pill', (tester) async {
+      await _pumpPill(tester, width: 700, platform: platform);
+      final pill = tester.getRect(find.byKey(const Key('composer-model-pill')));
+
+      await tester.tap(find.byKey(const Key('composer-model-pill')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomSheet), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
+      final surface = tester.getRect(
+        find
+            .ancestor(
+              of: find.byType(ModelPicker),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(surface.left, closeTo(pill.left.clamp(8, 700), 0.5));
+      // The pill sits at the top, so the popover flips below it.
+      expect(surface.top, closeTo(pill.bottom + 6, 0.5));
+    });
+  }
+
+  testWidgets('the popover closes when the pill leaves the tree', (
+    tester,
+  ) async {
+    await _pumpPill(tester, width: 700, platform: TargetPlatform.macOS);
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+    expect(find.byType(ModelPicker), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+        home: const Scaffold(body: SizedBox()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ModelPicker), findsNothing);
+  });
+
+  testWidgets('its fallback labels are localised', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        theme: buildHermesLightTheme(),
+        home: Scaffold(
+          body: ComposerModelPill(
+            options: null,
+            choice: null,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Modelle werden geladen'), findsOneWidget);
+  });
+
   testWidgets('keeps a visible loading selector without options', (
     tester,
   ) async {
@@ -161,7 +236,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byTooltip('Could not load models, selected model claude-opus-4'),
+      find.tooltip('Could not load models, selected model claude-opus-4'),
       findsOneWidget,
     );
     semantics.dispose();
@@ -438,5 +513,28 @@ void main() {
       await tester.pumpAndSettle();
       expect(identical(shown(), again), isFalse, reason: 'pick rebuilt');
     });
+  });
+
+  testWidgets('shows control characters of a model id visibly', (tester) async {
+    final handle = tester.ensureSemantics();
+    const evil = 'evil\u202Emodel';
+    await _pumpPill(
+      tester,
+      options: const ModelOptions(
+        current: ModelChoice('p', evil),
+        providers: [
+          ModelProviderOption(
+            id: 'p',
+            label: 'P',
+            models: [ModelOption(id: evil)],
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('evil<U+202E>model'), findsOneWidget);
+    expect(find.textContaining('\u202E'), findsNothing);
+    expect(find.bySemanticsLabel(RegExp('evil<U\\+202E>model')), findsWidgets);
+    handle.dispose();
   });
 }

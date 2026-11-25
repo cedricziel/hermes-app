@@ -1,8 +1,10 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
+import '../../theme/focus_ring.dart';
 import 'schedule_filter_menu.dart';
 
 /// The Schedules toolbar in a Mac window: the title with the number of jobs
@@ -15,6 +17,7 @@ class SchedulesMacToolbar extends StatelessWidget {
     required this.onScopeChanged,
     required this.filterMenu,
     required this.onRefresh,
+    this.refreshing = false,
     required this.onNew,
   });
 
@@ -25,6 +28,9 @@ class SchedulesMacToolbar extends StatelessWidget {
   /// The [ScheduleFilterMenu] for the failing and paused jobs.
   final Widget filterMenu;
   final VoidCallback onRefresh;
+
+  /// Shows a spinner on Refresh while the jobs load.
+  final bool refreshing;
   final VoidCallback onNew;
 
   @override
@@ -46,7 +52,9 @@ class SchedulesMacToolbar extends StatelessWidget {
       const MacToolbarSeparator(),
       filterMenu,
       MacToolbarButton(
-        label: 'Refresh',
+        label: context.l10n.schedulesRefreshAction,
+        shortcut: '⌘R',
+        busy: refreshing,
         icon: AppIcons.refresh,
         onPressed: onRefresh,
       ),
@@ -83,15 +91,18 @@ class ScheduleScopeControl extends StatelessWidget {
         style: TextStyle(fontSize: 12, color: scheme.onSurface),
       ),
     );
-    return CupertinoSlidingSegmentedControl<bool>(
-      groupValue: allProfiles,
-      backgroundColor: scheme.surfaceContainerHighest,
-      thumbColor: scheme.surface,
-      padding: const EdgeInsets.all(2),
-      children: {false: label('This profile'), true: label('All profiles')},
-      onValueChanged: (value) {
-        if (value != null) onChanged(value);
-      },
+    return FocusRing.outside(
+      radius: 9,
+      child: CupertinoSlidingSegmentedControl<bool>(
+        groupValue: allProfiles,
+        backgroundColor: scheme.surfaceContainerHighest,
+        thumbColor: scheme.surface,
+        padding: const EdgeInsets.all(2),
+        children: {false: label('This profile'), true: label('All profiles')},
+        onValueChanged: (value) {
+          if (value != null) onChanged(value);
+        },
+      ),
     );
   }
 }

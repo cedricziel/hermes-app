@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_choice_dialog.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_actions.dart';
@@ -16,6 +17,7 @@ import 'package:widgetbook/widgetbook.dart';
 import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
+import 'platform_theme.dart';
 
 WidgetbookUseCase _use(String name, Widget widget) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(widget, maxWidth: 560));
@@ -162,6 +164,66 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           selected: 2,
           labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
           onPicked: (_) {},
+        ),
+      ),
+      ...onEachPlatform(
+        'None checked, one task',
+        (context) => KanbanTaskChoiceDialog<int>(
+          title: 'Priority',
+          options: const [0, 1, 2, 3],
+          selected: null,
+          labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+          footer: context.l10n.kanbanBulkPickerFooter(1),
+          actions: [
+            TextButton(
+              onPressed: () {},
+              child: Text(context.l10n.widgetsCancel),
+            ),
+          ],
+          onPicked: (_) {},
+        ),
+      ),
+      ...onEachPlatform(
+        'None checked, three tasks',
+        (context) => KanbanTaskChoiceDialog<String>(
+          title: 'Move to',
+          options: const ['triage', 'todo', 'ready', 'blocked', 'done'],
+          selected: null,
+          labelOf: (s) => kanbanStatusLabel(context.l10n, s),
+          footer: context.l10n.kanbanBulkPickerFooter(3),
+          actions: [
+            TextButton(
+              onPressed: () {},
+              child: Text(context.l10n.widgetsCancel),
+            ),
+          ],
+          onPicked: (_) {},
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'None checked, largest text (iPhone)',
+        builder: (context) => Theme(
+          data: platformTheme(context, TargetPlatform.iOS),
+          child: MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: Builder(
+              builder: (context) => KanbanTaskChoiceDialog<String>(
+                title: 'Move to',
+                options: const ['triage', 'todo', 'ready', 'blocked', 'done'],
+                selected: null,
+                labelOf: (s) => kanbanStatusLabel(context.l10n, s),
+                footer: context.l10n.kanbanBulkPickerFooter(3),
+                actions: [
+                  TextButton(
+                    onPressed: () {},
+                    child: Text(context.l10n.widgetsCancel),
+                  ),
+                ],
+                onPicked: (_) {},
+              ),
+            ),
+          ),
         ),
       ),
     ],

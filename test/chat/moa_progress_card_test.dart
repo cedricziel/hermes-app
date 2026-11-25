@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/moa_progress_state.dart';
 import 'package:hermes_app/src/chat/widgets/moa_progress_card.dart';
@@ -14,7 +14,7 @@ void main() {
             body: MoaProgressCard(
               progress: MoaProgress(
                 turn: 'turn',
-                phase: 'Aggregating',
+                aggregating: true,
                 aggregator: 'Reported model',
                 done: 2,
                 total: 3,

@@ -14,6 +14,8 @@ import '../profiles/hermes_profiles_repository.dart';
 import '../providers/providers_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
 import '../server_care/server_care_repository.dart';
+import '../skills/curator/curator_config.dart';
+import '../skills/curator/hermes_curator_repository.dart';
 import '../skills/hermes_skills_hub_repository.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../telemetry/telemetry.dart';
@@ -29,10 +31,12 @@ class HermesRepositories {
       messaging = HermesMessagingRepository(api.raw),
       skills = HermesSkillsRepository(api.raw),
       skillsHub = HermesSkillsHubRepository(api.raw),
+      curator = HermesCuratorRepository(api),
+      curatorConfig = CuratorConfigReader(api),
       pluginManager = HermesPluginManagerRepository(api.raw),
       plugins = HermesPluginsRepository(api.raw),
       mcp = HermesMcpRepository(api.raw),
-      tools = HermesToolsRepository(api.raw, profile: '', telemetry: telemetry),
+      tools = HermesToolsRoot(api.raw, telemetry: telemetry),
       models = HermesModelsRepository(api.raw),
       providers = ProvidersRepository(api.raw, telemetry: telemetry),
       cron = HermesCronRepository(api.raw),
@@ -50,13 +54,18 @@ class HermesRepositories {
   final HermesMessagingRepository messaging;
   final HermesSkillsRepository skills;
   final HermesSkillsHubRepository skillsHub;
+
+  /// The skill curator of a profile and the config switches its run
+  /// confirmation reads.
+  final HermesCuratorRepository curator;
+  final CuratorConfigReader curatorConfig;
   final HermesPluginManagerRepository pluginManager;
   final HermesPluginsRepository plugins;
   final HermesMcpRepository mcp;
 
   /// The tools routes. It names no profile: reach a profile's toolsets
   /// through `tools.forProfile(name)`.
-  final HermesToolsRepository tools;
+  final HermesToolsRoot tools;
   final HermesModelsRepository models;
 
   /// The model providers of a profile: what is connected, and connecting,

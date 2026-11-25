@@ -1,3 +1,5 @@
+import '../../l10n/l10n.dart';
+
 /// The board's columns, left to right, as the plugin orders them. `archived`
 /// is not a column but a filter that adds a ninth one.
 const kanbanStatuses = [
@@ -11,8 +13,21 @@ const kanbanStatuses = [
   'done',
 ];
 
-String kanbanStatusLabel(String status) =>
-    status.isEmpty ? status : status[0].toUpperCase() + status.substring(1);
+/// The name of [status] in the app's language; a status the app does not know
+/// is shown as the plugin sent it.
+String kanbanStatusLabel(AppLocalizations l10n, String status) =>
+    switch (status) {
+      'triage' => l10n.kanbanStatusTriage,
+      'todo' => l10n.kanbanStatusTodo,
+      'scheduled' => l10n.kanbanStatusScheduled,
+      'ready' => l10n.kanbanStatusReady,
+      'running' => l10n.kanbanStatusRunning,
+      'blocked' => l10n.kanbanStatusBlocked,
+      'review' => l10n.kanbanStatusReview,
+      'done' => l10n.kanbanStatusDone,
+      'archived' => l10n.kanbanStatusArchived,
+      _ => status,
+    };
 
 DateTime? _time(Object? seconds) => seconds is num
     ? DateTime.fromMillisecondsSinceEpoch((seconds * 1000).round())
@@ -517,24 +532,25 @@ class KanbanEstimate {
   final String? complexity;
   final String? rationale;
   final String? reason;
+}
 
-  /// `about 12k tokens · medium`, or the reason when there is no estimate.
-  String get summary {
-    if (!ok) return reason ?? 'No estimate available.';
-    final size = tokens == null
-        ? null
-        : tokens! >= 1000
-        ? 'about ${(tokens! / 1000).round()}k tokens'
-        : 'about $tokens tokens';
-    final read = switch (complexity?.toUpperCase()) {
-      'S' => 'small',
-      'M' => 'medium',
-      'L' => 'large',
-      final other => other,
-    };
-    final text = [?size, ?read].join(' · ');
-    return text.isEmpty ? 'No estimate available.' : text;
-  }
+/// `about 12k tokens · medium`, or the reason when there is no estimate.
+String kanbanEstimateSummary(AppLocalizations l10n, KanbanEstimate estimate) {
+  if (!estimate.ok) return estimate.reason ?? l10n.kanbanEstimateNone;
+  final tokens = estimate.tokens;
+  final size = tokens == null
+      ? null
+      : tokens >= 1000
+      ? l10n.kanbanEstimateKiloTokens((tokens / 1000).round())
+      : l10n.kanbanEstimateTokens(tokens);
+  final read = switch (estimate.complexity?.toUpperCase()) {
+    'S' => l10n.kanbanEstimateSmall,
+    'M' => l10n.kanbanEstimateMedium,
+    'L' => l10n.kanbanEstimateLarge,
+    final other => other,
+  };
+  final text = [?size, ?read].join(' · ');
+  return text.isEmpty ? l10n.kanbanEstimateNone : text;
 }
 
 /// A messenger's home channel a task can post updates to.

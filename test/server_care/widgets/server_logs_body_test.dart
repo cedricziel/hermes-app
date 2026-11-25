@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
 import 'package:hermes_app/src/server_care/widgets/log_level_menu_button.dart';
 import 'package:hermes_app/src/server_care/widgets/server_logs_body.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../support/test_localizations.dart';
 
 const _lines = [
   LogLine(
@@ -34,7 +36,7 @@ const _lines = [
 Widget _app(ServerLogsBody body, {String locale = 'en'}) => MaterialApp(
   theme: buildHermesLightTheme(),
   locale: Locale(locale),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: body),
 );

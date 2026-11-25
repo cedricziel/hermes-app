@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -16,6 +16,7 @@ import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/conversation_window_screen.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -24,6 +25,7 @@ import '../support/fake_gateway.dart';
 import '../support/fake_attachment_source.dart';
 import '../support/fake_hermes_server.dart';
 import 'billing_fixtures.dart';
+import '../support/test_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -151,7 +153,7 @@ void main() {
     final module = chat.billingVerificationIn(thread);
     expect(module, isNotNull);
     expect(gateway.methods, isNot(contains('billing.step_up')));
-    chat.submit('Foreground', const []);
+    await chat.submit('Foreground', const []);
     await pumpEventQueue();
     final pending = module!.start();
     await pumpEventQueue();
@@ -273,7 +275,7 @@ void main() {
     await pumpEventQueue();
     expect(old.verification, isNull);
     expect(chat.billingVerificationIn(thread), isNull);
-    chat.submit('Reconnect', const []);
+    await chat.submit('Reconnect', const []);
     await pumpEventQueue();
     final replacement = chat.billingVerificationIn(thread)!;
     expect(replacement.verification, isNull);
@@ -314,7 +316,7 @@ void main() {
       gateway.requests.where((row) => row['method'] == 'billing.step_up'),
       hasLength(requestsBefore),
     );
-    chat.submit('Ordinary chat', const []);
+    await chat.submit('Ordinary chat', const []);
     await pumpEventQueue();
     expect(chat.selectedThread!.isReplying, isTrue);
     gateway.event('message.complete', 'rt-2', {
@@ -426,6 +428,7 @@ void main() {
         lock.setCovered(true);
         await tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             home: ConversationWindowScreen(
               args: const ConversationWindowArgs(
                 threadId: 'stored-1',
@@ -497,7 +500,8 @@ void main() {
       addTearDown(queue.dispose);
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          builder: (_, child) => AppThemeScopes(child: child!),
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: chatWithActivity(

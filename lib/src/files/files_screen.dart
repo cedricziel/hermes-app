@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +12,7 @@ import '../chat/media/media_store.dart';
 import '../chat/widgets/quick_look_target.dart';
 import '../drag_out/drag_out_item.dart';
 import '../drag_out/drag_out_source.dart';
+import '../macos/mac_commands.dart';
 import '../theme/app_icons.dart';
 import '../theme/breakpoints.dart';
 import '../theme/platform_chrome.dart';
@@ -398,7 +399,7 @@ class _FilesScreenState extends State<FilesScreen> {
         final mac = _mac;
         final scaffold = SettingsScaffold(
           title: folderTitleOf(_controller, l10n.filesEntryLabel),
-          previousTitle: widget.previousTitle,
+          previousTitle: widget.previousTitle ?? l10n.widgetsBack,
           actions: [
             if (mac)
               SettingsBarAction(
@@ -431,13 +432,15 @@ class _FilesScreenState extends State<FilesScreen> {
           },
           child: scaffold,
         );
-        if (!mac) return guarded;
-        return CallbackShortcuts(
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true): () =>
-                unawaited(_controller.up()),
-            const SingleActivator(LogicalKeyboardKey.keyR, meta: true): () =>
-                unawaited(_controller.refresh()),
+        // View > Reload and Enclosing Folder own ⌘R and ⌘↑.
+        return MacCommandScope(
+          commands: {
+            MacCommand.reload: MacCommandHandler(
+              () => unawaited(_controller.refresh()),
+            ),
+            MacCommand.enclosingFolder: MacCommandHandler(
+              _controller.canGoUp ? () => unawaited(_controller.up()) : null,
+            ),
           },
           child: guarded,
         );

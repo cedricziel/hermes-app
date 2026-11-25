@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 /// The banner paints through the window's top inset and keeps its content
 /// below it, once.
@@ -38,7 +39,7 @@ void main() {
     addTearDown(run.dispose);
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         theme: buildHermesLightTheme(platform: platform),
         builder: (context, child) => MediaQuery(
