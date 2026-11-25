@@ -22,7 +22,7 @@ Branching from a reply shipped in #880: every finished reply offers "Branch in n
 
 ## Security and privacy impact
 
-The notice shows a chat title, so it is covered by App Lock like the rest of the screen. The parent's title and id never reach a breadcrumb, span, log, the surface snapshot, a notification, Spotlight, Handoff, a Live Activity or the watch. See `design.md`, "Privacy".
+The notice shows a chat title, so it is covered by App Lock like the rest of the screen. The parent's title and id never reach a breadcrumb, span, log, the surface snapshot, a notification, Spotlight, Handoff, a Live Activity or the watch. See `design.md`, Decisions 4 and Observability.
 
 ## Observability
 

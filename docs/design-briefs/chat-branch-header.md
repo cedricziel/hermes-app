@@ -43,10 +43,10 @@ Copy added by the design (English; German in the table):
 | `chatBranchNoticeOpening` | Opening the original chat… | Der ursprüngliche Chat wird geöffnet… |
 | `chatBranchNoticeDeleted` | The original chat was deleted. | Der ursprüngliche Chat wurde gelöscht. |
 | `chatBranchNoticeUnreachable` | Couldn't reach Hermes. Check your connection. | Hermes ist nicht erreichbar. Prüfe deine Verbindung. |
-| `commonRetry` (exists) | Try again | Erneut versuchen |
+| `chatBranchNoticeRetry` | Try again | Erneut versuchen |
 | `chatBranchNoticeSemantics` | Branched from {title}. Opens the original chat. | Verzweigt von {title}. Öffnet den ursprünglichen Chat. |
 | `chatBranchRowLabel` | Branch | Verzweigung |
-| `macMenuOpenParentChat` | Open Parent Chat | Übergeordneten Chat öffnen |
+| `macosMenuOpenParentChat` | Open Parent Chat | Übergeordneten Chat öffnen |
 
 New components needed:
 
