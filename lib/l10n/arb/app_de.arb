@@ -1409,6 +1409,12 @@
   "schedulesRunRequested": "Ausführung angefordert",
 
   "@@x-area-screens": "",
+  "screensCleartextCheckingHttps": "Prüfe {host} über https://…",
+  "screensCleartextHttpsUnavailable": "{host} antwortet nicht über https://. Hermes verwendet vorerst weiter http:// und fragt beim nächsten Mal erneut.",
+  "screensCleartextKeepAction": "http:// beibehalten",
+  "screensCleartextSavedBody": "{host} liegt weder in deinem lokalen Netzwerk noch in einem VPN, und Hermes sendet dein Passwort, deine Anmelde-Tokens und deine Chats per http:// unverschlüsselt dorthin. Jeder auf dem Weg kann sie mitlesen.\n\nWechsle zur https://-Adresse, falls der Server eine hat.",
+  "screensCleartextSavedTitle": "http:// weiter verwenden?",
+  "screensCleartextUseHttpsAction": "https:// verwenden",
   "screensConnectionVersionUnknown": "unbekannt",
   "screensRefreshAction": "Aktualisieren",
 

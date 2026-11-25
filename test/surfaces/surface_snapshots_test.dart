@@ -552,6 +552,7 @@ void main() {
       await Future<void>.delayed(debounce * 2);
 
       await lock.setEnabled(true);
+      final written = nextWrite();
       gate.complete((
         status: 200,
         body: {
@@ -560,7 +561,7 @@ void main() {
           ],
         },
       ));
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await written;
 
       expect(storage.saved, isNotEmpty);
       expect(
