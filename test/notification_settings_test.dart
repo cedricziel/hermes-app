@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
@@ -37,6 +39,19 @@ base class _MutedUnreadable extends InMemorySharedPreferencesAsync {
       });
 
   var unreadable = true;
+
+  /// A write of the alerts switch waits for it, to hold up the queued ones.
+  Completer<void>? gate;
+
+  @override
+  Future<bool> setBool(
+    String key,
+    bool value,
+    SharedPreferencesOptions options,
+  ) async {
+    await gate?.future;
+    return super.setBool(key, value, options);
+  }
 
   @override
   Future<List<String>?> getStringList(
@@ -186,6 +201,44 @@ void main() {
       expect(next.isMuted('p/2'), isTrue);
     },
   );
+
+  test(
+    'an unmute after a later load read the muted chats is not undone',
+    () async {
+      final store = _MutedUnreadable();
+      SharedPreferencesAsyncPlatform.instance = store;
+      final settings = NotificationSettings();
+      await reportedErrors(settings.load);
+      store.unreadable = false;
+      await settings.load();
+
+      await settings.setMuted('p/1', false);
+
+      expect(settings.isMuted('p/1'), isFalse);
+      expect((await relaunch()).isMuted('p/1'), isFalse);
+    },
+  );
+
+  test('a mute queued behind a slow write during a later load keeps the saved '
+      'mutes', () async {
+    final store = _MutedUnreadable();
+    SharedPreferencesAsyncPlatform.instance = store;
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+    store.unreadable = false;
+    store.gate = Completer<void>();
+    final slow = settings.setEnabled(false);
+
+    final loading = settings.load();
+    final muting = settings.setMuted('p/2', true);
+    await loading;
+    store.gate!.complete();
+    await Future.wait([slow, muting]);
+
+    final next = await relaunch();
+    expect(next.isMuted('p/1'), isTrue);
+    expect(next.isMuted('p/2'), isTrue);
+  });
 
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();

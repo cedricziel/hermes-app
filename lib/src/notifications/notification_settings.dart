@@ -96,7 +96,12 @@ class NotificationSettings extends ChangeNotifier {
     if (_scheduleEdits == scheduleEditsBefore) {
       _scheduleAlerts = schedules ?? true;
     }
-    if (!mutedRead) _mutedUnreadable = true;
+    if (!mutedRead) {
+      _mutedUnreadable = true;
+    } else if (_mutedEdits == mutedEditsBefore) {
+      // The set read is the set now, so it can be saved as it is.
+      _mutedUnreadable = false;
+    }
     if (_mutedEdits == mutedEditsBefore) _muted = {...?muted};
     if (_liveActivityEdits == liveActivityEditsBefore) {
       _liveActivities = liveActivities ?? true;
