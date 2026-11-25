@@ -1,11 +1,17 @@
-import 'package:flutter/foundation.dart' show TargetPlatform;
-
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show TargetPlatform;
+import 'package:flutter/widgets.dart' show AppLifecycleState;
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/accessibility_announcements.dart';
 import '../support/pump_chat.dart';
@@ -119,6 +125,45 @@ void main() {
       await openThread(tester, 'Another branch');
       await openThread(tester, 'Try another way');
       expect(said, hasLength(2));
+    });
+
+    testWidgets('the command is on again once App Lock lifts, with no other '
+        'change to the chat', (tester) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final lock = AppLockController(
+        authenticator: FakeDeviceAuthenticator(),
+        coverWhenInactive: false,
+      );
+      addTearDown(lock.dispose);
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpChatScreen(
+        tester,
+        server: _server(),
+        platform: TargetPlatform.macOS,
+        commands: commands,
+        providers: [
+          ChangeNotifierProvider<AppLockController>.value(value: lock),
+        ],
+      );
+      await tester.runAsync(lock.load);
+      await tester.runAsync(() => lock.setEnabled(true));
+      await openThread(tester, 'Try another way');
+      expect(commands.handlerFor(MacCommand.openParentChat)?.enabled, isTrue);
+
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.hidden)
+        // Frames stop while hidden; inactive keeps the lock and draws again.
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      expect(lock.locked, isTrue);
+      await tester.pump();
+      await tester.runAsync(() => lock.unlock());
+      await tester.pump();
+
+      expect(lock.locked, isFalse);
+      expect(commands.handlerFor(MacCommand.openParentChat)?.enabled, isTrue);
     });
 
     testWidgets('the command is off once Hermes said the original is gone', (
