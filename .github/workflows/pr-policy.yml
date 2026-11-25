@@ -52,8 +52,9 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      # First live exercise on the PR that carries this change: this fetch
-      # recipe has only been tried against local repositories until then.
+      # `pull_request_target` runs main's copy of this file, so this fetch
+      # recipe first runs live on the next PR after this change merges; until
+      # then it has only been tried against local repositories.
       # Objects only: `refs/pull/<n>/head` is served for fork PRs too, and the
       # event's head SHA is fetched if a push moved the ref. Nothing is checked
       # out. The token goes in through the environment as a scoped extraheader,

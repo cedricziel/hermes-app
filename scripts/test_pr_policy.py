@@ -939,20 +939,33 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(s4, blk(self.rev, self.root) + blk(s4, s2))
         self.assertIn(f"starts at {s2}", out[0])
 
-    def test_review_that_asked_for_changes_then_a_clean_incremental_review(self):
-        # B reviewed with changes-requested, fixed in D, B..D reviewed clean.
+    def test_review_that_asked_for_changes_is_no_range_base(self):
+        # B rejected, fixed in D: a clean B..D would leave B's findings unread.
         self.r.sync_origin()
         s2 = self.r.commit("pr2.txt")
         bad = blk(self.rev, self.root, verdict="changes-requested")
-        self.assertEqual(self.review(s2, bad + blk(s2, self.rev)), [])
+        out = self.review(s2, bad + blk(s2, self.rev))
+        self.assertTrue(out)
+        self.assertIn(f"starts at {self.rev}", out[0])
+        self.assertIn("last clean review or at the base branch", out[0])
 
-    def test_changes_requested_reviews_chain_into_a_clean_one(self):
+    def test_clean_review_from_the_base_after_a_rejected_one_passes(self):
+        self.r.sync_origin()
+        s2 = self.r.commit("pr2.txt")
+        bad = blk(self.rev, self.root, verdict="changes-requested")
+        self.assertEqual(self.review(s2, bad + blk(s2, self.root)), [])
+
+    def test_changes_requested_reviews_do_not_chain_into_a_clean_one(self):
         self.r.sync_origin()
         s2 = self.r.commit("pr2.txt")
         s3 = self.r.commit("pr3.txt")
         bad1 = blk(self.rev, self.root, verdict="changes-requested")
         bad2 = blk(s2, self.rev, verdict="changes-needed")
-        self.assertEqual(self.review(s3, bad1 + bad2 + blk(s3, s2)), [])
+        out = self.review(s3, bad1 + bad2 + blk(s3, s2))
+        self.assertTrue(out)
+        self.assertIn(f"starts at {s2}", out[0])
+        # Starting at the last accepted commit (here the base) passes.
+        self.assertEqual(self.review(s3, bad1 + bad2 + blk(s3, self.root)), [])
 
     def test_changes_requested_base_with_a_gap_is_rejected(self):
         self.r.sync_origin()
@@ -965,7 +978,7 @@ class MergeReviewTest(unittest.TestCase):
         out = self.review(s4, bad + blk(s2, self.rev) + blk(s4, s3))
         self.assertIn(f"starts at {s3}", out[0])
 
-    def test_changes_requested_block_whose_own_base_is_a_gap_is_rejected(self):
+    def test_changes_requested_block_is_no_base_even_with_its_own_base_read(self):
         self.r.sync_origin()
         s2 = self.r.commit("pr2.txt")
         s3 = self.r.commit("pr3.txt")
@@ -973,10 +986,15 @@ class MergeReviewTest(unittest.TestCase):
         # s3 was reviewed (changes-requested) from s2, but s2 was never read.
         review = blk(s3, s2, verdict="changes-requested") + blk(s4, s3)
         out = self.review(s4, review)
+        self.assertTrue(out)
         self.assertIn(f"starts at {s3}", out[0])
-        # With s2 read from the fork point the chain closes.
-        closed = blk(s2, self.root, verdict="changes-requested") + review
-        self.assertEqual(self.review(s4, closed), [])
+        # Even with s2 read clean from the fork point, the rejected s3 is no base.
+        closed = blk(s2, self.root) + review
+        out = self.review(s4, closed)
+        self.assertTrue(out)
+        self.assertIn(f"starts at {s3}", out[0])
+        # A clean s2..s4 review starts at the last accepted commit.
+        self.assertEqual(self.review(s4, blk(s2, self.root) + blk(s4, s2)), [])
 
     def test_changes_requested_on_the_head_still_rejects(self):
         self.r.sync_origin()
@@ -1804,6 +1822,33 @@ class CatalogFirstTest(unittest.TestCase):
             out, note = self.run_cf([added(WIDGET, CLASS)], hatch_body(where=where))
             self.assertEqual(len(out), 1, where)
             self.assertIsNone(note)
+
+    def test_hatch_with_an_older_rejected_block_and_a_clean_block_for_the_head(self):
+        line = "Catalog-first: not applicable, shown through the Row use case\n"
+        rejected = (
+            f"Reviewer: isolated-reviewer Head: {OLD} Verdict: changes-requested\n"
+            f"Range: {'c' * 40}..{OLD}\nFindings: 1\n"
+        )
+        clean = (
+            f"Reviewer: isolated-reviewer Head: {SHA} Verdict: clean\n"
+            f"Range: {OLD}..{SHA}\nFindings: 0\n"
+        )
+        tail = "Proof reproduced: yes\n\n"
+        files = [added(WIDGET, CLASS)]
+        # The line sits in the clean block for the head: the hatch counts.
+        b = body(review=rejected + tail + clean + line + tail)
+        out, note = self.run_cf(files, b)
+        self.assertEqual((out, bool(note)), ([], True))
+        # The same line only in the older block does not.
+        b = body(review=rejected + line + tail + clean + tail)
+        out, note = self.run_cf(files, b)
+        self.assertEqual(len(out), 1)
+        self.assertIsNone(note)
+        # A rejected block for the head does not open it either.
+        b = body(review=clean.replace("clean", "changes-requested") + line + tail)
+        out, note = self.run_cf(files, b)
+        self.assertEqual(len(out), 1)
+        self.assertIsNone(note)
 
     def test_hatch_window_without_proof_line_ends_at_blank_line(self):
         head = f"Reviewer: isolated-reviewer Head: {SHA} Verdict: clean\n"

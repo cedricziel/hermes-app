@@ -122,13 +122,17 @@ Sections in this order:
 A review reported only in a session message does not count. It must be in the
 PR, where a check can read it. A push after the review needs a new review of
 the new commits, with the new head SHA. The exception is a clean automatic
-merge of the base branch into a commit that has a block: `Review recorded`
+merge of the base branch into a commit with a clean recorded review: `Review recorded`
 proves it from git (the merge's tree equals `git merge-tree` of its parents)
 and needs no new block. A merge with a conflict fix or an extra change needs a
 merge-only review whose block starts with `Merge-review: <files>`, naming every
 file that differs from the automatic merge; a merge of anything but the base
 branch needs it listing everything the merge brings in. A new non-merge commit
-after the reviewed head always needs a review of its own.
+after the reviewed head always needs a review of its own. A review's `Range:`
+may start at the base branch or at a commit with a clean recorded review (so
+each push is reviewed for its new commits); a review that asked for changes
+is never a Range base, so after a rejected round the next review reads, and
+names as its Range, everything since the last clean review or the base.
 
 Authors may add fix notes to `## Review`, but never write or change a
 `Reviewer: ... Head: ... Verdict:` line, its `Range:` line or the

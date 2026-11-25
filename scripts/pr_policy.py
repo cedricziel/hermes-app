@@ -425,6 +425,7 @@ class Block:
         self.head = None
         self.verdict = None
         self.range = None  # raw text after `Range:`, None when absent
+        self.after = []  # raw lines after the Reviewer line, up to the next block
 
 
 def parse_blocks(section):
@@ -454,6 +455,8 @@ def parse_blocks(section):
             pending = None
             cur.head, cur.verdict = m.group(1).lower(), m.group(2)
             continue
+        if cur is not None and cur.head is not None:
+            cur.after.append(raw)
         m = _RANGE_LINE_RE.match(line)
         if m and cur is not None and cur.range is None:
             cur.range = m.group(1)
@@ -633,23 +636,26 @@ class _Review:
                 f"The Range of the review for {commit} starts at {base}, which "
                 f"covers only part of the branch: it is neither on the base "
                 f"branch, nor where {commit} left it ({self.fork(commit)}), nor "
-                f"the end of an earlier review of this branch with a valid "
-                f"Range, so the commits between them are unreviewed. Ask the "
-                f"isolated reviewer to review {want}, or record a review that "
-                f"ends at {base}. {paste}"
+                f"the end of an earlier CLEAN review of this branch with a "
+                f"valid Range (a review that asked for changes is no base), so "
+                f"the commits between them are unreviewed. Start the Range at "
+                f"the last clean review or at the base branch: ask the "
+                f"isolated reviewer to review {want}, or record a clean review "
+                f"that ends at {base}. {paste}"
             ]
         return []
 
     def covered(self, commit):
         """Whether every commit up to `commit` has been read by a reviewer.
         True when it is on the base branch, when the checker accepts it (a
-        clean review, rule b1 or b2, the legacy block), or when a block for it
-        with ANY verdict has a valid Range whose base is itself covered. A
-        review that asked for changes still counts here: the clean reviewer of
-        the next range (B..D after a changes-requested B) has confirmed the
-        findings raised at B are fixed, and no commit has gone unread. The
-        head's own block must still be clean (see `_decide`). `commit` is a
-        strict ancestor of the commit being decided, so this terminates."""
+        clean review, rule b1 or b2, the legacy block), or when a CLEAN block
+        for it has a valid Range whose base is itself covered. A block that
+        asked for changes (changes-requested, changes-needed) never counts as
+        a Range base: nothing makes the next reviewer re-check its findings,
+        so a clean B..D after a rejected A..B would accept D with A..B's
+        findings unread. After a rejected round the next clean review starts
+        at the last accepted commit or the base branch. `commit` is a strict
+        ancestor of the commit being decided, so this terminates."""
         if commit in self._covered:
             return self._covered[commit]
         self._covered[commit] = False
@@ -657,7 +663,12 @@ class _Review:
         for block in self.plain:
             if found:
                 break
-            m = block.head == commit and block.range and _RANGE_RE.match(block.range)
+            m = (
+                block.head == commit
+                and block.verdict == "clean"
+                and block.range
+                and _RANGE_RE.match(block.range)
+            )
             if not m:
                 continue
             base, tip = m.group(1).lower(), m.group(2).lower()
@@ -1046,16 +1057,13 @@ def _hatch_reason_ok(reason):
     return any(w not in _PLACEHOLDER_WORDS for w in words)
 
 
-def _hatch_window(section):
-    """The text of the clean review block after its `Reviewer:` line, up to its
+def _hatch_window(block):
+    """The text of a clean review block after its `Reviewer:` line, up to its
     `Proof reproduced:` line, or up to the first blank line when the block has
     none. The reviewer emits the hatch inside this window; a line the author
     adds elsewhere in ## Review (editing the body does not change the head)
     is outside it."""
-    m = REVIEW_LINE_RE.search(section)
-    if not m:
-        return ""
-    rest = section[m.end() :]
+    rest = "\n" + "\n".join(block.after)
     p = re.search(r"^Proof reproduced:", rest, re.M)
     if p:
         return rest[: p.start()]
@@ -1063,14 +1071,19 @@ def _hatch_window(section):
 
 
 def _hatch(body, head_sha):
-    """The reason of an accepted escape hatch, else None. See catalog_first."""
+    """The reason of an accepted escape hatch, else None. See catalog_first.
+    Only the clean block whose Head is the PR head can carry it; the policy
+    job has no git, so after a clean merge of the base branch (no block names
+    the merge) the hatch stays closed until a new review."""
     _, texts = _sections(body or "")
     section = _strip_fences(texts.get("Review", ""))
-    if review_recorded(body, head_sha):
-        return None
-    m = CATALOG_HATCH_RE.search(_hatch_window(section))
-    if m and _hatch_reason_ok(m.group(1)):
-        return m.group(1)
+    head_sha = head_sha.lower()
+    for block in parse_blocks(section):
+        if block.head != head_sha or block.verdict != "clean":
+            continue
+        m = CATALOG_HATCH_RE.search(_hatch_window(block))
+        if m and _hatch_reason_ok(m.group(1)):
+            return m.group(1)
     return None
 
 
