@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../settings/report_unreadable_prefs.dart';
+
 const _prefsKey = 'hermes.portable_calls';
 
 /// What the switch is before the user touches it.
@@ -33,7 +35,12 @@ class PortableCallSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final editsBefore = _edits;
-    final saved = await _prefs.getBool(_prefsKey);
+    // An unreadable store keeps calls off, the default: the microphone opens
+    // only for a choice that is known.
+    final saved = await readSaved(
+      () => _prefs.getBool(_prefsKey),
+      'the saved calls choice',
+    );
     if (_edits == editsBefore) _enabled = saved ?? kPortableCallsDefault;
     _loaded = true;
     notifyListeners();

@@ -9,6 +9,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/test_localizations.dart';
+import 'support/unreadable_prefs.dart';
 
 final _registry = MacCommandRegistry();
 
@@ -151,6 +152,22 @@ void main() {
     expect(reloaded.sections.isCollapsed('today'), isTrue);
     reloaded.sections.toggle('today');
     expect(reloaded.sections.isCollapsed('today'), isFalse);
+  });
+
+  test('keeps the defaults when the saved layout is unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final controller = MacSidebarController();
+    addTearDown(controller.dispose);
+    var told = 0;
+    controller.addListener(() => told++);
+
+    final reported = await reportedErrors(controller.load);
+
+    expect(controller.width, kMacSidebarDefaultWidth);
+    expect(controller.collapsed, isFalse);
+    expect(controller.sections.isCollapsed('today'), isFalse);
+    expect(told, 1);
+    expect(reported.single.exception, isA<PlatformException>());
   });
 
   group('in a compact window', () {

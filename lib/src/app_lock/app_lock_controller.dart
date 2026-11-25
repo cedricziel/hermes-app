@@ -66,17 +66,13 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   /// Whether App Lock is on, read from the saved setting, for an isolate that
   /// has no controller, such as the one that answers notification buttons.
   /// Unreadable counts as on.
-  static Future<bool> savedEnabled([SharedPreferencesAsync? prefs]) async {
-    try {
-      return await (prefs ?? SharedPreferencesAsync()).getBool(
-            _prefsEnabledKey,
-          ) ??
-          false;
-    } on Object catch (error, stack) {
-      reportUnreadablePrefs(error, stack, 'the App Lock choice');
-      return true;
-    }
-  }
+  static Future<bool> savedEnabled([SharedPreferencesAsync? prefs]) async =>
+      await readSaved(
+        () => (prefs ?? SharedPreferencesAsync()).getBool(_prefsEnabledKey),
+        'the App Lock choice',
+        ifUnreadable: true,
+      ) ??
+      false;
 
   Future<void> load() async {
     final (enabled, available) = await (
