@@ -1052,18 +1052,19 @@ void main() {
     ) async {
       final auth = _Auth();
       addTearDown(auth.dispose);
-      await pump(tester, auth: auth);
+      // No closer: the page's own reaction is what clears the text, not the
+      // app removing the page.
+      await pump(tester, auth: auth, withCloser: false);
       await type(tester, 'You are Mara.');
       auth.pauseRequests();
       await tester.pump();
       expect(find.text('You are Mara.'), findsOneWidget);
 
       auth.endConnection();
-      // One frame, before the app has removed the page: the text is gone.
       await tester.pump();
       expect(find.text('You are Mara.'), findsNothing);
-      await tester.pumpAndSettle();
-      expect(find.text('open'), findsOneWidget);
+      expect(editor(), findsNothing);
+      expect(find.text('open'), findsNothing, reason: 'the page is still up');
       expect(tester.takeException(), isNull);
     });
 

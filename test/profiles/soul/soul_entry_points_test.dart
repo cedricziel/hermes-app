@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/profiles/soul/soul_availability.dart';
 import 'package:hermes_app/src/profiles/soul/soul_screen.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
@@ -163,6 +165,93 @@ void main() {
         expect(find.text('You are the default.'), findsOneWidget);
       },
     );
+
+    group('a chat whose profile is really null', () {
+      // The server cannot say `current` yet: the launch profile read fails
+      // until [ready] is set, and the chat's own profile stays null.
+      late bool ready;
+      late int reads;
+      late ProfileResolver resolver;
+
+      setUp(() {
+        ready = false;
+        reads = 0;
+        server = FakeHermesServer()
+          ..on(
+            'GET',
+            '/api/profiles',
+            profileListBody([profileRow(name: 'work')]),
+          )
+          ..on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404)
+          ..on('GET', '/api/sessions', sessionListBody([]))
+          ..on('GET', '/api/skills', <Object?>[])
+          ..on('GET', '/api/profiles/work/soul', {
+            'content': 'You are Quill.',
+            'exists': true,
+          })
+          ..on('GET', '/api/profiles/default/soul', {
+            'content': 'You are the default.',
+            'exists': true,
+          });
+        resolver = ProfileResolver(() async {
+          reads++;
+          if (!ready) {
+            final options = RequestOptions(path: '/api/profiles/active');
+            throw DioException(
+              requestOptions: options,
+              response: Response<Object?>(
+                requestOptions: options,
+                statusCode: 500,
+              ),
+            );
+          }
+          return (active: 'default', current: 'work');
+        });
+      });
+
+      Future<void> pumpUnresolved(WidgetTester tester) => pumpChatScreen(
+        tester,
+        server: server,
+        profileResolver: resolver,
+        providers: providers(),
+      );
+
+      testWidgets('opens the launch profile after asking once more', (
+        tester,
+      ) async {
+        await pumpUnresolved(tester);
+        await openSidebarMore(tester);
+        expect(resolver.launch, isNull);
+        final before = reads;
+        ready = true;
+
+        await tester.tap(inSidebar(find.text('Personality')));
+        await tester.pumpAndSettle();
+
+        expect(reads, greaterThan(before));
+        expect(find.byType(SoulScreen), findsOneWidget);
+        expect(
+          server.requestsTo('GET', '/api/profiles/work/soul'),
+          hasLength(1),
+        );
+        expect(server.requestsTo('GET', '/api/profiles/default/soul'), isEmpty);
+      });
+
+      testWidgets('opens nothing and reads nothing while it stays unknown', (
+        tester,
+      ) async {
+        await pumpUnresolved(tester);
+        await openSidebarMore(tester);
+
+        await tester.tap(inSidebar(find.text('Personality')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SoulScreen), findsNothing);
+        expect(server.requestsTo('GET', '/api/profiles/work/soul'), isEmpty);
+        expect(server.requestsTo('GET', '/api/profiles/default/soul'), isEmpty);
+        expect(opened(), isEmpty);
+      });
+    });
 
     testWidgets('is not offered without a dashboard connection', (
       tester,
