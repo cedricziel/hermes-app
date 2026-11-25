@@ -291,6 +291,16 @@ void main() {
     );
     expect(find.text('Erneut starten'), findsOneWidget);
     expect(find.text('Neu starten'), findsNothing);
+
+    await _pump(
+      tester,
+      _view(WhatsAppViewPhase.waiting, timeLeft: const Duration(seconds: 42)),
+      locale: const Locale('de'),
+    );
+    expect(
+      find.text('Scanne jetzt oder starte nach dem Ende erneut.'),
+      findsOneWidget,
+    );
   });
 
   group('the notes above the body', () {

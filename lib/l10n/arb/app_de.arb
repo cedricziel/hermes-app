@@ -942,7 +942,7 @@
   "messagingWhatsappEndSupersededTitle": "Eine andere Einrichtung hat diese ersetzt",
   "messagingWhatsappEndUnsupportedDetail": "Die Einstellungen von WhatsApp kannst du weiterhin selbst im Formular eingeben.",
   "messagingWhatsappEndUnsupportedTitle": "Dieser Server kann WhatsApp nicht über die App verknüpfen",
-  "messagingWhatsappExpiringDetail": "Scanne jetzt oder starte nach dem Ende neu.",
+  "messagingWhatsappExpiringDetail": "Scanne jetzt oder starte nach dem Ende erneut.",
   "messagingWhatsappExpiringTitle": "Die Einrichtung endet bald.",
   "messagingWhatsappFinish": "Abschließen",
   "messagingWhatsappFinishFooter": "Speichert Modus und erlaubte Nummern für {profile}, schaltet WhatsApp ein und bittet das Messaging-Gateway um einen Neustart.",
