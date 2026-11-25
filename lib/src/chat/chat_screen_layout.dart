@@ -70,6 +70,9 @@ extension _ChatScreenLayout on _ChatScreenState {
           chatId: selected?.id,
         );
         final bot = selected?.botContext;
+        // The server may lack the Personality routes; the first read that finds
+        // them missing hides the entry for the connection.
+        final soulOffered = _skills != null && soulShown(context);
         final showFiles = selected != null && filesShown(context)
             ? () => _showFiles(FilesOpenedFrom.header)
             : null;
@@ -120,6 +123,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           onOpenSkills: _skills == null ? null : _openSkills,
           onOpenMemory: _skills == null ? null : _openMemory,
           memoryWaiting: _memoryWaiting?.waiting,
+          onOpenSoul: soulOffered ? _openSoul : null,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
           onOpenMcp: _mcp == null ? null : _openMcp,
           onOpenProviders: _providersOffered
@@ -198,6 +202,9 @@ extension _ChatScreenLayout on _ChatScreenState {
             editable: true,
             branchable: true,
             workingDirectoryRow: BoundWorkingDirectoryRow(chat: chat),
+            branchNotice: selected == null
+                ? null
+                : BoundBranchNotice(chat: chat, thread: selected),
             workspaceNotice: selected == null
                 ? null
                 : BoundFolderMismatchNotice(chat: chat, thread: selected),
@@ -393,9 +400,16 @@ extension _ChatScreenLayout on _ChatScreenState {
                               SidebarAction(
                                 icon: AppIcons.memory,
                                 label: memoryEntryLabel(
+                                  context.l10n,
                                   _memoryWaiting?.waiting,
                                 ),
                                 onTap: _openMemory,
+                              ),
+                            if (soulOffered)
+                              SidebarAction(
+                                icon: AppIcons.personality,
+                                label: context.l10n.profilesSoulTitle,
+                                onTap: _openSoul,
                               ),
                             if (_messaging != null)
                               SidebarAction(

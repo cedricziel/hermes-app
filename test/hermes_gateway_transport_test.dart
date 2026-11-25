@@ -2445,6 +2445,7 @@ void main() {
       final branch = await transport.branchThread('stored-2', profile: 'work');
 
       expect(branch?.id, 'stored-branch');
+      expect(branch?.parent, 'stored-2');
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-2',
         'profile': 'work',
@@ -2454,6 +2455,17 @@ void main() {
         'session_id': 'rt-2',
       });
       expect(gateway.methods, isNot(contains('session.undo')));
+    });
+
+    test('a result without a usable parent names none', () async {
+      for (final parent in [null, '', '  ']) {
+        gateway.branchParent = parent;
+
+        final branch = await transport.branchThread('stored-2');
+
+        expect(branch?.id, 'stored-branch');
+        expect(branch?.parent, isNull, reason: 'parent: "$parent"');
+      }
     });
 
     test('takes back the turns after the branch point in the copy', () async {
@@ -2505,6 +2517,167 @@ void main() {
 
       expect(await transport.branchThread('stored-2'), isNull);
     });
+
+    test(
+      'sends the idempotency key with the branch, none without one',
+      () async {
+        await transport.branchThread('stored-2', idempotencyKey: 'key-1');
+        await transport.branchThread('stored-2');
+
+        final sent = gateway.requests
+            .where((r) => r['method'] == 'session.branch_whole')
+            .map((r) => (r['params'] as Map).containsKey('idempotency_key'));
+        expect(sent, [true, false]);
+        expect(
+          (gateway.requestOf('session.branch_whole')['params']
+              as Map)['idempotency_key'],
+          'key-1',
+        );
+      },
+    );
+
+    test('the fallback to session.branch carries the same key', () async {
+      gateway.unknownMethods.add('session.branch_whole');
+
+      await transport.branchThread('stored-2', idempotencyKey: 'key-1');
+
+      for (final method in ['session.branch_whole', 'session.branch']) {
+        expect(
+          (gateway.requestOf(method)['params'] as Map)['idempotency_key'],
+          'key-1',
+          reason: method,
+        );
+      }
+    });
+
+    test('a gateway that rejects the key branches without it', () async {
+      gateway.branchRejectsIdempotencyKey = true;
+
+      final branch = await transport.branchThread(
+        'stored-2',
+        idempotencyKey: 'key-1',
+      );
+
+      expect(branch?.id, 'stored-branch');
+      final sent = gateway.requests
+          .where((r) => r['method'] == 'session.branch_whole')
+          .map((r) => r['params'])
+          .toList();
+      expect(sent, [
+        {'session_id': 'rt-2', 'idempotency_key': 'key-1'},
+        {'session_id': 'rt-2'},
+      ]);
+    });
+
+    test('a refusal that does not name the key is final, sent once', () async {
+      for (final failure in [
+        (4000, 'invalid params for session.branch_whole: name: too long'),
+        (5008, 'could not write idempotency_key'),
+      ]) {
+        gateway
+          ..requests.clear()
+          ..branchFailure = failure;
+
+        await expectLater(
+          transport.branchThread('stored-2', idempotencyKey: 'key-1'),
+          throwsA(
+            isA<GatewayRpcException>().having(
+              (e) => e.code,
+              'code',
+              failure.$1,
+            ),
+          ),
+        );
+
+        expect(gateway.methods.where((m) => m.startsWith('session.branch')), [
+          'session.branch_whole',
+        ], reason: '${failure.$1}');
+      }
+    });
+
+    test(
+      'a new connection forgets what the old one said of branching',
+      () async {
+        final gateways = <FakeGateway>[];
+        final reconnecting = HermesGatewayTransport(
+          connect: () async {
+            final next = FakeGateway();
+            gateways.add(next);
+            return next.channel;
+          },
+          requestTimeout: const Duration(milliseconds: 50),
+          probeTimeout: const Duration(milliseconds: 50),
+        );
+        addTearDown(reconnecting.close);
+        gateways.clear();
+        await reconnecting.slashCommands();
+        gateways.single.unknownMethods.addAll([
+          'session.branch_whole',
+          'session.branch',
+        ]);
+        expect(await reconnecting.branchThread('stored-2'), isNull);
+        expect(reconnecting.branchSupported, isFalse);
+
+        gateways.single.deaf = true;
+        await reconnecting.checkConnection();
+        await gateways.single.closedByClient;
+        await reconnecting.slashCommands();
+
+        expect(gateways, hasLength(2));
+        expect(reconnecting.branchSupported, isNull);
+      },
+    );
+
+    test('a branch that gets no answer is sent once and not resent', () async {
+      final quick = HermesGatewayTransport(
+        connect: () async => gateway.channel,
+        requestTimeout: const Duration(milliseconds: 50),
+      );
+      addTearDown(quick.close);
+      gateway.silent.add('session.branch_whole');
+
+      await expectLater(
+        quick.branchThread('stored-2', idempotencyKey: 'key-1'),
+        throwsA(isA<GatewayCallTimedOut>()),
+      );
+
+      expect(gateway.methods.where((m) => m.startsWith('session.branch')), [
+        'session.branch_whole',
+      ]);
+    });
+
+    test(
+      'the server is known to branch or not only once it has said',
+      () async {
+        expect(transport.branchSupported, isNull);
+
+        gateway.unknownMethods.addAll([
+          'session.branch_whole',
+          'session.branch',
+        ]);
+        await transport.branchThread('stored-2');
+        expect(transport.branchSupported, isFalse);
+      },
+    );
+
+    test('a branch that worked says the server can', () async {
+      await transport.branchThread('stored-2');
+
+      expect(transport.branchSupported, isTrue);
+    });
+
+    test(
+      'a copy that could not be cut back still says the server can branch',
+      () async {
+        gateway.branchUndoFails = true;
+        await expectLater(
+          transport.branchThread('stored-2', dropTurns: 1),
+          throwsA(isA<BranchIncomplete>()),
+        );
+
+        expect(transport.branchSupported, isTrue);
+      },
+    );
 
     test('a copy whose turns cannot be taken back is incomplete', () async {
       gateway.branchUndoFails = true;

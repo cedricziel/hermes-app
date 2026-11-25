@@ -199,8 +199,18 @@ class FakeGateway {
   /// it answers.
   bool undoRejectsIntent = false;
 
+  /// An error every branch method answers with: its JSON-RPC code and message.
+  (int, String)? branchFailure;
+
+  /// Whether the branch methods reject an `idempotency_key`, as a gateway that
+  /// predates it answers.
+  bool branchRejectsIdempotencyKey = false;
+
   /// Whether `session.undo` fails in the branch `session.branch` made.
   bool branchUndoFails = false;
+
+  /// The stored id a branch answers as its `parent`; null leaves the key out.
+  String? branchParent = 'stored-2';
 
   /// Attach calls that fail, by `<method> <file name>`: the JSON-RPC error
   /// code and message to answer with.
@@ -413,6 +423,24 @@ class FakeGateway {
           'id': id,
           'error': {'code': -32601, 'message': 'unknown method'},
         });
+      case 'session.branch_whole' || 'session.branch'
+          when branchFailure != null:
+        _send({
+          'id': id,
+          'error': {'code': branchFailure!.$1, 'message': branchFailure!.$2},
+        });
+      case 'session.branch_whole' || 'session.branch'
+          when branchRejectsIdempotencyKey &&
+              params.containsKey('idempotency_key'):
+        _send({
+          'id': id,
+          'error': {
+            'code': 4000,
+            'message':
+                'invalid params for ${request['method']}: idempotency_key: '
+                'Extra inputs are not permitted',
+          },
+        });
       case 'session.branch_whole' || 'session.branch':
         _send({
           'id': id,
@@ -420,7 +448,7 @@ class FakeGateway {
             'session_id': 'rt-branch',
             'stored_session_id': 'stored-branch',
             'title': 'Run failure #2',
-            'parent': params['session_id'],
+            'parent': ?branchParent,
             'message_count': 4,
             if (request['method'] == 'session.branch_whole')
               'messages_omitted': true

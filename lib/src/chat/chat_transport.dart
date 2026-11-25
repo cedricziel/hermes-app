@@ -723,9 +723,13 @@ final class QuestionAnswer extends OpenRequestAnswer {
 
 /// The chat a [ChatTransport.branchThread] made, by its stored id.
 class BranchedThread {
-  const BranchedThread(this.id);
+  const BranchedThread(this.id, {this.parent});
 
   final String id;
+
+  /// The stored id of the chat it was branched from, as the gateway named it;
+  /// null when the gateway did not.
+  final String? parent;
 }
 
 /// A branch was made, but taking its last turns back failed, so it holds more
@@ -976,11 +980,21 @@ abstract interface class ChatTransport {
   /// have text, not tool calls. Returns null when the server cannot branch;
   /// throws [BranchIncomplete] when the copy exists but its turns could not
   /// all be dropped, and anything else when the call itself fails.
+  ///
+  /// [idempotencyKey] names this one branch to the server, so that asking
+  /// again with the same key after a lost answer returns the branch the first
+  /// ask made instead of a second one. The call itself is sent once.
   Future<BranchedThread?> branchThread(
     String threadId, {
     String? profile,
     int dropTurns = 0,
+    String? idempotencyKey,
   });
+
+  /// Whether the server branches chats: false once it has said it knows no
+  /// branch method, true once a branch worked, null until it has said (which
+  /// callers treat as "offer it").
+  bool? get branchSupported;
 
   /// Skips a request the app cannot answer, a secret or a sudo password, by
   /// answering it with an empty value: Hermes carries on without it. Returns

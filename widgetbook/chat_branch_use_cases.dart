@@ -1,0 +1,308 @@
+import 'package:flutter_chat_core/flutter_chat_core.dart'
+    show InMemoryChatController;
+import 'package:hermes_app/src/chat/chat_message_mapper.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
+import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
+import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
+import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
+import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
+import 'package:widgetbook/widgetbook.dart';
+
+import '../test/support/fake_attachment_source.dart';
+
+import 'frame.dart';
+import 'mac_sidebar_use_cases.dart' show mac;
+
+const _title = 'Release notes for the spring update';
+const _long =
+    'Compare the backup providers for the photo library, the notes folder and '
+    'the old laptop, and pick one that works offline';
+
+Widget _scaled(double scale, Widget child) => Builder(
+  builder: (context) => MediaQuery(
+    data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+    child: child,
+  ),
+);
+
+Widget _german(Widget child) => Builder(
+  builder: (context) => Localizations.override(
+    context: context,
+    locale: const Locale('de'),
+    child: child,
+  ),
+);
+
+Widget _notice(ChatBranchNoticeState state, {String? title = _title}) => frame(
+  ChatBranchNotice(state: state, parentTitle: title, onTap: () {}),
+  maxWidth: 560,
+);
+
+WidgetbookUseCase _case(String name, Widget Function() build) =>
+    WidgetbookUseCase(name: name, builder: (_) => build());
+
+final _thread = ChatThread(
+  id: 'branch-1',
+  title: 'Try the other approach',
+  updatedAt: DateTime(2026, 11, 20),
+  remote: true,
+);
+
+final _hit = ThreadSearchHit(
+  id: 'branch-1',
+  title: 'Try the other approach',
+  snippet: const [
+    (text: 'Same plan, but with the ', match: false),
+    (text: 'backup', match: true),
+    (text: ' job first.', match: false),
+  ],
+  updatedAt: DateTime(2026, 11, 20),
+  branch: true,
+);
+
+Widget _touchRow({required bool branch, bool selected = false}) => frame(
+  SidebarThreadRow(
+    thread: _thread,
+    selected: selected,
+    busy: false,
+    onTap: () {},
+    branch: branch,
+  ),
+  maxWidth: 300,
+);
+
+Widget _macRow({required bool branch, bool selected = false}) => mac(
+  frame(
+    MacThreadRow(
+      title: _thread.title,
+      selected: selected,
+      onTap: () {},
+      menuItems: (context) => const <PopupMenuEntry<ThreadAction>>[],
+      onAction: (_) {},
+      branch: branch,
+    ),
+    maxWidth: 260,
+  ),
+);
+
+/// The chat with the notice in its slot, between the header and the
+/// transcript, as the main chat screen builds it.
+class _BranchedChat extends StatefulWidget {
+  const _BranchedChat(this.state);
+
+  final ChatBranchNoticeState state;
+
+  @override
+  State<_BranchedChat> createState() => _BranchedChatState();
+}
+
+class _BranchedChatState extends State<_BranchedChat> {
+  late final _messages = [
+    ChatMessage(
+      id: 'u1',
+      role: ChatRole.user,
+      content: 'Same plan, but with the backup job first.',
+      createdAt: DateTime(2026, 11, 20),
+    ),
+    ChatMessage(
+      id: 'a1',
+      role: ChatRole.assistant,
+      content: 'Done. The backup job now runs before the sync.',
+      createdAt: DateTime(2026, 11, 20),
+    ),
+  ];
+  late final _chatThread = ChatThread(
+    id: 'branch-1',
+    title: 'Try the other approach',
+    updatedAt: DateTime(2026, 11, 20),
+    remote: true,
+    messages: _messages,
+  );
+  late final _controller = InMemoryChatController(
+    messages: [for (final m in _messages) ...chatMessageToFlyer(m)],
+  );
+  final _text = TextEditingController();
+  final _focus = FocusNode();
+  final _latest = ValueNotifier<String?>(null);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _text.dispose();
+    _focus.dispose();
+    _latest.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Provider<MediaStore?>.value(
+    value: null,
+    child: ChatThreadView(
+      thread: _chatThread,
+      chatController: _controller,
+      composerController: _text,
+      composerFocus: _focus,
+      attachments: const [],
+      attachmentSource: FakeAttachmentSource(),
+      onAddAttachments: (_) {},
+      onRemoveAttachment: (_) {},
+      onSend: (_) {},
+      onPickStarter: (_) {},
+      latestReplyId: _latest,
+      welcome: false,
+      branchNotice: ChatBranchNotice(
+        state: widget.state,
+        parentTitle: _title,
+        onTap: () {},
+      ),
+    ),
+  );
+}
+
+WidgetbookNode chatBranchNode() => WidgetbookFolder(
+  name: 'Branched chat',
+  children: [
+    WidgetbookComponent(
+      name: 'ChatBranchNotice',
+      useCases: [
+        _case('Title known', () => _notice(ChatBranchNoticeState.title)),
+        _case(
+          'Title not loaded',
+          () => _notice(ChatBranchNoticeState.unknown, title: null),
+        ),
+        _case('Opening', () => _notice(ChatBranchNoticeState.opening)),
+        _case('Deleted', () => _notice(ChatBranchNoticeState.deleted)),
+        _case(
+          'Could not reach Hermes',
+          () => _notice(ChatBranchNoticeState.unreachable),
+        ),
+        _case(
+          'Long title wraps to two lines',
+          () => _notice(ChatBranchNoticeState.title, title: _long),
+        ),
+        ...onEachPlatform(
+          'Title known',
+          (_) => _notice(ChatBranchNoticeState.title),
+        ),
+        ...onEachPlatform(
+          'Could not reach Hermes',
+          (_) => _notice(ChatBranchNoticeState.unreachable),
+        ),
+        _case(
+          'German, title known',
+          () => _german(_notice(ChatBranchNoticeState.title)),
+        ),
+        _case(
+          'German, could not reach Hermes',
+          () => _german(_notice(ChatBranchNoticeState.unreachable)),
+        ),
+        _case(
+          'Largest text (3x), title known',
+          () => _scaled(3, _notice(ChatBranchNoticeState.title, title: _long)),
+        ),
+        _case(
+          'Largest text (3x), could not reach Hermes',
+          () => _scaled(3, _notice(ChatBranchNoticeState.unreachable)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ChatThreadView',
+      useCases: [
+        _case(
+          'Notice in its slot',
+          () => _BranchedChat(ChatBranchNoticeState.title),
+        ),
+        _case(
+          'Notice, could not reach Hermes',
+          () => _BranchedChat(ChatBranchNoticeState.unreachable),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SidebarThreadRow',
+      useCases: [
+        _case('Plain', () => _touchRow(branch: false)),
+        _case('Branch', () => _touchRow(branch: true)),
+        _case(
+          'Branch, selected',
+          () => _touchRow(branch: true, selected: true),
+        ),
+        _case(
+          'Branch, largest text (3x)',
+          () => _scaled(3, _touchRow(branch: true)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacThreadRow',
+      useCases: [
+        _case('Plain', () => _macRow(branch: false)),
+        _case('Branch', () => _macRow(branch: true)),
+        _case('Branch, selected', () => _macRow(branch: true, selected: true)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ThreadSearchResults',
+      useCases: [
+        _case(
+          'Branch among results',
+          () => fill(
+            ThreadSearchResults(
+              query: 'backup',
+              status: ThreadSearchStatus.done,
+              hits: [
+                _hit,
+                ThreadSearchHit(
+                  id: 'plain-1',
+                  title: 'Nightly backup to the NAS',
+                  snippet: const [],
+                  updatedAt: DateTime(2026, 10, 1),
+                ),
+              ],
+              onOpen: (_) {},
+            ),
+            width: 300,
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacSearchResults',
+      useCases: [
+        _case(
+          'Branch among results',
+          () => mac(
+            fill(
+              MacSearchResults(
+                query: 'backup',
+                status: ThreadSearchStatus.done,
+                hits: [
+                  _hit,
+                  ThreadSearchHit(
+                    id: 'plain-1',
+                    title: 'Nightly backup to the NAS',
+                    snippet: const [],
+                    updatedAt: DateTime(2026, 10, 1),
+                  ),
+                ],
+                scope: ThreadSearchScope.profile,
+                recent: const [],
+                onOpen: (_) {},
+                onPickRecent: (_) {},
+              ),
+              width: 260,
+            ),
+          ),
+        ),
+      ],
+    ),
+  ],
+);

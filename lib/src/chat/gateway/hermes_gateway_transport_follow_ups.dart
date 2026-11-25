@@ -405,12 +405,10 @@ extension _FollowUps on HermesGatewayTransport {
     final generation = controlGeneration;
     unawaited(() async {
       try {
-        final result = await client
-            .request('session.control.read', {
-              'session_id': runtimeId,
-              'profile': ?profile,
-            })
-            .timeout(requestTimeout);
+        final result = await client.requestWithin('session.control.read', {
+          'session_id': runtimeId,
+          'profile': ?profile,
+        }, timeout: requestTimeout);
         final control = SessionControlSnapshot.decode(result['control']);
         if (watch.closedByUs ||
             client.isClosed ||
@@ -434,7 +432,8 @@ extension _FollowUps on HermesGatewayTransport {
             generation == 0) {
           watch.push((SessionControlUnavailable(runtimeId), false));
         }
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'the session control read');
         if (!watch.closedByUs &&
             !client.isClosed &&
             generation == controlGeneration) {

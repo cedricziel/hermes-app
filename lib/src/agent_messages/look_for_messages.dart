@@ -1,14 +1,42 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
+
 import '../chat/hermes_chat_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'find_messages.dart';
+
+/// Runs [read] with its own [CancelToken] and gives up on it after [lookup],
+/// or as soon as [stop] is cancelled. A request that is given up on is closed
+/// here, so it does not hold a socket and a span until its receive timeout.
+Future<T> readWithin<T>(
+  Duration lookup,
+  CancelToken? stop,
+  Future<T> Function(CancelToken token) read,
+) async {
+  final own = CancelToken();
+  unawaited(
+    stop?.whenCancel.then((cancel) {
+      if (!own.isCancelled) own.cancel(cancel.error);
+    }),
+  );
+  try {
+    return await read(own).timeout(lookup);
+  } on TimeoutException {
+    if (!own.isCancelled) own.cancel('lookup timeout');
+    rethrow;
+  }
+}
 
 /// Lists the deliveries of each of [names] and compares them with [record]
 /// (see [findMessages]). A profile whose listing fails or takes longer than
 /// [lookup] stands for one that could not be read, and [onFailure] hears the
 /// error. Shared by the app in front and the background run.
+///
+/// A listing that takes longer than [lookup] is closed, and [stop] closes
+/// every request in flight, so that none outlives the look to time out later
+/// beside the requests of the next one.
 Future<MessagesFound> lookForMessages({
   required HermesChatRepository chat,
   required List<String> names,
@@ -16,13 +44,22 @@ Future<MessagesFound> lookForMessages({
   required DateTime Function() clock,
   required Duration lookup,
   required void Function(Object error) onFailure,
+  CancelToken? stop,
 }) async {
   Future<DeliveryListing?> list(String name) async {
     try {
-      return await listDeliveries(
-        (offset) => chat.loadDeliveries(profile: name, offset: offset),
-        since: record?[name],
-      ).timeout(lookup);
+      return await readWithin(
+        lookup,
+        stop,
+        (token) => listDeliveries(
+          (offset) => chat.loadDeliveries(
+            profile: name,
+            offset: offset,
+            cancelToken: token,
+          ),
+          since: record?[name],
+        ),
+      );
     } on Object catch (error) {
       onFailure(error);
       return null;
@@ -49,17 +86,21 @@ Future<MessagesFound> lookForMessages({
 Future<Map<({String profile, String id}), String>> readMessageTexts(
   HermesChatRepository chat,
   MessagesFound found,
-  Duration lookup,
-) async {
+  Duration lookup, {
+  CancelToken? stop,
+}) async {
   Future<String?> text(FoundMessage message) async {
     try {
-      final page = await chat
-          .loadMessagePage(
-            message.delivery.id,
-            profile: message.profile,
-            limit: 1,
-          )
-          .timeout(lookup);
+      final page = await readWithin(
+        lookup,
+        stop,
+        (token) => chat.loadMessagePage(
+          message.delivery.id,
+          profile: message.profile,
+          limit: 1,
+          cancelToken: token,
+        ),
+      );
       return page.messages.firstOrNull?.content;
     } on Object {
       return null;

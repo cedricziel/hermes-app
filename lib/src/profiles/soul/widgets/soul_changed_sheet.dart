@@ -9,6 +9,7 @@ import '../../../theme/platform_chrome.dart';
 import '../../../tools/widgets/tools_target.dart';
 import '../../../widgets/adaptive_sheet.dart';
 import '../../../widgets/disclosure_tile.dart';
+import '../../../server_care/widgets/private_surface.dart';
 import '../../../widgets/grouped_list.dart';
 
 /// [text] as it may be shown: line breaks stay, and any other control or bidi
@@ -261,18 +262,23 @@ Future<SoulChangedChoice> showSoulChangedSheet(
   final choice = await showAdaptiveSheet<SoulChangedChoice>(
     context,
     maxWidth: 480,
-    builder: (sheet) => SafeArea(
-      child: SoulChangedSheet(
-        serverText: serverText,
-        serverGone: serverGone,
-        dialog:
-            Theme.of(sheet).platform == TargetPlatform.macOS ||
-            isWideLayout(sheet),
-        onKeepEditing: () =>
-            Navigator.of(sheet).pop(SoulChangedChoice.keepEditing),
-        onReplaceAnyway: () =>
-            Navigator.of(sheet).pop(SoulChangedChoice.replaceAnyway),
-        onCopy: onCopy,
+    // The server's version may hold personality text: the app switcher's
+    // snapshot gets a blank in its place, as for the page below.
+    builder: (sheet) => PrivateSurface(
+      shrinkWrap: true,
+      child: SafeArea(
+        child: SoulChangedSheet(
+          serverText: serverText,
+          serverGone: serverGone,
+          dialog:
+              Theme.of(sheet).platform == TargetPlatform.macOS ||
+              isWideLayout(sheet),
+          onKeepEditing: () =>
+              Navigator.of(sheet).pop(SoulChangedChoice.keepEditing),
+          onReplaceAnyway: () =>
+              Navigator.of(sheet).pop(SoulChangedChoice.replaceAnyway),
+          onCopy: onCopy,
+        ),
       ),
     ),
   );

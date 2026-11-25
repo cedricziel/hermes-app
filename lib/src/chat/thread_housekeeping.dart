@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_models.dart';
 import 'hermes_chat_repository.dart';
+import 'report_chat_bug.dart';
 
 /// Rename, pin, archive and delete for the sidebar's server-backed threads,
 /// plus loading further pages of the list.
@@ -19,11 +20,13 @@ class ThreadHousekeeping {
     required this.profile,
     required this.changed,
     required this.report,
+    this.reportBusy,
     required this.removed,
     required this.history,
     this.canWork,
     this.prepareDelete,
     this.branch,
+    this.branchSupported,
   });
 
   final HermesChatRepository repository;
@@ -34,12 +37,21 @@ class ThreadHousekeeping {
   final String? Function() profile;
   final VoidCallback changed;
   final ValueChanged<String> report;
+
+  /// Says that Hermes refused an action because it still works in the chat.
+  final VoidCallback? reportBusy;
   final bool Function()? canWork;
   final Future<void> Function()? Function(ChatThread)? prepareDelete;
 
   /// Copies a thread into a new chat and opens it; null where chats cannot
   /// be branched.
   final Future<void> Function(ChatThread thread)? branch;
+
+  /// Whether the server may branch; false once it has said it cannot.
+  final bool Function()? branchSupported;
+
+  /// Whether the thread menu offers "Branch in New Chat".
+  bool get canBranch => branch != null && (branchSupported?.call() ?? true);
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;
@@ -111,7 +123,8 @@ class ThreadHousekeeping {
             if (known.add(thread.id)) thread,
         ]),
       );
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'loading more chats');
       if (!_workAllowed || generation != _generation) return;
       report(_failure('Could not load more chats', error));
     }
@@ -145,12 +158,13 @@ class ThreadHousekeeping {
         thread
           ..title = stored
           ..named = stored.trim().isNotEmpty;
-      } on Object catch (error) {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a chat rename');
         if (!current()) return;
         thread
           ..title = previous.title
           ..named = previous.named;
-        report(_failure('Could not rename this chat', error));
+        _fail('Could not rename this chat', error);
       }
     });
   }
@@ -163,15 +177,14 @@ class ThreadHousekeeping {
         if (!current()) return;
         try {
           await repository.setPinned(thread.id, pinned, profile: profile);
-        } on Object catch (error) {
+        } on Object catch (error, stack) {
+          reportChatBug(error, stack, 'a chat pin');
           if (!current()) return;
           thread.pinned = !pinned;
           _sort();
-          report(
-            _failure(
-              pinned ? 'Could not pin this chat' : 'Could not unpin this chat',
-              error,
-            ),
+          _fail(
+            pinned ? 'Could not pin this chat' : 'Could not unpin this chat',
+            error,
           );
         }
       });
@@ -208,9 +221,10 @@ class ThreadHousekeeping {
     final cleanup = deleted ? prepareDelete?.call(thread) : null;
     try {
       await call(profile);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a chat removal');
       if (!current()) return;
-      report(_failure(failure, error));
+      _fail(failure, error);
       return;
     }
     if (cleanup != null) {
@@ -298,5 +312,16 @@ class ThreadHousekeeping {
       }
     }
     return what;
+  }
+
+  /// Reports a failed rename, pin, archive or delete. A 409 is Hermes
+  /// guarding a session its running turn still writes to: it passes once the
+  /// turn ends, so [reportBusy] tells the user to wait, and nothing asks
+  /// again.
+  void _fail(String what, Object error) {
+    if (error is DioException && error.response?.statusCode == 409) {
+      if (reportBusy case final busy?) return busy();
+    }
+    report(_failure(what, error));
   }
 }

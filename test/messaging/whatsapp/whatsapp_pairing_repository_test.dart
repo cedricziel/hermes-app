@@ -554,6 +554,14 @@ void main() {
         (result.confirmed, result.restartStarted, result.needsRestart),
         (true, false, true),
       );
+      expect(result.restartError?.text, 'could not run /usr/bin/hermes');
+      expect('$result', isNot(contains('/usr/bin/hermes')));
+    });
+
+    test('a started restart has no restart error', () async {
+      server.on('POST', waApplyPath, waApplyRestartStarted);
+      final result = await repository.applyWhatsAppPairing(id);
+      expect(result.restartError, isNull);
     });
 
     test('a 200 without ok: true is not confirmed', () async {
@@ -590,6 +598,19 @@ void main() {
           kind,
           reason: '$status $body',
         );
+      }
+    });
+
+    test('a 502, 503 or 504 without a detail on apply is lostAnswer', () async {
+      for (final status in const [502, 503, 504]) {
+        for (final body in <Object?>['gateway', '', <String, Object?>{}]) {
+          server.on('POST', waApplyPath, body, status: status);
+          expect(
+            await failureOf(repository.applyWhatsAppPairing(id)),
+            WhatsAppPairingFailureKind.lostAnswer,
+            reason: '$status $body',
+          );
+        }
       }
     });
 

@@ -162,6 +162,13 @@ extension _ChatScreenNavigation on _ChatScreenState {
         MacCommand.find: MacCommandHandler(
           _chat.search == null ? null : _beginSearch,
         ),
+      // Disabled without a parent, while it is being read and once Hermes said
+      // it is gone.
+      MacCommand.openParentChat: MacCommandHandler(
+        thread != null && _chat.canOpenBranchParent(thread, ignoringLock: true)
+            ? () => unawaited(_chat.openBranchParent(thread))
+            : null,
+      ),
       MacCommand.pinThread: MacCommandHandler(
         on(ThreadAction.pin, when: managed),
         title: thread?.pinned ?? false
@@ -354,7 +361,30 @@ extension _ChatScreenNavigation on _ChatScreenState {
       profile: _chat.profile,
       transport: _chat.transport,
     );
-    if (mounted) unawaited(_refreshMemoryWaiting());
+    if (mounted) unawaited(_refreshMemoryWaiting(supersede: true));
+  }
+
+  /// Personality (SOUL.md) of the chat's profile. The page is bound to that
+  /// name; a chat that names none works in the server's launch profile, as
+  /// every other profile-bound page does, and nothing opens while that is not
+  /// known.
+  Future<void> _openSoul() async {
+    _closeDrawerIfNarrow();
+    final resolver = _chat.profileResolver;
+    var profile = resolver?.resolve(_chat.profile);
+    if (profile == null && resolver != null) {
+      // Not read yet, or the read failed earlier: ask once more.
+      try {
+        await resolver.load();
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a soul profile load');
+        // Left unresolved: nothing is opened.
+      }
+      if (!mounted) return;
+      profile = resolver.resolve(_chat.profile);
+    }
+    if (profile == null) return;
+    await openSoul(context, profile: profile, from: SoulOpenedFrom.sidebar);
   }
 
   void _openPlugins() {
@@ -397,7 +427,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
       // Not read yet, or the read failed earlier: ask once more.
       try {
         await resolver.load();
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a tools profile load');
         // Left unresolved: nothing is opened.
       }
       if (!mounted) return;

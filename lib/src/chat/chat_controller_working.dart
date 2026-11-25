@@ -18,7 +18,8 @@ extension _ChatControllerWorking on ChatController {
       }) {
         workingSummaryIn(thread);
       }
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the working summary');
       // The line is a convenience; it must not break a change.
     }
   }

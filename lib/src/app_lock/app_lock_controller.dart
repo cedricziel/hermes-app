@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
 import 'device_authenticator.dart';
 
 const _prefsEnabledKey = 'hermes.app_lock_enabled';
@@ -65,23 +66,20 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   /// Whether App Lock is on, read from the saved setting, for an isolate that
   /// has no controller, such as the one that answers notification buttons.
   /// Unreadable counts as on.
-  static Future<bool> savedEnabled([SharedPreferencesAsync? prefs]) async {
-    try {
-      return await (prefs ?? SharedPreferencesAsync()).getBool(
-            _prefsEnabledKey,
-          ) ??
-          false;
-    } on Object {
-      return true;
-    }
-  }
+  static Future<bool> savedEnabled([SharedPreferencesAsync? prefs]) async =>
+      await readSaved(
+        () => (prefs ?? SharedPreferencesAsync()).getBool(_prefsEnabledKey),
+        'the App Lock choice',
+        ifUnreadable: true,
+      ) ??
+      false;
 
   Future<void> load() async {
     final (enabled, available) = await (
-      _prefs.getBool(_prefsEnabledKey),
+      savedEnabled(_prefs),
       _authenticator.isAvailable(),
     ).wait;
-    _enabled = enabled ?? false;
+    _enabled = enabled;
     _available = available;
     _loaded = true;
     _locked = _enforced;

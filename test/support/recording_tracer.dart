@@ -29,6 +29,9 @@ class RecordingSpan implements Span {
   /// The end time the code gave, if any.
   DateTime? endTime;
 
+  /// How often `end` was called.
+  int endCalls = 0;
+
   @override
   bool get isRecording => !ended;
 
@@ -69,6 +72,7 @@ class RecordingSpan implements Span {
   void end([DateTime? endTime]) {
     ended = true;
     this.endTime = endTime;
+    endCalls++;
   }
 }
 

@@ -782,6 +782,7 @@ class ChatThread {
     this.folderPath,
     this.workingDirectory,
     this.branch,
+    this.branchParentId,
     this.remote = false,
     this.named = false,
     this.unread = false,
@@ -805,6 +806,14 @@ class ChatThread {
 
   /// The git branch stored with the chat (`git_branch`), when known.
   String? branch;
+
+  /// The stored id of the chat this one was branched from (the `_branched_from`
+  /// marker), when it is one. A chat Hermes continued after compression or
+  /// started as a sub-agent has none. The parent may be gone.
+  String? branchParentId;
+
+  /// Whether this chat was branched from another.
+  bool get isBranch => branchParentId != null;
 
   /// The folder picked for this chat before it exists, kept in memory and
   /// dropped once the chat is created. Never stored.
@@ -846,6 +855,7 @@ class ThreadSearchHit {
     required this.snippet,
     required this.updatedAt,
     this.profile,
+    this.branch = false,
   });
 
   final String id;
@@ -855,4 +865,18 @@ class ThreadSearchHit {
 
   /// The profile the chat belongs to, when the search said.
   final String? profile;
+
+  /// Whether the chat was branched from another: the result row shows a glyph
+  /// before the title.
+  final bool branch;
+
+  /// This hit as the hit of a branch.
+  ThreadSearchHit asBranch() => ThreadSearchHit(
+    id: id,
+    title: title,
+    snippet: snippet,
+    updatedAt: updatedAt,
+    profile: profile,
+    branch: true,
+  );
 }

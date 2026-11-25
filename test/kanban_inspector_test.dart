@@ -1,8 +1,11 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_inspector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/unreadable_prefs.dart';
 
 void main() {
   setUp(() {
@@ -52,6 +55,16 @@ void main() {
       await SharedPreferencesAsync().getBool(kanbanInspectorShownKey),
       false,
     );
+  });
+
+  test('stays shown when the saved state is unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final inspector = KanbanInspector();
+
+    final reported = await reportedErrors(inspector.load);
+
+    expect(inspector.shown, isTrue);
+    expect(reported.single.exception, isA<PlatformException>());
   });
 
   test('a change before the saved state loads wins', () async {

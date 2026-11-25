@@ -57,7 +57,7 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
         MemoryRejectAllAlert(count: 1, onCancel: () {}, onReject: () {}),
       ),
     ),
-    for (final (state, settings, unreadable, message) in [
+    for (final (state, settings, unreadable, failedSetting) in [
       ('Learning, defaults', MemorySettings.defaults, false, null),
       ('Learning, all off', _allOff, false, null),
       ('Learning, unknown values', _unknown, false, null),
@@ -65,7 +65,7 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
         'Learning, a change failed',
         MemorySettings.defaults,
         false,
-        "Couldn't change Keep agent notes. Try again.",
+        MemorySetting.agentNotes,
       ),
       ('Learning, unreadable', null, true, null),
     ])
@@ -77,7 +77,7 @@ WidgetbookNode memoryNode() => WidgetbookComponent(
               MemoryLearningSection(
                 settings: settings,
                 unreadable: unreadable,
-                message: message,
+                failedSetting: failedSetting,
                 onChanged: (_, _) {},
                 onRetry: () {},
               ),

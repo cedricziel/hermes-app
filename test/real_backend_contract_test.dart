@@ -5684,6 +5684,160 @@ model:
       timeout: const Timeout(Duration(minutes: 3)),
     );
 
+    group('a branch names its parent', () {
+      // `session.branch_whole` copies a chat; Hermes marks the copy with
+      // `_branched_from` in its `model_config`, and the session rows lift it
+      // out. `chat-branch-header` reads the marker from the list and the
+      // single row and asks `latest-descendant` for the parent.
+      Future<({int status, Map<String, dynamic> body})> getJson(
+        String path,
+      ) async {
+        final response = await raw.get<List<int>>(
+          path,
+          queryParameters: {'profile': profile},
+        );
+        final body = jsonDecode(utf8.decode(response.data ?? const []));
+        return (
+          status: response.statusCode!,
+          body: body is Map
+              ? Map<String, dynamic>.from(body)
+              : const <String, dynamic>{},
+        );
+      }
+
+      Future<Map<String, dynamic>?> listed(String id) async {
+        final page = await getJson('/api/sessions?limit=100&order=recent');
+        return [
+          for (final row in (page.body['sessions'] as List? ?? const []))
+            if (row is Map<String, dynamic> && row['id'] == id) row,
+        ].firstOrNull;
+      }
+
+      Future<({String stored, String parent})> branchOf(String parent) async {
+        final result = await tap.rpc.request('session.branch_whole', {
+          'session_id': parent,
+        });
+        final stored = result['stored_session_id'] as String;
+        addTearDown(
+          () => client.raw
+              .deleteSessionEndpointApiSessionsSessionIdDelete(
+                sessionId: stored,
+                profile: profile,
+              )
+              .then((_) {}, onError: (Object _) {}),
+        );
+        unawaited(
+          tap.rpc
+              .request('session.close', {'session_id': result['session_id']})
+              .then((_) {}, onError: (Object _) {}),
+        );
+        return (stored: stored, parent: result['parent'] as String);
+      }
+
+      test(
+        'the list row and the single row carry _branched_from, the parent '
+        'does not, and the repository reads it',
+        () async {
+          final parent = await chat(['Say hello.']);
+          final branch = await branchOf(parent.runtime);
+
+          expect(branch.parent, parent.stored);
+          final row = await listed(branch.stored);
+          expect(row, isNotNull);
+          expect(row!['_branched_from'], parent.stored);
+          expect(row, isNot(contains('_reset_from')));
+          final detail = await getJson(
+            '/api/sessions/${Uri.encodeComponent(branch.stored)}',
+          );
+          expect(detail.status, 200);
+          expect(detail.body['_branched_from'], parent.stored);
+          final parentRow = await listed(parent.stored);
+          expect(parentRow?['_branched_from'], isNull);
+
+          final threads = await HermesChatRepository(client.raw)
+              .loadThreads(profile: profile, limit: 100);
+          String? parentOf(String id) =>
+              threads.firstWhere((t) => t.id == id).branchParentId;
+          expect(parentOf(branch.stored), parent.stored);
+          expect(parentOf(parent.stored), isNull);
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 2)),
+      );
+
+      test(
+        'a deleted parent leaves the marker, and latest-descendant answers '
+        '404 "Session not found" for it',
+        () async {
+          final parent = await chat(['Say hello.']);
+          final branch = await branchOf(parent.runtime);
+          final path =
+              '/api/sessions/${Uri.encodeComponent(parent.stored)}'
+              '/latest-descendant';
+
+          final found = await getJson(path);
+          expect(found.status, 200);
+          expect(found.body['session_id'], parent.stored);
+          expect(found.body['changed'], false);
+
+          await client.raw.deleteSessionEndpointApiSessionsSessionIdDelete(
+            sessionId: parent.stored,
+            profile: profile,
+          );
+
+          final gone = await getJson(path);
+          expect(gone.status, 404);
+          expect(gone.body['detail'], 'Session not found');
+          final row = await listed(branch.stored);
+          expect(row?['_branched_from'], parent.stored);
+          expect(row?['parent_session_id'], isNull);
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 2)),
+      );
+
+      test(
+        'a compressed parent: what its list row carries against the marker',
+        () async {
+          final parent = await chat([
+            'Many reads 0 [[tokens=120000]]',
+            'Many reads 1 [[tokens=120000]]',
+          ]);
+          final branch = await branchOf(parent.runtime);
+          final compressed = await tap.rpc.request('session.compress', {
+            'session_id': parent.runtime,
+          });
+          expect(compressed['status'], 'compressed');
+
+          final page = await getJson('/api/sessions?limit=100&order=recent');
+          final chain = [
+            for (final row in (page.body['sessions'] as List))
+              if (row is Map<String, dynamic> &&
+                  (row['id'] == parent.stored ||
+                      row['_lineage_root_id'] == parent.stored))
+                row,
+          ];
+          // One row stands for the parent's chain; whichever session it names
+          // as its id, the marker's value is that row's id or its root.
+          expect(chain, hasLength(1));
+          expect([
+            chain.single['id'],
+            chain.single['_lineage_root_id'],
+          ], contains(parent.stored));
+          final row = await listed(branch.stored);
+          expect(row?['_branched_from'], parent.stored);
+          final latest = await getJson(
+            '/api/sessions/${Uri.encodeComponent(parent.stored)}'
+            '/latest-descendant',
+          );
+          expect(latest.status, 200);
+          expect(latest.body['session_id'], chain.single['id']);
+        },
+        skip: skip,
+        timeout: const Timeout(Duration(minutes: 3)),
+      );
+    });
+
     test(
       'an unambiguous prefix finds the chat, an unknown id is a 404 '
       '"Session not found"',

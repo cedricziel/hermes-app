@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show Span;
 
 import '../api/hermes_api_client.dart';
+import 'report_chat_bug.dart';
 import 'session_export.dart';
 import 'session_export_telemetry.dart';
 import 'widgets/session_export_alert.dart';
@@ -158,7 +159,8 @@ class SessionExportController extends ChangeNotifier {
       failure = e.kind;
     } on SessionExportIncomplete {
       failure = SessionExportFailure.incomplete;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a session export decode');
       failure = SessionExportFailure.failed;
     }
     if (run != _run) return null; // dropped while decoding
@@ -189,7 +191,8 @@ class SessionExportController extends ChangeNotifier {
       result = saved
           ? SessionExportSaveResult.saved
           : SessionExportSaveResult.cancelled;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a session export save');
       result = null;
     }
     _bytes = null;

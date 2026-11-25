@@ -31,6 +31,21 @@ WidgetbookUseCase _messaging(
   ),
 );
 
+const _whatsapp = HermesMessagingPlatform(
+  id: 'whatsapp',
+  name: 'WhatsApp',
+  description: 'Chat with Hermes in WhatsApp.',
+  enabled: false,
+  configured: false,
+  envVars: [
+    HermesMessagingEnvVar(
+      key: 'WHATSAPP_ALLOWED_USERS',
+      label: 'Allowed users',
+      help: 'Comma-separated phone numbers.',
+    ),
+  ],
+);
+
 const _rows = [
   HermesMessagingPlatform(
     id: 'telegram',
@@ -143,6 +158,22 @@ WidgetbookNode messagingNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'MessagingSetupScreen',
       useCases: [
+        // The WhatsApp form with its "Link WhatsApp" entry, for a named
+        // profile (the entry is not offered without one).
+        for (final MapEntry(key: name, value: platform) in _platforms.entries)
+          _messaging(
+            'WhatsApp with Link WhatsApp ($name)',
+            (repository) => Builder(
+              builder: (context) => _on(
+                context,
+                platform,
+                MessagingSetupScreen(
+                  platform: _whatsapp,
+                  repository: repository.forProfile('atlas'),
+                ),
+              ),
+            ),
+          ),
         _messaging(
           'Discord',
           (repository) => FutureBuilder<List<HermesMessagingPlatform>>(

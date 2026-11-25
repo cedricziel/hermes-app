@@ -7,6 +7,7 @@ import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 import '../../widgets/named_icon_button.dart';
 import '../../widgets/named_popup_menu_button.dart';
+import 'branch_glyph.dart';
 import 'thread_actions_menu.dart';
 import 'working_dot.dart';
 
@@ -25,9 +26,14 @@ class MacThreadRow extends StatefulWidget {
     this.onArchive,
     this.relativeTime,
     this.avatar,
+    this.branch = false,
   });
 
   final Widget? avatar;
+
+  /// Whether the chat was branched from another: a 12 pt glyph before the
+  /// title, and "Branch" in its label.
+  final bool branch;
   final String title;
   final bool selected;
   final VoidCallback onTap;
@@ -78,14 +84,20 @@ class _MacThreadRowState extends State<MacThreadRow> {
               widget.avatar!,
               const SizedBox(width: 6),
             ],
+            if (widget.branch) const BranchGlyph(size: 12),
             Expanded(
-              child: Text(
-                widget.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.onSurface,
+              child: branchTitled(
+                context,
+                branch: widget.branch,
+                title: widget.title,
+                child: Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
               ),
             ),

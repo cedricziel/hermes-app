@@ -140,6 +140,13 @@ final menuLayout = <MenuSection>[
         shortcut: metaActivator(LogicalKeyboardKey.keyW),
         platforms: _macOnly,
       ),
+      // Offered by the Personality page while it has text to save.
+      MenuEntry(
+        MacCommand.save,
+        (l10n) => l10n.macosMenuSave,
+        shortcut: metaActivator(LogicalKeyboardKey.keyS),
+        platforms: _macOnly,
+      ),
     ],
   ]),
   MenuSection('view', (l10n) => l10n.macosMenuView, [
@@ -237,6 +244,12 @@ final menuLayout = <MenuSection>[
         (l10n) => l10n.macosMenuFind,
         shortcut: metaActivator(LogicalKeyboardKey.keyF),
         desktopShortcuts: [ctrlActivator(LogicalKeyboardKey.keyF)],
+      ),
+      // No chord: the menu owns the chord space and the row is the way in.
+      MenuEntry(
+        MacCommand.openParentChat,
+        (l10n) => l10n.macosMenuOpenParentChat,
+        platforms: _macOnly,
       ),
     ],
     [

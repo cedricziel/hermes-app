@@ -157,6 +157,10 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatNoticeThreadBusy": "Hermes is still working in this chat. Try again when it is done.",
+  "@chatNoticeThreadBusy": {
+    "description": "Notice when Hermes refused to rename, pin, archive or delete a chat (HTTP 409) because its turn is still writing to it. Nothing was changed; the same action works once the turn ends."
+  },
   "chatReplyFailedGeneric": "Something went wrong. Try sending it again.",
   "@chatReplyFailedGeneric": {
     "description": "Error line under a reply that failed when the server gave no explanation of its own and the server does not have the turn any more. Tells the person to send the prompt again. Wraps at any text size."
@@ -2171,6 +2175,50 @@
   "@chatWidgetsApprovalAnswered": {
     "description": "Note on an approval card that was answered, when the answer is not one the app knows."
   },
+  "chatWidgetsBranchNoticeDeleted": "The original chat was deleted.",
+  "@chatWidgetsBranchNoticeDeleted": {
+    "description": "Shown, as information and not as a button, in the row under a branched chat's header after Hermes said the chat it was branched from no longer exists."
+  },
+  "chatWidgetsBranchNoticeFrom": "Branched from {title}",
+  "@chatWidgetsBranchNoticeFrom": {
+    "description": "Row under a branched chat's header; a tap opens the original chat. The placeholder is the original chat's title and ends the sentence.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsBranchNoticeFromUnknown": "Branched from another chat",
+  "@chatWidgetsBranchNoticeFromUnknown": {
+    "description": "Same row when the original chat's title is not known on the device; a tap still opens it."
+  },
+  "chatWidgetsBranchNoticeOpening": "Opening the original chat…",
+  "@chatWidgetsBranchNoticeOpening": {
+    "description": "Same row while the original chat is being opened, beside a small spinner; taps are ignored."
+  },
+  "chatWidgetsBranchNoticeRetry": "Try again",
+  "@chatWidgetsBranchNoticeRetry": {
+    "description": "Label in the same row, after the sentence that Hermes could not be reached; a tap asks again."
+  },
+  "chatWidgetsBranchNoticeSemantics": "Branched from {title}. Opens the original chat.",
+  "@chatWidgetsBranchNoticeSemantics": {
+    "description": "Screen reader label of the row under a branched chat's header when the original's title is known.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsBranchNoticeUnreachable": "Couldn't reach Hermes. Check your connection.",
+  "@chatWidgetsBranchNoticeUnreachable": {
+    "description": "Same row when asking for the original chat failed; \"Try again\" follows it."
+  },
+  "chatWidgetsBranchRowLabel": "Branch",
+  "@chatWidgetsBranchRowLabel": {
+    "description": "Added to a chat's screen reader label in the chat list and in search results when the chat was branched from another; the branch glyph before its title has no label of its own."
+  },
   "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
   "@chatWidgetsHistoryEarlierFailedTitle": {
     "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
@@ -4082,6 +4130,10 @@
   "@macosMenuOpenInNewWindow": {
     "description": "File menu, and the Mac chat row menu: opens the chat in a window of its own."
   },
+  "macosMenuOpenParentChat": "Open Parent Chat",
+  "@macosMenuOpenParentChat": {
+    "description": "Chat menu item: opens the chat the open chat was branched from. Greyed out when the open chat is not a branch or its original was deleted. Title case."
+  },
   "macosMenuPaste": "Paste",
   "@macosMenuPaste": {
     "description": "Edit menu: pastes the clipboard."
@@ -4105,6 +4157,10 @@
   "macosMenuRename": "Rename…",
   "@macosMenuRename": {
     "description": "Chat menu, and the Mac chat row and conversation window menus: renames the chat."
+  },
+  "macosMenuSave": "Save",
+  "@macosMenuSave": {
+    "description": "File menu: saves the page in front, offered by the Personality page while it has unsaved text."
   },
   "macosMenuSelectAll": "Select All",
   "@macosMenuSelectAll": {
@@ -4199,12 +4255,51 @@
       }
     }
   },
+  "memoryEntryWaiting": "Memory · {count} waiting",
+  "@memoryEntryWaiting": {
+    "description": "Label of the Memory entry of the sidebar and the Profiles page while changes wait for a decision. {count} is how many wait. Without a count the entry reads memoryTitle.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryLearningAgentNotes": "Keep agent notes",
+  "@memoryLearningAgentNotes": {
+    "description": "Title of the Keep agent notes switch in the Learning section of the Memory settings: Hermes keeps its own notes about the setup. Keep it short."
+  },
+  "memoryLearningAgentNotesDetail": "Facts about your setup, tools and conventions",
+  "@memoryLearningAgentNotesDetail": {
+    "description": "Subtitle of the Keep agent notes switch in the Memory settings: what the agent notes hold."
+  },
+  "memoryLearningChangeFailed": "Couldn't change {setting}. Try again.",
+  "@memoryLearningChangeFailed": {
+    "description": "Banner above the Learning section of the Memory settings after the server refused a change and the switch went back. {setting} is the title of that setting (memoryLearningUserProfile and its siblings).",
+    "placeholders": {
+      "setting": {
+        "type": "String",
+        "example": "Keep agent notes"
+      }
+    }
+  },
+  "memoryLearningFooter": "Ask before saving applies right away, the rest from the next chat.",
+  "@memoryLearningFooter": {
+    "description": "Footer of the Learning section of the Memory settings. The first words name the Ask before saving switch (memoryLearningWriteApproval): keep them in step with it."
+  },
+  "memoryLearningHeader": "Learning",
+  "@memoryLearningHeader": {
+    "description": "Header of the section of the Memory settings that sets what Hermes learns about the user and how it reports it. Keep it short."
+  },
   "memoryLearningIntervalEvery": "{turns, plural, =1{After every message} other{After every {turns} messages}}",
   "@memoryLearningIntervalEvery": {
     "description": "Value of the Review chats row of the Memory settings, and one of its choices: Hermes reviews the chat for things to remember after this many messages. 0 is shown as Off.",
     "placeholders": {
       "turns": {"type": "int", "example": "10"}
     }
+  },
+  "memoryLearningReadingSettings": "Reading the memory settings",
+  "@memoryLearningReadingSettings": {
+    "description": "Row of the Learning section of the Memory settings while the settings of the profile are being read."
   },
   "memoryLearningReportDetailed": "With details",
   "@memoryLearningReportDetailed": {
@@ -4213,6 +4308,34 @@
   "memoryLearningReportShort": "Short note",
   "@memoryLearningReportShort": {
     "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in one short line. Keep it short."
+  },
+  "memoryLearningReviewInterval": "Review chats",
+  "@memoryLearningReviewInterval": {
+    "description": "Title of the row of the Memory settings that sets after how many messages Hermes reviews a chat for things to remember. Its value is memoryLearningIntervalEvery. Keep it short."
+  },
+  "memoryLearningUnreadable": "Couldn't read the memory settings",
+  "@memoryLearningUnreadable": {
+    "description": "Row of the Learning section of the Memory settings when reading the settings of the profile failed. Its value is a Retry button."
+  },
+  "memoryLearningUpdatesInChat": "Memory updates in chat",
+  "@memoryLearningUpdatesInChat": {
+    "description": "Title of the row of the Memory settings that sets how Hermes reports in the chat what it saved. Its values are Off, memoryLearningReportShort and memoryLearningReportDetailed. Keep it short."
+  },
+  "memoryLearningUserProfile": "Remember things about me",
+  "@memoryLearningUserProfile": {
+    "description": "Title of the switch of the Memory settings that lets Hermes remember facts about the user. Keep it short."
+  },
+  "memoryLearningUserProfileDetail": "Your preferences, name and habits",
+  "@memoryLearningUserProfileDetail": {
+    "description": "Subtitle of the Remember things about me switch in the Memory settings: what Hermes remembers about the user."
+  },
+  "memoryLearningWriteApproval": "Ask before saving",
+  "@memoryLearningWriteApproval": {
+    "description": "Title of the switch of the Memory settings that makes Hermes ask before it changes memory. Keep it short."
+  },
+  "memoryLearningWriteApprovalDetail": "Hermes asks you before it changes memory",
+  "@memoryLearningWriteApprovalDetail": {
+    "description": "Subtitle of the Ask before saving switch in the Memory settings."
   },
   "memoryLeaveDiscard": "Discard and leave",
   "@memoryLeaveDiscard": {
@@ -4318,9 +4441,429 @@
       "value": {"type": "String", "example": "sk-…1234"}
     }
   },
+  "messagingSetupNothingToSetUp": "Nothing to set up for this messaging platform.",
+  "@messagingSetupNothingToSetUp": {
+    "description": "Shown in a messaging platform's setup form when the server lists no settings for it."
+  },
+  "messagingSetupTitle": "Set up {platform}",
+  "@messagingSetupTitle": {
+    "description": "Title of a messaging platform's setup form, and the back label of the screen that opens from it. The platform is its product name, such as WhatsApp.",
+    "placeholders": {
+      "platform": {"type": "String", "example": "WhatsApp"}
+    }
+  },
   "messagingSetupValueHidden": "hidden",
   "@messagingSetupValueHidden": {
     "description": "Stands for a saved credential's value that the server keeps hidden, inside the Set (…) helper line."
+  },
+  "messagingWhatsappAccountHeader": "Account",
+  "@messagingWhatsappAccountHeader": {
+      "description": "Section header above the linked account's name and number."
+  },
+  "messagingWhatsappAccountName": "Name",
+  "@messagingWhatsappAccountName": {
+      "description": "Row label: the name of the linked WhatsApp account."
+  },
+  "messagingWhatsappAccountNumber": "Number",
+  "@messagingWhatsappAccountNumber": {
+      "description": "Row label: the phone number of the linked WhatsApp account."
+  },
+  "messagingWhatsappAlreadyLinkedDetail": "This server already has a WhatsApp account linked for this profile. Hermes uses it as it is. The app can't unlink or replace it.",
+  "@messagingWhatsappAlreadyLinkedDetail": {
+      "description": "Detail of the Already linked banner."
+  },
+  "messagingWhatsappAlreadyLinkedTitle": "Already linked",
+  "@messagingWhatsappAlreadyLinkedTitle": {
+      "description": "Neutral banner title when the server already had an account linked and no scan was needed."
+  },
+  "messagingWhatsappCancelSetup": "Cancel setup",
+  "@messagingWhatsappCancelSetup": {
+      "description": "Outlined button that cancels the running WhatsApp setup."
+  },
+  "messagingWhatsappCheck": "Check",
+  "@messagingWhatsappCheck": {
+      "description": "Filled button that reads the platform list to see whether the save went through."
+  },
+  "messagingWhatsappCheckFailedTitle": "Couldn't confirm. Try again.",
+  "@messagingWhatsappCheckFailedTitle": {
+      "description": "Warning banner title when Check could not tell whether the setup was saved."
+  },
+  "messagingWhatsappChecking": "Checking...",
+  "@messagingWhatsappChecking": {
+      "description": "Label of the Check button while the read is out, next to a spinner."
+  },
+  "messagingWhatsappCountdown": "Setup closes in {time}",
+  "@messagingWhatsappCountdown": {
+      "description": "Muted line under the QR code: the time left until the server closes the setup.",
+      "placeholders": {
+          "time": {
+              "type": "String",
+              "example": "8:42"
+          }
+      }
+  },
+  "messagingWhatsappCountdownAnnounce": "Setup closes in {seconds, plural, =1{1 second} other{{seconds} seconds}}.",
+  "@messagingWhatsappCountdownAnnounce": {
+      "description": "Screen reader announcement made when 60, 30 and 10 seconds are left.",
+      "placeholders": {
+          "seconds": {
+              "type": "int"
+          }
+      }
+  },
+  "messagingWhatsappEndErrorNoText": "The server gave no reason.",
+  "@messagingWhatsappEndErrorNoText": {
+      "description": "Detail when the setup ended with an error and the server sent no text."
+  },
+  "messagingWhatsappEndErrorTitle": "WhatsApp setup stopped",
+  "@messagingWhatsappEndErrorTitle": {
+      "description": "Title when the setup ended with an error. The server's own text follows under it."
+  },
+  "messagingWhatsappEndExpiredDetail": "A setup closes after 10 minutes. Start again to get a new code.",
+  "@messagingWhatsappEndExpiredDetail": {
+      "description": "Detail of the expired end state."
+  },
+  "messagingWhatsappEndExpiredTitle": "The code expired",
+  "@messagingWhatsappEndExpiredTitle": {
+      "description": "Title when the ten minutes of the setup ran out."
+  },
+  "messagingWhatsappEndGoneApplyDetail": "The settings may not have been saved.",
+  "@messagingWhatsappEndGoneApplyDetail": {
+      "description": "Detail of the gone end state when it was found while saving."
+  },
+  "messagingWhatsappEndGoneDetail": "It may have expired, or the server restarted.",
+  "@messagingWhatsappEndGoneDetail": {
+      "description": "Detail of the gone end state while polling."
+  },
+  "messagingWhatsappEndGoneTitle": "This setup is no longer on the server",
+  "@messagingWhatsappEndGoneTitle": {
+      "description": "Title when the server no longer knows the setup."
+  },
+  "messagingWhatsappEndProfileDetail": "Pick another profile to set up WhatsApp.",
+  "@messagingWhatsappEndProfileDetail": {
+      "description": "Detail of the deleted profile end state."
+  },
+  "messagingWhatsappEndProfileTitle": "This chat's profile no longer exists",
+  "@messagingWhatsappEndProfileTitle": {
+      "description": "Title when the profile of the chat was deleted on the server."
+  },
+  "messagingWhatsappEndSupersededDetail": "WhatsApp was set up again from another device or window.",
+  "@messagingWhatsappEndSupersededDetail": {
+      "description": "Detail of the superseded end state."
+  },
+  "messagingWhatsappEndSupersededTitle": "Another setup replaced this one",
+  "@messagingWhatsappEndSupersededTitle": {
+      "description": "Title when a newer setup on the same server replaced this one."
+  },
+  "messagingWhatsappEndUnsupportedDetail": "You can still enter WhatsApp's settings yourself in the form.",
+  "@messagingWhatsappEndUnsupportedDetail": {
+      "description": "Detail of the old server end state."
+  },
+  "messagingWhatsappEndUnsupportedTitle": "This server cannot link WhatsApp from the app",
+  "@messagingWhatsappEndUnsupportedTitle": {
+      "description": "Title when the server is too old to offer the WhatsApp link routes."
+  },
+  "messagingWhatsappExpiringDetail": "Scan now, or start again after it closes.",
+  "@messagingWhatsappExpiringDetail": {
+      "description": "Detail of the warning banner in the last minute of the setup."
+  },
+  "messagingWhatsappExpiringTitle": "Setup closes soon.",
+  "@messagingWhatsappExpiringTitle": {
+      "description": "Title of the warning banner in the last minute of the setup. It holds no time: the changing countdown sits outside the banner, which a screen reader reads as a live region."
+  },
+  "messagingWhatsappFinish": "Finish",
+  "@messagingWhatsappFinish": {
+      "description": "Filled button that saves the WhatsApp setup and restarts the gateway after a confirmation."
+  },
+  "messagingWhatsappFinishFooter": "Saves the mode and allowed numbers for {profile}, switches WhatsApp on, and asks the messaging gateway to restart.",
+  "@messagingWhatsappFinishFooter": {
+      "description": "Sentence under the Finish header. The profile name is shown to the user only.",
+      "placeholders": {
+          "profile": {
+              "type": "String",
+              "example": "work"
+          }
+      }
+  },
+  "messagingWhatsappFinishHeader": "What Finish does",
+  "@messagingWhatsappFinishHeader": {
+      "description": "Section header above the sentence that says what the Finish button does. Finish is the button label."
+  },
+  "messagingWhatsappFinishLeaveNote": "If you leave now, the account stays linked on the server, but the setup isn't saved.",
+  "@messagingWhatsappFinishLeaveNote": {
+      "description": "Muted line under the Finish button."
+  },
+  "messagingWhatsappFinishLostDetail": "Check whether WhatsApp is on for this profile.",
+  "@messagingWhatsappFinishLostDetail": {
+      "description": "Detail of the warning banner when the save request got no answer."
+  },
+  "messagingWhatsappFinishLostTitle": "Could not confirm the setup was saved.",
+  "@messagingWhatsappFinishLostTitle": {
+      "description": "Warning banner title when the save request got no answer."
+  },
+  "messagingWhatsappFinishOwnNumber": "Allowed: your own number.",
+  "@messagingWhatsappFinishOwnNumber": {
+      "description": "Sentence added to the Finish note in Self-chat mode when the allowed numbers are blank."
+  },
+  "messagingWhatsappFinishQuestionBody": "Save the WhatsApp setup and ask the messaging gateway to restart? Conversations on messaging channels will be interrupted.",
+  "@messagingWhatsappFinishQuestionBody": {
+      "description": "Body of the confirmation before the WhatsApp setup is saved."
+  },
+  "messagingWhatsappFinishQuestionConfirm": "Save and restart",
+  "@messagingWhatsappFinishQuestionConfirm": {
+      "description": "Plain confirm button of the Finish confirmation. May wrap to two lines."
+  },
+  "messagingWhatsappFinishQuestionTitle": "Save and restart?",
+  "@messagingWhatsappFinishQuestionTitle": {
+      "description": "Title of the confirmation before the WhatsApp setup is saved."
+  },
+  "messagingWhatsappFinishRefusedTitle": "Couldn't save the setup.",
+  "@messagingWhatsappFinishRefusedTitle": {
+      "description": "Error banner title when the server refused to save. The server's own text is the detail."
+  },
+  "messagingWhatsappHandsetDetail": "A phone can't scan its own screen. Open this screen on another device, or on a computer, signed in to the same server.",
+  "@messagingWhatsappHandsetDetail": {
+      "description": "Detail of the notice on a phone."
+  },
+  "messagingWhatsappHandsetTitle": "Scan this with the phone that has WhatsApp.",
+  "@messagingWhatsappHandsetTitle": {
+      "description": "Title of the notice on a phone: the QR code must be scanned by the phone that holds the WhatsApp account. Also the muted line above the code once it is shown."
+  },
+  "messagingWhatsappLinkedTitle": "WhatsApp is linked.",
+  "@messagingWhatsappLinkedTitle": {
+      "description": "Success banner title when the account was linked."
+  },
+  "messagingWhatsappModeBot": "Bot",
+  "@messagingWhatsappModeBot": {
+      "description": "Mode choice: Hermes has its own WhatsApp number."
+  },
+  "messagingWhatsappModeBotSubtitle": "Its own WhatsApp number",
+  "@messagingWhatsappModeBotSubtitle": {
+      "description": "One-line subtitle of the Bot mode choice. Keep it short."
+  },
+  "messagingWhatsappModeFooter": "Bot: Hermes has its own WhatsApp number. The people you allow message that number. Self-chat: Hermes uses your own number. You talk to it in your chat with yourself.",
+  "@messagingWhatsappModeFooter": {
+      "description": "Footer under the mode choices of the WhatsApp setup form: one sentence for each mode. Bot and Self-chat are the two mode names."
+  },
+  "messagingWhatsappModeHeader": "Mode",
+  "@messagingWhatsappModeHeader": {
+      "description": "Section header of the WhatsApp setup form above the two choices Bot and Self-chat."
+  },
+  "messagingWhatsappModeSelfChat": "Self-chat",
+  "@messagingWhatsappModeSelfChat": {
+      "description": "Mode choice: Hermes uses the owner's own WhatsApp number and is spoken to in the chat with oneself."
+  },
+  "messagingWhatsappModeSelfChatSubtitle": "Your own number",
+  "@messagingWhatsappModeSelfChatSubtitle": {
+      "description": "One-line subtitle of the Self-chat mode choice. Keep it short."
+  },
+  "messagingWhatsappNameMissing": "Name not given",
+  "@messagingWhatsappNameMissing": {
+      "description": "Value of the Name row when the server sent no name."
+  },
+  "messagingWhatsappNotSavedTitle": "Not saved yet.",
+  "@messagingWhatsappNotSavedTitle": {
+      "description": "Warning banner title when Check found WhatsApp switched off for the profile."
+  },
+  "messagingWhatsappNumberMissing": "Number not given",
+  "@messagingWhatsappNumberMissing": {
+      "description": "Value of the Number row when the server sent no number."
+  },
+  "messagingWhatsappNumbersEveryone": "Letting everyone message Hermes is a server setting. Here you can only name phone numbers.",
+  "@messagingWhatsappNumbersEveryone": {
+      "description": "Error line under the allowed phone numbers field when the user typed * or a WhatsApp address."
+  },
+  "messagingWhatsappNumbersFooter": "Digits with country code, separated by commas. Leave it blank to keep the current list. In Self-chat a blank list means your own number.",
+  "@messagingWhatsappNumbersFooter": {
+      "description": "Footer under the allowed phone numbers field."
+  },
+  "messagingWhatsappNumbersHeader": "Allowed phone numbers",
+  "@messagingWhatsappNumbersHeader": {
+      "description": "Section header above the field for the phone numbers that may message Hermes. It is also the field's accessible label."
+  },
+  "messagingWhatsappNumbersHint": "+49 151 2345678, +41 79 1234567",
+  "@messagingWhatsappNumbersHint": {
+      "description": "Placeholder of the allowed phone numbers field: two invented example numbers with country code."
+  },
+  "messagingWhatsappNumbersInvalid": "Enter phone numbers: digits, with an optional + at the start, separated by commas.",
+  "@messagingWhatsappNumbersInvalid": {
+      "description": "Error line under the allowed phone numbers field when an entry is not a phone number."
+  },
+  "messagingWhatsappOfflineChecking": "Checking again when you're back.",
+  "@messagingWhatsappOfflineChecking": {
+      "description": "Detail of the offline banner while the server prepares WhatsApp."
+  },
+  "messagingWhatsappOfflineCode": "This code may be out of date.",
+  "@messagingWhatsappOfflineCode": {
+      "description": "Detail of the offline banner while a QR code is shown."
+  },
+  "messagingWhatsappOfflineTitle": "You're offline.",
+  "@messagingWhatsappOfflineTitle": {
+      "description": "Warning banner title while the server cannot be reached during the WhatsApp setup."
+  },
+  "messagingWhatsappOpenServer": "Open Server",
+  "@messagingWhatsappOpenServer": {
+      "description": "Banner button that opens the Server screen."
+  },
+  "messagingWhatsappOrEnterYourself": "Or enter the details yourself.",
+  "@messagingWhatsappOrEnterYourself": {
+      "description": "Line under the Link WhatsApp button in the WhatsApp setup form, before the fields the user can fill in by hand. Product name WhatsApp is not in it."
+  },
+  "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
+  "@messagingWhatsappPausedDetail": {
+      "description": "Detail of the paused banner."
+  },
+  "messagingWhatsappPausedTitle": "Paused while the app was away.",
+  "@messagingWhatsappPausedTitle": {
+      "description": "Title of the neutral banner shown after the app returns: checking the setup was paused while it was in the background or locked."
+  },
+  "messagingWhatsappPreparingDetail": "This can take a few minutes the first time. You can leave this screen; leaving cancels the setup.",
+  "@messagingWhatsappPreparingDetail": {
+      "description": "Detail of the preparing card."
+  },
+  "messagingWhatsappPreparingTitle": "Preparing WhatsApp on your server...",
+  "@messagingWhatsappPreparingTitle": {
+      "description": "Title of the card shown while the server installs or starts what WhatsApp needs."
+  },
+  "messagingWhatsappQrCannotDraw": "Couldn't draw the code.",
+  "@messagingWhatsappQrCannotDraw": {
+      "description": "Line on the tile when the code text is too long to draw as a QR code."
+  },
+  "messagingWhatsappQrCannotDrawLabel": "QR code could not be drawn",
+  "@messagingWhatsappQrCannotDrawLabel": {
+      "description": "Accessibility label of the tile when the code text is too long to draw as a QR code."
+  },
+  "messagingWhatsappQrHidden": "Hidden",
+  "@messagingWhatsappQrHidden": {
+      "description": "Word on the tile that stands where the QR code is while it is hidden."
+  },
+  "messagingWhatsappQrHiddenLabel": "QR code hidden",
+  "@messagingWhatsappQrHiddenLabel": {
+      "description": "Accessibility label of the QR code while it is hidden."
+  },
+  "messagingWhatsappQrLabel": "QR code to scan with WhatsApp",
+  "@messagingWhatsappQrLabel": {
+      "description": "Accessibility label of the shown QR code."
+  },
+  "messagingWhatsappQrShowsAgain": "Shows again when the app is unlocked and in front.",
+  "@messagingWhatsappQrShowsAgain": {
+      "description": "Line on the hidden tile on a tablet or computer: the code returns by itself."
+  },
+  "messagingWhatsappRefreshFailedDetail": "Start again to check the link. The account stays linked on the server.",
+  "@messagingWhatsappRefreshFailedDetail": {
+      "description": "Detail of the warning banner when the account could not be read again."
+  },
+  "messagingWhatsappRefreshFailedTitle": "Couldn't read the account.",
+  "@messagingWhatsappRefreshFailedTitle": {
+      "description": "Warning banner title when the account details could not be read again after the app was locked."
+  },
+  "messagingWhatsappRefreshingAccount": "Reading the account again...",
+  "@messagingWhatsappRefreshingAccount": {
+      "description": "Line next to a spinner after the app was locked: the account details were dropped and are being read from the server again."
+  },
+  "messagingWhatsappSavedDetail": "A restart of the messaging gateway was requested.",
+  "@messagingWhatsappSavedDetail": {
+      "description": "Detail of the success banner after a saved setup."
+  },
+  "messagingWhatsappSavedMaybeRestartDetail": "A restart was requested; if WhatsApp doesn't answer, restart it from Server.",
+  "@messagingWhatsappSavedMaybeRestartDetail": {
+      "description": "Detail when a restart was requested but the server says it may still be needed."
+  },
+  "messagingWhatsappSavedNoRestartDetail": "No restart was requested. Restart the messaging gateway from Server.",
+  "@messagingWhatsappSavedNoRestartDetail": {
+      "description": "Detail when no restart was requested. Server is the name of the Server screen."
+  },
+  "messagingWhatsappSavedTitle": "WhatsApp is set up.",
+  "@messagingWhatsappSavedTitle": {
+      "description": "Success banner title on the Messaging list after the setup was saved and a restart was requested."
+  },
+  "messagingWhatsappSavedUnknownRestartDetail": "Restart the messaging gateway from Server if WhatsApp doesn't answer.",
+  "@messagingWhatsappSavedUnknownRestartDetail": {
+      "description": "Detail after a save that Check confirmed: whether a restart happened is not known."
+  },
+  "messagingWhatsappSavedWarningTitle": "WhatsApp is saved.",
+  "@messagingWhatsappSavedWarningTitle": {
+      "description": "Warning banner title on the Messaging list after the setup was saved but the restart is not certain."
+  },
+  "messagingWhatsappSaving": "Saving...",
+  "@messagingWhatsappSaving": {
+      "description": "Label of the Finish button while the save request is out, next to a spinner."
+  },
+  "messagingWhatsappServerTextLabel": "Message from your server",
+  "@messagingWhatsappServerTextLabel": {
+      "description": "Accessibility label of the box that shows the server's own text."
+  },
+  "messagingWhatsappShowQr": "Show QR code",
+  "@messagingWhatsappShowQr": {
+      "description": "Filled button that reveals the QR code on a phone."
+  },
+  "messagingWhatsappStageInstalling": "Installing",
+  "@messagingWhatsappStageInstalling": {
+      "description": "Stage word under the preparing title: the server installs packages."
+  },
+  "messagingWhatsappStageStarting": "Starting",
+  "@messagingWhatsappStageStarting": {
+      "description": "Stage word under the preparing title: the server starts the WhatsApp bridge."
+  },
+  "messagingWhatsappStageWorking": "Working...",
+  "@messagingWhatsappStageWorking": {
+      "description": "Stage word under the preparing title for a status the app does not know."
+  },
+  "messagingWhatsappStart": "Start",
+  "@messagingWhatsappStart": {
+      "description": "Filled button that starts the WhatsApp setup on the server."
+  },
+  "messagingWhatsappStartAgain": "Start again",
+  "@messagingWhatsappStartAgain": {
+      "description": "Button that asks the server for a new WhatsApp setup after one ended, was lost or is gone."
+  },
+  "messagingWhatsappStartLostDetail": "It may have begun on your server. Starting again replaces it.",
+  "@messagingWhatsappStartLostDetail": {
+      "description": "Detail of the warning banner when the start request got no answer."
+  },
+  "messagingWhatsappStartLostTitle": "Couldn't confirm the setup started.",
+  "@messagingWhatsappStartLostTitle": {
+      "description": "Warning banner title when the start request got no answer."
+  },
+  "messagingWhatsappStartNote": "The server installs what it needs, then shows a code to scan.",
+  "@messagingWhatsappStartNote": {
+      "description": "Muted line under the Start button of the WhatsApp setup form."
+  },
+  "messagingWhatsappStartOfflineDetail": "Couldn't start the setup. Nothing was started.",
+  "@messagingWhatsappStartOfflineDetail": {
+      "description": "Detail of the offline banner when the start request never left the device."
+  },
+  "messagingWhatsappStartRefusedTitle": "Couldn't start the setup.",
+  "@messagingWhatsappStartRefusedTitle": {
+      "description": "Error banner title when the server refused to start the WhatsApp setup. The server's own text is the detail."
+  },
+  "messagingWhatsappStarting": "Starting...",
+  "@messagingWhatsappStarting": {
+      "description": "Label of the Start button while the start request is out, next to a spinner."
+  },
+  "messagingWhatsappStep1": "Open WhatsApp on the phone that has your account.",
+  "@messagingWhatsappStep1": {
+      "description": "Step 1 of 4 for scanning the code. The number is drawn by the app."
+  },
+  "messagingWhatsappStep2": "Tap Settings, then Linked devices.",
+  "@messagingWhatsappStep2": {
+      "description": "Step 2 of 4. Settings and Linked devices are WhatsApp's own labels; use WhatsApp's German wording."
+  },
+  "messagingWhatsappStep3": "Tap Link a device.",
+  "@messagingWhatsappStep3": {
+      "description": "Step 3 of 4. Link a device is WhatsApp's own button label."
+  },
+  "messagingWhatsappStep4": "Point the camera at this code.",
+  "@messagingWhatsappStep4": {
+      "description": "Step 4 of 4 for scanning the code."
+  },
+  "messagingWhatsappTitle": "Link WhatsApp",
+  "@messagingWhatsappTitle": {
+      "description": "Title of the screen that links a WhatsApp account by QR code. Product name WhatsApp stays."
+  },
+  "messagingWhatsappWaitingForScan": "Waiting for a scan",
+  "@messagingWhatsappWaitingForScan": {
+      "description": "Status line next to a spinner while the QR code waits to be scanned."
   },
 
   "@@x-area-models": "",
@@ -4670,6 +5213,14 @@
   "profilesSoulBannerOfflineTitle": "You're offline.",
   "@profilesSoulBannerOfflineTitle": {
     "description": "Title of the warning banner when the personality could not be loaded because the device is offline."
+  },
+  "profilesSoulBannerPausedDetail": "Your text is kept. It can be edited again once the connection is back.",
+  "@profilesSoulBannerPausedDetail": {
+    "description": "Detail of the info banner on the personality page while the connection is paused (an expired session that may still be restored)."
+  },
+  "profilesSoulBannerPausedTitle": "The connection is paused.",
+  "@profilesSoulBannerPausedTitle": {
+    "description": "Title of the info banner on the personality page while the connection is paused. The page is read-only and nothing is sent."
   },
   "profilesSoulBannerReadFailed": "Couldn't read the personality file on the server.",
   "@profilesSoulBannerReadFailed": {
@@ -6215,6 +6766,48 @@
   },
 
   "@@x-area-screens": "",
+  "screensCleartextCheckingHttps": "Checking {host} over https://…",
+  "@screensCleartextCheckingHttps": {
+    "description": "Snackbar while an already saved unencrypted server is tried over https:// after the user chose https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextHttpsUnavailable": "{host} doesn't answer over https://. Hermes keeps using http:// for now and will ask again next time.",
+  "@screensCleartextHttpsUnavailable": {
+    "description": "Snackbar after choosing https:// for an already saved unencrypted server that does not answer over https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextKeepAction": "Keep http://",
+  "@screensCleartextKeepAction": {
+    "description": "Action of the alert about an already saved unencrypted server that keeps using http://."
+  },
+  "screensCleartextSavedBody": "{host} is not on your local network or a VPN, and Hermes has been sending your password, sign-in tokens and chats to it over http://, unencrypted. Anyone on the way can read them.\n\nSwitch to its https:// address if the server has one.",
+  "@screensCleartextSavedBody": {
+    "description": "Body of the alert about an already saved server that is reached over http:// across the internet.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextSavedTitle": "Keep using http://?",
+  "@screensCleartextSavedTitle": {
+    "description": "Title of the alert about an already saved server that is reached over http:// across the internet."
+  },
+  "screensCleartextUseHttpsAction": "Use https://",
+  "@screensCleartextUseHttpsAction": {
+    "description": "Action of the alert about an already saved unencrypted server that reconnects to its https:// address; the default answer."
+  },
   "screensConnectionVersionUnknown": "unknown",
   "@screensConnectionVersionUnknown": {
     "description": "Value of the Agent version row of the Connection page when the server reports no version."
@@ -8455,9 +9048,70 @@
       }
     }
   },
+  "skillsHubInstalled": "Installed",
+  "@skillsHubInstalled": {
+    "description": "Value on the right of a row in the Discover tab of Skills when the hub skill is already installed. Keep it short."
+  },
+  "skillsHubSkillContentsFailed": "Could not load the skill's contents.",
+  "@skillsHubSkillContentsFailed": {
+    "description": "Line on the hub skill page when the skill's files and SKILL.md could not be fetched."
+  },
+  "skillsHubSkillFileCount": "{count, plural, =1{1 file} other{{count} files}}",
+  "@skillsHubSkillFileCount": {
+    "description": "Count of the files a hub skill contains, in the line under its description.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsHubSkillFiles": "Files",
+  "@skillsHubSkillFiles": {
+    "description": "Header of the list of the files a hub skill contains, on the hub skill page."
+  },
+  "skillsHubSkillInstall": "Install",
+  "@skillsHubSkillInstall": {
+    "description": "Button at the bottom of the hub skill page that installs the skill. Also shown dimmed while the scan runs or when the server blocks the skill."
+  },
+  "skillsHubSkillInstallAnyway": "Install anyway…",
+  "@skillsHubSkillInstallAnyway": {
+    "description": "Button at the bottom of the hub skill page when the server's policy asks for confirmation; opens the confirmation dialog."
+  },
+  "skillsHubSkillPolicyAsk": "Server policy: ask. You will be asked to confirm.",
+  "@skillsHubSkillPolicyAsk": {
+    "description": "Caption under the install button of the hub skill page when the security scan's policy is to ask."
+  },
+  "skillsHubSkillPolicyBlock": "Blocked by the server's policy.",
+  "@skillsHubSkillPolicyBlock": {
+    "description": "Caption under the dimmed install button of the hub skill page when the security scan's policy is to block."
+  },
   "skillsJobFailedFallback": "It failed.",
   "@skillsJobFailedFallback": {
     "description": "Outcome line of a finished skill job that failed and has no error text."
+  },
+  "skillsScanBlocked": "Blocked",
+  "@skillsScanBlocked": {
+    "description": "Verdict line of the security scan of a hub skill when the server blocks the install."
+  },
+  "skillsScanCaution": "Caution: confirmation required",
+  "@skillsScanCaution": {
+    "description": "Verdict line of the security scan of a hub skill when the server asks for a confirmation before the install."
+  },
+  "skillsScanFailed": "Could not run the security scan.",
+  "@skillsScanFailed": {
+    "description": "Row in the security scan section of a hub skill when the scan request failed. A Retry row follows."
+  },
+  "skillsScanHeader": "Security scan",
+  "@skillsScanHeader": {
+    "description": "Header of the section that shows what the server's security scan found in a hub skill."
+  },
+  "skillsScanPassed": "Passed",
+  "@skillsScanPassed": {
+    "description": "Verdict line of the security scan of a hub skill when the install is allowed."
+  },
+  "skillsScanRunning": "Running the security scan…",
+  "@skillsScanRunning": {
+    "description": "Row in the security scan section of a hub skill while the scan runs."
   },
   "skillsScreenAllSources": "All sources",
   "@skillsScreenAllSources": {
@@ -8558,6 +9212,16 @@
   "skillsScreenUnsupported": "The connected Hermes does not support skills.",
   "@skillsScreenUnsupported": {
     "description": "Message on the Skills page when the server has no skills routes."
+  },
+  "skillsScreenUsed": "{count, plural, =1{used once} other{used {count} times}}",
+  "@skillsScreenUsed": {
+    "description": "Part of the subtitle of an installed skill: how often the agent used it, shown after the source (for example Bundled · used 14 times). Not shown for a skill that was never used.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "14"
+      }
+    }
   },
   "skillsTrustCommunity": "Community",
   "@skillsTrustCommunity": {

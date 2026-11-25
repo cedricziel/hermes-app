@@ -1,0 +1,319 @@
+import 'package:flutter/rendering.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
+import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
+import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
+import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'support/pump_on_platform.dart';
+
+Widget _notice(
+  ChatBranchNoticeState state,
+  VoidCallback onTap, {
+  String? title = 'Release notes',
+}) => ChatBranchNotice(state: state, parentTitle: title, onTap: onTap);
+
+RenderParagraph _noticeParagraph(WidgetTester tester) => tester
+    .renderObjectList<RenderParagraph>(
+      find.descendant(
+        of: find.byType(ChatBranchNotice),
+        matching: find.byType(RichText),
+      ),
+    )
+    .firstWhere((p) => p.text.toPlainText().length > 3);
+
+void main() {
+  group('ChatBranchNotice', () {
+    testWidgets('names the original when its title is known', (tester) async {
+      var taps = 0;
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.title, () => taps++),
+        platform: TargetPlatform.iOS,
+      );
+      expect(find.text('Branched from Release notes'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(ChatBranchNotice)),
+        matchesSemantics(
+          label: 'Branched from Release notes. Opens the original chat.',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.tap(find.byType(ChatBranchNotice));
+      expect(taps, 1);
+    });
+
+    testWidgets('reads "another chat" without a title, and stays tappable', (
+      tester,
+    ) async {
+      var taps = 0;
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.unknown, () => taps++, title: null),
+        platform: TargetPlatform.iOS,
+      );
+      expect(find.text('Branched from another chat'), findsOneWidget);
+      await tester.tap(find.byType(ChatBranchNotice));
+      expect(taps, 1);
+    });
+
+    testWidgets('a known state without a title falls back to "another chat"', (
+      tester,
+    ) async {
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.title, () {}, title: ''),
+        platform: TargetPlatform.iOS,
+      );
+      expect(find.text('Branched from another chat'), findsOneWidget);
+    });
+
+    testWidgets('opening shows a spinner and ignores taps', (tester) async {
+      var taps = 0;
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.opening, () => taps++),
+        platform: TargetPlatform.iOS,
+      );
+      expect(find.text('Opening the original chat…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(ChatBranchNotice)),
+        matchesSemantics(label: 'Opening the original chat…'),
+      );
+      await tester.tap(find.byType(ChatBranchNotice));
+      expect(taps, 0);
+    });
+
+    testWidgets('deleted is information: an info icon, no chevron, no button', (
+      tester,
+    ) async {
+      var taps = 0;
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.deleted, () => taps++),
+        platform: TargetPlatform.iOS,
+      );
+      expect(find.text('The original chat was deleted.'), findsOneWidget);
+      expect(find.byType(InkWell), findsNothing);
+      expect(find.byType(AppIcon), findsOneWidget);
+      expect(
+        tester.getSemantics(find.byType(ChatBranchNotice)),
+        matchesSemantics(label: 'The original chat was deleted.'),
+      );
+      await tester.tap(find.byType(ChatBranchNotice));
+      expect(taps, 0);
+    });
+
+    testWidgets('unreachable offers Try again and fires the tap', (
+      tester,
+    ) async {
+      var taps = 0;
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.unreachable, () => taps++),
+        platform: TargetPlatform.iOS,
+      );
+      expect(
+        find.text("Couldn't reach Hermes. Check your connection. Try again"),
+        findsOneWidget,
+      );
+      expect(
+        tester.getSemantics(find.byType(ChatBranchNotice)),
+        matchesSemantics(
+          label: "Couldn't reach Hermes. Check your connection. Try again",
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.tap(find.byType(ChatBranchNotice));
+      expect(taps, 1);
+    });
+
+    testWidgets('is German when the locale is', (tester) async {
+      await pumpOnPlatform(
+        tester,
+        _notice(ChatBranchNoticeState.title, () {}),
+        platform: TargetPlatform.iOS,
+        locale: const Locale('de'),
+      );
+      expect(find.text('Verzweigt von Release notes'), findsOneWidget);
+    });
+
+    for (final (platform, height) in [
+      (TargetPlatform.iOS, 44.0),
+      (TargetPlatform.android, 48.0),
+      (TargetPlatform.windows, 48.0),
+      (TargetPlatform.linux, 48.0),
+      (TargetPlatform.macOS, 32.0),
+    ]) {
+      testWidgets('is $height high on $platform', (tester) async {
+        await pumpOnPlatform(
+          tester,
+          Align(
+            alignment: Alignment.topCenter,
+            child: _notice(ChatBranchNoticeState.title, () {}, title: 'Plan'),
+          ),
+          platform: platform,
+        );
+        expect(tester.getSize(find.byType(ChatBranchNotice)).height, height);
+      });
+    }
+
+    testWidgets(
+      'wraps a long title to two lines and then ends in an ellipsis',
+      (tester) async {
+        await pumpOnPlatform(
+          tester,
+          _notice(ChatBranchNoticeState.title, () {}, title: 'word ' * 80),
+          platform: TargetPlatform.iOS,
+        );
+        final paragraph = _noticeParagraph(tester);
+        expect(paragraph.didExceedMaxLines, isTrue);
+        expect(
+          paragraph.size.height,
+          closeTo(2 * paragraph.preferredLineHeight, 1),
+        );
+      },
+    );
+
+    testWidgets('unreachable wraps at the largest text and keeps "Try again"', (
+      tester,
+    ) async {
+      await pumpOnPlatform(
+        tester,
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(3)),
+          child: _notice(ChatBranchNoticeState.unreachable, () {}),
+        ),
+        platform: TargetPlatform.iOS,
+      );
+      final paragraph = _noticeParagraph(tester);
+      final text = paragraph.text.toPlainText();
+      expect(text, endsWith('Try again'));
+      expect(paragraph.size.height, greaterThan(paragraph.preferredLineHeight));
+      final boxes = paragraph.getBoxesForSelection(
+        TextSelection(baseOffset: text.length - 9, extentOffset: text.length),
+      );
+      expect(boxes, isNotEmpty);
+      expect(boxes.every((b) => b.right <= paragraph.size.width), isTrue);
+    });
+  });
+
+  group('the branch glyph', () {
+    final glyph = find.byWidgetPredicate(
+      (w) => w is AppIcon && w.icon == AppIcons.branch,
+    );
+    final thread = ChatThread(
+      id: 't1',
+      title: 'Try another approach',
+      updatedAt: DateTime(2026, 1, 1),
+      remote: true,
+    );
+    final hit = ThreadSearchHit(
+      id: 't1',
+      title: 'Try another approach',
+      snippet: const [],
+      updatedAt: DateTime(2026, 1, 1),
+    );
+    final branchHit = ThreadSearchHit(
+      id: 't1',
+      title: 'Try another approach',
+      snippet: const [],
+      updatedAt: DateTime(2026, 1, 1),
+      branch: true,
+    );
+
+    Widget touchRow({required bool branch}) => SidebarThreadRow(
+      thread: thread,
+      selected: false,
+      busy: false,
+      onTap: () {},
+      branch: branch,
+    );
+
+    Widget macRow({required bool branch}) => MacThreadRow(
+      title: thread.title,
+      selected: false,
+      onTap: () {},
+      menuItems: (context) => const <PopupMenuEntry<ThreadAction>>[],
+      onAction: (_) {},
+      branch: branch,
+    );
+
+    Widget touchSearch(ThreadSearchHit hit) => ThreadSearchResults(
+      query: 'try',
+      status: ThreadSearchStatus.done,
+      hits: [hit],
+      onOpen: (_) {},
+    );
+
+    Widget macSearch(ThreadSearchHit hit) => MacSearchResults(
+      query: 'try',
+      status: ThreadSearchStatus.done,
+      hits: [hit],
+      scope: ThreadSearchScope.profile,
+      recent: const [],
+      onOpen: (_) {},
+      onPickRecent: (_) {},
+    );
+
+    final rows = <(String, Widget Function(bool), TargetPlatform)>[
+      ('sidebar row', (b) => touchRow(branch: b), TargetPlatform.iOS),
+      ('Mac thread row', (b) => macRow(branch: b), TargetPlatform.macOS),
+      (
+        'search result',
+        (b) => touchSearch(b ? branchHit : hit),
+        TargetPlatform.iOS,
+      ),
+      (
+        'Mac search result',
+        (b) => macSearch(b ? branchHit : hit),
+        TargetPlatform.macOS,
+      ),
+    ];
+
+    for (final (name, build, platform) in rows) {
+      testWidgets('$name shows it only for a branch, and says "Branch"', (
+        tester,
+      ) async {
+        final handle = tester.ensureSemantics();
+        await pumpOnPlatform(tester, build(false), platform: platform);
+        expect(glyph, findsNothing);
+        expect(find.bySemanticsLabel(RegExp('Branch')), findsNothing);
+
+        await pumpOnPlatform(tester, build(true), platform: platform);
+        expect(glyph, findsOneWidget);
+        expect(
+          find.bySemanticsLabel(RegExp('^Try another approach, Branch')),
+          findsOneWidget,
+        );
+        handle.dispose();
+      });
+    }
+
+    testWidgets('is 14 pt on a touch row and 12 pt in the Mac source list', (
+      tester,
+    ) async {
+      await pumpOnPlatform(
+        tester,
+        touchRow(branch: true),
+        platform: TargetPlatform.iOS,
+      );
+      expect(tester.getSize(glyph).width, 14);
+      await pumpOnPlatform(
+        tester,
+        macRow(branch: true),
+        platform: TargetPlatform.macOS,
+      );
+      expect(tester.getSize(glyph).width, 12);
+    });
+  });
+}

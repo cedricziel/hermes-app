@@ -102,6 +102,9 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       profile ??= await _activeProfile();
       if (!active || generation != _loadGeneration) return;
+      // A read of a branch's original that lands while another profile's list
+      // is out would open a chat of the profile being left.
+      if (profile != previousProfile) _branchParent.dropReads();
       _failedListProfile = profile;
       final first = await repository!.loadThreadPage(profile: profile);
       if (!active || generation != _loadGeneration) return;
@@ -271,6 +274,7 @@ extension _ChatControllerHistory on ChatController {
         _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
+        _branchParent.clear();
         search?.clear();
         _stopHandBacks.clear();
       }
@@ -432,7 +436,8 @@ extension _ChatControllerHistory on ChatController {
         );
       }
       unawaited(refreshActive());
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the thread list');
       if (!active || generation != _loadGeneration) return;
       _loadingThreads = false;
       _threadsFailed = true;
@@ -461,7 +466,8 @@ extension _ChatControllerHistory on ChatController {
       ModelOptions? options;
       try {
         options = await models.load(profile: profile);
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'the quiet model options');
         return;
       }
       if (!active ||
@@ -500,7 +506,8 @@ extension _ChatControllerHistory on ChatController {
       if (error.response?.statusCode == 404) {
         state = ModelOptionsState.unsupported;
       }
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the model options');
       state = ModelOptionsState.failed;
     }
     if (!active ||
@@ -577,7 +584,8 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       await controllerFor(thread)
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the first page');
       if (generation != _loadGeneration) {
         return _restoreStaleRead(id, token, retried: retried);
       }
@@ -864,7 +872,8 @@ extension _ChatControllerHistory on ChatController {
         index: 0,
         animated: false,
       );
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'earlier messages');
       if (active && generation == _loadGeneration) {
         report('Could not load earlier messages');
       }

@@ -102,6 +102,27 @@ after them:
 - The `Reviewer:` line names `isolated-reviewer`, the full head SHA you
   reviewed after `Head:`, and one verdict word after `Verdict:`: `clean` or
   `changes-requested`, a single value, never both.
+- The `Range:` line follows the `Reviewer:` line and reads
+  `Range: <base>..<head>` with two full SHAs. `<head>` is the head you
+  reviewed. `<base>` is the head of the last review you are continuing, when
+  you review only the commits since it (claim nothing you did not review), or
+  for a first review the fork point, `git merge-base <base branch tip> <head>`.
+  A Range may start at the head of an earlier CLEAN review of this branch if
+  that review's own Range is valid, or at any commit the check already
+  accepts, a merge included. A commit with any review that asked for changes is
+  never a base, even if a clean block also names it: nothing re-checks its findings unless you do, so a re-review after a
+  rejected round reviews, and names as its Range, everything since the last
+  clean review or the base branch (check the earlier findings are fixed as
+  part of it). Never `<head>^`.
+- For a merge-only review (the head is a merge commit, or you were asked to
+  review only a merge of the base branch), put one line before the
+  `Reviewer:` line: `Merge-review: <file>, <file>`. It names every file whose
+  content differs between the automatic merge and the merge commit, conflicted
+  files included. The automatic merge is the result of
+  `git merge-tree --write-tree <first parent> <second parent>`.
+  When the second parent is not on the base branch, name every file the merge
+  changes against the first parent instead. The `Reviewer:` and `Range:` lines
+  that follow are for the merge commit itself.
 - The `Findings:` line gives the count, then one line per finding (severity,
   file:line, issue, fix expected).
 - Only when item 9 applies and you checked the reason: one line
@@ -124,6 +145,7 @@ backticks, no code fence; `pr-policy` ignores review lines inside a code fence,
 so a fenced block is not recorded):
 
     Reviewer: isolated-reviewer  Head: 0123456789abcdef0123456789abcdef01234567  Verdict: changes-requested
+    Range: fedcba9876543210fedcba9876543210fedcba98..0123456789abcdef0123456789abcdef01234567
     Findings: 1
     high, lib/src/x/y.dart:42, state read before await is written after it, re-read after the await
     Revert-the-fix: foo_test.dart "keeps state" failed when the guard was reverted

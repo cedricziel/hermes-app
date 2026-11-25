@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../telemetry/report_bug.dart';
 import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'approval_card.dart' show kAnswerFailedMessage;
@@ -71,7 +72,8 @@ class _ClarifyCardState extends State<ClarifyCard> {
     });
     try {
       await widget.onAnswer!(answers);
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a clarify answer');
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -89,6 +89,8 @@ class ConversationWindowsMenu extends StatelessWidget {
               MacCommand.showFiles: const MacCommandHandler(null),
               // The window holds no session to move a chat with.
               MacCommand.changeFolder: const MacCommandHandler(null),
+              // Nor a session to open the original of a branch with.
+              MacCommand.openParentChat: const MacCommandHandler(null),
               MacCommand.toggleInspector: MacCommandHandler(
                 windows.toggleKeyWindowInspector,
                 title: context.l10n.chatActivityInspectorShow,
