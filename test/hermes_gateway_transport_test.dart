@@ -2445,6 +2445,7 @@ void main() {
       final branch = await transport.branchThread('stored-2', profile: 'work');
 
       expect(branch?.id, 'stored-branch');
+      expect(branch?.parent, 'stored-2');
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-2',
         'profile': 'work',
@@ -2454,6 +2455,15 @@ void main() {
         'session_id': 'rt-2',
       });
       expect(gateway.methods, isNot(contains('session.undo')));
+    });
+
+    test('a result without a parent names none', () async {
+      gateway.branchParent = null;
+
+      final branch = await transport.branchThread('stored-2');
+
+      expect(branch?.id, 'stored-branch');
+      expect(branch?.parent, isNull);
     });
 
     test('takes back the turns after the branch point in the copy', () async {
