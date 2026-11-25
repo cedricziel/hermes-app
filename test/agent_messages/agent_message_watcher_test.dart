@@ -901,6 +901,64 @@ void main() {
       });
     });
 
+    testWidgets('leaving the front closes a held profile list', (tester) async {
+      restoreLifecycle(tester);
+      await tester.runAsync(() async {
+        final asked = Completer<RequestOptions>();
+        final held = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/profiles', (request) {
+          asked.complete(request);
+          return held.future;
+        });
+        await setUpWatcher();
+        final look = watcher!.check();
+        final request = await asked.future.timeout(const Duration(seconds: 5));
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+
+        await request.cancelToken!.whenCancel.timeout(
+          const Duration(seconds: 5),
+        );
+        held.complete((status: 200, body: {'profiles': <Object>[]}));
+        await look;
+      });
+    });
+
+    testWidgets('leaving the front closes a held message text', (tester) async {
+      restoreLifecycle(tester);
+      await tester.runAsync(() async {
+        await setUpWatcher();
+        await watcher!.check();
+        deliveries('work', [delivery('hermes-app-new', at: 200)]);
+        final asked = Completer<RequestOptions>();
+        final held = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/sessions/hermes-app-new/messages', (
+          request,
+        ) {
+          asked.complete(request);
+          return held.future;
+        });
+        final look = watcher!.check();
+        final request = await asked.future.timeout(const Duration(seconds: 5));
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+
+        await request.cancelToken!.whenCancel.timeout(
+          const Duration(seconds: 5),
+        );
+        held.complete((
+          status: 200,
+          body: messageListBody('hermes-app-new', []),
+        ));
+        await look;
+        expect(service.shown, isEmpty);
+      });
+    });
+
     testWidgets('a profile list that takes too long writes nothing', (
       tester,
     ) async {
