@@ -37,7 +37,12 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 #### Scenario: Cut by the size limit
 
 - **WHEN** the result carries `truncated_by` `bytes` and `next_offset`
-- **THEN** the note also says the server stopped at 100,000 characters
+- **THEN** the note also says the server stopped at its size limit
+
+#### Scenario: Masked secrets
+
+- **WHEN** the content holds a `«redacted:` marker
+- **THEN** a note says Hermes may have hidden passwords or keys in this text, and Copy copies it as returned
 
 #### Scenario: A long line
 
