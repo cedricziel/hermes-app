@@ -1158,6 +1158,25 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             onReadAloud: () {},
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Regenerated, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'The build finished.',
+                regenerated: true,
+                onRetry: () {},
+                onEdit: () {},
+                onBranch: () {},
+                readAloud: ReadAloudState.idle,
+                onReadAloud: () {},
+              ),
+              maxWidth: 320,
+            ),
+          ),
+        ),
         _tool(
           'Regenerated and stopped',
           MessageActions(

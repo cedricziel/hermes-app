@@ -269,11 +269,11 @@ This extends an existing designed surface (the action bar under a reply, `Messag
 
 This extends an existing designed surface (the action bar under a reply, `MessageActions`) with one label. It adds a state, not a screen, and needs no new canvas.
 
-**What the person sees.** A reply that replaced one a Retry or an Edit took back starts its action bar with a refresh icon and "Regenerated" (German: "Neu erstellt"), before Copy. It is the same small subtle-text label as "Stopped" (16 pt icon, 12.5 pt text, subtle text colour, 8 pt gap to the actions), on one line that ends with an ellipsis rather than wrapping, so it cannot push the actions off a 320 pt screen. Both labels can show together on a reply that was regenerated and then stopped. The icon is never the only signal: the word is always there. A reply that failed shows no mark, and a chat reloaded from history shows none, since Hermes does not store it.
+**What the person sees.** A reply that replaced one a Retry or an Edit took back has a line above its action bar: a refresh icon and "Regenerated" (German: "Neu erstellt"), in the subtle text colour at the same small size as the "Stopped" label (16 pt icon, 12.5 pt text, 4 pt gap). It is above the bar, not in it: five actions fill a 320 pt row, so a label beside them overflows or shrinks to an ellipsis at large text. At the largest text size the line wraps rather than truncating. The icon is never the only signal: the word is always there. A reply that failed shows no mark, and a chat reloaded from history shows none, since Hermes does not store it.
 
 **Widgets (plain models).** `MessageActions(regenerated:)`; no new widget.
 
-**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions): "Regenerated reply" (with every action and Read aloud) and "Regenerated and stopped". Light and dark, phone and desktop come from the catalog's addons.
+**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions): "Regenerated reply" (with every action and Read aloud), "Regenerated and stopped" and "Regenerated, largest text on a narrow screen" (320 pt, 3x). Light and dark, phone and desktop come from the catalog's addons.
 
 **Not checked.** A rendered look of the label next to the actions on a device, VoiceOver and TalkBack output, the German word read by a German speaker.
 

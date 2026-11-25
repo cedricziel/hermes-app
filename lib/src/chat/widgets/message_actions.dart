@@ -94,7 +94,7 @@ enum ReadAloudState { idle, loading, playing }
 /// bar. Copy takes the reply's text; retry, when given, asks again, and edit
 /// takes the prompt back to change it. A reply the user [stopped] says so
 /// first, so it does not read as finished; one that [regenerated] an earlier
-/// reply (Retry or Edit) says so the same way. While [status] has an action
+/// reply (Retry or Edit) says so on a line above the actions. While [status] has an action
 /// running, it takes the place of retry and edit; a [TurnActionStatus.problem]
 /// is said below the bar. While the status is [TurnActionStatus.held] Retry
 /// and Edit stay on the bar but cannot be pressed, and a line says why
@@ -214,19 +214,6 @@ class _MessageActionsState extends State<MessageActions> {
             Text('Stopped', style: labelStyle),
             const SizedBox(width: 8),
           ],
-          if (widget.regenerated) ...[
-            AppIcon(AppIcons.refresh, size: 16, color: color),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                l10n.chatReplyRegenerated,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: labelStyle,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
           if (widget.showCopy)
             action(
               _copied ? 'Copied' : 'Copy',
@@ -308,11 +295,27 @@ class _MessageActionsState extends State<MessageActions> {
       ),
     );
     final showProblem = problem != null && running == null;
-    if (!showProblem && !held) return bar;
+    if (!showProblem && !held && !widget.regenerated) return bar;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Above the actions, not beside them: five actions fill a 320 pt
+        // row, and at large text the word would shrink to an ellipsis.
+        if (widget.regenerated)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppIcon(AppIcons.refresh, size: 16, color: color),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(l10n.chatReplyRegenerated, style: labelStyle),
+                ),
+              ],
+            ),
+          ),
         if (showProblem)
           Semantics(
             liveRegion: true,
