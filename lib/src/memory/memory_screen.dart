@@ -233,7 +233,7 @@ class _LearningSection extends StatelessWidget {
     builder: (context, _) => MemoryLearningSection(
       settings: controller.settings,
       unreadable: controller.unreadable,
-      message: controller.message,
+      failedSetting: controller.failedSetting,
       onChanged: controller.change,
       onRetry: controller.load,
     ),

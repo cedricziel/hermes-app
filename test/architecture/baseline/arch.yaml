@@ -65,3 +65,15 @@ arch.widget-layer-imports:
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_badges.dart: 1
   lib/src/voice/widgets/dictation_notice.dart: 1
+
+# arch.label-helper-takes-l10n: the first scan of instance methods, getters and
+# files that do not import the widget layer found these (set by hand with the
+# counts the failure reported; UPDATE_BASELINE never adds). Each shows English
+# in a German UI and is to be translated with its callers.
+arch.label-helper-takes-l10n:
+  lib/src/bot_mode/widgets/bot_handoff_body.dart: 1
+  lib/src/chat/tool_call_presentation.dart: 1
+  lib/src/mcp/mcp_presentation.dart: 3
+  lib/src/platform_hint/widgets/platform_hint_prompt.dart: 1
+  lib/src/schedules/schedule_models.dart: 1
+  lib/src/voice/calls/call_readiness.dart: 1
