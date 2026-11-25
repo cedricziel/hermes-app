@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
+
 const kanbanInspectorShownKey = 'hermes.kanban.inspector_shown';
 
 /// Which task the Mac board's inspector shows, and whether the panel is
@@ -18,7 +20,10 @@ class KanbanInspector extends ChangeNotifier {
   String? get taskId => _taskId;
 
   Future<void> load() async {
-    final shown = await _prefs.getBool(kanbanInspectorShownKey);
+    final shown = await readSaved(
+      () => _prefs.getBool(kanbanInspectorShownKey),
+      'the saved inspector choice',
+    );
     if (_touched || shown == null || shown == _shown) return;
     _shown = shown;
     notifyListeners();

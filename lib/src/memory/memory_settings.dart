@@ -2,20 +2,19 @@ import 'package:flutter/foundation.dart' show mapEquals;
 
 /// The per-profile config keys the Learning section changes.
 enum MemorySetting {
-  userProfile('memory', 'user_profile_enabled', 'Remember things about me'),
-  agentNotes('memory', 'memory_enabled', 'Keep agent notes'),
-  writeApproval('memory', 'write_approval', 'Ask before saving'),
-  reviewInterval('memory', 'nudge_interval', 'Review chats'),
-  updatesInChat('display', 'memory_notifications', 'Memory updates in chat');
+  userProfile('memory', 'user_profile_enabled'),
+  agentNotes('memory', 'memory_enabled'),
+  writeApproval('memory', 'write_approval'),
+  reviewInterval('memory', 'nudge_interval'),
+  updatesInChat('display', 'memory_notifications');
 
-  const MemorySetting(this.section, this.key, this.label);
+  const MemorySetting(this.section, this.key);
 
   /// The config table the key lives in.
   final String section;
 
   /// The config key, also the fixed slug telemetry carries.
   final String key;
-  final String label;
 }
 
 /// What the Learning section shows for a profile: a `bool` for each switch,

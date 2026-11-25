@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/menu_bar_extra/menu_bar_extra_settings.dart';
@@ -7,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../support/unreadable_prefs.dart';
 
 void main() {
   setUp(() {
@@ -38,6 +41,17 @@ void main() {
 
       expect(settings.loaded, isTrue);
       expect(settings.enabled, isFalse);
+    });
+
+    test('is loaded and on when the saved switch is unreadable', () async {
+      SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+      final settings = MenuBarExtraSettings();
+
+      final reported = await reportedErrors(settings.load);
+
+      expect(settings.loaded, isTrue);
+      expect(settings.enabled, isTrue);
+      expect(reported.single.exception, isA<PlatformException>());
     });
 
     test('starts on', () async {

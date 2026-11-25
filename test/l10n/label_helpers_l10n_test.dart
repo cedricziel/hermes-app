@@ -190,6 +190,32 @@ void main() {
     expect(find.text('Ask before saving'), findsNothing);
   });
 
+  testWidgets('a refused change is told in German, naming the setting', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      german(
+        ListView(
+          children: [
+            MemoryLearningSection(
+              settings: MemorySettings.defaults,
+              failedSetting: MemorySetting.agentNotes,
+              onChanged: (_, _) {},
+              onRetry: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(
+      find.text(
+        'Agent-Notizen führen konnte nicht geändert werden. Versuche es erneut.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining("Couldn't change"), findsNothing);
+  });
+
   testWidgets('the Learning section is German in every state', (tester) async {
     await tester.pumpWidget(
       german(

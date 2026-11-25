@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import '../hub_scan.dart';
@@ -19,27 +20,25 @@ class SkillSecurityScan extends StatelessWidget {
   Widget build(BuildContext context) {
     final result = scan;
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final metrics = GroupedMetrics.of(context);
     if (failed) {
       return GroupedSection(
-        header: 'Security scan',
+        header: l10n.skillsScanHeader,
         children: [
-          const GroupedRow(
-            title: 'Could not run the security scan.',
-            chevron: false,
-          ),
-          GroupedRow(title: 'Retry', chevron: false, onTap: onRetry),
+          GroupedRow(title: l10n.skillsScanFailed, chevron: false),
+          GroupedRow(title: l10n.commonRetry, chevron: false, onTap: onRetry),
         ],
       );
     }
     if (result == null) {
-      return const GroupedSection(
-        header: 'Security scan',
+      return GroupedSection(
+        header: l10n.skillsScanHeader,
         children: [
           GroupedRow(
-            title: 'Running the security scan…',
+            title: l10n.skillsScanRunning,
             chevron: false,
-            trailing: SizedBox.square(
+            trailing: const SizedBox.square(
               dimension: 20,
               child: CircularProgressIndicator.adaptive(strokeWidth: 2),
             ),
@@ -53,7 +52,7 @@ class SkillSecurityScan extends StatelessWidget {
       InstallPolicy.block => theme.colorScheme.error,
     };
     return GroupedSection(
-      header: 'Security scan',
+      header: l10n.skillsScanHeader,
       children: [
         Padding(
           padding: EdgeInsets.all(metrics.rowPadding),
@@ -62,9 +61,9 @@ class SkillSecurityScan extends StatelessWidget {
             children: [
               Text(
                 switch (result.policy) {
-                  InstallPolicy.allow => 'Passed',
-                  InstallPolicy.ask => 'Caution: confirmation required',
-                  InstallPolicy.block => 'Blocked',
+                  InstallPolicy.allow => l10n.skillsScanPassed,
+                  InstallPolicy.ask => l10n.skillsScanCaution,
+                  InstallPolicy.block => l10n.skillsScanBlocked,
                 },
                 key: const ValueKey('scan-verdict'),
                 style: TextStyle(
