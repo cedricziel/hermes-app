@@ -1,0 +1,165 @@
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/widgets/code_tool_bodies.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'support/code_tool_fixtures.dart';
+
+Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
+  MaterialApp(
+    theme: buildHermesLightTheme(),
+    home: Scaffold(body: SingleChildScrollView(child: child)),
+  ),
+);
+
+Future<String?> _copy(WidgetTester tester) async {
+  String? copied;
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    SystemChannels.platform,
+    (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map)['text'] as String?;
+      }
+      return null;
+    },
+  );
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    ),
+  );
+  await tester.tap(find.byKey(const ValueKey('tool-value-copy')));
+  await tester.pump();
+  return copied;
+}
+
+Widget _read(ToolCall call) => ReadFileToolBody.of(call)!;
+
+void main() {
+  testWidgets('Copy copies the text Hermes returned, without the numbers', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(readAnswer(content: '1|first\r\n2|second\r', totalLines: 2)),
+      ),
+    );
+    expect(await _copy(tester), 'first\r\nsecond\r');
+    await tester.pumpAndSettle(const Duration(seconds: 3));
+  });
+
+  testWidgets('a write copies the content as sent', (tester) async {
+    await _pump(tester, WriteFileToolBody.of(writeCall({'bytes_written': 3}))!);
+    expect(await _copy(tester), '# Todo\n- ship it\n');
+    await tester.pumpAndSettle(const Duration(seconds: 3));
+  });
+
+  testWidgets('the gutter is not selectable and not read out', (tester) async {
+    await _pump(
+      tester,
+      SelectionArea(
+        child: _read(
+          readCall(readAnswer(content: numbered(['alpha', 'beta']))),
+        ),
+      ),
+    );
+    final gutter = find.text('1');
+    expect(gutter, findsOneWidget);
+    // The code registers with the surrounding selection area; the number
+    // does not, so selecting and copying never carries it.
+    expect(SelectionContainer.maybeOf(tester.element(gutter)), isNull);
+    expect(
+      SelectionContainer.maybeOf(
+        tester.element(find.textContaining('alpha', findRichText: true)),
+      ),
+      isNotNull,
+    );
+    expect(
+      find.ancestor(of: gutter, matching: find.byType(ExcludeSemantics)),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('every note has an icon and a word', (tester) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(
+            content: numbered(['a']),
+            totalLines: 90,
+            extra: {'truncated': true, 'truncated_lines': true},
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('Cut short.'), findsOneWidget);
+    expect(find.text('Some long lines were cut by Hermes.'), findsOneWidget);
+    expect(find.byType(AppIcon), findsWidgets);
+  });
+
+  testWidgets('a refused write says what was tried', (tester) async {
+    await _pump(
+      tester,
+      WriteFileToolBody.of(writeCall({'error': 'File changed on disk'}))!,
+    );
+    expect(find.text('Not written.'), findsOneWidget);
+    expect(find.text('File changed on disk'), findsOneWidget);
+    expect(find.text('What Hermes tried to write'), findsOneWidget);
+    expect(find.textContaining('ship it', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('a read at an offset starts its gutter there', (tester) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(content: numbered(['x', 'y'], first: 2001)),
+          args: const {'path': 'big.txt', 'offset': 2001},
+        ),
+      ),
+    );
+    expect(find.text('2001'), findsOneWidget);
+    expect(find.text('2002'), findsOneWidget);
+    expect(find.text('1'), findsNothing);
+  });
+
+  testWidgets('a binary file shows a note and no content', (tester) async {
+    await _pump(
+      tester,
+      _read(
+        readCall({
+          'is_binary': true,
+          'file_size': 2048,
+          'error': 'Binary file (ZIP)',
+          'base64_content': 'AAAASECRET',
+        }),
+      ),
+    );
+    expect(find.text('Not a text file.'), findsOneWidget);
+    expect(find.textContaining('Binary file (ZIP)'), findsOneWidget);
+    expect(find.textContaining('SECRET', findRichText: true), findsNothing);
+    expect(find.byKey(const ValueKey('tool-value-copy')), findsNothing);
+  });
+
+  testWidgets('an empty file says so instead of a blank box', (tester) async {
+    await _pump(
+      tester,
+      _read(readCall(readAnswer(content: '', totalLines: 0))),
+    );
+    expect(find.text('This file is empty.'), findsOneWidget);
+  });
+
+  testWidgets('a running read shows only the path and its state', (
+    tester,
+  ) async {
+    await _pump(tester, _read(readCall(null, status: ToolCallStatus.running)));
+    expect(find.text('Reading…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('tool-value-copy')), findsNothing);
+  });
+}

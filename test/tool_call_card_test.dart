@@ -3,10 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
+import 'package:hermes_app/src/chat/widgets/code_tool_body.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_bodies.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/code_tool_fixtures.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -452,6 +455,75 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Result'), findsOneWidget);
+    });
+
+    group('the code view', () {
+      for (final (name, call) in [
+        (
+          'read_file',
+          readCall(readAnswer(content: numbered(['a', 'b']), totalLines: 2)),
+        ),
+        ('write_file', writeCall({'bytes_written': 3})),
+      ]) {
+        testWidgets('the registry serves $name', (tester) async {
+          await _pump(tester, call);
+          await tester.tap(find.text(name));
+          await tester.pumpAndSettle();
+          expect(find.byType(CodeToolBody), findsOneWidget);
+          expect(find.text('Result'), findsNothing);
+        });
+      }
+
+      testWidgets('a malformed read result falls back and does not throw', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          readCall(
+            readAnswer(content: '1|ok\nnot a numbered row'),
+            text: '{"content": "1|ok\\nnot a numbered row"}',
+          ),
+        );
+        await tester.tap(find.text('read_file'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CodeToolBody), findsNothing);
+        expect(find.text('Result'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a call still being prepared builds no code body', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          writeCall(
+            null,
+            args: null,
+            status: ToolCallStatus.running,
+            preparing: true,
+          ),
+        );
+        expect(find.byType(CodeToolBody), findsNothing);
+      });
+
+      testWidgets('the diff entry still wins for a call that has a diff', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          const ToolCall(
+            name: 'write_file',
+            summary: 'a.txt',
+            diff: '-old\n+new',
+            args: {'path': 'a.txt', 'content': 'new'},
+            resultData: {'bytes_written': 3},
+          ),
+        );
+        await tester.tap(find.text('write_file'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ToolDiffBody), findsOneWidget);
+        expect(find.byType(CodeToolBody), findsNothing);
+      });
     });
   });
 }

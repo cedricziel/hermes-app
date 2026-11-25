@@ -149,6 +149,11 @@ const _noPlural = <String, _Reason>{
   'chatContextBarLabelEstimated': _Reason('a percentage'),
   'chatContextPercent': _Reason('a percentage'),
   'chatSubagentsNoteCounter': _Reason('a limit "3 / 10", no word'),
+  'chatWidgetsCodeCutShortLines': _Reason('line numbers, no noun after them'),
+  'chatWidgetsCodeCutShortLinesNoTotal': _Reason('line numbers, no noun after'),
+  'chatWidgetsCodeCutShortNext': _Reason('a line number'),
+  'chatWidgetsCodeLines': _Reason('line numbers, no noun after them'),
+  'chatWidgetsCodeLinesNoTotal': _Reason('line numbers, no noun after them'),
   'chatWidgetsProgramStateExited': _Reason('an exit code'),
   'filesListCapFooter': _Reason(
     'shown only when the list is cut at a cap far above one; "first n of m"',

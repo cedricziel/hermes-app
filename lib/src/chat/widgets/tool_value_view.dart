@@ -54,12 +54,18 @@ class ToolValueView extends StatefulWidget {
     this.language,
     this.settled = true,
     this.selectable = true,
+    this.lineNumbers,
   });
 
   final String text;
   final String? language;
   final bool settled;
   final bool selectable;
+
+  /// A number per line of [text], drawn in a gutter that is not selectable.
+  /// Each line is its own row, so a wrapped line keeps its number on its
+  /// first row. Null draws the text alone.
+  final List<int>? lineNumbers;
 
   @override
   State<ToolValueView> createState() => _ToolValueViewState();
@@ -127,21 +133,15 @@ class _ToolValueViewState extends State<ToolValueView> {
     final base = _mono.copyWith(color: Theme.of(context).colorScheme.onSurface);
     final palette = context.codeColors;
     final budget = HiddenBoxBudget();
-    final children = <InlineSpan>[
-      for (final (text, token) in _runs)
-        if (_hasHidden)
-          ...hiddenCharSpans(
-            context,
-            text,
-            codeTokenStyle(token, palette),
-            budget,
-            boxStyle: base,
+    final numbers = widget.lineNumbers;
+    final text = numbers == null
+        ? Text.rich(
+            TextSpan(
+              style: base,
+              children: _spansFor(_runs, base, palette, budget, context),
+            ),
           )
-        else
-          TextSpan(text: text, style: codeTokenStyle(token, palette)),
-    ];
-    final span = TextSpan(style: base, children: children);
-    final text = Text.rich(span);
+        : _numberedLines(context, base, palette, budget, numbers);
     // A selection copies the text of a box too (its escape, `U+202E`), which
     // SelectableText cannot: it turns each box into U+FFFC. Inside a
     // SelectionArea (the chat's) the text just joins that.
@@ -149,6 +149,94 @@ class _ToolValueViewState extends State<ToolValueView> {
       return text;
     }
     return MenuSelectionArea(child: text);
+  }
+
+  List<InlineSpan> _spansFor(
+    List<CodeRun> runs,
+    TextStyle base,
+    HermesCodeColors palette,
+    HiddenBoxBudget budget,
+    BuildContext context,
+  ) => [
+    for (final (text, token) in runs)
+      if (_hasHidden)
+        ...hiddenCharSpans(
+          context,
+          text,
+          codeTokenStyle(token, palette),
+          budget,
+          boxStyle: base,
+        )
+      else
+        TextSpan(text: text, style: codeTokenStyle(token, palette)),
+  ];
+
+  /// [_runs] cut at their line feeds, one row per line with its number.
+  Widget _numberedLines(
+    BuildContext context,
+    TextStyle base,
+    HermesCodeColors palette,
+    HiddenBoxBudget budget,
+    List<int> numbers,
+  ) {
+    final lines = <List<CodeRun>>[[]];
+    for (final (text, token) in _runs) {
+      final parts = text.split('\n');
+      for (var i = 0; i < parts.length; i++) {
+        if (i > 0) lines.add([]);
+        if (parts[i].isNotEmpty) lines.last.add((parts[i], token));
+      }
+    }
+    final digits = '${numbers.last}'.length;
+    final gutter = TextPainter(
+      text: TextSpan(text: '0' * digits, style: base),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = gutter.width.ceilToDouble() + 12;
+    gutter.dispose();
+    final muted = base.copyWith(color: context.hermesColors.subtleText);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < lines.length; i++)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ExcludeSemantics(
+                child: SelectionContainer.disabled(
+                  child: SizedBox(
+                    width: width,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Text(
+                        i < numbers.length ? '${numbers[i]}' : '',
+                        textAlign: TextAlign.end,
+                        softWrap: false,
+                        style: muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    style: base,
+                    children: _spansFor(
+                      lines[i],
+                      base,
+                      palette,
+                      budget,
+                      context,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
   }
 }
 
