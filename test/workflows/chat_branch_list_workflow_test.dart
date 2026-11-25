@@ -14,7 +14,11 @@ import '../support/workflow_app.dart';
 /// A chat that was branched from another is marked in the chat list and in
 /// the search results; a compression continuation is not.
 void main() {
-  for (final (name, size) in [('phone', phoneSize), ('desktop', desktopSize)]) {
+  for (final (name, size) in [
+    // A Mac window is never phone-wide, and has no phone drawer.
+    if (workflowPlatform != TargetPlatform.macOS) ('phone', phoneSize),
+    ('desktop', desktopSize),
+  ]) {
     testWidgets('$name: a branch is marked in the list and the search', (
       tester,
     ) async {
@@ -78,8 +82,16 @@ void main() {
       expect(findAppIcon(AppIcons.branch), findsOneWidget);
       await shots.capture(tester, 'list');
 
+      final mac = workflowPlatform == TargetPlatform.macOS;
+      if (mac) {
+        final field = find.byKey(const Key('toolbar-search-field'));
+        if (field.evaluate().isEmpty) {
+          await tester.tap(find.byKey(const Key('toolbar-search')));
+          await tester.pumpAndSettle();
+        }
+      }
       await tester.enterText(
-        find.byKey(const Key('thread-search-field')),
+        find.byKey(Key(mac ? 'toolbar-search-field' : 'thread-search-field')),
         'certificate',
       );
       await tester.pump(ThreadSearch.defaultDebounce);
