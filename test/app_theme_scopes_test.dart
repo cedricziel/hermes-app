@@ -675,6 +675,7 @@ void main() {
       final reason = _unmountedReason(['test/a_test.dart: X']);
       expect(reason, contains('`builder:`'));
       expect(reason, isNot(contains('home:')));
+      expect(reason, isNot(contains('light fallback')));
       expect(reason, contains('test/a_test.dart: X'));
     });
 
@@ -2201,8 +2202,11 @@ void main() {
 String _unmountedReason(List<String> bad) =>
     'These tests build an app (or call a helper that does) whose '
     '`builder:` never mounts AppThemeScopes, and reference a widget that '
-    "reads material_ui's theme, so it draws with the light fallback in a "
-    "dark test. Mount AppThemeScopes in the app's `builder:` "
+    "reads material_ui's theme. AppThemeScopes adds nothing today (the "
+    "app's MaterialApp already supplies that theme), so nothing draws "
+    'wrongly yet; the mount keeps these tests on the same widget tree as '
+    'HermesApp, so a scope added later reaches them too. Mount '
+    "AppThemeScopes in the app's `builder:` "
     '(`builder: (_, child) => AppThemeScopes(child: child!)`):\n'
     '${bad.join('\n')}';
 

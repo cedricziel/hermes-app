@@ -105,6 +105,14 @@ Environment (positive integers; a bad value exits 1):
 | `PREMERGE_TEST_CAP`          | 150     | Files; (a), (b), (c1) are kept whole, (c2) is dropped beyond it |
 | `PREMERGE_TEST_CONCURRENCY`  | 4       | `flutter test --concurrency`                                    |
 | `PREMERGE_TEST_BATCH`        | 20      | Files per `flutter test` call (the budget is checked per batch) |
+| `CATALOG_PARTS`              | 6       | Sequential processes for `test/widgetbook_test.dart` (1 to 99), as in `scripts/test-shard.sh` |
+
+`test/widgetbook_test.dart` (about 17,500 cases, past 11 GB in one process) is
+never passed to a batch. It runs last, alone, as `CATALOG_PARTS` calls of
+`flutter test --total-shards N --shard-index i`, inside the same budget. It
+counts as one file in the `files run` and `CUT SHORT after` numbers; a part
+that fails lists the file under the failing ones, and a cut during its parts
+lists it as not run.
 
 `PREMERGE_ALLOW_CAPPED` is a flag, not a number, and is not validated: only the exact value `1` counts; any other value (`true`, `yes`, empty) keeps exit 7.
 

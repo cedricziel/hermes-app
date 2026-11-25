@@ -12,8 +12,10 @@
 // `--check` changes nothing and exits 1 when a file would change.
 //
 // Only the URI inside an `import` or `export` directive that starts a line is
-// replaced, so `show`, `hide`, `as`, comments, line breaks and every other line
-// stay byte for byte. A directive that would repeat one already in the file
+// replaced (a raw `r'...'` URI included), so `show`, `hide`, `as`, comments,
+// line breaks and every other line stay byte for byte. A line that only looks
+// like a directive inside a multi-line string is not a directive: the Dart
+// parser decides which lines are. A directive that would repeat one already in the file
 // (same URI, prefix and combinators) is removed. The script is idempotent.
 //
 // Skipped: `packages/hermes_api` (generated client, never hand-edited; the
@@ -21,6 +23,9 @@
 // output) and `lib/l10n/generated` (gen-l10n output). The summary names each
 // skipped root or count.
 import 'dart:io';
+
+import 'package:analyzer/dart/analysis/utilities.dart';
+import 'package:analyzer/dart/ast/ast.dart';
 
 const _replacements = {
   'package:flutter/material.dart': 'package:material_ui/material_ui.dart',
@@ -52,37 +57,54 @@ final _skippedSuffixes = {
 /// A directive that starts a line (so a string or comment holding the text is
 /// left alone): `import`/`export`, the URI, and the rest up to `;`.
 final _directive = RegExp(
-  r'''^([ \t]*(?:import|export)\s+)(['"])([^'"\n]+)\2([^;]*;)''',
+  r'''^([ \t]*(?:import|export)\s+)(r?)(['"])([^'"\n]+)\3([^;]*;)''',
   multiLine: true,
 );
 
 /// Any directive, to find duplicates.
 final _anyDirective = RegExp(
-  r'''^[ \t]*((?:import|export)\s+['"][^'"\n]+['"][^;]*;)''',
+  r'''^([ \t]*)((?:import|export)\s+r?['"][^'"\n]+['"][^;]*;)''',
   multiLine: true,
 );
 
 String _normalize(String directive) =>
     directive.replaceAll(RegExp(r'\s+'), ' ').trim();
 
+/// Offsets of the URI literals of the real `import` and `export` directives in
+/// [source], as the Dart parser reads them.
+Set<int> _directiveUriOffsets(String source) {
+  final unit = parseString(content: source, throwIfDiagnostics: false).unit;
+  return {
+    for (final d in unit.directives)
+      if (d is UriBasedDirective) d.uri.offset,
+  };
+}
+
 /// The migrated text of [source], or [source] itself when nothing changes.
 String migrate(String source) {
+  final real = _directiveUriOffsets(source);
   final seen = <String>{};
   // Directives already in the file, so a rewrite that would repeat one drops.
   for (final m in _anyDirective.allMatches(source)) {
-    if (!_replacements.containsKey(_uriOf(m.group(1)!))) {
-      seen.add(_normalize(m.group(1)!));
+    final text = m.group(2)!;
+    if (!real.contains(m.start + m.group(1)!.length + _uriStart(text))) {
+      continue;
+    }
+    if (!_replacements.containsKey(_uriOf(text))) {
+      seen.add(_normalize(text));
     }
   }
 
   final out = StringBuffer();
   var last = 0;
   for (final m in _directive.allMatches(source)) {
-    final uri = m.group(3)!;
+    if (!real.contains(m.start + m.group(1)!.length)) continue;
+    final uri = m.group(4)!;
     final target = _replacements[uri];
     if (target == null) continue;
-    final quote = m.group(2)!;
-    final rewritten = '${m.group(1)}$quote$target$quote${m.group(4)}';
+    final quote = m.group(3)!;
+    final rewritten =
+        '${m.group(1)}${m.group(2)}$quote$target$quote${m.group(5)}';
     out.write(source.substring(last, m.start));
     if (seen.add(_normalize(rewritten))) {
       out.write(rewritten);
@@ -98,6 +120,10 @@ String migrate(String source) {
   out.write(source.substring(last));
   return out.toString();
 }
+
+/// Offset of the URI literal (its `r` prefix or quote) inside [directive].
+int _uriStart(String directive) =>
+    RegExp(r'''^(?:import|export)\s+''').firstMatch(directive)!.end;
 
 String _uriOf(String directive) =>
     RegExp(r'''['"]([^'"]+)['"]''').firstMatch(directive)!.group(1)!;
