@@ -235,35 +235,61 @@ Future<bool> showConfirmDialog(
   bool filled = true,
   bool cancelIsDefault = false,
   ValueListenable<bool>? dismissWhen,
+}) async =>
+    await showConfirmDialogOrDismissed(
+      context,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      destructive: destructive,
+      filled: filled,
+      cancelIsDefault: cancelIsDefault,
+      dismissWhen: dismissWhen,
+    ) ??
+    false;
+
+/// Like [showConfirmDialog], but answers null when the dialog was closed
+/// without a choice (a tap outside, the back button, or [dismissWhen]), for a
+/// question where closing must not count as either button.
+Future<bool?> showConfirmDialogOrDismissed(
+  BuildContext context, {
+  required String title,
+  String? message,
+  required String confirmLabel,
+  String? cancelLabel,
+  bool destructive = false,
+  bool filled = true,
+  bool cancelIsDefault = false,
+  ValueListenable<bool>? dismissWhen,
 }) async {
   final cancelText = cancelLabel ?? context.l10n.widgetsCancel;
-  return await showAppDialog<bool>(
-        context: context,
-        builder: (dialog) => _DismissWhen(
-          when: dismissWhen,
-          child: AppAlertDialog(
-            // At a large text size the title and text scroll together and the
-            // actions stay in view.
-            scrollable: true,
-            title: Text(title),
-            content: message == null ? null : Text(message),
-            actions: [
-              AppDialogAction(
-                isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
-                onPressed: () => Navigator.pop(dialog, false),
-                child: Text(cancelText),
-              ),
-              AppDialogAction(
-                isDefault: filled && !cancelIsDefault,
-                isDestructive: destructive,
-                onPressed: () => Navigator.pop(dialog, true),
-                child: Text(confirmLabel),
-              ),
-            ],
+  return showAppDialog<bool>(
+    context: context,
+    builder: (dialog) => _DismissWhen(
+      when: dismissWhen,
+      child: AppAlertDialog(
+        // At a large text size the title and text scroll together and the
+        // actions stay in view.
+        scrollable: true,
+        title: Text(title),
+        content: message == null ? null : Text(message),
+        actions: [
+          AppDialogAction(
+            isDefault: cancelIsDefault && platformChromeOf(dialog).isApple,
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(cancelText),
           ),
-        ),
-      ) ??
-      false;
+          AppDialogAction(
+            isDefault: filled && !cancelIsDefault,
+            isDestructive: destructive,
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(confirmLabel),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Asks whether to go through with a destructive action: Cancel is the

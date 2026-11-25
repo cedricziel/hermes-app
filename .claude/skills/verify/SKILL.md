@@ -58,6 +58,20 @@ once beforehand (Flutter runs with `--no-pub`). The first run needs network
 access to GitHub, npm and PyPI to install Hermes (cached afterwards) and
 builds the Linux app from scratch. `build/verify/` keeps the newest ten runs.
 
+## From a Mac
+
+`verify.sh` refuses to run on macOS (`this runs on Linux`). To run it from a
+Mac, use an Ubuntu 24.04 container (Docker, Colima or similar) with about 8 GB
+of memory, plus the packages in reference.md, Node 22 included.
+
+1. Start the container, then install the packages and Node 22 in it.
+2. Copy the commit in: `git archive -o src.tar HEAD`, `docker cp src.tar
+   <container>:/work/`, then `tar -x` it there. A bind mount of the repo or of
+   the script by path did not work.
+3. In the container, run `flutter pub get`, then `scripts/verify.sh`.
+
+`verify-in-app` stays the path for the native macOS app.
+
 ## What each tier proves
 
 1. **Backend.** `scripts/install-hermes.sh` installs Hermes at
