@@ -40,6 +40,7 @@ import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import 'report_chat_bug.dart';
 import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';

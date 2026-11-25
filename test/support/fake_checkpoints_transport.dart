@@ -16,6 +16,9 @@ class FakeCheckpointsTransport
   ContextBreakdown breakdown = const Breakdown(categories: []);
   CompressionResult compress = const Compressed();
 
+  /// When set, a restore throws what it throws instead of answering.
+  Never Function()? restoreFails;
+
   /// When set, the call waits for it.
   Completer<void>? listGate,
       changesGate,
@@ -76,6 +79,7 @@ class FakeCheckpointsTransport
       file: filePath,
     ));
     await restoreGate?.future;
+    restoreFails?.call();
     return restore;
   }
 

@@ -25,6 +25,7 @@ import '../connector_operation_transport.dart';
 import '../connector_operation_state.dart';
 import '../billing_verification_transport.dart';
 import '../agent_work_transport.dart';
+import '../report_chat_bug.dart';
 import '../slash_command.dart';
 import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';

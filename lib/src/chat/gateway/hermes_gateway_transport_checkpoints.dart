@@ -49,7 +49,8 @@ extension _Checkpoints on HermesGatewayTransport {
       return error.code == kGatewayMethodNotFound
           ? const CheckpointsUnsupported()
           : CheckpointsFailed(_failureKind(error));
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the checkpoint list request');
       return CheckpointsFailed(_failureKind(error));
     }
   }
@@ -85,7 +86,8 @@ extension _Checkpoints on HermesGatewayTransport {
     } on GatewayRpcException catch (error) {
       if (isContainerRefusal(error.message)) return const ChangesRefused();
       return ChangesFailed(_failureKind(error));
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the checkpoint changes request');
       return ChangesFailed(_failureKind(error));
     }
   }
@@ -105,7 +107,8 @@ extension _Checkpoints on HermesGatewayTransport {
     try {
       client = await _client();
       runtimeId = await _commandRuntime(client, threadId, profile);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a checkpoint restore setup');
       if (error is GatewayRpcException &&
           error.code == kGatewayMethodNotFound) {
         return const RestoreUnsupported();
@@ -123,7 +126,8 @@ extension _Checkpoints on HermesGatewayTransport {
       }, timeout: longTimeout);
     } on GatewayRpcException catch (error) {
       return _restoreError(error);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a checkpoint restore request');
       return const RestoreMayHaveHappened();
     }
     return _readRestore(result);
@@ -217,7 +221,8 @@ extension _Checkpoints on HermesGatewayTransport {
       return error.code == kGatewayMethodNotFound
           ? const BreakdownUnsupported()
           : BreakdownFailed(_failureKind(error));
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the context breakdown request');
       return BreakdownFailed(_failureKind(error));
     }
   }
@@ -236,7 +241,8 @@ extension _Checkpoints on HermesGatewayTransport {
     try {
       client = await _client();
       runtimeId = await _commandRuntime(client, threadId, profile);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a compress setup');
       if (error is GatewayRpcException &&
           error.code == kGatewayMethodNotFound) {
         return const CompressUnsupported();
@@ -257,7 +263,8 @@ extension _Checkpoints on HermesGatewayTransport {
         4009 => CompressBusy(_busyReason(error)),
         _ => CompressFailed(_failureKind(error)),
       };
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a compress request');
       return const CompressMayHaveHappened();
     }
   }

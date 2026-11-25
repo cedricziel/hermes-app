@@ -188,6 +188,30 @@ void main() {
     expect(find.text("Hermes couldn't branch the chat."), findsOneWidget);
   }, arrange: () => transport.branchError = GatewayRpcException(5008, 'no'));
 
+  chatTest('a bug thrown while branching is reported, and the chat says the '
+      'branch failed like any other', (tester) async {
+    final reported = <FlutterErrorDetails>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = (details) {
+      reported.add(details);
+      previous?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = previous);
+
+    await tester.tap(branch.first);
+    await settle(tester);
+
+    expect(tester.takeException(), isA<TypeError>());
+    expect(reported.map((d) => d.context.toString()), ['a chat branch']);
+    expect(inTranscript('It passed this time.'), findsOneWidget);
+    expect(
+      find.text(
+        "Couldn't reach Hermes to branch the chat. Check your connection.",
+      ),
+      findsOneWidget,
+    );
+  }, arrange: () => transport.branchError = TypeError());
+
   chatTest('an incomplete branch is deleted again', (tester) async {
     var deleted = false;
     server.onRequest('DELETE', '/api/sessions/branch-1', (_) {

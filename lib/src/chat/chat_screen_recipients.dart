@@ -83,7 +83,8 @@ extension _ChatScreenRecipients on _ChatScreenState {
         _profilesUnsupported = false;
       });
       return (profiles: profiles, failed: false);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the recipient options');
       if (current()) {
         final unsupported =
             error is DioException && error.response?.statusCode == 404;

@@ -89,6 +89,22 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('a bug in the skip is reported and still shows the error', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const UnsupportedRequest(requestId: 'r', kind: UnsupportedKind.sudo),
+      onSkip: () async => throw StateError('x'),
+    );
+
+    await tester.tap(find.text('Skip'));
+    await tester.pump();
+
+    expect(tester.takeException(), isA<StateError>());
+    expect(find.text('Could not send your answer. Try again.'), findsOneWidget);
+  });
+
   testWidgets('a skip that fails says so and can be tried again', (
     tester,
   ) async {
