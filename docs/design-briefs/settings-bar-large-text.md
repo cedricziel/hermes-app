@@ -56,7 +56,11 @@ ellipsis. One shared button (`CollapsedBarIconButton`, built on
 
 ## Not checked
 
-- No canvas was published from this session (no Claude Design pass).
+- No canvas was published from this session (no Claude Design pass); see the exemption below.
 - Nothing was run on a device or in the simulator.
 - No render with the real system font; the tests use the test font, so the
   exact width at which a label would clip differs.
+
+## Exemption
+
+Owner's exemption, 2026-11-25 (given to the orchestrator in its session): this pull request merges without a design canvas; the written record is the design record.
