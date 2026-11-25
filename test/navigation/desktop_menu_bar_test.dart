@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -385,15 +386,22 @@ void main() {
       expect(find.text('Close sheet'), findsOneWidget);
       expect(modalRoutes.modalOpen, isFalse);
 
+      // Opening the menu moves the focus into the bar; the answer from the
+      // focus outside it has to survive that, after the rebuild it causes.
       await tester.tap(find.text('File'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(
         tester.widget<MenuItemButton>(_item('New Chat')).onPressed,
         isNull,
       );
-      await tester.tapAt(const Offset(700, 500));
-      await tester.pump();
+      await tester.tap(_item('New Chat'), warnIfMissed: false);
+      await tester.pumpAndSettle();
       expect(newChats, 0);
+      if (find.text('New Chat').evaluate().isNotEmpty) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Close sheet'), findsOneWidget);
 
       await tester.tap(find.text('Close sheet'));
       await tester.pumpAndSettle();

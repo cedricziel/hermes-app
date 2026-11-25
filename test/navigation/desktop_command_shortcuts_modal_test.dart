@@ -219,6 +219,8 @@ void main() {
     tester,
   ) async {
     final navigatorKey = GlobalKey<NavigatorState>();
+    final behind = FocusNode();
+    addTearDown(behind.dispose);
     await tester.pumpWidget(
       MaterialApp(
         navigatorKey: navigatorKey,
@@ -238,7 +240,11 @@ void main() {
                 () => fired.add(MacCommand.newChat),
               ),
             },
-            child: Focus(autofocus: true, child: const SizedBox()),
+            child: Focus(
+              focusNode: behind,
+              autofocus: true,
+              child: const SizedBox(),
+            ),
           ),
         ),
       ),
@@ -255,6 +261,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    // The focus back on the screen behind the dialog (a click there), where
+    // the route of the focus says nothing and only the observer does.
+    behind.requestFocus();
+    await tester.pump();
     await _press(tester, chord);
     expect(fired, [MacCommand.newChat]);
   });
