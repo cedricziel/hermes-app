@@ -166,6 +166,22 @@ void main() {
       });
     }
 
+    test('keeps Hermes\' _warning and _hint for the view', () {
+      final result = _parse(
+        readCall(
+          readAnswer(
+            content: numbered(['a']),
+            extra: {
+              '_warning': 'You already read this file.',
+              '_hint': 'The file has merge conflict markers.',
+            },
+          ),
+        ),
+      )!;
+      expect(result.warning, 'You already read this file.');
+      expect(result.hint, 'The file has merge conflict markers.');
+    });
+
     test('a bare *** is not taken for masked text', () {
       final result = _parse(readCall(readAnswer(content: '1|key = ***')))!;
       expect(result.maskedText, isFalse);

@@ -82,6 +82,9 @@ class ReadFileToolBody extends StatelessWidget {
             CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeMasked),
           if (result.extractedDocument)
             CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeDocument),
+          if (result.warning.isNotEmpty)
+            CodeNote(CodeNoteTone.warning, result.warning),
+          if (result.hint.isNotEmpty) CodeNote(CodeNoteTone.info, result.hint),
         ],
       ),
       ReadFileKind.empty => CodeToolBody(

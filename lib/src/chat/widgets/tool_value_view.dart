@@ -134,7 +134,7 @@ class _ToolValueViewState extends State<ToolValueView> {
     final palette = context.codeColors;
     final budget = HiddenBoxBudget();
     final numbers = widget.lineNumbers;
-    final text = numbers == null
+    final text = numbers == null || numbers.isEmpty
         ? Text.rich(
             TextSpan(
               style: base,
@@ -187,7 +187,7 @@ class _ToolValueViewState extends State<ToolValueView> {
         if (parts[i].isNotEmpty) lines.last.add((parts[i], token));
       }
     }
-    final digits = '${numbers.last}'.length;
+    final digits = '${numbers.reduce((a, b) => a > b ? a : b)}'.length;
     final gutter = TextPainter(
       text: TextSpan(text: '0' * digits, style: base),
       textDirection: Directionality.of(context),

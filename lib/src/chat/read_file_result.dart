@@ -63,6 +63,8 @@ class ReadFileResult {
     this.maskedText = false,
     this.error = '',
     this.similarFiles = const [],
+    this.warning = '',
+    this.hint = '',
   });
 
   final String path;
@@ -90,6 +92,10 @@ class ReadFileResult {
   /// Hermes' own words, for a failed read or a file that is not text.
   final String error;
   final List<String> similarFiles;
+
+  /// Hermes' own `_warning` and `_hint` texts, shown as they came.
+  final String warning;
+  final String hint;
 
   int? get firstLine => rows.isEmpty ? null : rows.first.number;
   int? get lastLine => rows.isEmpty ? null : rows.last.number;
@@ -153,11 +159,13 @@ class ReadFileResult {
       longLinesCut: data['truncated_lines'] == true,
       extractedDocument: data['extracted_document'] == true,
       maskedText: _maskMarkers.any(content.contains),
+      warning: _text(data['_warning']),
+      hint: _text(data['_hint']),
     );
   }
 
   @override
-  String toString() => 'ReadFileResult($path, $kind, ${rows.length} rows)';
+  String toString() => 'ReadFileResult($kind, ${rows.length} rows)';
 }
 
 int? _int(Object? value) => value is int ? value : null;

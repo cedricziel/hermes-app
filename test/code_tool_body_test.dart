@@ -156,6 +156,33 @@ void main() {
     }
   });
 
+  testWidgets('shows Hermes\' warning and hint with a read', (tester) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(
+            content: numbered(['a']),
+            extra: {
+              '_warning': 'Read twice.',
+              '_hint': 'Has conflict markers.',
+            },
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Read twice.'), findsOneWidget);
+    expect(find.text('Has conflict markers.'), findsOneWidget);
+  });
+
+  testWidgets('numbered text with no numbers draws as plain text', (
+    tester,
+  ) async {
+    await _pump(tester, const ToolValueView(text: 'abc', lineNumbers: []));
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('abc', findRichText: true), findsOneWidget);
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,
