@@ -192,7 +192,9 @@ class _MessagingScreenState extends State<MessagingScreen> {
       if (saved is WhatsAppSavedOutcome && mounted) {
         setState(() => _whatsAppSaved = saved);
       }
-      if (saved != null && mounted) await _load();
+      if ((saved == true || saved is WhatsAppSavedOutcome) && mounted) {
+        await _load();
+      }
     } finally {
       if (mounted) _changes?.sync(active: true);
     }
