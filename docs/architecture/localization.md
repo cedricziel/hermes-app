@@ -275,16 +275,10 @@ with `context.l10n`. Then the controller needs no context, its tests assert
 on kinds rather than English, and the text follows the locale of the screen
 that shows it.
 
-`lib/src/memory/memory_settings_controller.dart` is the pattern to replace.
-Today it builds the sentence itself:
-
-```dart
-// Before: the controller writes English.
-} on MemoryWriteFailure {
-  message = "Couldn't change ${setting.label}. Try again.";
-```
-
-After extraction it keeps the failure and the widget words it:
+`lib/src/memory/memory_settings_controller.dart` is the pattern, done. It
+used to build the sentence itself (`message = "Couldn't change
+${setting.label}. Try again."`). Now it keeps the failure and the widget
+words it:
 
 ```dart
 // Controller: what failed, no words.
@@ -293,11 +287,10 @@ After extraction it keeps the failure and the widget words it:
 
 // Widget:
 if (controller.failedSetting case final setting?)
-  Text(l10n.memorySettingChangeFailed(memorySettingLabel(l10n, setting)));
+  Text(l10n.memoryLearningChangeFailed(memorySettingLabel(l10n, setting)));
 ```
 
-`setting.label` is an English field on a model (`MemorySetting`). It goes too:
-the widget maps the enum to a key (`memorySettingLabel(l10n, setting)`), as
+`MemorySetting` no longer has an English `label` field: the widget maps the enum to a key (`memorySettingLabel(l10n, setting)`), as
 `themeModeLabel` does for `ThemeMode`.
 
 ## Widgets that take texts as parameters

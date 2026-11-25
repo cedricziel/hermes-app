@@ -61,6 +61,7 @@ import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
 import 'activity/working_summary.dart' show WorkingSummary;
 import 'activity/working_summary_source.dart';
+import 'report_chat_bug.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
@@ -130,6 +131,21 @@ const _couldNotStop = 'Could not stop the reply. Try again.';
 
 /// The title of a chat that has no prompt yet.
 const _newChatTitle = 'New chat';
+
+/// Where the row under a branched chat's header stands.
+enum BranchParentStatus {
+  /// A tap opens the original.
+  resting,
+
+  /// A tap is reading where the original is; further taps are ignored.
+  opening,
+
+  /// Hermes said the original is gone; nothing more is sent for it.
+  deleted,
+
+  /// The last read got no usable answer; a tap asks again.
+  unreachable,
+}
 
 /// How a pull to refresh of the chat list ended.
 enum ThreadListRefreshResult {
@@ -225,6 +241,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: () => _profile,
         changed: notifyListeners,
         report: report,
+        reportBusy: onSendNotice == null
+            ? null
+            : () => onSendNotice?.call(ChatSendNotice.threadBusy),
         removed: _threadRemoved,
         prepareDelete: _prepareQueueDeletion,
         history: _history,
@@ -282,6 +301,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _suspendActivity() {
+    _branchParent.clear();
     _ChatControllerSubagents(this)._clearSubagents();
     _stopHandBacks.clear();
     search?.setActivity(false);
@@ -348,7 +368,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           notifyListeners();
           return;
         }
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'the thread reload on resume');
         if (!_currentActivity(epoch) || generation != _loadGeneration) return;
         _threadsFailed = true;
         notifyListeners();
@@ -449,10 +470,45 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> recheckWorkspaceMove(ChatThread thread) =>
       _ChatControllerWorkspace(this)._recheckWorkspaceMoveImpl(thread);
 
+  final _branchParent = _BranchParentData();
+
+  /// Where the row under [thread]'s header stands, or null when [thread] is
+  /// not a branch.
+  BranchParentStatus? branchParentStatusOf(ChatThread thread) =>
+      _ChatControllerBranchParent(this)._branchParentStatusImpl(thread);
+
+  /// The title of the chat [thread] was branched from, when the loaded list
+  /// holds it and it has one.
+  String? branchParentTitleOf(ChatThread thread) =>
+      _ChatControllerBranchParent(this)._branchParentTitleImpl(thread);
+
+  /// Whether a tap on [thread]'s original does anything now: it is the chat in
+  /// front, App Lock is not covering it (unless [ignoringLock], for a menu item
+  /// that is built while locked and must not wait for a rebuild when it lifts;
+  /// the tap itself still checks) and no read is running or has found the
+  /// original gone, and no list read is out (a read of another profile's list
+  /// would take the open with it).
+  bool canOpenBranchParent(ChatThread thread, {bool ignoringLock = false}) =>
+      active &&
+      (ignoringLock || !(appLock?.locked ?? false)) &&
+      !_loadingThreads &&
+      selectedId == thread.id &&
+      switch (branchParentStatusOf(thread)) {
+        BranchParentStatus.resting || BranchParentStatus.unreachable => true,
+        _ => false,
+      };
+
+  /// Opens the chat [thread] was branched from: one read of where its
+  /// compression chain ends, then the open by id. Sent once per tap, never
+  /// resent, and the original is not changed.
+  Future<void> openBranchParent(ChatThread thread) =>
+      _ChatControllerBranchParent(this)._openBranchParentImpl(thread);
+
   /// Drops the picks, the catalogs and the notices: sign-out and Change
   /// Server, after which nothing of the folders is left for the next account.
   void clearWorkspaceState() {
     _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    _branchParent.clear();
     notifyListeners();
   }
 
@@ -487,6 +543,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _wasLocked = locked;
     if (!engaged || disposed) return;
     _ChatControllerWorkspace(this)._workspaceLocked();
+    _branchParent.dropReads();
     notifyListeners();
   }
 
@@ -1245,10 +1302,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Opens the chat [target] names. With [fetchMissing] one the loaded
   /// threads do not hold is fetched, on its own profile. A [prompt] goes to
   /// the composer once the chat is open, and is dropped when it cannot be.
+  /// A [branchParent] is the parent of a chat that was just branched; it
+  /// stands until the next list read, which brings the server's own marker,
+  /// and a row that names one wins over it. A chat opened while the list is
+  /// loading takes the list's marker instead.
   void open(
     NotificationTarget target, {
     required bool fetchMissing,
     String? prompt,
+    String? branchParent,
   }) {
     if (!active) return;
     final epoch = _activityEpoch;
@@ -1268,6 +1330,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _pendingTapPrompt = prompt;
     } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
+      _threads.firstWhere((t) => t.id == target.threadId).branchParentId ??=
+          branchParent;
       select(target.threadId);
       if (!_currentActivity(epoch)) return;
       onOpened?.call();
@@ -1279,6 +1343,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         target,
         generation: generation,
         prompt: prompt,
+        branchParent: branchParent,
       ).whenComplete(() => _finishOpening(requested));
     } else {
       _failOpen();
@@ -1292,6 +1357,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     NotificationTarget target, {
     int? generation,
     String? prompt,
+    String? branchParent,
   }) async {
     if (!active) return;
     final epoch = _activityEpoch;
@@ -1311,6 +1377,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         );
         if (!active || generation != _openGeneration) return;
         if (thread == null) return _failOpen();
+        thread.branchParentId ??= branchParent;
         _threads.insert(0, thread);
         _bound.add(thread);
         _unloaded.add(thread.id);
@@ -1322,7 +1389,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       onOpened?.call();
       if (!_currentActivity(epoch)) return;
       if (prompt != null) onDraft?.call(prompt);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'opening a missing chat');
       if (active && generation == _openGeneration) _failOpen();
     }
   }
@@ -1535,7 +1603,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..named = true;
       select(thread.id);
       onOpened?.call();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'opening a bot chat');
       if (active && generation == _openGeneration) _failOpen();
     }
   }
@@ -1997,7 +2066,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final Map<String, String> statuses;
     try {
       statuses = await transport.activeStatuses();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the active statuses');
       return false;
     }
     if (!active || generation != _loadGeneration || refresh != _activeRefresh) {

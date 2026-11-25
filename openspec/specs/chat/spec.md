@@ -25,6 +25,11 @@ The system SHALL load the first page of the thread list from the dashboard when 
 - **WHEN** a session has no non-blank title
 - **THEN** its preview text is used as the title, and when there is no preview either the title is "Untitled chat"
 
+#### Scenario: A branch is marked
+
+- **WHEN** a session row has a non-empty `_branched_from` and no `_reset_from`
+- **THEN** its row in the thread list, on the phone, iPad, Material and Mac sidebars alike, shows a branch glyph before the title and "Branch" after the title in its accessibility label; a row with only `parent_session_id` (a compression continuation or a sub-agent run) shows none
+
 #### Scenario: Loading fails
 
 - **WHEN** the session list request fails
@@ -98,6 +103,11 @@ The system SHALL rely on `GET /api/sessions/search?q=<text>&limit=<n>&profile=<n
 
 - **WHEN** the user types a query and pauses
 - **THEN** the dashboard is searched once for it on the active profile and the matching chats are shown instead of the thread list, each with its title and matched text
+
+#### Scenario: A branch among the results is marked
+
+- **WHEN** a result is a chat of the sidebar's profile that the loaded thread list holds as a branch
+- **THEN** its result row shows the same glyph and label; the search route does not say which chat is a branch, so a result of a chat that is not loaded, or of another profile, shows none
 
 #### Scenario: Typing does not search on every key
 

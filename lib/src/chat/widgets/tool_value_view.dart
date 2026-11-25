@@ -14,6 +14,7 @@ import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_segmented_control.dart';
 import '../../files/widgets/safe_path_text.dart' show wellFormedText;
 import '../json_tree_parser.dart';
+import '../report_chat_bug.dart';
 import '../tool_value_budget.dart';
 import '../tool_value_language.dart';
 import 'tool_hidden_chars.dart';
@@ -575,7 +576,8 @@ class _ToolValuePanelState extends State<ToolValuePanel> {
     final direction = Directionality.of(context);
     try {
       await Clipboard.setData(ClipboardData(text: widget.text));
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a tool value copy');
       return;
     }
     if (!mounted) return;

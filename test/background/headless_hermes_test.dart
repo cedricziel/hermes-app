@@ -5,6 +5,7 @@ import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_me
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/auth/server_address.dart';
 import 'package:hermes_app/src/auth/token_store.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
@@ -249,6 +250,21 @@ void main() {
         containsPair('Authorization', 'Bearer access-1'),
       );
       expect(spanOutcome(), 'ok');
+    });
+
+    test('runs against a saved public http:// server nobody accepted, '
+        'and never records an acceptance', () async {
+      expect(isCleartextToPublicHost(_url), isTrue);
+
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessDone<List<String?>>>());
+      expect(
+        await SharedPreferencesAsync().getStringList(
+          kAcceptedCleartextServersKey,
+        ),
+        isNull,
+      );
     });
 
     test('reads the profile names once per run', () async {

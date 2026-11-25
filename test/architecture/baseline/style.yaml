@@ -387,13 +387,12 @@ style.string:
   lib/src/memory/widgets/memory_entry_editor.dart: 9
   lib/src/memory/widgets/memory_entry_list.dart: 4
   lib/src/memory/widgets/memory_fill_bar.dart: 2
-  lib/src/memory/widgets/memory_learning_section.dart: 1
   lib/src/memory/widgets/memory_proposal_detail.dart: 3
   lib/src/memory/widgets/memory_proposals_list.dart: 3
   lib/src/memory/widgets/memory_storage_section.dart: 6
   lib/src/memory/widgets/memory_waiting_card.dart: 1
   lib/src/messaging/messaging_screen.dart: 4
-  lib/src/messaging/messaging_setup_screen.dart: 7
+  lib/src/messaging/messaging_setup_screen.dart: 5
   lib/src/messaging/telegram_pairing_screen.dart: 10
   lib/src/notifications/background_check_section.dart: 5
   lib/src/notifications/notifications_dialog.dart: 5
@@ -436,13 +435,11 @@ style.string:
   lib/src/screens/widgets/connection_setup_field.dart: 2
   lib/src/screens/widgets/connection_summary.dart: 5
   lib/src/skills/discover_tab.dart: 9
-  lib/src/skills/hub_skill_screen.dart: 7
   lib/src/skills/skill_detail_screen.dart: 8
   lib/src/skills/skill_editor_screen.dart: 7
   lib/src/skills/skill_job_sheet.dart: 1
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_detail_actions.dart: 4
-  lib/src/skills/widgets/skill_security_scan.dart: 3
   lib/src/spotlight/spotlight_dialog.dart: 1
   lib/src/spotlight/widgets/spotlight_settings_view.dart: 1
   lib/src/voice/dictation_dialog.dart: 1

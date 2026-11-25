@@ -12,6 +12,7 @@ import '../voice/voice_support.dart';
 import '../voice/synthesized_speech.dart';
 import 'chat_models.dart';
 import 'reactions/reaction_state.dart';
+import 'report_chat_bug.dart';
 import 'thread_sections.dart';
 import 'stored_content.dart';
 import 'tool_result.dart';
@@ -100,7 +101,11 @@ class HermesChatRepository {
 
   /// One page of the chats [profile]'s messenger deliveries created, newest
   /// first.
-  Future<DeliveryPage> loadDeliveries({String? profile, int offset = 0}) async {
+  Future<DeliveryPage> loadDeliveries({
+    String? profile,
+    int offset = 0,
+    CancelToken? cancelToken,
+  }) async {
     final response = await _api.getSessionsApiSessionsGet(
       limit: kDeliveryPageSize,
       offset: offset,
@@ -108,6 +113,7 @@ class HermesChatRepository {
       archived: 'exclude',
       source_: kDeliverySource,
       profile: profile,
+      cancelToken: cancelToken,
     );
     final rows = _rows(response.data, 'sessions');
     final total = switch (response.data) {
@@ -148,6 +154,32 @@ class HermesChatRepository {
       return data is Map<String, dynamic> ? _thread(data) : null;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// The id of the latest chat in [id]'s compression chain, which is [id]
+  /// itself when it never compressed, or null when the dashboard says the
+  /// session is gone (404 `Session not found`). Any other failure, a 404 of a
+  /// server without the route included, is thrown. A read, sent once.
+  Future<String?> latestDescendant(String id, {String? profile}) async {
+    try {
+      final response = await _api
+          .getSessionLatestDescendantApiSessionsSessionIdLatestDescendantGet(
+            sessionId: id,
+            profile: profile,
+          );
+      return switch (response.data) {
+        {'session_id': final String tip} when tip.isNotEmpty => tip,
+        _ => throw const FormatException('latest-descendant without an id'),
+      };
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (e.response?.statusCode == 404 &&
+          body is Map &&
+          body['detail'] == 'Session not found') {
+        return null;
+      }
       rethrow;
     }
   }
@@ -235,7 +267,8 @@ class HermesChatRepository {
   Future<VoiceSupport> voiceSupport({String? profile}) async {
     try {
       return await voiceConfiguration(profile: profile);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the voice support');
       return VoiceSupport.none;
     }
   }
@@ -321,6 +354,11 @@ class HermesChatRepository {
       folderPath: sessionFolderPath(row),
       workingDirectory: _stored(row['cwd']),
       branch: _stored(row['git_branch']),
+      // Only `_branched_from` marks a branch: `parent_session_id` is also a
+      // compression continuation or a sub-agent, and a reset is no branch.
+      branchParentId: _stored(row['_reset_from']) == null
+          ? _stored(row['_branched_from'])
+          : null,
       remote: true,
       named:
           row['title'] is String && (row['title'] as String).trim().isNotEmpty,
@@ -410,6 +448,7 @@ class HermesChatRepository {
     String? profile,
     int limit = 100,
     int offset = 0,
+    CancelToken? cancelToken,
   }) async {
     final reread = min(offset, _overlap);
     final response = await _api
@@ -419,6 +458,7 @@ class HermesChatRepository {
           limit: limit + reread,
           offset: offset - reread,
           order: 'latest',
+          cancelToken: cancelToken,
         );
     final rows = _rows(response.data, 'messages');
     return MessagePage(

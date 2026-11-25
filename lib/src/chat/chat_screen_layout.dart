@@ -202,6 +202,9 @@ extension _ChatScreenLayout on _ChatScreenState {
             editable: true,
             branchable: true,
             workingDirectoryRow: BoundWorkingDirectoryRow(chat: chat),
+            branchNotice: selected == null
+                ? null
+                : BoundBranchNotice(chat: chat, thread: selected),
             workspaceNotice: selected == null
                 ? null
                 : BoundFolderMismatchNotice(chat: chat, thread: selected),
@@ -397,6 +400,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                               SidebarAction(
                                 icon: AppIcons.memory,
                                 label: memoryEntryLabel(
+                                  context.l10n,
                                   _memoryWaiting?.waiting,
                                 ),
                                 onTap: _openMemory,

@@ -105,6 +105,7 @@ class ChatThreadView extends StatelessWidget {
     this.toolCallExpansion,
     this.toolValueBudget,
     this.workingDirectoryRow,
+    this.branchNotice,
     this.workspaceNotice,
     this.historyStatus,
     this.onRetryHistory,
@@ -129,6 +130,11 @@ class ChatThreadView extends StatelessWidget {
   /// of the welcome view. Null where the chat shows none (the quick panel, a
   /// conversation window, an older server).
   final Widget? workingDirectoryRow;
+
+  /// The row that names the chat this one was branched from, between the
+  /// header and the transcript, above [workspaceNotice]. Null where the chat
+  /// shows none (the quick panel, a conversation window).
+  final Widget? branchNotice;
 
   /// The notice that Hermes started this chat in another folder than the one
   /// picked, between the header and the transcript.
@@ -346,6 +352,7 @@ class ChatThreadView extends StatelessWidget {
             builder: (context, media) =>
                 needsYouCompactFor(media) ? const SizedBox.shrink() : line,
           ),
+        ?branchNotice,
         ?workspaceNotice,
         if (botContext case final bot?) BotChatBanner(context: bot),
         Expanded(

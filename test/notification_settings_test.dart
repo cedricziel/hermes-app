@@ -1,8 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'support/unreadable_prefs.dart';
 
 /// Reads preferences like the real thing, but runs [onDenied] while the
 /// permission flags are read and always reports the scheduled task values as
@@ -23,6 +28,51 @@ class _HookedPrefs extends SharedPreferencesAsync {
   Future<List<String>?> getStringList(String key) async => null;
 }
 
+/// Saved with the alerts on and a muted chat, but the muted chats cannot be
+/// read while [unreadable] is true.
+base class _MutedUnreadable extends InMemorySharedPreferencesAsync {
+  _MutedUnreadable()
+    : super.withData({
+        'hermes.notifications_enabled': true,
+        'hermes.notifications_schedules': true,
+        'hermes.notifications_muted_jobs': ['p/1'],
+      });
+
+  var unreadable = true;
+
+  /// A write of the alerts switch waits for it, to hold up the queued ones.
+  Completer<void>? gate;
+
+  @override
+  Future<bool> setBool(
+    String key,
+    bool value,
+    SharedPreferencesOptions options,
+  ) async {
+    await gate?.future;
+    return super.setBool(key, value, options);
+  }
+
+  @override
+  Future<List<String>?> getStringList(
+    String key,
+    SharedPreferencesOptions options,
+  ) => unreadable
+      ? Future.error(PlatformException(code: 'channel-error'))
+      : super.getStringList(key, options);
+}
+
+/// Nothing saved, and the Live Activities switch cannot be read.
+base class _LateUnreadable extends InMemorySharedPreferencesAsync {
+  _LateUnreadable() : super.empty();
+
+  @override
+  Future<bool?> getBool(String key, SharedPreferencesOptions options) =>
+      key == 'hermes.live_activities'
+      ? Future.error(PlatformException(code: 'channel-error'))
+      : super.getBool(key, options);
+}
+
 NotificationSettings? hooked;
 
 void main() {
@@ -36,6 +86,159 @@ void main() {
     await settings.load();
     return settings;
   }
+
+  test('turns the alerts off when the saved settings are unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final settings = NotificationSettings();
+
+    final reported = await reportedErrors(settings.load);
+
+    expect(settings.loaded, isTrue);
+    expect(settings.enabled, isFalse);
+    expect(settings.scheduleAlerts, isFalse);
+    expect(settings.agentMessages, isFalse);
+    expect(settings.liveActivities, isFalse);
+    expect(settings.permissionAsked, isFalse);
+    expect(settings.permissionDenied, isFalse);
+    expect(reported.single.exception, isA<PlatformException>());
+  });
+
+  test(
+    'turns the alerts off when only the muted chats cannot be read',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = _MutedUnreadable();
+      final settings = NotificationSettings();
+
+      final reported = await reportedErrors(settings.load);
+
+      expect(settings.enabled, isFalse);
+      expect(settings.scheduleAlerts, isFalse);
+      expect(reported.single.exception, isA<PlatformException>());
+    },
+  );
+
+  test('a chat muted after the muted chats could not be read keeps the saved '
+      'mutes', () async {
+    final store = _MutedUnreadable();
+    SharedPreferencesAsyncPlatform.instance = store;
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+
+    await settings.setMuted('p/2', true);
+    store.unreadable = false;
+
+    expect((await relaunch()).isMuted('p/1'), isTrue);
+  });
+
+  test(
+    'mutes are saved again once a later load reads the muted chats',
+    () async {
+      final store = _MutedUnreadable();
+      SharedPreferencesAsyncPlatform.instance = store;
+      final settings = NotificationSettings();
+      await reportedErrors(settings.load);
+      store.unreadable = false;
+      await settings.load();
+
+      await settings.setMuted('p/2', true);
+
+      expect((await relaunch()).isMuted('p/2'), isTrue);
+    },
+  );
+
+  test('mutes are still saved when only a later read failed', () async {
+    SharedPreferencesAsyncPlatform.instance = _LateUnreadable();
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+
+    expect(settings.enabled, isFalse);
+    expect(settings.scheduleAlerts, isFalse);
+    expect(settings.agentMessages, isFalse);
+    expect(settings.liveActivities, isFalse);
+    await settings.setMuted('p/2', true);
+
+    expect(
+      await SharedPreferencesAsync().getStringList(
+        'hermes.notifications_muted_jobs',
+      ),
+      ['p/2'],
+    );
+  });
+
+  test('a mute made while a later load reads the muted chats keeps the saved '
+      'mutes and is saved too', () async {
+    final store = _MutedUnreadable();
+    SharedPreferencesAsyncPlatform.instance = store;
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+    store.unreadable = false;
+
+    final loading = settings.load();
+    await settings.setMuted('p/2', true);
+    await loading;
+    await settings.setMuted('p/3', true);
+
+    final next = await relaunch();
+    expect(next.isMuted('p/1'), isTrue);
+    expect(next.isMuted('p/2'), isTrue);
+    expect(next.isMuted('p/3'), isTrue);
+  });
+
+  test(
+    'a mute made after the store reads again is saved with the old ones',
+    () async {
+      final store = _MutedUnreadable();
+      SharedPreferencesAsyncPlatform.instance = store;
+      final settings = NotificationSettings();
+      await reportedErrors(settings.load);
+      store.unreadable = false;
+
+      await settings.setMuted('p/2', true);
+
+      expect(settings.isMuted('p/1'), isTrue);
+      final next = await relaunch();
+      expect(next.isMuted('p/1'), isTrue);
+      expect(next.isMuted('p/2'), isTrue);
+    },
+  );
+
+  test(
+    'an unmute after a later load read the muted chats is not undone',
+    () async {
+      final store = _MutedUnreadable();
+      SharedPreferencesAsyncPlatform.instance = store;
+      final settings = NotificationSettings();
+      await reportedErrors(settings.load);
+      store.unreadable = false;
+      await settings.load();
+
+      await settings.setMuted('p/1', false);
+
+      expect(settings.isMuted('p/1'), isFalse);
+      expect((await relaunch()).isMuted('p/1'), isFalse);
+    },
+  );
+
+  test('a mute queued behind a slow write during a later load keeps the saved '
+      'mutes', () async {
+    final store = _MutedUnreadable();
+    SharedPreferencesAsyncPlatform.instance = store;
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+    store.unreadable = false;
+    store.gate = Completer<void>();
+    final slow = settings.setEnabled(false);
+
+    final loading = settings.load();
+    final muting = settings.setMuted('p/2', true);
+    await loading;
+    store.gate!.complete();
+    await Future.wait([slow, muting]);
+
+    final next = await relaunch();
+    expect(next.isMuted('p/1'), isTrue);
+    expect(next.isMuted('p/2'), isTrue);
+  });
 
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();

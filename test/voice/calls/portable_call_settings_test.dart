@@ -1,9 +1,11 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/calls/portable_call_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../../support/unreadable_prefs.dart';
 
 void main() {
   setUp(() {
@@ -22,6 +24,17 @@ void main() {
     await settings.load();
     expect(settings.loaded, isTrue);
     expect(settings.enabled, isFalse);
+  });
+
+  test('stay off when the saved choice is unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final settings = PortableCallSettings();
+
+    final reported = await reportedErrors(settings.load);
+
+    expect(settings.loaded, isTrue);
+    expect(settings.enabled, isFalse);
+    expect(reported.single.exception, isA<PlatformException>());
   });
 
   test('a saved choice survives a restart, on and off', () async {

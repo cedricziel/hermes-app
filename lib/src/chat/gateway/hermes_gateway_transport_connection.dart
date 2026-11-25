@@ -11,12 +11,17 @@ extension _Connection on HermesGatewayTransport {
     bool Function()? authorize,
     Duration? timeout,
   }) async {
+    final limit = timeout ?? requestTimeout;
     try {
-      final request = authorize == null
-          ? client.request(method, params)
-          : client.requestGuarded(method, params, authorize: authorize);
-      return await request.timeout(timeout ?? requestTimeout);
-    } on TimeoutException {
+      return await (authorize == null
+          ? client.requestWithin(method, params, timeout: limit)
+          : client.requestGuarded(
+              method,
+              params,
+              authorize: authorize,
+              timeout: limit,
+            ));
+    } on GatewayRequestTimeout {
       _drop(client);
       throw const GatewayCallTimedOut();
     }
@@ -99,6 +104,9 @@ extension _Connection on HermesGatewayTransport {
       channel,
       telemetry: _telemetry,
       heartbeat: true,
+      // A call that sets no deadline of its own still has one, so no request
+      // span stays open for as long as the socket does.
+      defaultTimeout: longTimeout,
       onSocketClosed: _reportSocketClosed,
     );
     // Not awaited: a gateway that predates the call answers with an error and
@@ -154,7 +162,8 @@ extension _Connection on HermesGatewayTransport {
       client.respond(request.id, await handler(request, client));
     } on GatewayRpcException catch (error) {
       client.respondError(request.id, error.code, error.message);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a server request handler');
       client.respondError(request.id, -32603, 'Internal error');
     }
   }

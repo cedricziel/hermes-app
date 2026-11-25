@@ -68,6 +68,99 @@ void main() {
     });
   });
 
+  group('branch parent', () {
+    test('a list row names its parent by the _branched_from marker', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'branch', title: 'Branch')..['_branched_from'] = 'p1',
+          sessionRow(id: 'plain', title: 'Plain'),
+        ]),
+      );
+
+      final threads = await repository.loadThreads();
+
+      expect(threads.map((t) => t.branchParentId), ['p1', null]);
+    });
+
+    test('the single row names it too', () async {
+      server.on(
+        'GET',
+        '/api/sessions/branch',
+        sessionDetailRow(id: 'branch', title: 'Branch')
+          ..['_branched_from'] = 'p1',
+      );
+
+      final thread = await repository.loadThread('branch');
+
+      expect(thread?.branchParentId, 'p1');
+    });
+
+    test('a reset is not a branch', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'reset', title: 'Reset')
+            ..['_branched_from'] = 'p1'
+            ..['_reset_from'] = 'p0',
+          sessionRow(id: 'reset-only', title: 'Reset only')
+            ..['_reset_from'] = 'p0',
+        ]),
+      );
+
+      final threads = await repository.loadThreads();
+
+      expect(threads.map((t) => t.branchParentId), [null, null]);
+    });
+
+    test('parent_session_id alone is a compression or a sub-agent', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'tip', title: 'Tip')
+            ..['parent_session_id'] = 'root'
+            ..['continuation_kind'] = 'compression',
+          sessionRow(id: 'sub', title: 'Sub-agent')
+            ..['parent_session_id'] = 'root',
+        ]),
+      );
+
+      final threads = await repository.loadThreads();
+
+      expect(threads.map((t) => t.branchParentId), [null, null]);
+      expect(threads.map((t) => t.title), ['Tip', 'Sub-agent']);
+    });
+
+    test('a blank or malformed marker leaves the row a plain chat', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'empty', title: 'Empty')..['_branched_from'] = '',
+          sessionRow(id: 'blank', title: 'Blank')..['_branched_from'] = '  ',
+          sessionRow(id: 'number', title: 'Number')..['_branched_from'] = 7,
+          sessionRow(id: 'map', title: 'Map')
+            ..['_branched_from'] = {'id': 'p1'},
+          sessionRow(id: 'null', title: 'Null')..['_branched_from'] = null,
+        ]),
+      );
+
+      final threads = await repository.loadThreads();
+
+      expect(threads.map((t) => t.id), [
+        'empty',
+        'blank',
+        'number',
+        'map',
+        'null',
+      ]);
+      expect(threads.map((t) => t.branchParentId), everyElement(isNull));
+    });
+  });
+
   group('loadThreads', () {
     test('asks the dashboard for the most recently active sessions', () async {
       server.on('GET', '/api/sessions', sessionListBody([]));

@@ -157,6 +157,10 @@
   "@chatNoticeStopCommandElsewhere": {
     "description": "Notice when a typed or queued message of a chat that is not open was exactly a stop phrase of Hermes' voice mode, so Hermes sent nothing to the agent. The chat is not named, as App Lock blanks titles. The text goes into that chat's message box when it is opened."
   },
+  "chatNoticeThreadBusy": "Hermes is still working in this chat. Try again when it is done.",
+  "@chatNoticeThreadBusy": {
+    "description": "Notice when Hermes refused to rename, pin, archive or delete a chat (HTTP 409) because its turn is still writing to it. Nothing was changed; the same action works once the turn ends."
+  },
   "chatReplyFailedGeneric": "Something went wrong. Try sending it again.",
   "@chatReplyFailedGeneric": {
     "description": "Error line under a reply that failed when the server gave no explanation of its own and the server does not have the turn any more. Tells the person to send the prompt again. Wraps at any text size."
@@ -2167,6 +2171,50 @@
   "@chatWidgetsApprovalAnswered": {
     "description": "Note on an approval card that was answered, when the answer is not one the app knows."
   },
+  "chatWidgetsBranchNoticeDeleted": "The original chat was deleted.",
+  "@chatWidgetsBranchNoticeDeleted": {
+    "description": "Shown, as information and not as a button, in the row under a branched chat's header after Hermes said the chat it was branched from no longer exists."
+  },
+  "chatWidgetsBranchNoticeFrom": "Branched from {title}",
+  "@chatWidgetsBranchNoticeFrom": {
+    "description": "Row under a branched chat's header; a tap opens the original chat. The placeholder is the original chat's title and ends the sentence.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsBranchNoticeFromUnknown": "Branched from another chat",
+  "@chatWidgetsBranchNoticeFromUnknown": {
+    "description": "Same row when the original chat's title is not known on the device; a tap still opens it."
+  },
+  "chatWidgetsBranchNoticeOpening": "Opening the original chat…",
+  "@chatWidgetsBranchNoticeOpening": {
+    "description": "Same row while the original chat is being opened, beside a small spinner; taps are ignored."
+  },
+  "chatWidgetsBranchNoticeRetry": "Try again",
+  "@chatWidgetsBranchNoticeRetry": {
+    "description": "Label in the same row, after the sentence that Hermes could not be reached; a tap asks again."
+  },
+  "chatWidgetsBranchNoticeSemantics": "Branched from {title}. Opens the original chat.",
+  "@chatWidgetsBranchNoticeSemantics": {
+    "description": "Screen reader label of the row under a branched chat's header when the original's title is known.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsBranchNoticeUnreachable": "Couldn't reach Hermes. Check your connection.",
+  "@chatWidgetsBranchNoticeUnreachable": {
+    "description": "Same row when asking for the original chat failed; \"Try again\" follows it."
+  },
+  "chatWidgetsBranchRowLabel": "Branch",
+  "@chatWidgetsBranchRowLabel": {
+    "description": "Added to a chat's screen reader label in the chat list and in search results when the chat was branched from another; the branch glyph before its title has no label of its own."
+  },
   "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
   "@chatWidgetsHistoryEarlierFailedTitle": {
     "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
@@ -4078,6 +4126,10 @@
   "@macosMenuOpenInNewWindow": {
     "description": "File menu, and the Mac chat row menu: opens the chat in a window of its own."
   },
+  "macosMenuOpenParentChat": "Open Parent Chat",
+  "@macosMenuOpenParentChat": {
+    "description": "Chat menu item: opens the chat the open chat was branched from. Greyed out when the open chat is not a branch or its original was deleted. Title case."
+  },
   "macosMenuPaste": "Paste",
   "@macosMenuPaste": {
     "description": "Edit menu: pastes the clipboard."
@@ -4199,12 +4251,51 @@
       }
     }
   },
+  "memoryEntryWaiting": "Memory · {count} waiting",
+  "@memoryEntryWaiting": {
+    "description": "Label of the Memory entry of the sidebar and the Profiles page while changes wait for a decision. {count} is how many wait. Without a count the entry reads memoryTitle.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memoryLearningAgentNotes": "Keep agent notes",
+  "@memoryLearningAgentNotes": {
+    "description": "Title of the Keep agent notes switch in the Learning section of the Memory settings: Hermes keeps its own notes about the setup. Keep it short."
+  },
+  "memoryLearningAgentNotesDetail": "Facts about your setup, tools and conventions",
+  "@memoryLearningAgentNotesDetail": {
+    "description": "Subtitle of the Keep agent notes switch in the Memory settings: what the agent notes hold."
+  },
+  "memoryLearningChangeFailed": "Couldn't change {setting}. Try again.",
+  "@memoryLearningChangeFailed": {
+    "description": "Banner above the Learning section of the Memory settings after the server refused a change and the switch went back. {setting} is the title of that setting (memoryLearningUserProfile and its siblings).",
+    "placeholders": {
+      "setting": {
+        "type": "String",
+        "example": "Keep agent notes"
+      }
+    }
+  },
+  "memoryLearningFooter": "Ask before saving applies right away, the rest from the next chat.",
+  "@memoryLearningFooter": {
+    "description": "Footer of the Learning section of the Memory settings. The first words name the Ask before saving switch (memoryLearningWriteApproval): keep them in step with it."
+  },
+  "memoryLearningHeader": "Learning",
+  "@memoryLearningHeader": {
+    "description": "Header of the section of the Memory settings that sets what Hermes learns about the user and how it reports it. Keep it short."
+  },
   "memoryLearningIntervalEvery": "{turns, plural, =1{After every message} other{After every {turns} messages}}",
   "@memoryLearningIntervalEvery": {
     "description": "Value of the Review chats row of the Memory settings, and one of its choices: Hermes reviews the chat for things to remember after this many messages. 0 is shown as Off.",
     "placeholders": {
       "turns": {"type": "int", "example": "10"}
     }
+  },
+  "memoryLearningReadingSettings": "Reading the memory settings",
+  "@memoryLearningReadingSettings": {
+    "description": "Row of the Learning section of the Memory settings while the settings of the profile are being read."
   },
   "memoryLearningReportDetailed": "With details",
   "@memoryLearningReportDetailed": {
@@ -4213,6 +4304,34 @@
   "memoryLearningReportShort": "Short note",
   "@memoryLearningReportShort": {
     "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in one short line. Keep it short."
+  },
+  "memoryLearningReviewInterval": "Review chats",
+  "@memoryLearningReviewInterval": {
+    "description": "Title of the row of the Memory settings that sets after how many messages Hermes reviews a chat for things to remember. Its value is memoryLearningIntervalEvery. Keep it short."
+  },
+  "memoryLearningUnreadable": "Couldn't read the memory settings",
+  "@memoryLearningUnreadable": {
+    "description": "Row of the Learning section of the Memory settings when reading the settings of the profile failed. Its value is a Retry button."
+  },
+  "memoryLearningUpdatesInChat": "Memory updates in chat",
+  "@memoryLearningUpdatesInChat": {
+    "description": "Title of the row of the Memory settings that sets how Hermes reports in the chat what it saved. Its values are Off, memoryLearningReportShort and memoryLearningReportDetailed. Keep it short."
+  },
+  "memoryLearningUserProfile": "Remember things about me",
+  "@memoryLearningUserProfile": {
+    "description": "Title of the switch of the Memory settings that lets Hermes remember facts about the user. Keep it short."
+  },
+  "memoryLearningUserProfileDetail": "Your preferences, name and habits",
+  "@memoryLearningUserProfileDetail": {
+    "description": "Subtitle of the Remember things about me switch in the Memory settings: what Hermes remembers about the user."
+  },
+  "memoryLearningWriteApproval": "Ask before saving",
+  "@memoryLearningWriteApproval": {
+    "description": "Title of the switch of the Memory settings that makes Hermes ask before it changes memory. Keep it short."
+  },
+  "memoryLearningWriteApprovalDetail": "Hermes asks you before it changes memory",
+  "@memoryLearningWriteApprovalDetail": {
+    "description": "Subtitle of the Ask before saving switch in the Memory settings."
   },
   "memoryLeaveDiscard": "Discard and leave",
   "@memoryLeaveDiscard": {
@@ -4316,6 +4435,17 @@
     "description": "Helper under a messaging setup field that already has a value. The value is the server's redacted form or the word for hidden.",
     "placeholders": {
       "value": {"type": "String", "example": "sk-…1234"}
+    }
+  },
+  "messagingSetupNothingToSetUp": "Nothing to set up for this messaging platform.",
+  "@messagingSetupNothingToSetUp": {
+    "description": "Shown in a messaging platform's setup form when the server lists no settings for it."
+  },
+  "messagingSetupTitle": "Set up {platform}",
+  "@messagingSetupTitle": {
+    "description": "Title of a messaging platform's setup form, and the back label of the screen that opens from it. The platform is its product name, such as WhatsApp.",
+    "placeholders": {
+      "platform": {"type": "String", "example": "WhatsApp"}
     }
   },
   "messagingSetupValueHidden": "hidden",
@@ -4570,6 +4700,10 @@
   "messagingWhatsappOpenServer": "Open Server",
   "@messagingWhatsappOpenServer": {
       "description": "Banner button that opens the Server screen."
+  },
+  "messagingWhatsappOrEnterYourself": "Or enter the details yourself.",
+  "@messagingWhatsappOrEnterYourself": {
+      "description": "Line under the Link WhatsApp button in the WhatsApp setup form, before the fields the user can fill in by hand. Product name WhatsApp is not in it."
   },
   "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
   "@messagingWhatsappPausedDetail": {
@@ -6628,6 +6762,48 @@
   },
 
   "@@x-area-screens": "",
+  "screensCleartextCheckingHttps": "Checking {host} over https://…",
+  "@screensCleartextCheckingHttps": {
+    "description": "Snackbar while an already saved unencrypted server is tried over https:// after the user chose https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextHttpsUnavailable": "{host} doesn't answer over https://. Hermes keeps using http:// for now and will ask again next time.",
+  "@screensCleartextHttpsUnavailable": {
+    "description": "Snackbar after choosing https:// for an already saved unencrypted server that does not answer over https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextKeepAction": "Keep http://",
+  "@screensCleartextKeepAction": {
+    "description": "Action of the alert about an already saved unencrypted server that keeps using http://."
+  },
+  "screensCleartextSavedBody": "{host} is not on your local network or a VPN, and Hermes has been sending your password, sign-in tokens and chats to it over http://, unencrypted. Anyone on the way can read them.\n\nSwitch to its https:// address if the server has one.",
+  "@screensCleartextSavedBody": {
+    "description": "Body of the alert about an already saved server that is reached over http:// across the internet.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
+  "screensCleartextSavedTitle": "Keep using http://?",
+  "@screensCleartextSavedTitle": {
+    "description": "Title of the alert about an already saved server that is reached over http:// across the internet."
+  },
+  "screensCleartextUseHttpsAction": "Use https://",
+  "@screensCleartextUseHttpsAction": {
+    "description": "Action of the alert about an already saved unencrypted server that reconnects to its https:// address; the default answer."
+  },
   "screensConnectionVersionUnknown": "unknown",
   "@screensConnectionVersionUnknown": {
     "description": "Value of the Agent version row of the Connection page when the server reports no version."
@@ -8868,9 +9044,70 @@
       }
     }
   },
+  "skillsHubInstalled": "Installed",
+  "@skillsHubInstalled": {
+    "description": "Value on the right of a row in the Discover tab of Skills when the hub skill is already installed. Keep it short."
+  },
+  "skillsHubSkillContentsFailed": "Could not load the skill's contents.",
+  "@skillsHubSkillContentsFailed": {
+    "description": "Line on the hub skill page when the skill's files and SKILL.md could not be fetched."
+  },
+  "skillsHubSkillFileCount": "{count, plural, =1{1 file} other{{count} files}}",
+  "@skillsHubSkillFileCount": {
+    "description": "Count of the files a hub skill contains, in the line under its description.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsHubSkillFiles": "Files",
+  "@skillsHubSkillFiles": {
+    "description": "Header of the list of the files a hub skill contains, on the hub skill page."
+  },
+  "skillsHubSkillInstall": "Install",
+  "@skillsHubSkillInstall": {
+    "description": "Button at the bottom of the hub skill page that installs the skill. Also shown dimmed while the scan runs or when the server blocks the skill."
+  },
+  "skillsHubSkillInstallAnyway": "Install anyway…",
+  "@skillsHubSkillInstallAnyway": {
+    "description": "Button at the bottom of the hub skill page when the server's policy asks for confirmation; opens the confirmation dialog."
+  },
+  "skillsHubSkillPolicyAsk": "Server policy: ask. You will be asked to confirm.",
+  "@skillsHubSkillPolicyAsk": {
+    "description": "Caption under the install button of the hub skill page when the security scan's policy is to ask."
+  },
+  "skillsHubSkillPolicyBlock": "Blocked by the server's policy.",
+  "@skillsHubSkillPolicyBlock": {
+    "description": "Caption under the dimmed install button of the hub skill page when the security scan's policy is to block."
+  },
   "skillsJobFailedFallback": "It failed.",
   "@skillsJobFailedFallback": {
     "description": "Outcome line of a finished skill job that failed and has no error text."
+  },
+  "skillsScanBlocked": "Blocked",
+  "@skillsScanBlocked": {
+    "description": "Verdict line of the security scan of a hub skill when the server blocks the install."
+  },
+  "skillsScanCaution": "Caution: confirmation required",
+  "@skillsScanCaution": {
+    "description": "Verdict line of the security scan of a hub skill when the server asks for a confirmation before the install."
+  },
+  "skillsScanFailed": "Could not run the security scan.",
+  "@skillsScanFailed": {
+    "description": "Row in the security scan section of a hub skill when the scan request failed. A Retry row follows."
+  },
+  "skillsScanHeader": "Security scan",
+  "@skillsScanHeader": {
+    "description": "Header of the section that shows what the server's security scan found in a hub skill."
+  },
+  "skillsScanPassed": "Passed",
+  "@skillsScanPassed": {
+    "description": "Verdict line of the security scan of a hub skill when the install is allowed."
+  },
+  "skillsScanRunning": "Running the security scan…",
+  "@skillsScanRunning": {
+    "description": "Row in the security scan section of a hub skill while the scan runs."
   },
   "skillsScreenAllSources": "All sources",
   "@skillsScreenAllSources": {
@@ -8971,6 +9208,16 @@
   "skillsScreenUnsupported": "The connected Hermes does not support skills.",
   "@skillsScreenUnsupported": {
     "description": "Message on the Skills page when the server has no skills routes."
+  },
+  "skillsScreenUsed": "{count, plural, =1{used once} other{used {count} times}}",
+  "@skillsScreenUsed": {
+    "description": "Part of the subtitle of an installed skill: how often the agent used it, shown after the source (for example Bundled · used 14 times). Not shown for a skill that was never used.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "14"
+      }
+    }
   },
   "skillsTrustCommunity": "Community",
   "@skillsTrustCommunity": {

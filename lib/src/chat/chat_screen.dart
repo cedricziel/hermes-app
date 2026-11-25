@@ -40,6 +40,7 @@ import '../agent_messages/agent_message_watcher.dart' show AgentMessageFinds;
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import 'report_chat_bug.dart';
 import 'subagents/activity_selection.dart';
 import '../auth/session_activity.dart';
 import '../background/running_replies.dart';
@@ -128,6 +129,7 @@ import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
 import '../telemetry/report_bug.dart';
+import 'bound_branch_notice.dart';
 import 'chat_controller.dart';
 import 'queue_storage/queue_persistence.dart';
 import 'chat_models.dart';
@@ -811,13 +813,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Counts the changes waiting in the chat's profile, or the launch profile
   /// when the chat has none of its own. With neither known (the shell reads
   /// the launch profile at connect) nothing is asked and no count shows.
-  Future<void> _refreshMemoryWaiting({bool ifStale = false}) async {
+  Future<void> _refreshMemoryWaiting({
+    bool ifStale = false,
+    bool supersede = false,
+  }) async {
     final waiting = _memoryWaiting;
     if (waiting == null) return;
     final profile = _chat.profileResolver?.resolve(_chat.profile);
     await (ifStale
         ? waiting.refreshIfStale(profile)
-        : waiting.refresh(profile));
+        : waiting.refresh(profile, supersede: supersede));
   }
 
   void _launchProfileKnown() => unawaited(_refreshMemoryWaiting());
@@ -987,6 +992,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ChatSendNotice.stopCommand => context.l10n.chatNoticeStopCommand,
       ChatSendNotice.stopCommandElsewhere =>
         context.l10n.chatNoticeStopCommandElsewhere,
+      ChatSendNotice.threadBusy => context.l10n.chatNoticeThreadBusy,
     });
   }
 

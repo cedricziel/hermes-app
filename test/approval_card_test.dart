@@ -220,6 +220,22 @@ void main() {
     expect(find.text('Could not send your answer. Try again.'), findsNothing);
   });
 
+  testWidgets('a bug in the answer is reported and still shows the error', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _request,
+      onAnswer: (_) async => throw StateError('broken'),
+    );
+
+    await tester.tap(find.text('Allow once'));
+    await tester.pump();
+
+    expect(tester.takeException(), isA<StateError>());
+    expect(find.text('Could not send your answer. Try again.'), findsOneWidget);
+  });
+
   testWidgets('an answered request shows the outcome and no buttons', (
     tester,
   ) async {

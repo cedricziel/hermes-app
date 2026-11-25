@@ -125,6 +125,18 @@ void main() {
       expect(ended().single['step'], 'connect');
     });
 
+    test('a request that gave up waiting is a timeout', () async {
+      chat.newThread();
+      await chat.submit(_prompt, const []);
+      transport.sends.single.fail(
+        const SendFailure(SendStep.attach, GatewayRequestTimeout()),
+      );
+      await pumpEventQueue();
+
+      expect(ended().single['cause'], 'timeout');
+      expect(ended().single['step'], 'attach');
+    });
+
     test('a stopped reply is stopped, by the user', () async {
       await startTurn();
       send

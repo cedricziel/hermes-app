@@ -51,7 +51,8 @@ extension _ChatScreenWindows on _ChatScreenState {
       if (overtaken()) return DockOpenResult.superseded;
       _showMessage(couldNotOpenChat);
       return DockOpenResult.unavailable;
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a dock open');
       if (overtaken()) return DockOpenResult.superseded;
       _showMessage(couldNotOpenChat);
       return error is DioException

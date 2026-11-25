@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
+
 const _prefsEnabledKey = 'hermes.notifications_enabled';
 const _prefsAskedKey = 'hermes.notifications_permission_asked';
 const _prefsDeniedKey = 'hermes.notifications_permission_denied';
@@ -21,6 +23,11 @@ class NotificationSettings extends ChangeNotifier {
   bool _asked = false;
   bool _denied = false;
   bool _loaded = false;
+
+  /// Whether the saved muted chats could not be read. The set is then written
+  /// only after they were read again and merged in, so a mute made meanwhile
+  /// never replaces the saved ones.
+  bool _mutedUnreadable = false;
   bool _scheduleAlerts = true;
   bool _liveActivities = true;
   bool _agentMessages = true;
@@ -62,13 +69,25 @@ class NotificationSettings extends ChangeNotifier {
     final mutedEditsBefore = _mutedEdits;
     final liveActivityEditsBefore = _liveActivityEdits;
     final agentMessageEditsBefore = _agentMessageEdits;
-    final enabled = await _prefs.getBool(_prefsEnabledKey);
-    final asked = await _prefs.getBool(_prefsAskedKey);
-    final denied = await _prefs.getBool(_prefsDeniedKey);
-    final schedules = await _prefs.getBool(_prefsSchedulesKey);
-    final muted = await _prefs.getStringList(_prefsMutedKey);
-    final liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
-    final agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
+    bool? enabled, asked, denied, schedules, liveActivities, agentMessages;
+    List<String>? muted;
+    var mutedRead = false;
+    try {
+      enabled = await _prefs.getBool(_prefsEnabledKey);
+      asked = await _prefs.getBool(_prefsAskedKey);
+      denied = await _prefs.getBool(_prefsDeniedKey);
+      schedules = await _prefs.getBool(_prefsSchedulesKey);
+      muted = await _prefs.getStringList(_prefsMutedKey);
+      mutedRead = true;
+      liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
+      agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
+    } on Object catch (error, stack) {
+      // Whatever failed to read, every alert goes off rather than on, also the
+      // ones read before it: a user who chose off, or muted a chat, would
+      // otherwise get message text.
+      enabled = schedules = liveActivities = agentMessages = false;
+      reportUnreadablePrefs(error, stack, 'the saved notification settings');
+    }
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
     if (_permissionEdits == permissionEditsBefore) {
       _asked = asked ?? false;
@@ -76,6 +95,12 @@ class NotificationSettings extends ChangeNotifier {
     }
     if (_scheduleEdits == scheduleEditsBefore) {
       _scheduleAlerts = schedules ?? true;
+    }
+    if (!mutedRead) {
+      _mutedUnreadable = true;
+    } else if (_mutedEdits == mutedEditsBefore) {
+      // The set read is the set now, so it can be saved as it is.
+      _mutedUnreadable = false;
     }
     if (_mutedEdits == mutedEditsBefore) _muted = {...?muted};
     if (_liveActivityEdits == liveActivityEditsBefore) {
@@ -132,6 +157,22 @@ class NotificationSettings extends ChangeNotifier {
     _denied = !granted;
   }, {_prefsAskedKey: true, _prefsDeniedKey: !granted});
 
+  /// Reads the saved muted chats again after a failed load and adds them to
+  /// the set, so saving it never replaces them. False while they still cannot
+  /// be read: the set then stays in memory only. The failure was reported by
+  /// the load.
+  Future<bool> _mergeSavedMutes() async {
+    try {
+      final saved = await _prefs.getStringList(_prefsMutedKey);
+      _muted = {...?saved, ..._muted};
+      _mutedUnreadable = false;
+      notifyListeners();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
   /// Applies [apply], tells listeners, and saves [values] after the earlier
   /// writes. A `null` value stands for the muted set, saved as it is now.
   Future<void> _change(void Function() apply, Map<String, Object?> values) {
@@ -143,6 +184,7 @@ class NotificationSettings extends ChangeNotifier {
         if (value is bool) {
           await _prefs.setBool(entry.key, value);
         } else {
+          if (_mutedUnreadable && !await _mergeSavedMutes()) continue;
           await _prefs.setStringList(entry.key, _muted.toList()..sort());
         }
       }

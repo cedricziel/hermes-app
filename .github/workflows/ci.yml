@@ -669,16 +669,7 @@ jobs:
     name: Builds
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs:
-      [
-        changes,
-        analyze-and-test,
-        build-android,
-        build-windows,
-        build-ios,
-        build-macos,
-        build-linux,
-      ]
+    needs: [changes, analyze-and-test, build-android, build-windows, build-ios, build-macos, build-linux]
     if: always()
     steps:
       - name: Check results

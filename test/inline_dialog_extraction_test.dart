@@ -273,7 +273,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('web-scraper'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Install anyway…'));
+      await tester.tap(
+        find.text(
+          locale.languageCode == 'de'
+              ? 'Trotzdem installieren…'
+              : 'Install anyway…',
+        ),
+      );
       await tester.pumpAndSettle();
       return find.byType(AppAlertDialog);
     }

@@ -38,6 +38,7 @@ import '../thread_search.dart';
 import '../thread_sections.dart';
 import '../thread_list_preferences.dart';
 import 'thread_grouping_controls.dart';
+import 'branch_glyph.dart';
 import 'mac_search_results.dart';
 import 'mac_thread_row.dart';
 import 'relative_time.dart';
@@ -257,7 +258,7 @@ class ThreadSidebar extends StatelessWidget {
                             : ThreadSearchResults(
                                 query: search.query,
                                 status: search.status,
-                                hits: search.hits,
+                                hits: _markBranches(search.hits),
                                 selectedId: selectedId,
                                 onOpen: onOpenHit ?? (_) {},
                                 bottomPadding: contentBottomPadding,
@@ -276,7 +277,7 @@ class ThreadSidebar extends StatelessWidget {
                   if (onOpenMemory != null)
                     (
                       AppIcons.memory,
-                      memoryEntryLabel(memoryWaiting),
+                      memoryEntryLabel(context.l10n, memoryWaiting),
                       onOpenMemory!,
                     ),
                   if (onOpenSoul != null)
@@ -360,7 +361,7 @@ class ThreadSidebar extends StatelessWidget {
           : MacSearchResults(
               query: search.query,
               status: search.status,
-              hits: search.hits,
+              hits: _markBranches(search.hits),
               scope: search.scope,
               recent: search.recent,
               currentProfile: searchProfile,
@@ -372,6 +373,24 @@ class ThreadSidebar extends StatelessWidget {
                   : null,
             ),
     );
+  }
+
+  /// [hits] with the branches among the loaded [threads] marked. The search
+  /// route does not say which chat is a branch, so a hit of a chat that is not
+  /// loaded, or of another profile, shows no glyph.
+  List<ThreadSearchHit> _markBranches(List<ThreadSearchHit> hits) {
+    final branches = {
+      for (final thread in threads)
+        if (thread.isBranch) thread.id,
+    };
+    if (branches.isEmpty) return hits;
+    return [
+      for (final hit in hits)
+        branches.contains(hit.id) &&
+                (hit.profile == null || hit.profile == searchProfile)
+            ? hit.asBranch()
+            : hit,
+    ];
   }
 
   Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
@@ -463,7 +482,7 @@ class ThreadSidebar extends StatelessWidget {
                 );
               }
               final thread = threads[index];
-              return _ThreadRow(
+              return SidebarThreadRow(
                 key: ValueKey('thread-${thread.id}'),
                 avatar: avatarBuilder?.call(thread),
                 thread: thread,
@@ -471,6 +490,7 @@ class ThreadSidebar extends StatelessWidget {
                 busy: busy.contains(thread.id) || thread.isReplying,
                 onTap: () => onSelect(thread.id),
                 housekeeping: thread.remote ? housekeeping : null,
+                branch: thread.isBranch,
               );
             },
           ),
@@ -591,8 +611,10 @@ class _MoreSectionState extends State<_MoreSection> {
   }
 }
 
-class _ThreadRow extends StatefulWidget {
-  const _ThreadRow({
+/// A thread in the phone, iPad and Material sidebar: a [SidebarRow] with its
+/// title, a pin, a working dot and, outside iOS, the thread's menu button.
+class SidebarThreadRow extends StatefulWidget {
+  const SidebarThreadRow({
     super.key,
     required this.thread,
     required this.selected,
@@ -600,9 +622,14 @@ class _ThreadRow extends StatefulWidget {
     required this.onTap,
     this.housekeeping,
     this.avatar,
+    this.branch = false,
   });
 
   final Widget? avatar;
+
+  /// Whether the chat was branched from another: a 14 pt glyph before the
+  /// title, and "Branch" in its label.
+  final bool branch;
   final ChatThread thread;
   final bool selected;
   final bool busy;
@@ -610,10 +637,10 @@ class _ThreadRow extends StatefulWidget {
   final ThreadHousekeeping? housekeeping;
 
   @override
-  State<_ThreadRow> createState() => _ThreadRowState();
+  State<SidebarThreadRow> createState() => _SidebarThreadRowState();
 }
 
-class _ThreadRowState extends State<_ThreadRow> {
+class _SidebarThreadRowState extends State<SidebarThreadRow> {
   final _actions = GlobalKey<ThreadActionsButtonState>();
 
   ChatThread get _thread => widget.thread;
@@ -660,17 +687,23 @@ class _ThreadRowState extends State<_ThreadRow> {
                 AppIcon(AppIcons.pin, size: 12, color: subtle),
                 const SizedBox(width: 4),
               ],
+              if (widget.branch) const BranchGlyph(),
               Expanded(
-                child: Text(
-                  _thread.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: widget.selected
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: scheme.onSurface,
+                child: branchTitled(
+                  context,
+                  branch: widget.branch,
+                  title: _thread.title,
+                  child: Text(
+                    _thread.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: widget.selected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: scheme.onSurface,
+                    ),
                   ),
                 ),
               ),
@@ -810,7 +843,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
 
   Widget _row(BuildContext context, ChatThread thread) {
     if (platformChromeOf(context) != PlatformChrome.macos) {
-      return _ThreadRow(
+      return SidebarThreadRow(
         key: ValueKey('thread-${thread.id}'),
         avatar: widget.avatarBuilder?.call(thread),
         thread: thread,
@@ -818,6 +851,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         busy: widget.busy.contains(thread.id) || thread.isReplying,
         onTap: () => widget.onSelect(thread.id),
         housekeeping: thread.remote ? widget.housekeeping : null,
+        branch: thread.isBranch,
       );
     }
     final housekeeping = thread.remote ? widget.housekeeping : null;
@@ -840,6 +874,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       selected: thread.id == widget.selectedId,
       busy: widget.busy.contains(thread.id) || thread.isReplying,
       relativeTime: relativeTime(thread.updatedAt),
+      branch: thread.isBranch,
       onTap: () => widget.onSelect(thread.id),
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
       menuItems: (context) => macThreadMenuItems(

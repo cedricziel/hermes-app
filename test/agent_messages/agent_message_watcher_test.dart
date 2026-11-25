@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart' show RequestOptions;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -846,6 +847,115 @@ void main() {
           'error_type': 'TimeoutException',
           'background': false,
         });
+      });
+    });
+
+    testWidgets('a listing that times out is closed, not left to its receive '
+        'timeout', (tester) async {
+      await tester.runAsync(() async {
+        final held = Completer<FakeResponse>();
+        RequestOptions? asked;
+        server.onRequest('GET', '/api/sessions', (request) {
+          asked = request;
+          return held.future;
+        }, query: {'source': 'hermes_app', 'profile': 'default'});
+        await setUpWatcher(lookup: const Duration(milliseconds: 100));
+
+        await watcher!.check();
+
+        expect(asked!.cancelToken!.isCancelled, isTrue);
+        held.complete((status: 200, body: sessionListBody([])));
+      });
+    });
+
+    testWidgets('leaving the front cancels the listing in flight, so a look '
+        'after coming back is the only one asking', (tester) async {
+      restoreLifecycle(tester);
+      await tester.runAsync(() async {
+        var asking = 0, mostAsking = 0;
+        final first = Completer<void>();
+        server.onRequest('GET', '/api/sessions', (request) async {
+          asking++;
+          if (asking > mostAsking) mostAsking = asking;
+          if (!first.isCompleted) {
+            first.complete();
+            await request.cancelToken!.whenCancel;
+          }
+          asking--;
+          return (status: 200, body: sessionListBody([]));
+        }, query: {'source': 'hermes_app', 'profile': 'default'});
+        await setUpWatcher();
+        final look = watcher!.check();
+        await untilStarted(first);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await look;
+        await watcher!.check();
+
+        expect(mostAsking, 1);
+      });
+    });
+
+    testWidgets('leaving the front closes a held profile list', (tester) async {
+      restoreLifecycle(tester);
+      await tester.runAsync(() async {
+        final asked = Completer<RequestOptions>();
+        final held = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/profiles', (request) {
+          asked.complete(request);
+          return held.future;
+        });
+        await setUpWatcher(lookup: const Duration(minutes: 1));
+        final look = watcher!.check();
+        final request = await asked.future.timeout(const Duration(seconds: 5));
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+
+        await request.cancelToken!.whenCancel.timeout(
+          const Duration(seconds: 5),
+        );
+        held.complete((status: 200, body: {'profiles': <Object>[]}));
+        await look;
+      });
+    });
+
+    testWidgets('leaving the front closes a held message text', (tester) async {
+      restoreLifecycle(tester);
+      await tester.runAsync(() async {
+        await setUpWatcher(lookup: const Duration(minutes: 1));
+        await watcher!.check();
+        deliveries('work', [delivery('hermes-app-new', at: 200)]);
+        final asked = Completer<RequestOptions>();
+        final held = Completer<FakeResponse>();
+        server.onRequest('GET', '/api/sessions/hermes-app-new/messages', (
+          request,
+        ) {
+          asked.complete(request);
+          return held.future;
+        });
+        final look = watcher!.check();
+        final request = await asked.future.timeout(const Duration(seconds: 5));
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+
+        await request.cancelToken!.whenCancel.timeout(
+          const Duration(seconds: 5),
+        );
+        held.complete((
+          status: 200,
+          body: messageListBody('hermes-app-new', []),
+        ));
+        await look;
+        expect(service.shown, isEmpty);
       });
     });
 
