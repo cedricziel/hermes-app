@@ -328,6 +328,43 @@ void main() {
       });
     }
 
+    test('a bug in the read is reported under a fixed name and ends in '
+        'unreachable like any failed read', () async {
+      final reported = <FlutterErrorDetails>[];
+      final previous = FlutterError.onError;
+      FlutterError.onError = reported.add;
+      addTearDown(() => FlutterError.onError = previous);
+      final buggy = ChatController(
+        profileResolver: ProfileResolver.known('default'),
+        repository: _BuggyRepository(server.client().raw),
+        activity: activity,
+        appLock: lock,
+        transport: transport,
+        attention: attention,
+        breadcrumbs: crumbs.breadcrumbs,
+        report: (_) {},
+      );
+      addTearDown(buggy.dispose);
+      await buggy.loadThreads();
+      await flush();
+      buggy.select('branch');
+      await flush();
+      final row = buggy.threads.firstWhere((t) => t.id == 'branch');
+
+      await buggy.openBranchParent(row);
+      await flush();
+
+      expect(reported, hasLength(1));
+      expect(reported.single.exception, isA<TypeError>());
+      expect(
+        reported.single.context?.toDescription(),
+        contains('a branch parent open'),
+      );
+      expect(buggy.branchParentStatusOf(row), BranchParentStatus.unreachable);
+      expect(buggy.selectedId, 'branch');
+      expect(outcome(), 'unreachable');
+    });
+
     test('a read with no answer for 10 s ends in unreachable', () {
       server.onRequest(
         'GET',
@@ -820,4 +857,14 @@ void main() {
     expect(find.text('The original chat was deleted.'), findsOneWidget);
     expect(said, isEmpty);
   });
+}
+
+/// A repository whose tip read has a bug: it throws an Error, not a failure
+/// of the request.
+class _BuggyRepository extends HermesChatRepository {
+  _BuggyRepository(super.api);
+
+  @override
+  Future<String?> latestDescendant(String id, {String? profile}) async =>
+      throw TypeError();
 }
