@@ -92,3 +92,8 @@ arch.english-null-fallback:
   lib/src/skills/skill_job_sheet.dart: 1
   lib/src/voice/voice_call_screen.dart: 1
   lib/src/widgets/hermes_code_block.dart: 3
+
+arch.label-helper-takes-l10n:
+  lib/src/memory/widgets/memory_learning_section.dart: 2
+  lib/src/schedules/schedule_widgets.dart: 1
+  lib/src/skills/widgets/skill_badges.dart: 2
