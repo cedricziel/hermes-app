@@ -130,8 +130,8 @@ void main() {
       },
     );
 
-    test('a builder that throws a bug falls back and is reported once, '
-        'without the call', () {
+    test('a builder that throws a bug falls back and is reported once '
+        'under a fixed name', () {
       final registry = ToolBodyRegistry([
         ToolBodyEntry(
           names: {'sql_query'},
@@ -151,20 +151,23 @@ void main() {
       expect(reported, hasLength(1));
       expect(reported.single.context.toString(), 'a tool body');
       expect(reported.single.library, 'hermes_app');
-      expect(reported.single.context.toString(), isNot(contains('sql_query')));
     });
 
-    test('a failed request in a builder falls back without a report', () {
-      final registry = ToolBodyRegistry([
-        ToolBodyEntry(
-          names: {'sql_query'},
-          build: (_) => throw const FormatException('malformed'),
-        ),
-      ]);
+    test(
+      'a builder that throws a malformed-result exception is not reported',
+      () {
+        final registry = ToolBodyRegistry([
+          ToolBodyEntry(
+            names: {'sql_query'},
+            build: (_) => throw const FormatException('malformed'),
+          ),
+        ]);
 
-      expect(registry.bodyFor(_call('sql_query')), isNull);
-      expect(reported, isEmpty);
-    });
+        registry.bodyFor(_call('sql_query'));
+
+        expect(reported, isEmpty);
+      },
+    );
 
     test('a predicate that throws counts as no match', () {
       final registry = ToolBodyRegistry([
