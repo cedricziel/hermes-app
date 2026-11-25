@@ -123,7 +123,7 @@ class HelperModelList extends StatelessWidget {
       if (choice != null) ...[
         if (shortModelName(choice.modelId) != choice.modelId) choice.modelId,
         if (choice.providerId.isNotEmpty) choice.providerId,
-        if (effort != null && effort.isNotEmpty) effortLabel(effort),
+        if (effort != null && effort.isNotEmpty) effortLabel(l10n, effort),
       ],
     ];
     return parts.isEmpty ? null : parts.join(' · ');

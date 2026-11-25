@@ -40,7 +40,7 @@ class KanbanTaskHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '${task.id} · ${kanbanStatusLabel(task.status)}',
+          '${task.id} · ${kanbanStatusLabel(l10n, task.status)}',
           style: theme.textTheme.bodySmall?.copyWith(color: subtle),
         ),
         const SizedBox(height: 4),
@@ -82,9 +82,9 @@ class KanbanTaskHeader extends StatelessWidget {
                 for (final s in kanbanSettableStatuses)
                   if (s != task.status) s,
               ],
-              labelOf: kanbanStatusLabel,
+              labelOf: (s) => kanbanStatusLabel(l10n, s),
               selected: null,
-              placeholder: kanbanStatusLabel(task.status),
+              placeholder: kanbanStatusLabel(l10n, task.status),
               onSelected: onMove,
             ),
           ],

@@ -153,6 +153,13 @@ const _noPlural = <String, _Reason>{
   'filesListCapFooter': _Reason(
     'shown only when the list is cut at a cap far above one; "first n of m"',
   ),
+  'kanbanCardProgress': _Reason(
+    'a ratio "2 of 5 done": no noun, and the participle does not change',
+  ),
+  'kanbanEstimateKiloTokens': _Reason(
+    'thousands with a k ("13k tokens"): the noun is plural at every count, '
+    'because the singular case is below a thousand tokens',
+  ),
   'kanbanInspectProcess': _Reason('a process id'),
   'kanbanInspectThreads': _Reason('a label, a colon and a number'),
   'kanbanInspectTitle': _Reason('a run id'),

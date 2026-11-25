@@ -314,7 +314,7 @@
   },
   "chatActivityInspectorHide": "Hide Inspector",
   "@chatActivityInspectorHide": {
-    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording."
+    "description": "Mac toolbar button that closes the Activity inspector; macOS View menu wording. Also the label of the Kanban Mac toolbar’s inspector button while the inspector is open."
   },
   "chatActivityInspectorHideWaiting": "{count, plural, =1{Hide Inspector, 1 needs you} other{Hide Inspector, {count} need you}}",
   "@chatActivityInspectorHideWaiting": {
@@ -327,7 +327,7 @@
   },
   "chatActivityInspectorShow": "Show Inspector",
   "@chatActivityInspectorShow": {
-    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording."
+    "description": "Mac toolbar button that opens the Activity inspector; macOS View menu wording. Also the label of the Kanban Mac toolbar’s inspector button while the inspector is closed."
   },
   "chatActivityInspectorShowWaiting": "{count, plural, =1{Show Inspector, 1 needs you} other{Show Inspector, {count} need you}}",
   "@chatActivityInspectorShowWaiting": {
@@ -2975,6 +2975,26 @@
   "@kanbanArchive": {
     "description": "Menu item and button that archives a Kanban board or task, and the confirm button of the question that asks first."
   },
+  "kanbanBoardLive": "Live",
+  "@kanbanBoardLive": {
+    "description": "Tooltip of the dot in the Kanban app bar when the board’s event stream is connected."
+  },
+  "kanbanBoardLoadFailed": "Could not load the board",
+  "@kanbanBoardLoadFailed": {
+    "description": "Title of the message that replaces the Kanban board when loading it failed."
+  },
+  "kanbanBoardManage": "Manage boards…",
+  "@kanbanBoardManage": {
+    "description": "Last item of the board switcher menu; opens the page that lists, creates and renames boards."
+  },
+  "kanbanBoardReconnecting": "Reconnecting…",
+  "@kanbanBoardReconnecting": {
+    "description": "Tooltip of the dot in the Kanban app bar while the board’s event stream is not connected."
+  },
+  "kanbanBoardSwitch": "Switch board",
+  "@kanbanBoardSwitch": {
+    "description": "Accessibility label and tooltip of the button that opens the board switcher menu, in the app bar and the Mac toolbar."
+  },
   "kanbanBoardsArchiveTitle": "Archive “{name}”?",
   "@kanbanBoardsArchiveTitle": {
     "description": "Title of the confirmation before a Kanban board is archived. {name} is the board name.",
@@ -2991,7 +3011,7 @@
   },
   "kanbanBoardsCreate": "Create",
   "@kanbanBoardsCreate": {
-    "description": "Confirm button of the prompt that names a new Kanban board."
+    "description": "Confirm button of the prompt that names a new Kanban board. Also the Create button of the new task form."
   },
   "kanbanBoardsCurrent": "Current",
   "@kanbanBoardsCurrent": {
@@ -3060,7 +3080,7 @@
   },
   "kanbanBoardsTaskCount": "{count, plural, =1{1 task} other{{count} tasks}}",
   "@kanbanBoardsTaskCount": {
-    "description": "Task count in the subtitle of a board row, after the board slug.",
+    "description": "Task count in the subtitle of a board row, after the board slug. Also the count in the Mac toolbar’s subtitle.",
     "placeholders": {
       "count": {"type": "int", "example": "3"}
     }
@@ -3108,11 +3128,20 @@
   },
   "kanbanBulkEffortDefault": "Profile default",
   "@kanbanBulkEffortDefault": {
-    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile. Also the value of the task panel's Model row when the task sets no model."
+    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile. Also the value of the task panel's Model row when the task sets no model. Also the value of the model row on the new task form when no model is picked."
   },
   "kanbanBulkEffortTitle": "Reasoning effort",
   "@kanbanBulkEffortTitle": {
     "description": "Title of the picker that sets the reasoning effort of the selected Kanban tasks."
+  },
+  "kanbanBulkFailed": "{failed, plural, =1{1 of {total} could not be changed: {error}} other{{failed} of {total} could not be changed: {error}}}",
+  "@kanbanBulkFailed": {
+    "description": "Snackbar after a change to the selected Kanban tasks reached only some of them. {failed} is how many it did not reach, {total} how many were selected, {error} the reason the plugin gave for the first one.",
+    "placeholders": {
+      "failed": {"type": "int", "example": "2"},
+      "total": {"type": "int", "example": "5"},
+      "error": {"type": "String", "example": "task is running"}
+    }
   },
   "kanbanBulkMoveTitle": "Move to",
   "@kanbanBulkMoveTitle": {
@@ -3133,11 +3162,47 @@
   },
   "kanbanBulkPriorityNormal": "Normal",
   "@kanbanBulkPriorityNormal": {
-    "description": "Option in the Priority picker, in the bulk bar and in the task panel: priority zero, no urgency."
+    "description": "Option in the Priority picker, in the bulk bar and in the task panel: priority zero, no urgency. Also the first option of the priority picker on the new task form."
   },
   "kanbanBulkPriorityTitle": "Priority",
   "@kanbanBulkPriorityTitle": {
-    "description": "Title of the Priority picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel."
+    "description": "Title of the Priority picker, for the selected Kanban tasks in the bulk bar and for the single task in the task panel. Also the header of the priority section on the new task form."
+  },
+  "kanbanCardDragHint": "Drag to move",
+  "@kanbanCardDragHint": {
+    "description": "Tooltip of the handle that drags a task card to another status on a phone."
+  },
+  "kanbanCardInProgress": "In progress",
+  "@kanbanCardInProgress": {
+    "description": "Accessibility label of the thin progress bar on a running task card."
+  },
+  "kanbanCardProgress": "{done} of {total} done",
+  "@kanbanCardProgress": {
+    "description": "Accessibility value of the progress bar on a running task card: how many of its subtasks are done. {done} and {total} are counts.",
+    "placeholders": {
+      "done": {"type": "int", "example": "2"},
+      "total": {"type": "int", "example": "5"}
+    }
+  },
+  "kanbanCreateAssigneeAuto": "Auto (triage picks)",
+  "@kanbanCreateAssigneeAuto": {
+    "description": "Option of the assignee menu on the new task form: leave the assignee to the triage step."
+  },
+  "kanbanCreateAssignment": "Assignment",
+  "@kanbanCreateAssignment": {
+    "description": "Header of the new task form section that holds the assignee and the model."
+  },
+  "kanbanCreateEstimate": "Estimate the work",
+  "@kanbanCreateEstimate": {
+    "description": "Row on the new task form that asks the plugin for a rough size of the task; it shows the result below."
+  },
+  "kanbanCreateModelFooter": "Leave the model empty for the profile default.",
+  "@kanbanCreateModelFooter": {
+    "description": "Footer under the free-text model field of the new task form, shown when the plugin lists no models."
+  },
+  "kanbanCreateStartAs": "Start as",
+  "@kanbanCreateStartAs": {
+    "description": "Header of the new task form section that picks the status a new task starts in (triage or to-do)."
   },
   "kanbanDelete": "Delete",
   "@kanbanDelete": {
@@ -3145,7 +3210,7 @@
   },
   "kanbanEditTaskDescriptionLabel": "Description",
   "@kanbanEditTaskDescriptionLabel": {
-    "description": "Label of the description field, and the header above it, in the dialog that edits a Kanban task."
+    "description": "Label of the description field, and the header above it, in the dialog that edits a Kanban task. Also the label of the description field on the new task form."
   },
   "kanbanEditTaskTitle": "Edit task",
   "@kanbanEditTaskTitle": {
@@ -3153,7 +3218,41 @@
   },
   "kanbanEditTaskTitleLabel": "Title",
   "@kanbanEditTaskTitleLabel": {
-    "description": "Label of the task title field in the dialog that edits a Kanban task."
+    "description": "Label of the task title field in the dialog that edits a Kanban task. Also the label of the title field on the new task form."
+  },
+  "kanbanEmptyColumn": "No tasks here",
+  "@kanbanEmptyColumn": {
+    "description": "Message in the phone board’s list when the chosen status holds no tasks."
+  },
+  "kanbanEstimateKiloTokens": "about {thousands}k tokens",
+  "@kanbanEstimateKiloTokens": {
+    "description": "Size of a task estimate of a thousand tokens or more, rounded; the k stands for thousand. {thousands} is the rounded count in thousands.",
+    "placeholders": {
+      "thousands": {"type": "int", "example": "13"}
+    }
+  },
+  "kanbanEstimateLarge": "large",
+  "@kanbanEstimateLarge": {
+    "description": "Complexity read of a task estimate: large (the plugin’s L)."
+  },
+  "kanbanEstimateMedium": "medium",
+  "@kanbanEstimateMedium": {
+    "description": "Complexity read of a task estimate: medium (the plugin’s M)."
+  },
+  "kanbanEstimateNone": "No estimate available.",
+  "@kanbanEstimateNone": {
+    "description": "Shown under the estimate row of the new task form when the plugin gave no size and no reason."
+  },
+  "kanbanEstimateSmall": "small",
+  "@kanbanEstimateSmall": {
+    "description": "Complexity read of a task estimate: small (the plugin’s S)."
+  },
+  "kanbanEstimateTokens": "{count, plural, =1{about 1 token} other{about {count} tokens}}",
+  "@kanbanEstimateTokens": {
+    "description": "Size of a task estimate below a thousand tokens. {count} is the estimated number of tokens.",
+    "placeholders": {
+      "count": {"type": "int", "example": "640"}
+    }
   },
   "kanbanExportAction": "Export",
   "@kanbanExportAction": {
@@ -3219,7 +3318,7 @@
   },
   "kanbanInspectClose": "Close",
   "@kanbanInspectClose": {
-    "description": "Button that closes the dialog showing a Kanban worker's process details."
+    "description": "Button that closes the dialog showing a Kanban worker's process details. Also the Close button of the task log dialog."
   },
   "kanbanInspectGone": "The process is not running.",
   "@kanbanInspectGone": {
@@ -3285,9 +3384,80 @@
       }
     }
   },
+  "kanbanInspectorEmptyDetail": "Click a card to see its details here.",
+  "@kanbanInspectorEmptyDetail": {
+    "description": "Second line of the Mac inspector placeholder, shown while no task card is picked."
+  },
+  "kanbanInspectorEmptyTitle": "No task selected",
+  "@kanbanInspectorEmptyTitle": {
+    "description": "Title of the Mac inspector placeholder, shown while no task card is picked."
+  },
+  "kanbanLogCut": "… (earlier output cut)",
+  "@kanbanLogCut": {
+    "description": "First line of a worker log whose beginning the server left out; keep the leading ellipsis."
+  },
+  "kanbanLogEmpty": "(empty)",
+  "@kanbanLogEmpty": {
+    "description": "Shown in place of a task’s worker log when the log file exists but holds nothing."
+  },
+  "kanbanLogLoadFailed": "Could not load the log.",
+  "@kanbanLogLoadFailed": {
+    "description": "Shown in place of a task’s worker log when reading it failed."
+  },
+  "kanbanLogLoading": "Loading…",
+  "@kanbanLogLoading": {
+    "description": "Shown in place of a task’s worker log while it loads."
+  },
+  "kanbanLogNone": "No worker has run this task yet.",
+  "@kanbanLogNone": {
+    "description": "Shown in place of a task’s worker log when the task has no log because no worker ran it."
+  },
+  "kanbanLogTitle": "Log · {taskId}",
+  "@kanbanLogTitle": {
+    "description": "Title of the dialog that shows the tail of a task’s worker log. {taskId} is the task id; keep the dot.",
+    "placeholders": {
+      "taskId": {"type": "String", "example": "t_1a2b"}
+    }
+  },
+  "kanbanMacAllProfiles": "All profiles",
+  "@kanbanMacAllProfiles": {
+    "description": "Menu item in the Mac toolbar’s profile filter that shows the tasks of every profile."
+  },
+  "kanbanMacFilterByProfile": "Filter by profile",
+  "@kanbanMacFilterByProfile": {
+    "description": "Accessibility label and tooltip of the Mac toolbar button that narrows the board to one profile."
+  },
+  "kanbanMacSubtitleAllProfiles": "all profiles",
+  "@kanbanMacSubtitleAllProfiles": {
+    "description": "Part of the Mac toolbar’s subtitle (board · profile · task count) when no profile filter is on; lower case."
+  },
+  "kanbanMenuDispatch": "Run dispatcher now",
+  "@kanbanMenuDispatch": {
+    "description": "Item of the Kanban more menu that asks the server’s dispatcher to look for work at once."
+  },
+  "kanbanMenuDispatched": "Dispatcher nudged",
+  "@kanbanMenuDispatched": {
+    "description": "Snackbar after the dispatcher was asked to look for work."
+  },
+  "kanbanMenuMore": "More",
+  "@kanbanMenuMore": {
+    "description": "Accessibility label and tooltip of the Kanban button that opens the menu of less common board actions."
+  },
+  "kanbanMenuOrchestration": "Orchestration…",
+  "@kanbanMenuOrchestration": {
+    "description": "Item of the Kanban more menu that opens the orchestration settings; the ellipsis means a dialog follows."
+  },
+  "kanbanMenuSelect": "Select tasks",
+  "@kanbanMenuSelect": {
+    "description": "Item of the Kanban more menu that starts picking several tasks to change at once."
+  },
+  "kanbanMenuWorkers": "Active workers…",
+  "@kanbanMenuWorkers": {
+    "description": "Item of the Kanban more menu that opens the page of running workers; the ellipsis means a page follows."
+  },
   "kanbanNewTaskAction": "New task",
   "@kanbanNewTaskAction": {
-    "description": "Label of the floating button on the board that opens the new task form."
+    "description": "Label of the floating button on the board that opens the new task form. Also the title of the new task form."
   },
   "kanbanOrchestrationActiveProfile": "Active profile ({profile})",
   "@kanbanOrchestrationActiveProfile": {
@@ -3335,6 +3505,57 @@
   "@kanbanSaveAction": {
     "description": "Button that saves the Kanban dialog that is open (edit task, orchestration)."
   },
+  "kanbanSelectionCancel": "Cancel selection",
+  "@kanbanSelectionCancel": {
+    "description": "Accessibility label and tooltip of the app bar button that leaves the pick-several-tasks mode."
+  },
+  "kanbanSelectionCount": "{count, plural, =1{1 selected} other{{count} selected}}",
+  "@kanbanSelectionCount": {
+    "description": "App bar title while picking tasks: how many are picked.",
+    "placeholders": {
+      "count": {"type": "int", "example": "3"}
+    }
+  },
+  "kanbanSomethingWentWrong": "Something went wrong. Try again.",
+  "@kanbanSomethingWentWrong": {
+    "description": "Snackbar when a Kanban change failed for a reason the plugin did not name."
+  },
+  "kanbanStatusArchived": "Archived",
+  "@kanbanStatusArchived": {
+    "description": "Name of the Kanban status for archived tasks, shown only while the Archived filter is on: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusBlocked": "Blocked",
+  "@kanbanStatusBlocked": {
+    "description": "Name of the Kanban status for blocked tasks, waiting on something: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusDone": "Done",
+  "@kanbanStatusDone": {
+    "description": "Name of the Kanban status for finished tasks: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusReady": "Ready",
+  "@kanbanStatusReady": {
+    "description": "Name of the Kanban status for tasks ready for a worker to pick up: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusReview": "Review",
+  "@kanbanStatusReview": {
+    "description": "Name of the Kanban status for tasks waiting for a review: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusRunning": "Running",
+  "@kanbanStatusRunning": {
+    "description": "Name of the Kanban status for tasks a worker is running now: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusScheduled": "Scheduled",
+  "@kanbanStatusScheduled": {
+    "description": "Name of the Kanban status for tasks set to start later: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusTodo": "Todo",
+  "@kanbanStatusTodo": {
+    "description": "Name of the Kanban status for tasks that are planned but not started: chip, column header, picker option and the status in a task’s header."
+  },
+  "kanbanStatusTriage": "Triage",
+  "@kanbanStatusTriage": {
+    "description": "Name of the Kanban status for new tasks that still need to be specified or assigned: chip, column header, picker option and the status in a task’s header."
+  },
   "kanbanTaskActions": "Actions",
   "@kanbanTaskActions": {
     "description": "Header of the group of status buttons in the task panel."
@@ -3349,7 +3570,7 @@
   },
   "kanbanTaskAssignee": "Assignee",
   "@kanbanTaskAssignee": {
-    "description": "Label of the row that shows who a task is assigned to."
+    "description": "Label of the row that shows who a task is assigned to. Also the title of the assignee menu on the new task form."
   },
   "kanbanTaskAttachFile": "Attach file",
   "@kanbanTaskAttachFile": {
@@ -3431,7 +3652,7 @@
   },
   "kanbanTaskModel": "Model",
   "@kanbanTaskModel": {
-    "description": "Header of the task panel group that shows the task’s model, and title of the prompt that sets it."
+    "description": "Header of the task panel group that shows the task’s model, and title of the prompt that sets it. Also the title of the model row and field on the new task form."
   },
   "kanbanTaskModelHint": "Empty to clear the model",
   "@kanbanTaskModelHint": {
@@ -3462,7 +3683,7 @@
   },
   "kanbanTaskPriorityLevel": "P{priority}",
   "@kanbanTaskPriorityLevel": {
-    "description": "Option in the task panel's Priority picker: priority level 1 to 3, P for priority; keep it short.",
+    "description": "Option in the task panel's Priority picker: priority level 1 to 3, P for priority; keep it short. Also the segment labels of the priority section on the new task form.",
     "placeholders": {
       "priority": {"type": "int", "example": "2"}
     }
@@ -3587,6 +3808,38 @@
   "kanbanTaskWorkerLog": "Worker log",
   "@kanbanTaskWorkerLog": {
     "description": "Row that opens the log of a task’s worker."
+  },
+  "kanbanTitle": "Kanban",
+  "@kanbanTitle": {
+    "description": "Title of the Kanban page; the product name stays."
+  },
+  "kanbanToolbarAllAssignees": "All assignees",
+  "@kanbanToolbarAllAssignees": {
+    "description": "Filter chip and its first menu item that show tasks of every assignee."
+  },
+  "kanbanToolbarAllTenants": "All tenants",
+  "@kanbanToolbarAllTenants": {
+    "description": "Filter chip and its first menu item that show tasks of every tenant."
+  },
+  "kanbanToolbarArchived": "Archived",
+  "@kanbanToolbarArchived": {
+    "description": "Filter chip that adds archived tasks to the board."
+  },
+  "kanbanToolbarRefreshFailed": "Could not refresh. Showing the last board.",
+  "@kanbanToolbarRefreshFailed": {
+    "description": "Banner above the board when reading it again failed and the older data stays on screen."
+  },
+  "kanbanToolbarSearch": "Search tasks",
+  "@kanbanToolbarSearch": {
+    "description": "Placeholder of the search field over the Kanban board."
+  },
+  "kanbanUnavailableDetail": "The plugin was turned off on this server.",
+  "@kanbanUnavailableDetail": {
+    "description": "Second line of the message that replaces the Kanban board when the server has the plugin switched off."
+  },
+  "kanbanUnavailableTitle": "Kanban isn’t available",
+  "@kanbanUnavailableTitle": {
+    "description": "Title of the message that replaces the Kanban board when the server has the plugin switched off."
   },
   "kanbanWorkersEmpty": "No workers are running",
   "@kanbanWorkersEmpty": {
@@ -3752,7 +4005,7 @@
   },
   "macosMenuNewTask": "New Task",
   "@macosMenuNewTask": {
-    "description": "File menu while the Kanban board is in front: starts a new task."
+    "description": "File menu while the Kanban board is in front: starts a new task. Also the label of the Kanban Mac toolbar’s New Task button."
   },
   "macosMenuNextChange": "Next Change",
   "@macosMenuNextChange": {
@@ -3971,6 +4224,38 @@
   },
 
   "@@x-area-models": "",
+  "modelsEffortHigh": "High",
+  "@modelsEffortHigh": {
+    "description": "Name of the reasoning effort level high, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortLow": "Low",
+  "@modelsEffortLow": {
+    "description": "Name of the reasoning effort level low, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortMax": "Max",
+  "@modelsEffortMax": {
+    "description": "Name of the reasoning effort level the maximum, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortMedium": "Medium",
+  "@modelsEffortMedium": {
+    "description": "Name of the reasoning effort level medium, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortMinimal": "Minimal",
+  "@modelsEffortMinimal": {
+    "description": "Name of the reasoning effort level minimal, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortNone": "Off",
+  "@modelsEffortNone": {
+    "description": "Name of the reasoning effort level thinking switched off, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortUltra": "Ultra",
+  "@modelsEffortUltra": {
+    "description": "Name of the reasoning effort level the highest the server offers, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
+  "modelsEffortXhigh": "Extra High",
+  "@modelsEffortXhigh": {
+    "description": "Name of the reasoning effort level one step above high, as the model picker, the composer’s model pill and the Kanban task rows show it."
+  },
   "modelsPickerDefaultUses": "Uses {model}",
   "@modelsPickerDefaultUses": {
     "description": "Subtitle of the model picker's default row: the model a chat without an explicit pick uses. {model} is the server's model id.",

@@ -81,7 +81,9 @@ class KanbanTaskActions extends StatelessWidget {
               title: l10n.kanbanTaskEstimate,
               chevron: false,
               leading: const AppIcon(AppIcons.speed),
-              subtitle: estimating ? null : estimate?.summary,
+              subtitle: estimating || estimate == null
+                  ? null
+                  : kanbanEstimateSummary(l10n, estimate),
               subtitleMaxLines: null,
               enabled: !estimating,
               onTap: onEstimate,

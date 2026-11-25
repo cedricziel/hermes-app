@@ -77,7 +77,7 @@ class KanbanTaskFields extends StatelessWidget {
               title: task.modelOverride ?? l10n.kanbanBulkEffortDefault,
               subtitle: task.reasoningEffort == null
                   ? null
-                  : effortLabel(task.reasoningEffort!),
+                  : effortLabel(l10n, task.reasoningEffort!),
               onTap: onEditModel,
             ),
           ],
@@ -113,7 +113,7 @@ class KanbanTaskFields extends StatelessWidget {
                   title: c.title,
                   titleMaxLines: null,
                   subtitle:
-                      '${c.id} · ${kanbanStatusLabel(c.status)}'
+                      '${c.id} · ${kanbanStatusLabel(l10n, c.status)}'
                       '${c.summary == null ? '' : '\n${c.summary}'}',
                   subtitleMaxLines: null,
                   chevron: false,
