@@ -54,7 +54,12 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    (`flutter test <file> --plain-name "<name>"`), record whether it failed,
    restore the fix. A test that still passes with the fix reverted is a
    finding. Also flag fixed delays, implementation-detail assertions and
-   duplicates.
+   duplicates. Also grep `test/`, `widgetbook/` and `integration_test/` for
+   each user-visible string, ARB key, public symbol or file name the diff
+   alters and run every test file that names one, not only the files the diff
+   touches (never `test/widgetbook_test.dart` whole, never the full suite). A
+   failure there is a finding. Name the files you ran on the
+   `Proof reproduced:` line.
 9. Catalog first. If the diff adds a public widget class (`class X extends
    StatelessWidget` or `StatefulWidget`) under `lib/src/**/widgets/` and no
    line the diff adds under `widgetbook/` names it, either list that as a

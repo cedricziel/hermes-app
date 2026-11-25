@@ -45,6 +45,10 @@ is in `CLAUDE.md` under "Fleet rules".
   row saying why there is none.
 - The right thing is the shortest path. Prefer a shared building block over a
   raw API; a guard that bans a raw API names its replacement.
+- Run every test that names what you change. Before pushing, search `test/`,
+  `widgetbook/` and `integration_test/` for each user-visible string, ARB key,
+  public symbol or file name the change alters, and run every test file that
+  names one, not only the files the change touches. Say which in `## Proof`.
 - Fast local feedback. Prefer checks that run in the pre-commit hook or in
   `flutter test test/architecture` (the ratchet from #1144; see the
   `architecture-guards` skill; under a second) over CI-only checks.
