@@ -2119,6 +2119,18 @@ void main() {
       );
     });
 
+    test('a local in a constructor body is followed', () {
+      expect(
+        hits(
+          'class A { A() {\n'
+          "  final pending = client.request('session.resume', {});\n"
+          '  pending.timeout(t);\n'
+          '} }',
+        ),
+        1,
+      );
+    });
+
     test('a variable of another member is not followed', () {
       expect(
         hits(

@@ -161,7 +161,10 @@ List<Hit> gatewayRequestTimeoutHitsIn(SourceFile file) {
     var flagged = _containsRequest(target, inGatewayDir: inGatewayDir);
     if (!flagged && target is SimpleIdentifier) {
       final member = call.thisOrAncestorMatching(
-        (n) => n is MethodDeclaration || n is FunctionDeclaration,
+        (n) =>
+            n is MethodDeclaration ||
+            n is FunctionDeclaration ||
+            n is ConstructorDeclaration,
       );
       if (member != null) {
         final declarations = _Declarations();
