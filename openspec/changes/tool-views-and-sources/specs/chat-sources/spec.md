@@ -50,7 +50,7 @@ The row SHALL appear under the reply's text, above its actions, once the reply i
 
 ### Requirement: Chips
 
-Each source SHALL be a chip with a monogram tile, the title on one line and the host on one line, as a button of 44 pt on iOS and 48 dp elsewhere on touch, and 32 pt on a Mac. Three chips SHALL show on a phone and four on a desktop, with a "+N more" chip that expands the row in place and "Show fewer" that folds it. The row's header SHALL read "Sources · N" ("Source" for one), and its screen-reader name SHALL be "Sources, N".
+Each source SHALL be a chip with a monogram tile, the title on one line and the host on one line, as a button of 44 pt on iOS, 48 dp on Android, Windows and Linux, and 32 pt on a Mac. Three chips SHALL show on a phone and four on a desktop, with a "+N more" chip that expands the row in place and "Show fewer" that folds it. The row's header SHALL read "Sources · N" ("Source" for one), and its screen-reader name SHALL be "Sources, N".
 
 #### Scenario: Seven sources on a phone
 

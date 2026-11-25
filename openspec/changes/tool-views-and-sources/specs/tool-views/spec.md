@@ -92,7 +92,7 @@ A page card SHALL open its address in the system browser, and offer Open in brow
 
 ### Requirement: Image gallery loading
 
-An image whose source is a server path SHALL load through the media store. An image whose source is an address SHALL load only after the user taps it, only over `https`, within 10 MB and 15 seconds, and SHALL otherwise show its alt text, size and host. Rendering a gallery SHALL make no request to any host other than the signed-in Hermes server.
+An image whose source is a server path SHALL load through the media store. An image whose source is an address SHALL load only after the user taps it, only over `https` (a redirect to a non-`https` address is not followed), within 10 MB and 15 seconds, and SHALL otherwise show its alt text, size and host. Rendering a gallery SHALL make no request to any host other than the signed-in Hermes server.
 
 #### Scenario: Not yet loaded
 
@@ -130,6 +130,11 @@ A result that is a list of flat rows, or a map whose one large value is such a l
 
 - **WHEN** a `search_files` result has 12 `matches` of `{path, line, content}`
 - **THEN** the card shows a table with the columns path, line and content and "12 matches · 3 columns"
+
+#### Scenario: A tool with a view that declined
+
+- **WHEN** a `browser_get_images` result is a list of flat rows but not the shape its own view reads
+- **THEN** the card shows its generic input and result, not a table
 
 #### Scenario: Nested value
 
