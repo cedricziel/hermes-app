@@ -150,6 +150,7 @@ extension _Connection on HermesGatewayTransport {
       },
     );
     _billingUnavailable.clear();
+    _branchSupported = null;
     return _open = client;
   }
 
@@ -162,7 +163,8 @@ extension _Connection on HermesGatewayTransport {
       client.respond(request.id, await handler(request, client));
     } on GatewayRpcException catch (error) {
       client.respondError(request.id, error.code, error.message);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a server request handler');
       client.respondError(request.id, -32603, 'Internal error');
     }
   }

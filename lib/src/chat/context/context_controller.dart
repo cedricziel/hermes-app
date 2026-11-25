@@ -7,6 +7,7 @@ import '../checkpoints/chat_action_bridge.dart';
 import '../checkpoints/checkpoint_models.dart'
     show CheckpointBusyReason, CheckpointFailureKind;
 import '../checkpoints/checkpoints_transport.dart';
+import '../report_chat_bug.dart';
 import '../session_usage/usage_snapshot.dart';
 import 'context_models.dart';
 import 'context_state.dart';
@@ -288,7 +289,8 @@ class ContextController extends ChangeNotifier {
     ContextBreakdown result;
     try {
       result = await source.contextBreakdown(binding);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the context breakdown');
       result = const BreakdownFailed(CheckpointFailureKind.transport);
     }
     final outcome = switch (result) {
@@ -386,7 +388,8 @@ class ContextController extends ChangeNotifier {
         profile: intent._scope.profile,
         focus: topic == null || topic.isEmpty ? null : topic,
       );
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a context compress');
       result = const CompressMayHaveHappened();
     }
     final outcome = _outcomeOf(result);
@@ -463,7 +466,8 @@ class ContextController extends ChangeNotifier {
   Future<void> _refetchChat() async {
     try {
       await bridge.refetchChat();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a chat refetch after compress');
       // The chat stays as it was; the outcome line already says what is known.
     }
   }
@@ -471,7 +475,8 @@ class ContextController extends ChangeNotifier {
   Future<void> _refreshUsage() async {
     try {
       await bridge.refreshUsage();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the usage refresh');
       // Usage keeps its last value.
     }
   }

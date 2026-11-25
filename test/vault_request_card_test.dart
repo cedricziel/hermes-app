@@ -133,6 +133,35 @@ void main() {
     expect(skipped, isTrue);
   });
 
+  testWidgets('a bug in the answer or the skip is reported, the error shows', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _saveLogin,
+      onAnswer: (_, _, _) async => throw StateError('answer'),
+      onSkip: () async => throw StateError('skip'),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Username or email'),
+      'ada@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Password'),
+      's3cret',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Save login'));
+    await tester.pump();
+    expect(tester.takeException(), isA<StateError>());
+    expect(find.text('Could not send your answer. Try again.'), findsOneWidget);
+
+    await tester.tap(find.text('Not now'));
+    await tester.pump();
+    expect(tester.takeException(), isA<StateError>());
+    expect(find.text('Could not send your answer. Try again.'), findsOneWidget);
+  });
+
   testWidgets('the unlock card asks for the master password only', (
     tester,
   ) async {

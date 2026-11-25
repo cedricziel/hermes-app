@@ -150,6 +150,20 @@ void main() {
     expect(sent.single, isEmpty);
   });
 
+  testWidgets('a bug in the answer is reported and still shows the error', (
+    tester,
+  ) async {
+    await _pump(tester, _single, onAnswer: (_) async => throw StateError('x'));
+    await tester.tap(find.text('red'));
+    await tester.pump();
+
+    await tester.tap(_send());
+    await tester.pump();
+
+    expect(tester.takeException(), isA<StateError>());
+    expect(find.text('Could not send your answer. Try again.'), findsOneWidget);
+  });
+
   testWidgets('a failed answer shows an error and can be retried', (
     tester,
   ) async {

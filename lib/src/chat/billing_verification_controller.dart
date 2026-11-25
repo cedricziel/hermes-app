@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'browser_verification_url.dart';
 import 'gateway/gateway_rpc_client.dart';
+import 'report_chat_bug.dart';
 
 typedef BillingStepUpRequest = Future<Map<String, Object?>> Function(
   Map<String, Object?> params,
@@ -244,7 +245,8 @@ class BillingVerificationController extends ChangeNotifier {
         }
       }
       _log(status.name);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the billing verification start');
       if (_disposed || generation != _generation) return;
       verification = null;
       if (error is GatewayRpcException &&
@@ -284,7 +286,8 @@ class BillingVerificationController extends ChangeNotifier {
       if (_disposed || _locked || !_currentDetails(details, generation)) return;
       if (!opened) message = 'Could not open the browser.';
       _log(opened ? 'browser_opened' : 'browser_failed');
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a billing browser open');
       if (_disposed || _locked || !_currentDetails(details, generation)) return;
       message = 'Could not open the browser.';
       _log('browser_failed');
@@ -307,7 +310,8 @@ class BillingVerificationController extends ChangeNotifier {
       await _copyCode(code);
       if (_disposed || _locked || !_currentDetails(details, generation)) return;
       _log('copied');
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a verification code copy');
       if (_disposed || _locked || !_currentDetails(details, generation)) return;
       message = 'Could not copy the code.';
       _log('copy_failed');

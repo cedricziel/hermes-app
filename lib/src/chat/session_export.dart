@@ -113,7 +113,7 @@ String? _detail(Object? data) {
     if (decoded is Map && decoded['detail'] is String) {
       return decoded['detail'] as String;
     }
-  } on Object {
+  } on FormatException {
     // Not JSON: no detail.
   }
   return null;

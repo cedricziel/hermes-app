@@ -13,6 +13,7 @@ import 'package:hermes_app/src/chat/subagents/process_models.dart';
 import 'package:hermes_app/src/windows/widgets/conversation_window_toolbar.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
@@ -156,6 +157,23 @@ void main() {
     final sessions = server.requestsTo('GET', '/api/sessions').single;
     expect(sessions.queryParameters['profile'], 'work');
     expect(link.calls, contains('present:Trip plan'));
+  });
+
+  testWidgets('a branch shows no "Branched from" row, and so cannot navigate', (
+    tester,
+  ) async {
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(id: 's1', title: 'Trip plan')..['_branched_from'] = 's0',
+      ]),
+    );
+
+    await pump(tester);
+
+    expect(find.text('Lisbon'), findsOneWidget);
+    expect(find.byType(ChatBranchNotice), findsNothing);
   });
 
   testWidgets('takes over the draft the main window handed it', (tester) async {

@@ -88,7 +88,21 @@ class AppDelegate: FlutterAppDelegate {
             ChatHandoff.shared.install(messenger: controller.engine.binaryMessenger)
             Spotlight.shared.install(messenger: controller.engine.binaryMessenger)
         }
-        super.applicationDidFinishLaunching(notification)
+        #if DEBUG
+        // CI quits the debug build here (build-macos in ci.yml) to prove that a normal quit
+        // does not crash. NSApp.terminate is what the Quit menu item and the "terminate"
+        // channel call above end in, so FlutterEngineTerminationHandler and every
+        // NSApplicationWillTerminate observer run as for a user. Debug builds only.
+        if ProcessInfo.processInfo.environment["HERMES_QUIT_AFTER_LAUNCH"] == "1" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                print("HERMES_QUIT terminating")
+                fflush(stdout)
+                NSApp.terminate(nil)
+            }
+        }
+        #endif
+        // No super call: FlutterAppDelegate does not implement
+        // applicationDidFinishLaunching, so it threw "unrecognized selector".
     }
 
     /// The share extension opens `hermes-share://share` once it has left the

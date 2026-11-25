@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/safe_notifier.dart';
+import '../settings/report_unreadable_prefs.dart';
 import 'chat_models.dart';
+import 'report_chat_bug.dart';
 
 enum ThreadSearchStatus { idle, loading, done, failed }
 
@@ -153,8 +155,9 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
       if (!_workAllowed || stored == null || _recentTouched) return;
       _recent = stored.take(_recentLimit).toList();
       notifyListeners();
-    } on Object {
-      // No stored searches is the same as none.
+    } on Object catch (error, stack) {
+      // No stored searches is the same as none; the broken store is reported.
+      reportUnreadablePrefs(error, stack, 'the saved recent searches');
     }
   }
 
@@ -168,7 +171,8 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
       if (!_workAllowed || generation != _generation) return;
       _hits = hits;
       _status = ThreadSearchStatus.done;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a thread search');
       if (!_workAllowed || generation != _generation) return;
       _hits = const [];
       _status = ThreadSearchStatus.failed;
