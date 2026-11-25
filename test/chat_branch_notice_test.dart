@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
@@ -17,6 +18,15 @@ Widget _notice(
   VoidCallback onTap, {
   String? title = 'Release notes',
 }) => ChatBranchNotice(state: state, parentTitle: title, onTap: onTap);
+
+RenderParagraph _noticeParagraph(WidgetTester tester) => tester
+    .renderObjectList<RenderParagraph>(
+      find.descendant(
+        of: find.byType(ChatBranchNotice),
+        matching: find.byType(RichText),
+      ),
+    )
+    .firstWhere((p) => p.text.toPlainText().length > 3);
 
 void main() {
   group('ChatBranchNotice', () {
@@ -140,6 +150,8 @@ void main() {
     for (final (platform, height) in [
       (TargetPlatform.iOS, 44.0),
       (TargetPlatform.android, 48.0),
+      (TargetPlatform.windows, 48.0),
+      (TargetPlatform.linux, 48.0),
       (TargetPlatform.macOS, 32.0),
     ]) {
       testWidgets('is at least $height high on $platform', (tester) async {
@@ -163,38 +175,36 @@ void main() {
           _notice(ChatBranchNoticeState.title, () {}, title: 'word ' * 80),
           platform: TargetPlatform.iOS,
         );
-        final text = tester.widget<Text>(
-          find
-              .descendant(
-                of: find.byType(ChatBranchNotice),
-                matching: find.byType(Text),
-              )
-              .first,
+        final paragraph = _noticeParagraph(tester);
+        expect(paragraph.didExceedMaxLines, isTrue);
+        expect(
+          paragraph.size.height,
+          closeTo(2 * paragraph.preferredLineHeight, 1),
         );
-        expect(text.maxLines, 2);
-        expect(text.overflow, TextOverflow.ellipsis);
       },
     );
-  });
 
-  testWidgets('unreachable wraps instead of cutting off "Try again"', (
-    tester,
-  ) async {
-    await pumpOnPlatform(
+    testWidgets('unreachable wraps at the largest text and keeps "Try again"', (
       tester,
-      _notice(ChatBranchNoticeState.unreachable, () {}),
-      platform: TargetPlatform.iOS,
-    );
-    final text = tester.widget<Text>(
-      find
-          .descendant(
-            of: find.byType(ChatBranchNotice),
-            matching: find.byType(Text),
-          )
-          .first,
-    );
-    expect(text.maxLines, isNull);
-    expect(text.overflow, isNot(TextOverflow.ellipsis));
+    ) async {
+      await pumpOnPlatform(
+        tester,
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(3)),
+          child: _notice(ChatBranchNoticeState.unreachable, () {}),
+        ),
+        platform: TargetPlatform.iOS,
+      );
+      final paragraph = _noticeParagraph(tester);
+      final text = paragraph.text.toPlainText();
+      expect(text, endsWith('Try again'));
+      expect(paragraph.size.height, greaterThan(paragraph.preferredLineHeight));
+      final boxes = paragraph.getBoxesForSelection(
+        TextSelection(baseOffset: text.length - 9, extentOffset: text.length),
+      );
+      expect(boxes, isNotEmpty);
+      expect(boxes.every((b) => b.right <= paragraph.size.width), isTrue);
+    });
   });
 
   group('the branch glyph', () {

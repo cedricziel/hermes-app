@@ -30,11 +30,11 @@ enum ChatBranchNoticeState {
 ///
 /// One button (not in [ChatBranchNoticeState.opening] and
 /// [ChatBranchNoticeState.deleted], where [onTap] is never called), at least
-/// 44 pt high on iOS, 48 on Android and 32 on desktop. The title wraps to two
-/// lines; the unreachable sentence keeps all its words, "Try again" last.
-/// Status is the glyph and the words, never colour alone, and the row has no
-/// fill, only the line under it. It takes the state, the original's title (for
-/// [ChatBranchNoticeState.title]) and a callback.
+/// 44 pt high on iOS, 48 on Android, Windows and Linux, and 32 on the Mac. The
+/// title wraps to two lines; the unreachable sentence keeps all its words,
+/// "Try again" last. Status is the glyph and the words, never colour alone,
+/// and the row has no fill, only the line under it. It takes the state, the
+/// original's title (for [ChatBranchNoticeState.title]) and a callback.
 class ChatBranchNotice extends StatelessWidget {
   const ChatBranchNotice({
     super.key,
@@ -135,7 +135,11 @@ class ChatBranchNotice extends StatelessWidget {
       ChatBranchNoticeState.deleted => null,
     };
     final content = ConstrainedBox(
-      constraints: BoxConstraints(minHeight: minTapTargetOf(context)),
+      constraints: BoxConstraints(
+        minHeight: Theme.of(context).platform == TargetPlatform.macOS
+            ? 32
+            : minTapTargetOf(context, desktop: kMaterialMinTapTarget),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: Row(
