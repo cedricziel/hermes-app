@@ -72,7 +72,7 @@ class InstalledSkillsList extends StatelessWidget {
                 GroupedSwitchRow(
                   key: ValueKey('skill-${skill.name}'),
                   title: skill.name,
-                  subtitle: skillSubtitle(skill),
+                  subtitle: skillSubtitle(context.l10n, skill),
                   subtitleMaxLines: 2,
                   value: skill.enabled,
                   onChanged: (v) => onToggle(skill, v),
@@ -106,9 +106,9 @@ const _brandedCategories = {
 };
 
 /// "Read Apple Notes · Bundled · used 14 times".
-String skillSubtitle(HermesSkill skill) => [
+String skillSubtitle(AppLocalizations l10n, HermesSkill skill) => [
   if (skill.description.isNotEmpty) skill.description,
-  skillSourceLabel(skill.source),
+  skillSourceLabel(l10n, skill.source),
   if (skill.usage == 1) 'used once',
   if (skill.usage > 1) 'used ${skill.usage} times',
 ].join(' · ');
