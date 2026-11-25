@@ -218,7 +218,7 @@ extension _Requests on HermesGatewayTransport {
         'id': requestId,
         'result': result,
         'profile': ?profile,
-      }, acceptLate: true);
+      });
       if (reply['status'] == 'ok') return true;
       if (answer is! ApprovalChoiceAnswer) return false;
     } on GatewayRpcException catch (error) {
@@ -249,7 +249,7 @@ extension _Requests on HermesGatewayTransport {
           'request_id': requestId,
           'answer': _clarifyValue(values, multiSelect: multiSelect),
           if (questionId.isNotEmpty) 'question_id': questionId,
-        }, acceptLate: true);
+        });
         return reply['status'] != 'expired';
       case ApprovalChoiceAnswer(:final choice):
         if (threadId == null) return false;
@@ -259,7 +259,7 @@ extension _Requests on HermesGatewayTransport {
           'profile': ?profile,
           'request_id': requestId,
           'choice': choice,
-        }, acceptLate: true);
+        });
         return ((reply['resolved'] as num?) ?? 0) > 0;
     }
   }

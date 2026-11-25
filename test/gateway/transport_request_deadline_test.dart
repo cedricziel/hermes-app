@@ -215,6 +215,33 @@ void main() {
     });
   });
 
+  test('an image gets the time to upload on top of the long timeout', () {
+    run((async, gateway, transport, tracer, jump, now, events) {
+      gateway.silent.add('image.attach_bytes');
+      transport
+          .send(
+            text: 'Look',
+            attachments: [
+              OutgoingAttachment(
+                name: 'big.png',
+                kind: AttachmentKind.image,
+                read: () async => Uint8List(3 * 1024 * 1024),
+              ),
+            ],
+          )
+          .listen((_) {}, onError: (Object _) {});
+      async.flushMicrotasks();
+
+      async.elapse(transport.longTimeout + const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(span(tracer, 'image.attach_bytes').ended, isFalse);
+
+      async.elapse(const Duration(minutes: 2));
+      async.flushMicrotasks();
+      expect(span(tracer, 'image.attach_bytes').ended, isTrue);
+    });
+  });
+
   test('billing verification, a device flow that waits for the user, is not '
       'abandoned at the default deadline', () {
     run((async, gateway, transport, tracer, jump, now, events) {

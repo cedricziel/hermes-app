@@ -3,32 +3,23 @@ part of 'hermes_gateway_transport.dart';
 /// The connection: calls, probes, opening it, and server request handlers.
 extension _Connection on HermesGatewayTransport {
   /// Sends [method] and gives up on a gateway that does not answer: the
-  /// connection is dropped, so the next send opens a new one. With
-  /// [acceptLate] an answer read after the deadline still counts (see
-  /// [GatewayRpcClient.requestWithin]).
+  /// connection is dropped, so the next send opens a new one.
   Future<Map<String, Object?>> _call(
     GatewayRpcClient client,
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
     Duration? timeout,
-    bool acceptLate = false,
   }) async {
     final limit = timeout ?? requestTimeout;
     try {
       return await (authorize == null
-          ? client.requestWithin(
-              method,
-              params,
-              timeout: limit,
-              acceptLate: acceptLate,
-            )
+          ? client.requestWithin(method, params, timeout: limit)
           : client.requestGuarded(
               method,
               params,
               authorize: authorize,
               timeout: limit,
-              acceptLate: acceptLate,
             ));
     } on GatewayRequestTimeout {
       _drop(client);

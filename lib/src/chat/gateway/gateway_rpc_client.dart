@@ -340,43 +340,26 @@ class GatewayRpcClient {
   /// abandoned: it fails with [GatewayRequestTimeout], its span ends and its
   /// entry is dropped, so a late answer is ignored. The socket stays open.
   ///
-  /// An answer that comes after the deadline is a timeout too, also when it
-  /// was read before the overdue timer ran (the app slept past the deadline).
-  /// [onLateResult] is told the result of such an answer, for a request that
-  /// changed something on the server which the caller must now undo. With
-  /// [acceptLate] such an answer settles the request instead, for a call whose
-  /// answer confirms something the caller cannot take back.
+  /// A request given [onLateResult] changed something on the server that the
+  /// caller must undo if the answer comes after it gave up: it is told the
+  /// result of such an answer, and an answer read after the deadline but
+  /// before the overdue timer ran (the app slept past it) is a timeout too.
+  /// Any other request settles on an answer that comes before the timer runs,
+  /// its span ended at the deadline.
   Future<Map<String, Object?>> requestWithin(
     String method,
     Map<String, Object?> params, {
     required Duration timeout,
     void Function(Map<String, Object?> result)? onLateResult,
-    bool acceptLate = false,
-  }) => _request(
-    method,
-    params,
-    timeout: timeout,
-    onLateResult: onLateResult,
-    acceptLate: acceptLate,
-  );
+  }) => _request(method, params, timeout: timeout, onLateResult: onLateResult);
 
   /// Rechecks ownership after instrumentation, before sending the request frame.
-  /// With [acceptLate], an answer read after the deadline but before the
-  /// overdue timer ran still settles the request, for a call whose answer
-  /// confirms something the caller cannot take back.
   Future<Map<String, Object?>> requestGuarded(
     String method,
     Map<String, Object?> params, {
     required bool Function() authorize,
     Duration? timeout,
-    bool acceptLate = false,
-  }) => _request(
-    method,
-    params,
-    authorize: authorize,
-    timeout: timeout,
-    acceptLate: acceptLate,
-  );
+  }) => _request(method, params, authorize: authorize, timeout: timeout);
 
   Future<Map<String, Object?>> _request(
     String method,
@@ -384,7 +367,6 @@ class GatewayRpcClient {
     bool Function()? authorize,
     Duration? timeout,
     void Function(Map<String, Object?> result)? onLateResult,
-    bool acceptLate = false,
   }) {
     if (_closed || authorize?.call() == false) {
       return Future.error(const GatewayConnectionClosed());
@@ -403,10 +385,6 @@ class GatewayRpcClient {
       clock.now(),
       limit,
       onLateResult,
-      // A request that sets no deadline of its own (an answer to the user's
-      // approval, a clarify) always settled on its answer; the default only
-      // bounds how long its span and its future stay open.
-      acceptLate || timeout == null,
     );
     _channel.sink.add(
       jsonEncode({
@@ -450,12 +428,9 @@ class GatewayRpcClient {
   /// socket lives, and closing a live one would cost the replies on it.
   Future<bool> isResponsive(Duration timeout) async {
     try {
-      await _request(
-        'client.capabilities',
-        {'server_requests': true},
-        timeout: timeout,
-        acceptLate: true,
-      );
+      await requestWithin('client.capabilities', {
+        'server_requests': true,
+      }, timeout: timeout);
       return true;
     } on GatewayRpcException {
       return true;
@@ -577,7 +552,8 @@ class GatewayRpcClient {
       return;
     }
     pending.timer?.cancel();
-    if (!pending.acceptLate && pending.isOverdue(clock.now(), resumeGrace)) {
+    if (pending.onLateResult != null &&
+        pending.isOverdue(clock.now(), resumeGrace)) {
       // Read before the overdue timer ran: the caller was promised a timeout.
       _finish(pending, failure: const GatewayRequestTimeout());
       pending.completer.completeError(const GatewayRequestTimeout());
@@ -705,7 +681,6 @@ class _Pending {
     this.startedAt,
     this.timeout,
     this.onLateResult,
-    this.acceptLate,
   );
 
   final Completer<Map<String, Object?>> completer;
@@ -717,9 +692,6 @@ class _Pending {
 
   /// Told the result of an answer that came after the deadline.
   final void Function(Map<String, Object?> result)? onLateResult;
-
-  /// Whether an answer after the deadline still counts as an answer.
-  final bool acceptLate;
 
   /// When the deadline falls, if there is one.
   DateTime? get dueAt {

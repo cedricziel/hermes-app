@@ -464,10 +464,6 @@ extension _Sending on HermesGatewayTransport {
                 : authorize == null
                 ? null
                 : () => voiceAuthorize() ?? true,
-            // The server's acceptance of the prompt is read even when the app
-            // slept past the timeout: dropping the socket over it would lose
-            // the reply, and the prompt is never resent.
-            acceptLate: true,
           );
         } on Object catch (error) {
           if (dispatchDenied) throw await notSubmitted(error);

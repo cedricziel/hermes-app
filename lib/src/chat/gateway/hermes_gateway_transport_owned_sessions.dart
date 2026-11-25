@@ -27,7 +27,6 @@ extension _OwnedSessions on HermesGatewayTransport {
         {'session_id': binding.runtimeId, 'profile': binding.profile},
         authorize: () => _ownsBinding(binding) && authorize(),
         timeout: HermesGatewayTransport.billingStepUpTimeout,
-        acceptLate: true,
       );
       if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
       return result;
@@ -96,7 +95,6 @@ extension _OwnedSessions on HermesGatewayTransport {
       },
       authorize: () => _ownsBinding(binding) && authorize(),
       timeout: requestTimeout,
-      acceptLate: true,
     );
     if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
     return response;

@@ -230,15 +230,21 @@ void main() {
     });
   });
 
-  test('an answer that arrives after the deadline, before the timer ran, is '
-      'a timeout and ends the span once, at the deadline', () {
+  test('an answer to a request that must undo a late result, read after the '
+      'deadline and before the timer ran, is a timeout; the span ends once, '
+      'at the deadline', () {
     run((async, open, jump, now) {
       final client = open();
       final sent = now();
       Object? error;
       Map<String, Object?>? result;
       client
-          .requestWithin('slash.exec', const {}, timeout: deadline)
+          .requestWithin(
+            'image.attach_bytes',
+            const {},
+            timeout: deadline,
+            onLateResult: (_) {},
+          )
           .then<void>((r) => result = r, onError: (Object e) => error = e);
       async.flushMicrotasks();
       final id = frames.single['id'];
@@ -388,6 +394,41 @@ void main() {
 
       expect(error, isNull);
       expect(result, {'resolved': 1});
+      final span = tracer.spans.single;
+      expect(span.endCalls, 1);
+      expect(span.status?.name, 'ok');
+      expect(span.endTime, sent.add(deadline));
+      unawaited(client.close());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('any other request settles on an answer read after the deadline, with '
+      'its span ended once, at the deadline', () {
+    run((async, open, jump, now) {
+      final client = open();
+      final sent = now();
+      Map<String, Object?>? result;
+      Object? error;
+      client
+          .requestWithin('prompt.submit', const {}, timeout: deadline)
+          .then<void>((r) => result = r, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+
+      jump(const Duration(minutes: 10));
+      wire.foreign.sink.add(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': frames.single['id'],
+          'result': {'status': 'streaming'},
+        }),
+      );
+      async.flushMicrotasks();
+      async.elapse(deadline);
+      async.flushMicrotasks();
+
+      expect(error, isNull);
+      expect(result, {'status': 'streaming'});
       final span = tracer.spans.single;
       expect(span.endCalls, 1);
       expect(span.status?.name, 'ok');
