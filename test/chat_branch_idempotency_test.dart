@@ -196,6 +196,41 @@ void main() {
       expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
     });
 
+    test('a lost answer lends its key to no other profile\'s chat', () async {
+      transport.branchError = const GatewayCallTimedOut();
+      await chat.branch(parent());
+      await flush();
+
+      await chat.loadThreads('work');
+      await flush();
+      chat.select('s1');
+      await flush();
+      expect(chat.profile, 'work');
+      await chat.branch(parent());
+      await flush();
+
+      expect(transport.branches.map((b) => b.$2), [null, 'work']);
+      expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
+    });
+
+    test('a lost key goes with a change of session', () async {
+      transport.branchError = const GatewayCallTimedOut();
+      await chat.branch(parent());
+      await flush();
+
+      activity.value = false;
+      await flush();
+      activity.value = true;
+      await flush();
+      chat.select('s1');
+      await flush();
+      await chat.branch(parent());
+      await flush();
+
+      expect(transport.branchKeys, hasLength(2));
+      expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
+    });
+
     test('an incomplete copy does not lend its key', () async {
       server.on('DELETE', '/api/sessions/branch-1', {'ok': true});
       transport.branchError = BranchIncomplete(
