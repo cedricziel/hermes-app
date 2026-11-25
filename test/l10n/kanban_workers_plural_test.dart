@@ -16,4 +16,27 @@ void main() {
     expect(en.kanbanWorkersRunning(1), '1 running');
     expect(en.kanbanWorkersRunning(3), '3 running');
   });
+
+  test('the logs end note and the offline headline agree with one', () {
+    expect(de.serverCareLogsLastLines(1), 'Das ist die letzte Zeile.');
+    expect(de.serverCareLogsLastLines(500), 'Das sind die letzten 500 Zeilen.');
+    expect(en.serverCareLogsLastLines(1), "That's the last line.");
+    expect(en.serverCareLogsLastLines(500), "That's the last 500 lines.");
+    expect(
+      de.serverCareHeadlineChannelsOfflineCount(1, 1),
+      '1 von 1 Messaging-Kanal ist offline',
+    );
+    expect(
+      de.serverCareHeadlineChannelsOfflineCount(1, 2),
+      '1 von 2 Messaging-Kanälen sind offline',
+    );
+    expect(
+      en.serverCareHeadlineChannelsOfflineCount(1, 1),
+      '1 of 1 messaging channel is offline',
+    );
+    expect(
+      en.serverCareHeadlineChannelsOfflineCount(1, 2),
+      '1 of 2 messaging channels are offline',
+    );
+  });
 }

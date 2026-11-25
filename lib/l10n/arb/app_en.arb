@@ -5925,7 +5925,7 @@
   "@serverCareHeadlineChannelsOffline": {
     "description": "Headline when some messaging channels are not connected and the count is unknown."
   },
-  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured} messaging channels are offline",
+  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured, plural, =1{1 messaging channel is} other{{configured} messaging channels are}} offline",
   "@serverCareHeadlineChannelsOfflineCount": {
     "description": "Headline when a known number of the configured messaging channels is not connected.",
     "placeholders": {
@@ -6157,7 +6157,7 @@
   "@serverCareLogsFileGateway": {
     "description": "Tab of the Logs page that shows the messaging gateway log."
   },
-  "serverCareLogsLastLines": "That's the last {count} lines.",
+  "serverCareLogsLastLines": "{count, plural, =1{That's the last line.} other{That's the last {count} lines.}}",
   "@serverCareLogsLastLines": {
     "description": "Note at the end of the Logs list when no older lines can be asked for.",
     "placeholders": {

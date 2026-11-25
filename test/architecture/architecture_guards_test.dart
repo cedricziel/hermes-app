@@ -1051,6 +1051,27 @@ List<EnglishDefault> _allEnglishDefaults() => _englishDefaults ??= [
       ...englishDefaultsIn(file),
 ];
 
+/// `?? '...'` or `?? "..."` whose literal holds a letter: a null fallback that
+/// can be visible English. `arch.english-default-label` reads parameter
+/// defaults; this reads the expression form, which sits inside build methods.
+final _englishNullFallback = RegExp(
+  r"""\?\?\s*(?:'[^'\n]*[A-Za-z][^'\n]*'|"[^"\n]*[A-Za-z][^"\n]*")""",
+);
+
+/// The files `style.string` reads: those importing the widget layer.
+final _widgetLayerImport = RegExp(
+  r"""^import\s+['"]package:(?:flutter/(?:material|widgets|cupertino)|"""
+  r"""material_ui/material_ui|cupertino_ui/cupertino_ui)\.dart['"]""",
+  multiLine: true,
+);
+
+bool _importsWidgetLayer(SourceFile f) =>
+    f.path.startsWith('lib/src/') && _widgetLayerImport.hasMatch(f.raw);
+
+/// Files whose `?? 'literal'` is not visible text, with the reason. Empty:
+/// the known hits are in `baseline/arch.yaml`.
+const _englishNullFallbackNotVisibleText = <String, String>{};
+
 List<Hit> _englishDefaultHits() => [
   for (final f in _allEnglishDefaults())
     if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
@@ -1396,6 +1417,20 @@ final guardRules = <Rule>[
         'visible text goes on _englishDefaultNotVisibleText (path#parameter) '
         'with its reason.',
     hits: _englishDefaultHits,
+  ),
+  _guard(
+    name: 'english-null-fallback',
+    message:
+        'a `?? \'English text\'` in a widget file shows English in a German UI '
+        'when the value is null and the style score cannot see it: resolve '
+        'the fallback with context.l10n.<key> (a key in '
+        'lib/l10n/arb/app_en.arb and app_de.arb). A fallback that is not '
+        'visible text (an id, a header, a file name) goes on '
+        '_englishNullFallbackNotVisibleText (path) with its reason, or is '
+        'written as a named constant.',
+    pattern: _englishNullFallback,
+    where: _importsWidgetLayer,
+    allow: _englishNullFallbackNotVisibleText,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take
