@@ -722,9 +722,37 @@ void main() {
         'sources_failed': 1,
         'outcome': 'error',
         'sources_errored': 'profiles',
+        'sources_error_types': 'profiles:badResponse',
       });
       expect(span.ended, isTrue);
       expect(span.status, StatusCode.error);
+    });
+
+    test('a build the system suspended ends at its budget, marked', () async {
+      snapshots.chatChanged(SurfaceTrigger.threads, hints());
+      await nextWrite();
+      final started = now;
+      server.onRequest('GET', '/api/profiles', (_) {
+        // The phone slept through the build: its timer fired minutes late.
+        now = now.add(const Duration(minutes: 14));
+        return (status: 200, body: {'profiles': []});
+      });
+
+      snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
+      await nextWrite();
+
+      final span = tracer.spans.last;
+      expect(span.attributes['trigger'], 'pause');
+      expect(span.attributes, containsPair('app.suspended', true));
+      expect(span.endTime, started.add(const Duration(milliseconds: 100)));
+    });
+
+    test('a build that ran its course is not marked suspended', () async {
+      snapshots.chatChanged(SurfaceTrigger.threads, hints());
+      await nextWrite();
+
+      expect(tracer.spans.single.attributes, isNot(contains('app.suspended')));
+      expect(tracer.spans.single.endTime, isNull);
     });
 
     test('successful builds do not record an error', () async {
