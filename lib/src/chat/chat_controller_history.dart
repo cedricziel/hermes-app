@@ -271,6 +271,7 @@ extension _ChatControllerHistory on ChatController {
         _warmingUnchanged = false;
         _newChatModel = null;
         _ChatControllerWorkspace(this)._workspaceProfileSwitched();
+        _branchParent.clear();
         search?.clear();
         _stopHandBacks.clear();
       }

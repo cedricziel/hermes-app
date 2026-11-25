@@ -157,6 +157,32 @@ class HermesChatRepository {
     }
   }
 
+  /// The id of the latest chat in [id]'s compression chain, which is [id]
+  /// itself when it never compressed, or null when the dashboard says the
+  /// session is gone (404 `Session not found`). Any other failure, a 404 of a
+  /// server without the route included, is thrown. A read, sent once.
+  Future<String?> latestDescendant(String id, {String? profile}) async {
+    try {
+      final response = await _api
+          .getSessionLatestDescendantApiSessionsSessionIdLatestDescendantGet(
+            sessionId: id,
+            profile: profile,
+          );
+      return switch (response.data) {
+        {'session_id': final String tip} when tip.isNotEmpty => tip,
+        _ => throw const FormatException('latest-descendant without an id'),
+      };
+    } on DioException catch (e) {
+      final body = e.response?.data;
+      if (e.response?.statusCode == 404 &&
+          body is Map &&
+          body['detail'] == 'Session not found') {
+        return null;
+      }
+      rethrow;
+    }
+  }
+
   /// The chats of [profile] whose id or messages match [query], best first.
   /// A blank query finds nothing and sends nothing.
   Future<List<ThreadSearchHit>> searchThreads(

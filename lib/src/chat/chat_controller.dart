@@ -131,6 +131,21 @@ const _couldNotStop = 'Could not stop the reply. Try again.';
 /// The title of a chat that has no prompt yet.
 const _newChatTitle = 'New chat';
 
+/// Where the row under a branched chat's header stands.
+enum BranchParentStatus {
+  /// A tap opens the original.
+  resting,
+
+  /// A tap is reading where the original is; further taps are ignored.
+  opening,
+
+  /// Hermes said the original is gone; nothing more is sent for it.
+  deleted,
+
+  /// The last read got no usable answer; a tap asks again.
+  unreachable,
+}
+
 /// How a pull to refresh of the chat list ended.
 enum ThreadListRefreshResult {
   /// The first page was read and merged in.
@@ -285,6 +300,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _suspendActivity() {
+    _branchParent.clear();
     _ChatControllerSubagents(this)._clearSubagents();
     _stopHandBacks.clear();
     search?.setActivity(false);
@@ -452,10 +468,39 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> recheckWorkspaceMove(ChatThread thread) =>
       _ChatControllerWorkspace(this)._recheckWorkspaceMoveImpl(thread);
 
+  final _branchParent = _BranchParentData();
+
+  /// Where the row under [thread]'s header stands, or null when [thread] is
+  /// not a branch.
+  BranchParentStatus? branchParentStatusOf(ChatThread thread) =>
+      _ChatControllerBranchParent(this)._branchParentStatusImpl(thread);
+
+  /// The title of the chat [thread] was branched from, when the loaded list
+  /// holds it and it has one.
+  String? branchParentTitleOf(ChatThread thread) =>
+      _ChatControllerBranchParent(this)._branchParentTitleImpl(thread);
+
+  /// Whether a tap on [thread]'s original does anything now: it is the chat in
+  /// front and no read is running or has found the original gone.
+  bool canOpenBranchParent(ChatThread thread) =>
+      active &&
+      selectedId == thread.id &&
+      switch (branchParentStatusOf(thread)) {
+        BranchParentStatus.resting || BranchParentStatus.unreachable => true,
+        _ => false,
+      };
+
+  /// Opens the chat [thread] was branched from: one read of where its
+  /// compression chain ends, then the open by id. Sent once per tap, never
+  /// resent, and the original is not changed.
+  Future<void> openBranchParent(ChatThread thread) =>
+      _ChatControllerBranchParent(this)._openBranchParentImpl(thread);
+
   /// Drops the picks, the catalogs and the notices: sign-out and Change
   /// Server, after which nothing of the folders is left for the next account.
   void clearWorkspaceState() {
     _ChatControllerWorkspace(this)._clearWorkspaceStateImpl();
+    _branchParent.clear();
     notifyListeners();
   }
 
@@ -490,6 +535,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _wasLocked = locked;
     if (!engaged || disposed) return;
     _ChatControllerWorkspace(this)._workspaceLocked();
+    _branchParent.dropReads();
     notifyListeners();
   }
 
