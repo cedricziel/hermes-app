@@ -45,7 +45,14 @@ class WriteFileResult {
 
   bool get refused => error.isNotEmpty;
 
-  static WriteFileResult? of(ToolCall call) {
+  static final _parsed = Expando<_Parsed>();
+
+  /// The result of [call], parsed once per call: the card asks on every
+  /// build, closed ones too.
+  static WriteFileResult? of(ToolCall call) =>
+      (_parsed[call] ??= _Parsed(_parse(call))).result;
+
+  static WriteFileResult? _parse(ToolCall call) {
     final args = call.args;
     final path = args?['path'];
     final content = args?['content'];
@@ -88,4 +95,10 @@ class WriteFileResult {
       hint: text('hint'),
     );
   }
+}
+
+class _Parsed {
+  const _Parsed(this.result);
+
+  final WriteFileResult? result;
 }

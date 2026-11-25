@@ -41,6 +41,14 @@ void main() {
       expect(result.rows.map((r) => r.number), [2001, 2002]);
     });
 
+    test('is parsed once per call', () {
+      final call = readCall(readAnswer(content: numbered(['a'])));
+      expect(
+        identical(ReadFileResult.of(call), ReadFileResult.of(call)),
+        isTrue,
+      );
+    });
+
     test('a row that fails the pattern makes the whole result null', () {
       expect(
         _parse(readCall(readAnswer(content: '1|a\nnot a row\n3|c'))),
@@ -77,7 +85,8 @@ void main() {
       final result = _parse(
         readCall(
           readAnswer(content: '', totalLines: 10),
-          args: const {'path': 'a.txt', 'offset': 50},
+          // Models send numbers as strings; the result still says so.
+          args: const {'path': 'a.txt', 'offset': '50'},
         ),
       )!;
       expect(result.kind, ReadFileKind.pastEnd);

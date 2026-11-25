@@ -4,6 +4,14 @@ import 'package:hermes_app/src/chat/write_file_result.dart';
 import 'support/code_tool_fixtures.dart';
 
 void main() {
+  test('is parsed once per call', () {
+    final call = writeCall({'bytes_written': 1});
+    expect(
+      identical(WriteFileResult.of(call), WriteFileResult.of(call)),
+      isTrue,
+    );
+  });
+
   test('a write shows the content as sent, numbered from 1', () {
     final result = WriteFileResult.of(
       writeCall({'bytes_written': 17, 'dirs_created': true}),

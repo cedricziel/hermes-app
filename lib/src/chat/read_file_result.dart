@@ -107,7 +107,14 @@ class ReadFileResult {
 
   static const _maskMarkers = ['«redacted', '[REDACTED PRIVATE KEY]'];
 
-  static ReadFileResult? of(ToolCall call) {
+  static final _parsed = Expando<_Parsed>();
+
+  /// The result of [call], parsed once per call: the card asks on every
+  /// build, closed ones too.
+  static ReadFileResult? of(ToolCall call) =>
+      (_parsed[call] ??= _Parsed(_parse(call))).result;
+
+  static ReadFileResult? _parse(ToolCall call) {
     final path = call.args?['path'];
     final data = toolResultMap(call);
     if (path is! String || path.isEmpty || data == null) return null;
@@ -142,14 +149,14 @@ class ReadFileResult {
     final rows = parseNumberedRows(content);
     if (rows == null) return null;
     final totalLines = _int(data['total_lines']);
-    final offset = _int(call.args?['offset']) ?? 1;
     return ReadFileResult._(
       path: path,
       rows: rows,
       kind: switch (rows.isEmpty) {
         false => ReadFileKind.code,
-        true when offset > 1 && totalLines != null && totalLines < offset =>
-          ReadFileKind.pastEnd,
+        // Hermes sends `total_lines` 0 for an empty file, so no text with
+        // lines in the file means the read started past the last one.
+        true when totalLines != null && totalLines > 0 => ReadFileKind.pastEnd,
         true => ReadFileKind.empty,
       },
       totalLines: totalLines,
@@ -169,6 +176,12 @@ class ReadFileResult {
 
   @override
   String toString() => 'ReadFileResult($kind, ${rows.length} rows)';
+}
+
+class _Parsed {
+  const _Parsed(this.result);
+
+  final ReadFileResult? result;
 }
 
 int? _int(Object? value) => value is int ? value : null;
