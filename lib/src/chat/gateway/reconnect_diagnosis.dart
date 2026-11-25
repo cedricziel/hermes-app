@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'gateway_connection.dart';
 import 'gateway_rpc_client.dart';
+import 'ticket_mint_gate.dart';
 
 /// What one reconnect attempt came to, as fixed names for telemetry.
 ///
@@ -59,7 +60,7 @@ ReconnectDiagnosis diagnoseReconnectError(Object? error) {
       return (result: code == 4009 ? 'busy' : 'rejected', errorType: 'rpc');
     case GatewayCallTimedOut() || TimeoutException():
       return (result: 'timeout', errorType: 'timeout');
-    case GatewayCredentialUnavailable():
+    case GatewayCredentialUnavailable() || GatewayCredentialBackedOff():
       return (result: 'credential', errorType: 'credential');
     case GatewayConnectionClosed():
       return (result: 'closed', errorType: 'closed');
