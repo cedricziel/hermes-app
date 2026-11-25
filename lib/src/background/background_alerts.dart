@@ -23,8 +23,10 @@ import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import 'background_refresh.dart';
 import 'running_replies.dart';
 
-/// The longest one request of these steps may take, so that a step with
-/// several in a row still ends within [kBackgroundStepBudget].
+/// The longest one gateway request of these steps may wait for its answer
+/// (the connect before it is bounded by the transport's own timeout), so that
+/// a step with several in a row ends within [kBackgroundStepBudget]; the
+/// step's own deadline ends one that connects slowly.
 const kAlertLookupBudget = Duration(seconds: 4);
 
 /// The longest the active profile may take to be named in a notification.
@@ -123,9 +125,9 @@ class RunningRepliesStep extends BackgroundStep {
     String? profile,
   ) async {
     try {
-      final listed = await context
-          .request('session.active_list', {'profile': ?profile})
-          .timeout(lookup);
+      final listed = await context.request('session.active_list', {
+        'profile': ?profile,
+      }, lookup);
       final rows = listed['sessions'];
       return (
         profile,

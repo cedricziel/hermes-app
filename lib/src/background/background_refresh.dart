@@ -128,17 +128,20 @@ class BackgroundContext {
     return left.isNegative ? Duration.zero : left;
   }
 
-  /// Sends a gateway request on the run's shared socket.
+  /// Sends a gateway request on the run's shared socket. With [timeout], a
+  /// request that gets no answer in time ends with a `GatewayRequestTimeout`
+  /// and its span closes; the run's socket stays open for the other reads.
   Future<Map<String, Object?>> request(
     String method, [
     Map<String, Object?> params = const {},
-  ]) => (_request ?? _viaTransport)(transport, method, params);
-
-  static Future<Map<String, Object?>> _viaTransport(
-    HermesGatewayTransport transport,
-    String method,
-    Map<String, Object?> params,
-  ) => transport.request(method, params);
+    Duration? timeout,
+  ]) {
+    final send = _request;
+    if (send != null) return send(transport, method, params, timeout: timeout);
+    return timeout == null
+        ? transport.request(method, params)
+        : transport.requestKeepingConnection(method, params, timeout: timeout);
+  }
 
   /// For telemetry events; the run's server attributes are on it.
   AppEventLogger get events => hermes.repositories.telemetry.events;
@@ -148,8 +151,9 @@ class BackgroundContext {
 typedef GatewayRequest = Future<Map<String, Object?>> Function(
   HermesGatewayTransport transport,
   String method,
-  Map<String, Object?> params,
-);
+  Map<String, Object?> params, {
+  Duration? timeout,
+});
 
 /// One independent piece of a run.
 abstract class BackgroundStep {
