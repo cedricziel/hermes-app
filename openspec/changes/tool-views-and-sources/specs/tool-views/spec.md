@@ -96,12 +96,12 @@ An image whose source is a server path SHALL load through the media store. An im
 
 ### Requirement: Remote images in memory
 
-A loaded remote image SHALL be held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app.
+A loaded remote image SHALL be held in memory only, never written to disk or staged for Quick Look or Save, and dropped, with its decoded frames, on sign-out, a server change and when App Lock covers the app. It SHALL open in the in-memory viewer.
 
 #### Scenario: Sign-out
 
 - **WHEN** the user signs out after loading a remote image
-- **THEN** the image is gone from memory and nothing was written to disk
+- **THEN** the image and its decoded frames are gone from memory and nothing was written to disk
 
 ### Requirement: Gallery layout
 

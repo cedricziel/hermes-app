@@ -36,7 +36,7 @@ Someone reading what their Hermes did: what it read, what it wrote, which pages 
 
 ## Shared kit (reuse, do not invent)
 
-`ToolBodyFrame` and `ToolBodyRegistry`, `ToolValueView` / `ToolValuePanel` (colour, hidden characters, Copy), `toolValueLanguage` and the Files palette, `BusyBar`, `NamedIconButton`, `StateMessage` for empty states, `AppBanner` for the warning notes where a note stands alone, `MediaStore` and `ImageViewerPage` (Quick Look on Apple), `launchUrl` with `LaunchMode.externalApplication`, `wellFormedText` and `tool_hidden_chars.dart`, `AppIcons`, tokens only (`--h-warning`, `--h-error`, `--h-success`, `--h-surface-high`, `--h-code-*`). Status is an icon plus a word, never colour alone. Targets are 44 pt, 48 dp, 28 pt on a Mac.
+`ToolBodyFrame` and `ToolBodyRegistry`, `ToolValueView` / `ToolValuePanel` (colour, hidden characters, Copy), `toolValueLanguage` and the Files palette, `BusyBar`, `NamedIconButton`, `StateMessage` for empty states, `AppBanner` for the warning notes where a note stands alone, `MediaStore` and `ImageViewerPage` (Quick Look on Apple, for server images only), `launchUrl` with `LaunchMode.externalApplication`, `wellFormedText` and `tool_hidden_chars.dart`, `AppIcons`, tokens only (`--h-warning`, `--h-error`, `--h-success`, `--h-surface-high`, `--h-code-*`). Status is an icon plus a word, never colour alone. Targets are 44 pt, 48 dp, 28 pt on a Mac.
 
 ## Widgets for the catalog (plain models, no controller)
 
@@ -52,7 +52,7 @@ New components needed (from the canvas, all token markup): code body with a gutt
 
 ## Differences by platform
 
-iOS: 44 pt chips and tiles, a press menu from a long press, Quick Look for an opened image. Android: 48 dp targets, Material icons, the same layout and wording. macOS: 32 pt chips on one line, 28 pt Copy and rows, a right-click menu, four tiles across, Quick Look and Save through the existing viewer. Windows and Linux: Material look at 48 dp, the Mac's right-click menu. Not offered on the watch, in notifications or in the quick panel's compact reply.
+iOS: 44 pt chips and tiles, a press menu from a long press, the in-memory viewer for an opened remote image (no Quick Look or Save: they need a staged file). Android: 48 dp targets, Material icons, the same layout and wording. macOS: 32 pt chips on one line, 28 pt Copy and rows, a right-click menu, four tiles across, the same in-memory viewer for a remote image (Quick Look and Save only for a server screenshot, as for chat images). Windows and Linux: Material look at 48 dp, the Mac's right-click menu. Not offered on the watch, in notifications or in the quick panel's compact reply.
 
 ## What was not checked
 
