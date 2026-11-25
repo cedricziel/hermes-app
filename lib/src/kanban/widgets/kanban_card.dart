@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
@@ -127,9 +128,9 @@ class _WorkingBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'In progress',
+    label: context.l10n.kanbanCardInProgress,
     value: task.progressTotal > 0
-        ? '${task.progressDone} of ${task.progressTotal} done'
+        ? context.l10n.kanbanCardProgress(task.progressDone, task.progressTotal)
         : null,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(2),

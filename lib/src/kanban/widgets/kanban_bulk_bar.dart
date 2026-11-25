@@ -69,7 +69,8 @@ class KanbanBulkBar extends StatelessWidget {
     final actions = <_BulkAction>[
       _BulkAction(l10n.kanbanBulkActionMove, AppIcons.move, () async {
         final status = await _pick(context, l10n.kanbanBulkMoveTitle, [
-          for (final s in kanbanSettableStatuses) (kanbanStatusLabel(s), s),
+          for (final s in kanbanSettableStatuses)
+            (kanbanStatusLabel(l10n, s), s),
         ]);
         if (status != null) onMove(status);
       }),
@@ -91,7 +92,7 @@ class KanbanBulkBar extends StatelessWidget {
         final effort = await _pick(context, l10n.kanbanBulkEffortTitle, [
           (l10n.kanbanBulkEffortDefault, ''),
           for (final e in kReasoningEfforts)
-            if (e != 'none') (effortLabel(e), e),
+            if (e != 'none') (effortLabel(l10n, e), e),
         ]);
         if (effort != null) onEffort(effort);
       }),

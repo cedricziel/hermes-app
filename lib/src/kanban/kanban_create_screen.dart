@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../models/model_provider_option.dart';
 import '../models/widgets/model_picker.dart';
 import '../theme/app_icons.dart';
@@ -120,9 +121,10 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
   Widget? _modelRow(BuildContext context) {
     final options = _modelOptions;
     if (options == null) return null;
+    final l10n = context.l10n;
     if (options.providers.isEmpty) {
       return GroupedTextFieldRow(
-        label: 'Model',
+        label: l10n.kanbanTaskModel,
         controller: _modelName,
         autocorrect: false,
       );
@@ -131,12 +133,12 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
     final effort = model?.effort;
     return GroupedValueRow(
       key: const Key('kanban-create-model'),
-      title: 'Model',
+      title: l10n.kanbanTaskModel,
       value: model == null
-          ? 'Profile default'
+          ? l10n.kanbanBulkEffortDefault
           : [
               model.modelId,
-              if (effort != null) effortLabel(effort),
+              if (effort != null) effortLabel(l10n, effort),
             ].join(' · '),
       onTap: () => showModelPicker(
         context,
@@ -150,15 +152,16 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final model = _modelRow(context);
     final estimate = _estimate;
     final canEstimate = !_estimating && _title.text.trim().isNotEmpty;
     return SettingsScaffold(
-      title: 'New task',
+      title: l10n.kanbanNewTaskAction,
       subtitle: widget.board,
       cancel: true,
       formAction: SettingsFormAction(
-        label: 'Create',
+        label: l10n.kanbanBoardsCreate,
         busy: _saving,
         onPressed: _create,
       ),
@@ -167,14 +170,14 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
           GroupedSection(
             children: [
               GroupedTextFieldRow(
-                label: 'Title',
+                label: l10n.kanbanEditTaskTitleLabel,
                 controller: _title,
                 autofocus: true,
                 textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => setState(() => _estimate = null),
               ),
               GroupedTextFieldRow(
-                label: 'Description',
+                label: l10n.kanbanEditTaskDescriptionLabel,
                 controller: _body,
                 minLines: 3,
                 maxLines: 8,
@@ -191,9 +194,11 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                 child: GroupedRow(
                   key: const Key('kanban-create-estimate'),
                   leading: const AppIcon(AppIcons.speed),
-                  title: 'Estimate the work',
+                  title: l10n.kanbanCreateEstimate,
                   // When there is no estimate it says why.
-                  subtitle: estimate?.summary,
+                  subtitle: estimate == null
+                      ? null
+                      : kanbanEstimateSummary(l10n, estimate),
                   subtitleMaxLines: null,
                   trailing: _estimating
                       ? const SizedBox.square(
@@ -211,15 +216,15 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
             ],
           ),
           GroupedSection(
-            header: 'Assignment',
+            header: l10n.kanbanCreateAssignment,
             footer: model is GroupedTextFieldRow
-                ? 'Leave the model empty for the profile default.'
+                ? l10n.kanbanCreateModelFooter
                 : null,
             children: [
               GroupedMenuRow<String>(
-                title: 'Assignee',
+                title: l10n.kanbanTaskAssignee,
                 options: ['', ..._assignees],
-                labelOf: (a) => a.isEmpty ? 'Auto (triage picks)' : a,
+                labelOf: (a) => a.isEmpty ? l10n.kanbanCreateAssigneeAuto : a,
                 selected: _assignee ?? '',
                 onSelected: (a) =>
                     setState(() => _assignee = a.isEmpty ? null : a),
@@ -228,21 +233,27 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
             ],
           ),
           GroupedSection(
-            header: 'Priority',
+            header: l10n.kanbanBulkPriorityTitle,
             children: [
               GroupedSegmentedRow<int>(
                 value: _priority,
-                segments: const {0: 'Normal', 1: 'P1', 2: 'P2', 3: 'P3'},
+                segments: {
+                  0: l10n.kanbanBulkPriorityNormal,
+                  for (final p in [1, 2, 3]) p: l10n.kanbanTaskPriorityLevel(p),
+                },
                 onChanged: (p) => setState(() => _priority = p),
               ),
             ],
           ),
           GroupedSection(
-            header: 'Start as',
+            header: l10n.kanbanCreateStartAs,
             children: [
               GroupedSegmentedRow<bool>(
                 value: _triage,
-                segments: const {true: 'Triage', false: 'Todo'},
+                segments: {
+                  true: kanbanStatusLabel(l10n, 'triage'),
+                  false: kanbanStatusLabel(l10n, 'todo'),
+                },
                 onChanged: (triage) => setState(() => _triage = triage),
               ),
             ],

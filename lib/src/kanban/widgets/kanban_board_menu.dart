@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_popup_menu_button.dart';
@@ -25,10 +26,10 @@ class KanbanBoardMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NamedPopupMenuButton<String>(
-      label: 'Switch board',
+      label: context.l10n.kanbanBoardSwitch,
       icon: AppIcons.boardMenu,
       onSelected: (slug) => slug.isEmpty ? onManage() : onSelected(slug),
-      itemBuilder: (_) => kanbanBoardMenuItems(boards, selected),
+      itemBuilder: (menu) => kanbanBoardMenuItems(menu.l10n, boards, selected),
     );
   }
 }
@@ -36,6 +37,7 @@ class KanbanBoardMenu extends StatelessWidget {
 /// The boards with [selected] checked, then Manage boards…, whose value is
 /// the empty slug.
 List<PopupMenuEntry<String>> kanbanBoardMenuItems(
+  AppLocalizations l10n,
   List<KanbanBoardInfo> boards,
   String? selected,
 ) => [
@@ -46,7 +48,7 @@ List<PopupMenuEntry<String>> kanbanBoardMenuItems(
       child: Text('${b.name} (${b.total})'),
     ),
   const PopupMenuDivider(),
-  const PopupMenuItem(value: '', child: Text('Manage boards…')),
+  PopupMenuItem(value: '', child: Text(l10n.kanbanBoardManage)),
 ];
 
 /// Whether the board's event stream is connected.
@@ -57,7 +59,9 @@ class KanbanLiveDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: live ? 'Live' : 'Reconnecting…',
+    message: live
+        ? context.l10n.kanbanBoardLive
+        : context.l10n.kanbanBoardReconnecting,
     child: AppIcon(
       AppIcons.radioOn,
       size: 10,

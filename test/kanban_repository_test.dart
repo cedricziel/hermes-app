@@ -1,7 +1,9 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -11,6 +13,7 @@ import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 
 void main() {
+  final en = lookupAppLocalizations(const Locale('en'));
   late FakeHermesServer server;
   late KanbanRepository repository;
 
@@ -650,10 +653,10 @@ void main() {
     );
 
     expect(task.ok, isTrue);
-    expect(task.summary, 'about 13k tokens · medium');
+    expect(kanbanEstimateSummary(en, task), 'about 13k tokens · medium');
     expect(task.rationale, 'Touches several files.');
     expect(draft.ok, isFalse);
-    expect(draft.summary, 'auxiliary client unavailable');
+    expect(kanbanEstimateSummary(en, draft), 'auxiliary client unavailable');
     expect(
       jsonBody(
         server.requestsTo('POST', '/api/plugins/kanban/estimate').single,
@@ -710,7 +713,10 @@ void main() {
 
   test('an estimate with nothing in it says so instead of showing nothing', () {
     expect(
-      KanbanEstimate.fromJson({'ok': true, 'rationale': 'x'}).summary,
+      kanbanEstimateSummary(
+        en,
+        KanbanEstimate.fromJson({'ok': true, 'rationale': 'x'}),
+      ),
       'No estimate available.',
     );
   });

@@ -79,8 +79,6 @@ arch.english-null-fallback:
   lib/src/chat/widgets/session_status_card.dart: 3
   lib/src/chat/widgets/thread_sidebar.dart: 1
   lib/src/chat/widgets/tool_value_view.dart: 1
-  lib/src/kanban/widgets/kanban_board_toolbar.dart: 2
-  lib/src/kanban/widgets/kanban_mac_toolbar.dart: 1
   lib/src/mcp/mcp_sign_in_screen.dart: 1
   lib/src/messaging/messaging_setup_screen.dart: 1
   lib/src/plugins/providers_tab.dart: 1

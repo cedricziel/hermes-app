@@ -189,7 +189,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           title: 'Move to',
           options: const ['triage', 'todo', 'ready', 'blocked', 'done'],
           selected: null,
-          labelOf: kanbanStatusLabel,
+          labelOf: (s) => kanbanStatusLabel(context.l10n, s),
           footer: context.l10n.kanbanBulkPickerFooter(3),
           actions: [
             TextButton(
@@ -212,7 +212,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
                 title: 'Move to',
                 options: const ['triage', 'todo', 'ready', 'blocked', 'done'],
                 selected: null,
-                labelOf: kanbanStatusLabel,
+                labelOf: (s) => kanbanStatusLabel(context.l10n, s),
                 footer: context.l10n.kanbanBulkPickerFooter(3),
                 actions: [
                   TextButton(
