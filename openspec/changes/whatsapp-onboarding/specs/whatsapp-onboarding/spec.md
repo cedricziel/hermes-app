@@ -146,12 +146,17 @@ Finish SHALL be offered only on `connected`. It SHALL ask "Save the WhatsApp set
 
 ### Requirement: Lost answers
 
-A start or apply whose answer is lost SHALL NOT read as done, and neither SHALL be resent automatically. After a lost start the user SHALL be able to Start again. After a lost apply the user SHALL be able to Check, which reads the platform list, and SHALL NOT be shown Finish again.
+A start or apply whose answer is lost (no answer in 10 s, a dropped connection, or for apply a 502, 503 or 504 with no server detail) SHALL NOT read as done, and neither SHALL be resent automatically. After a lost start the user SHALL be able to Start again. After a lost apply the user SHALL be able to Check, which reads the platform list, and SHALL NOT be shown Finish again.
 
 #### Scenario: Lost apply
 
 - **WHEN** the connection drops while apply is in flight
 - **THEN** the screen says "Could not confirm the setup was saved." with Check, and no second apply is sent
+
+#### Scenario: Gateway error on apply
+
+- **WHEN** apply is answered 502, 503 or 504 with no server `detail` (a reverse proxy in front of Hermes, which may have forwarded the apply and saved)
+- **THEN** it is a lost apply: Check is offered, Finish is not, and no second apply is sent; a 500 with a `detail` is still a refusal with its text
 
 ### Requirement: Leaving cancels
 

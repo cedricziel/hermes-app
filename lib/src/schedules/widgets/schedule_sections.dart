@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -189,7 +190,7 @@ class ScheduleFactRow extends StatelessWidget {
 }
 
 /// What [job] does: when it runs, its task, and its settings.
-List<Widget> scheduleFactSections(CronJob job) => [
+List<Widget> scheduleFactSections(AppLocalizations l10n, CronJob job) => [
   GroupedSection(
     header: 'Schedule',
     children: [
@@ -212,7 +213,10 @@ List<Widget> scheduleFactSections(CronJob job) => [
     children: [
       for (final (label, value) in jobSettings(job))
         ScheduleFactRow(label: label, value: value),
-      ScheduleFactRow(label: 'Deliver to', value: deliveryLabel(job.deliver)),
+      ScheduleFactRow(
+        label: 'Deliver to',
+        value: deliveryLabel(l10n, job.deliver),
+      ),
       if (job.profile != null)
         ScheduleFactRow(label: 'Profile', value: job.profile!),
     ],

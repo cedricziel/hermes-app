@@ -893,6 +893,24 @@ void main() {
       });
     });
 
+    for (final status in const [502, 503, 504]) {
+      test('a $status without a server detail on apply is a lost answer: '
+          'nothing is resent and Finish is not offered again', () {
+        fakeAsync((async) {
+          applyReply = (_) => (status: status, body: 'gateway');
+          linked(async);
+          finish(async);
+          expect(controller.applyStatus, WhatsAppApplyStatus.lostAnswer);
+          settle(async, const Duration(minutes: 5));
+          expect(applies(), 1);
+          expect(controller.canFinish, isFalse);
+          expect(controller.requestFinish(), isFalse);
+          expect(controller.canCheck, isTrue);
+          expect(tracer.spans.last.attributes['outcome'], 'lost_answer');
+        });
+      });
+    }
+
     test('leaving after a lost answer sends no cancel and no apply', () {
       fakeAsync((async) {
         applyReply = down;
@@ -979,6 +997,18 @@ void main() {
         expect(controller.requestFinish(), isTrue);
         controller.cancelFinish();
         expect(controller.applyStatus, WhatsAppApplyStatus.refused);
+      });
+    });
+
+    test('a 500 with a server detail is a refusal and Finish is offered '
+        'again', () {
+      fakeAsync((async) {
+        applyReply = (_) => (status: 500, body: waSaveFailed);
+        linked(async);
+        finish(async);
+        expect(controller.applyStatus, WhatsAppApplyStatus.refused);
+        expect(controller.applyFailure?.serverText, isNotNull);
+        expect(controller.canFinish, isTrue);
       });
     });
 
@@ -1515,6 +1545,29 @@ void main() {
         expect(controller.codeVisibility, WhatsAppCodeVisibility.hidden);
         controller.setWindowFocused(true);
         expect(controller.codeVisibility, WhatsAppCodeVisibility.shown);
+      });
+    });
+
+    test('a computer-class window of handset size shows the code again after '
+        'a focus loss or App Lock without a tap', () {
+      fakeAsync((async) {
+        startReply = (_) => _ok(waStartFresh);
+        statusReply = (_) => _ok(waStatusWaiting);
+        build(async, handset: true, followsWindowFocus: true);
+        begin(async);
+        settle(async, const Duration(seconds: 2));
+        controller.revealQr();
+        controller.setInForeground(false);
+        expect(controller.codeVisibility, WhatsAppCodeVisibility.hidden);
+        controller.setInForeground(true);
+        expect(controller.codeVisibility, WhatsAppCodeVisibility.shown);
+        controller.cover();
+        expect(controller.debugHeld.code, isFalse);
+        controller.uncover();
+        settle(async, const Duration(seconds: 2));
+        expect(controller.debugHeld.code, isTrue);
+        expect(controller.codeVisibility, WhatsAppCodeVisibility.shown);
+        expect(controller.qr, isNotNull);
       });
     });
 

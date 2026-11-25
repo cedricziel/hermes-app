@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import 'schedule_models.dart';
 
 /// The one line a row and the detail say about how the job is doing.
@@ -65,11 +66,12 @@ String? failureReason(CronJob job) {
   return line.isEmpty ? null : line;
 }
 
-String deliveryLabel(String? deliver) => switch (deliver) {
-  null || '' || 'local' => 'Local',
-  'origin' => 'Origin chat',
-  final other => other[0].toUpperCase() + other.substring(1),
-};
+String deliveryLabel(AppLocalizations l10n, String? deliver) =>
+    switch (deliver) {
+      null || '' || 'local' => l10n.schedulesDeliveryLocal,
+      'origin' => l10n.schedulesDeliveryOrigin,
+      final other => other[0].toUpperCase() + other.substring(1),
+    };
 
 String formatTime(BuildContext context, DateTime time) {
   final l10n = MaterialLocalizations.of(context);

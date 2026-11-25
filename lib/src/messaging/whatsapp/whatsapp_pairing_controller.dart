@@ -250,6 +250,10 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   /// again without a tap; the tap rule is for phone-class devices only.
   final bool followsWindowFocus;
 
+  /// Only a phone-class device asks for the tap again after a hide; a
+  /// computer OS shows the code on refocus whatever the window's size.
+  bool get _needsTap => handset && !followsWindowFocus;
+
   final Duration pollInterval;
   final Duration answerTimeout;
 
@@ -652,7 +656,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   void setInForeground(bool value) {
     if (_closed || value == _foreground) return;
     _foreground = value;
-    if (!value && handset) _revealed = false;
+    if (!value && _needsTap) _revealed = false;
     _syncPolling();
     _changed();
   }
@@ -677,7 +681,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
   void cover() {
     if (_closed || _covered) return;
     _covered = true;
-    if (handset) _revealed = false;
+    if (_needsTap) _revealed = false;
     _qr = null;
     _account = null;
     _serverText = null;

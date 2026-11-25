@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -128,7 +129,7 @@ class ScheduleDetailView extends StatelessWidget {
               ),
             ],
           ),
-        ...scheduleFactSections(job),
+        ...scheduleFactSections(context.l10n, job),
         ScheduleRunsSection(
           header: mac ? 'Recent runs' : 'Run history',
           job: job,
