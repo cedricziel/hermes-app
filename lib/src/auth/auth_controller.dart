@@ -128,6 +128,10 @@ class AuthController extends ChangeNotifier {
   String? _failedUrl;
 
   Dio? _dio;
+
+  /// The authenticated client's interceptors, in the order they run.
+  @visibleForTesting
+  List<Interceptor> get clientInterceptors => [...?_dio?.interceptors];
   Dio? _tokenDio;
 
   /// The page's session token of a dashboard without the auth gate.

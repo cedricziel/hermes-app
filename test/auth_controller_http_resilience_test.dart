@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/get_retry_interceptor.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -26,6 +28,7 @@ void main() {
   late AuthController controller;
   late List<Duration> slept;
   late int unreachable;
+  late Interceptor telemetryInterceptor;
   Future<void> Function()? onRetryWait;
 
   setUp(() {
@@ -33,6 +36,7 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
     slept = [];
     unreachable = 0;
+    telemetryInterceptor = InterceptorsWrapper();
     onRetryWait = null;
     server = FakeHermesServer()
       ..on('GET', '/api/status', {'auth_required': true})
@@ -51,7 +55,10 @@ void main() {
     controller = AuthController(
       tokenStore: MemoryTokenStore(_storedSession),
       devServerUrl: _baseUrl,
-      telemetry: events.connection,
+      telemetry: (attributes) => ConnectionTelemetry(
+        interceptor: telemetryInterceptor,
+        events: events.connection(attributes).events,
+      ),
       rejectionRecheck: Duration.zero,
       getRetryDelay: (delay) async {
         slept.add(delay);
@@ -125,6 +132,21 @@ void main() {
 
     expect(unreachable, 9);
     expect(slept, hasLength(1));
+  });
+
+  test('a failed try reaches the telemetry interceptor before the retry '
+      'resends it, so every try keeps its span', () async {
+    await controller.bootstrap();
+
+    final order = controller.clientInterceptors;
+
+    expect(
+      order.indexOf(telemetryInterceptor),
+      allOf(
+        isNonNegative,
+        lessThan(order.indexWhere((i) => i is GetRetryInterceptor)),
+      ),
+    );
   });
 
   test('a POST that cannot connect is not sent again', () async {
