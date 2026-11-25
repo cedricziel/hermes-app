@@ -7,6 +7,7 @@ import '../../widgets/app_banner.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/motion_spinner.dart';
 import '../whatsapp/whatsapp_pairing.dart';
+import 'focus_on_appear.dart';
 import 'handset_qr_notice.dart';
 import 'linked_account_card.dart';
 import 'pairing_buttons.dart';
@@ -364,7 +365,19 @@ class WhatsAppPairingView extends StatelessWidget {
     final metrics = GroupedMetrics.of(context);
     final muted = context.hermesColors.subtleText;
     final scheme = Theme.of(context).colorScheme;
-    final status = _finishStatus(context);
+    final bare = _finishStatus(context);
+    // After a lost answer or a refusal a screen reader starts at the banner;
+    // a lost answer and its Check read are one banner.
+    final status = bare == null
+        ? null
+        : FocusOnAppear(
+            key: ValueKey(
+              finish == WhatsAppFinishStatus.checking
+                  ? WhatsAppFinishStatus.lostAnswer
+                  : finish,
+            ),
+            child: bare,
+          );
     final canFinish =
         finish == WhatsAppFinishStatus.idle ||
         finish == WhatsAppFinishStatus.applying ||
