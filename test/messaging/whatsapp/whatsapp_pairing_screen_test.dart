@@ -432,6 +432,52 @@ void main() {
       },
     );
 
+    testWidgets('is sent to the banner after a refused start', (tester) async {
+      final handle = tester.ensureSemantics();
+      final heard = RecordedAccessibility(tester);
+      startReply = (_) => (status: 400, body: waBadMode);
+      await open(tester, size: computer);
+      await begin(tester);
+      await tester.pump();
+      expect(find.textContaining("'bot' or 'self-chat'"), findsOneWidget);
+      expect(heard.focusEvents, 1);
+      expect(heard.text, isNot(contains('self-chat')));
+      handle.dispose();
+    });
+
+    testWidgets(
+      'is sent to the banner after a lost apply, once, not again for Check',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final heard = RecordedAccessibility(tester);
+        applyReply = hang;
+        startReply = (_) => _ok(_live(waStartAlreadyLinked));
+        statusReply = (_) => _ok(_live(waStatusConnected));
+        await open(tester, size: computer);
+        await begin(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'Finish'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Save and restart'));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(heard.focusEvents, 0);
+
+        await tester.pump(const Duration(seconds: 10));
+        await tester.pump();
+        expect(
+          find.text('Could not confirm the setup was saved.'),
+          findsOneWidget,
+        );
+        expect(heard.focusEvents, 1);
+
+        platformsReply = hang;
+        await tester.tap(find.widgetWithText(FilledButton, 'Check'));
+        await tester.pump(const Duration(seconds: 1));
+        expect(heard.focusEvents, 1);
+        await tester.pump(const Duration(seconds: 10));
+        handle.dispose();
+      },
+    );
+
     testWidgets(
       'hears the time left at 60, 30 and 10 seconds from the injected clock',
       (tester) async {
