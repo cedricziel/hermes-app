@@ -184,6 +184,26 @@ void main() {
     },
   );
 
+  group('a send during the wait after the server answered with errors', () {
+    test('fails at once instead of opening three sockets inside the wait', () {
+      fake(answer: () => (status: 503, body: {'detail': 'restarting'}), (
+        async,
+      ) {
+        _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 1));
+        final before = mints();
+
+        final second = _listen(transport.send(text: 'again'));
+        // Before a retry would have waited out its first backoff (300 ms).
+        async.elapse(const Duration(milliseconds: 100));
+
+        expect(second.error, isA<GatewayCredentialBackedOff>());
+        expect(mints(), before);
+        expect(count('prompt.submit'), 1);
+      });
+    });
+  });
+
   group('a reply that lost its socket after the session ended', () {
     // The HTTP client cancels every protected request once the session has
     // ended: nothing reaches the server, and nothing is worth retrying.

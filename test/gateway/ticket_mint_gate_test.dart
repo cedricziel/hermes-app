@@ -66,11 +66,17 @@ void main() {
     }
   }
 
+  var epoch = 0;
+
   void fake(void Function(FakeAsync async) body, {double draw = 0.999999}) =>
       fakeAsync((async) {
         mints = 0;
+        epoch = 0;
         failure = null;
-        gate = TicketMintGate(random: _FixedRandom(draw));
+        gate = TicketMintGate(
+          random: _FixedRandom(draw),
+          sessionEpoch: () => epoch,
+        );
         body(async);
       });
 
@@ -234,6 +240,47 @@ void main() {
 
         expect(thrown, isA<GatewayCredentialBackedOff>());
         expect(mints, 1);
+      });
+    });
+  });
+
+  group('a wait never outlives its session', () {
+    test('a refusal that ended the session (its 401 bumped the epoch) leaves '
+        'no wait, so the next sign-in mints at once', () {
+      fake((async) {
+        failure = _answered(401);
+        // The HTTP client ends the session while the mint is answered.
+        final ending = gate.run(() async {
+          mints++;
+          epoch++;
+          throw failure!;
+        });
+        unawaited(ending.then<void>((_) {}, onError: (Object _) {}));
+        async.flushMicrotasks();
+
+        failure = null;
+        unawaited(mint());
+        async.flushMicrotasks();
+
+        expect(mints, 2);
+      });
+    });
+
+    test('a wait that began under an earlier session is over once the epoch '
+        'changed', () {
+      fake((async) {
+        failure = _answered(401);
+        unawaited(mint());
+        async.flushMicrotasks();
+        unawaited(mint());
+        async.flushMicrotasks();
+        expect(mints, 1, reason: 'waiting');
+
+        epoch++;
+        unawaited(mint());
+        async.flushMicrotasks();
+
+        expect(mints, 2);
       });
     });
   });

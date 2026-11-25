@@ -48,13 +48,17 @@ bool isCredentialStop(Object? error) =>
 /// A request that never reached the server (cancelled by the HTTP client, no
 /// network) is not counted: the reconnect loops pace those themselves.
 class TicketMintGate {
-  TicketMintGate({Random? random}) : _random = random ?? Random();
+  TicketMintGate({Random? random, int Function()? sessionEpoch})
+    : _random = random ?? Random(),
+      _sessionEpoch = sessionEpoch ?? _noEpoch;
+
+  static int _noEpoch() => 0;
 
   static final _gates = Expando<TicketMintGate>('TicketMintGate');
 
   /// The gate of [api]: all sockets of one client share the ticket route.
   static TicketMintGate of(HermesApiClient api) =>
-      _gates[api] ??= TicketMintGate();
+      _gates[api] ??= TicketMintGate(sessionEpoch: () => api.sessionEpoch);
 
   // The first wait, and the longest, after a 401 or 403 ...
   static const _refusedBase = Duration(seconds: 30);
@@ -65,6 +69,8 @@ class TicketMintGate {
   static const _errorCap = Duration(minutes: 1);
 
   final Random _random;
+  final int Function() _sessionEpoch;
+  var _epoch = 0;
   var _failures = 0;
   var _refused = false;
   DateTime? _until;
@@ -72,8 +78,16 @@ class TicketMintGate {
   bool get _cooling => _until?.isAfter(clock.now()) ?? false;
 
   /// Runs [mint] unless the wait after the last failure is still running, in
-  /// which case it throws [GatewayCredentialBackedOff].
+  /// which case it throws [GatewayCredentialBackedOff]. A wait never outlives
+  /// its session: when a 401 ends the session, or the user signs in again, the
+  /// next mint goes out.
   Future<T> run<T>(Future<T> Function() mint) async {
+    final epoch = _sessionEpoch();
+    if (epoch != _epoch) {
+      _epoch = epoch;
+      _failures = 0;
+      _until = null;
+    }
     if (_cooling) throw GatewayCredentialBackedOff(refused: _refused);
     try {
       final minted = await mint();
@@ -81,8 +95,12 @@ class TicketMintGate {
       _until = null;
       return minted;
     } on DioException catch (error) {
-      // Answers that land together count as one failure.
-      if (error.response != null && !_cooling) _backOff(error);
+      // Answers that land together count as one failure. A failure that
+      // ended the session (its 401 bumped the epoch) leaves nothing to wait
+      // for: the next request is cancelled locally until a new sign-in.
+      if (error.response != null && !_cooling && _sessionEpoch() == epoch) {
+        _backOff(error);
+      }
       rethrow;
     }
   }

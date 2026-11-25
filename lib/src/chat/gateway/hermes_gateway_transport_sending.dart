@@ -228,7 +228,10 @@ extension _Sending on HermesGatewayTransport {
             error is ProfileUnavailableException;
         if (answered ||
             _closed ||
+            // A send waits for no one: its three opens would burn inside the
+            // gate's wait, so it fails now and the user sends again.
             isCredentialStop(error) ||
+            error is GatewayCredentialBackedOff ||
             attempt + 1 >= _sendOpenAttempts) {
           rethrow;
         }

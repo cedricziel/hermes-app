@@ -829,7 +829,7 @@ class AuthController extends ChangeNotifier {
     final url = _baseUrl!;
     _dio = _buildAuthenticatedDio(url, gated: _status?.authRequired ?? true);
     _apiOwnerEpoch = _ownerEpoch;
-    _api = HermesApiClient(_dio!);
+    _api = HermesApiClient(_dio!, sessionEpoch: () => _sessionExpiryGeneration);
   }
 
   void _acceptIdentity(HermesIdentity identity) {
