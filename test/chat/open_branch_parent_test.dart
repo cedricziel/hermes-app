@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert' show jsonEncode;
 
 import 'package:fake_async/fake_async.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/bound_branch_notice.dart';
+import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -21,6 +23,7 @@ import '../support/fake_chat_transport.dart';
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/recorded_breadcrumbs.dart';
+import '../support/test_localizations.dart';
 
 /// What a tap on "Branched from …" does: one read of the parent's tip, then
 /// the open. The ids and titles are distinctive so a search of the recorded
@@ -151,6 +154,11 @@ void main() {
     attention.dispose();
     activity.dispose();
     lock.dispose();
+    // A test that locked the app left the binding paused, which stops frames;
+    // the lock no longer listens, so this unlocks nothing.
+    TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+      AppLifecycleState.resumed,
+    );
   });
 
   group('a tap on the original', () {
@@ -167,6 +175,35 @@ void main() {
       expect(outcome(), 'opened');
       // Nothing else was written: the parent and the branch stay as they are.
       expect(server.requests.where((r) => r.method != 'GET'), isEmpty);
+    });
+
+    test('the read carries the chat\'s own profile', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'work-branch', title: 'Work branch')
+            ..['_branched_from'] = _parent,
+          sessionRow(id: _parent, title: _parentTitle, lastActive: 1780000300),
+        ]),
+        query: {'profile': 'work'},
+      );
+      answerParent();
+      await chat.loadThreads('work');
+      await flush();
+      chat.select('work-branch');
+      await flush();
+
+      await chat.openBranchParent(thread('work-branch'));
+      await flush();
+
+      expect(
+        server
+            .requestsTo('GET', _descendant(_parent))
+            .single
+            .queryParameters['profile'],
+        'work',
+      );
     });
 
     test('a parent that is not loaded is read by id and opened', () async {
@@ -537,6 +574,19 @@ void main() {
       expect(chat.branchParentStatusOf(branch()), BranchParentStatus.resting);
     });
 
+    test('App Lock keeps what Hermes said', () async {
+      await learnDeleted();
+
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      await flush();
+      await lock.unlock();
+      await flush();
+
+      expect(chat.branchParentStatusOf(branch()), BranchParentStatus.deleted);
+    });
+
     test('a server change forgets it', () async {
       await learnDeleted();
 
@@ -614,5 +664,37 @@ void main() {
       expect(jsonEncode(built.snapshot.toJson()), contains('From far away'));
       expect(jsonEncode(built.snapshot.toJson()), isNot(contains(_farParent)));
     });
+  });
+
+  testWidgets('the row works again once App Lock lifts', (tester) async {
+    answerParent();
+    await tester.pumpWidget(
+      MaterialApp(
+        localizationsDelegates: kTestLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: BoundBranchNotice(chat: chat, thread: branch()),
+          ),
+        ),
+      ),
+    );
+    TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+      AppLifecycleState.paused,
+    );
+    await tester.runAsync(() => lock.unlock());
+    await tester.pump();
+
+    await tester.tap(find.byType(ChatBranchNotice));
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(chat.selectedId, _parent);
+    expect(server.requestsTo('GET', _descendant(_parent)), hasLength(1));
   });
 }

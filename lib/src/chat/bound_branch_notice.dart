@@ -65,7 +65,9 @@ class _BoundBranchNoticeState extends State<BoundBranchNotice> {
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
-    listenable: widget.chat,
+    // The lock too: the row is not tappable under the cover, and nothing else
+    // tells it when the cover lifts.
+    listenable: Listenable.merge([widget.chat, widget.chat.appLock]),
     builder: (context, _) {
       final chat = widget.chat;
       final thread = widget.thread;

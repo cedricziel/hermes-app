@@ -165,7 +165,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       // Disabled without a parent, while it is being read and once Hermes said
       // it is gone.
       MacCommand.openParentChat: MacCommandHandler(
-        thread != null && _chat.canOpenBranchParent(thread)
+        thread != null && _chat.canOpenBranchParent(thread, ignoringLock: true)
             ? () => unawaited(_chat.openBranchParent(thread))
             : null,
       ),
