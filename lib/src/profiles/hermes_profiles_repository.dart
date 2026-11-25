@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:hermes_api/hermes_api.dart';
 
 import 'profile_resolver.dart';
@@ -76,8 +77,10 @@ class HermesProfilesRepository {
   }
 
   /// The profiles on the server, without which one is active.
-  Future<List<HermesProfile>> list() async {
-    final response = await _api.listProfilesEndpointApiProfilesGet();
+  Future<List<HermesProfile>> list({CancelToken? cancelToken}) async {
+    final response = await _api.listProfilesEndpointApiProfilesGet(
+      cancelToken: cancelToken,
+    );
     final rows = switch (response.data) {
       {'profiles': final List<dynamic> rows} => rows,
       _ => const <dynamic>[],
