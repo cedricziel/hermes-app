@@ -25,7 +25,11 @@ void main() {
   void run(
     void Function(
       FakeAsync async,
-      GatewayRpcClient Function({Duration? defaultTimeout}) open,
+      GatewayRpcClient Function({
+        Duration? defaultTimeout,
+        StreamChannel<String>? channel,
+      })
+      open,
       void Function(Duration by) jump,
       DateTime Function() now,
     )
@@ -42,8 +46,11 @@ void main() {
         wire.foreign.stream.listen(
           (frame) => frames.add(jsonDecode(frame) as Map<String, Object?>),
         );
-        GatewayRpcClient open({Duration? defaultTimeout}) => GatewayRpcClient(
-          wire.local,
+        GatewayRpcClient open({
+          Duration? defaultTimeout,
+          StreamChannel<String>? channel,
+        }) => GatewayRpcClient(
+          channel ?? wire.local,
           telemetry: ConnectionTelemetry(tracer: tracer).gateway(),
           defaultTimeout: defaultTimeout,
         );
@@ -460,4 +467,72 @@ void main() {
       expect(span.attributes['error.type'], 'GatewayRequestTimeout');
     });
   });
+
+  test(
+    'the deadline runs from when the frame is out, not from encoding it',
+    () {
+      run((async, open, jump, now) {
+        // Writing a large frame takes two seconds of the clock.
+        final slow = StreamChannel<String>.withGuarantees(
+          wire.local.stream,
+          _SlowSink(wire.local.sink, () => jump(const Duration(seconds: 2))),
+        );
+        final client = open(channel: slow);
+        final late = <Map<String, Object?>>[];
+        Object? error;
+        client
+            .requestWithin(
+              'image.attach_bytes',
+              const {},
+              timeout: deadline,
+              onLateResult: late.add,
+            )
+            .then<void>((_) {}, onError: (Object e) => error = e);
+        async.flushMicrotasks();
+
+        // The answer comes 29 s after the frame went out, within its deadline,
+        // but 31 s after the request began.
+        jump(const Duration(seconds: 29, milliseconds: 500));
+        wire.foreign.sink.add(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': frames.single['id'],
+            'result': {'path': '/p.png'},
+          }),
+        );
+        async.flushMicrotasks();
+
+        expect(error, isNull);
+        expect(late, isEmpty);
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    },
+  );
+}
+
+class _SlowSink implements StreamSink<String> {
+  _SlowSink(this._inner, this._onAdd);
+
+  final StreamSink<String> _inner;
+  final void Function() _onAdd;
+
+  @override
+  void add(String event) {
+    _onAdd();
+    _inner.add(event);
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) =>
+      _inner.addError(error, stackTrace);
+
+  @override
+  Future<void> addStream(Stream<String> stream) => _inner.addStream(stream);
+
+  @override
+  Future<void> close() => _inner.close();
+
+  @override
+  Future<void> get done => _inner.done;
 }

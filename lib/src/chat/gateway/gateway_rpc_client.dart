@@ -395,6 +395,7 @@ class GatewayRpcClient {
       }),
     );
     // Armed once the frame is out, so the wait never counts the send.
+    pending.startedAt = clock.now();
     if (limit != null) {
       pending.timer = Timer(limit, () {
         if (_pending.remove(id) == null) return;
@@ -685,7 +686,9 @@ class _Pending {
 
   final Completer<Map<String, Object?>> completer;
   final Span? span;
-  final DateTime startedAt;
+
+  /// When the frame went out: a deadline never counts writing it.
+  DateTime startedAt;
 
   /// How long the request may wait, if it was given a limit.
   final Duration? timeout;
