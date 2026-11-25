@@ -59,21 +59,30 @@ A `read_file` result that is binary or an image SHALL show the path and a note w
 
 ### Requirement: Link preview
 
-For `browser_navigate` and `web_extract` the card SHALL show a card per page with a monogram tile, a title of at most two lines, the host and path and, for an extracted page, an excerpt. The card SHALL open the address in the system browser for `http` and `https` only, and SHALL NOT request a favicon, thumbnail or any other resource from the page's host.
+For `browser_navigate` and `web_extract` the card SHALL show a card per page with a monogram tile, a title of at most two lines, the host and path and, for an extracted page, an excerpt. It SHALL NOT request a favicon, thumbnail or any other resource from the page's host.
 
 #### Scenario: A page that cannot be read
 
 - **WHEN** a `web_extract` result has `error` for one of its pages
 - **THEN** that page's card has no tap and a note with an icon and "Couldn't read this page."
 
+### Requirement: Opening a page
+
+A page card SHALL open its address in the system browser, and offer Open in browser and Copy link in its press menu, for `http` and `https` addresses only. An address with embedded credentials SHALL show its host only, not open, and have Copy link copy it without the credentials.
+
+#### Scenario: Credentials in the address
+
+- **WHEN** an address is `https://user:secret@example.com/`
+- **THEN** the card shows the host only, does not open, has no Open in browser in its press menu, and Copy link copies `https://example.com/`
+
 #### Scenario: Another scheme
 
 - **WHEN** an address is `ftp://files.example.com/a.txt`
-- **THEN** the card is not tappable and says only web addresses open from here
+- **THEN** the card is not tappable, has no press menu and says only web addresses open from here
 
 ### Requirement: Image gallery loading
 
-An image whose source is a server path SHALL load through the media store. An image whose source is an address SHALL load only after the user taps it, only over `https`, within 10 MB and 15 seconds, and SHALL otherwise show its alt text, size and host. A loaded remote image SHALL be held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app. Rendering a gallery SHALL make no request to any host.
+An image whose source is a server path SHALL load through the media store. An image whose source is an address SHALL load only after the user taps it, only over `https`, within 10 MB and 15 seconds, and SHALL otherwise show its alt text, size and host. Rendering a gallery SHALL make no request to any host other than the signed-in Hermes server.
 
 #### Scenario: Not yet loaded
 
@@ -84,6 +93,15 @@ An image whose source is a server path SHALL load through the media store. An im
 
 - **WHEN** the address is `http`
 - **THEN** the tile says it is not secure, offers Open in browser and never loads it
+
+### Requirement: Remote images in memory
+
+A loaded remote image SHALL be held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app.
+
+#### Scenario: Sign-out
+
+- **WHEN** the user signs out after loading a remote image
+- **THEN** the image is gone from memory and nothing was written to disk
 
 ### Requirement: Gallery layout
 
