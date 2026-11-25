@@ -79,6 +79,7 @@ void main() {
     transport.script['/memory pending'] = gate;
     final first = count.refresh(resolvedProfile('work'));
     final second = count.refresh(resolvedProfile('work'));
+    now = now.add(const Duration(minutes: 6));
     final third = count.refreshIfStale(resolvedProfile('work'));
     gate.complete(_two);
     await Future.wait([first, second, third]);
