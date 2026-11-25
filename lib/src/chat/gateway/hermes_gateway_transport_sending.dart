@@ -226,7 +226,12 @@ extension _Sending on HermesGatewayTransport {
         final answered =
             error is GatewayRpcException ||
             error is ProfileUnavailableException;
-        if (answered || _closed || attempt + 1 >= _sendOpenAttempts) rethrow;
+        if (answered ||
+            _closed ||
+            isCredentialStop(error) ||
+            attempt + 1 >= _sendOpenAttempts) {
+          rethrow;
+        }
       }
     }
     var runtimeId = '';

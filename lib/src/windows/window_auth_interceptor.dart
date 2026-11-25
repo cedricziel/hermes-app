@@ -19,6 +19,13 @@ class WindowAuthInterceptor extends Interceptor {
   final Dio _dio;
   final WindowAuthHeaders _headers;
 
+  /// The credential of the last request the main window supplied, or null
+  /// before the first. It changes when the main window refreshes or signs in
+  /// again, so a wait that began under the old one is over (see
+  /// `TicketMintGate`).
+  Object? get credential => _credential;
+  Object? _credential;
+
   /// How long to wait for the main window; past it the request goes out
   /// without credentials and fails on its own.
   final Duration timeout;
@@ -68,5 +75,6 @@ class WindowAuthInterceptor extends Interceptor {
   void _apply(RequestOptions options, Map<String, String> headers) {
     options.headers.addAll(headers);
     options.extra[_sentKey] = headers;
+    _credential = headers['Authorization'];
   }
 }
