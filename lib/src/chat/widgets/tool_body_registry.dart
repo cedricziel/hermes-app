@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../telemetry/report_bug.dart';
 import '../chat_models.dart';
 
 /// Builds the view an opened tool card shows for [call], or null when the
@@ -42,7 +43,8 @@ class ToolBodyRegistry {
         if (!entry._serves(call)) continue;
         final body = entry.build(call);
         if (body != null) return body;
-      } on Object {
+      } on Object catch (e, stack) {
+        reportBug(e, stack, 'a tool body');
         continue;
       }
     }
