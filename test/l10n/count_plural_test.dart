@@ -156,7 +156,10 @@ const _noPlural = <String, _Reason>{
   'kanbanInspectProcess': _Reason('a process id'),
   'kanbanInspectThreads': _Reason('a label, a colon and a number'),
   'kanbanInspectTitle': _Reason('a run id'),
+  'kanbanTaskComments': _Reason('a label with the count in parentheses'),
   'kanbanTaskPriorityLevel': _Reason('a priority level, "P2"'),
+  'kanbanTaskRuns': _Reason('a label with the count in parentheses'),
+  'kanbanWorkersRunNumber': _Reason('a run id'),
   'kanbanWorkersRunning': _Reason(
     'English "running" does not change with the number; German does and has '
     'a plural',
