@@ -4,7 +4,8 @@ import '../../theme/app_icons.dart';
 import '../../widgets/named_icon_button.dart';
 import '../../widgets/zoom_keyboard_shortcuts.dart';
 
-/// The fallback viewer outside iOS. iOS chat photos use native Quick Look.
+/// The fallback viewer outside iOS. iOS chat photos use the native viewer
+/// (`ios/Runner/PhotoPreview.swift`).
 /// An image full screen, which can be zoomed and moved (also from the
 /// keyboard, see `ZoomKeyboardShortcuts`), closed and, when [onSave] is
 /// given, saved. [onSave] answers whether the user saved it.
