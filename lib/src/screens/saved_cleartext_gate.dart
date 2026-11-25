@@ -8,8 +8,8 @@ import 'widgets/cleartext_server_alert.dart';
 /// Asks once about a saved public `http://` server nobody accepted
 /// ([AuthController.unconfirmedCleartextServer]) and passes the answer on.
 ///
-/// It asks only on the home screen or the sign-in screen, never while a
-/// sign-in or a connect is running, so the question cannot leave either
+/// It asks only while the connection is ready or waits for the sign-in,
+/// never while a sign-in or a connect is running, so the question cannot leave either
 /// waiting. A question closed without a choice (a tap outside, the back
 /// button, the connection ending) is no answer and comes back with the next
 /// connection.
@@ -60,9 +60,9 @@ class _SavedCleartextGateState extends State<SavedCleartextGate> {
       final keep = await confirmSavedCleartextServer(context, host: host);
       if (!mounted || auth.unconfirmedCleartextServer != address) return;
       // A dialog closed without a choice is no answer; it stays closed until
-      // the connection is lost. One the connection ending closed is dropped.
+      // the connection is lost (the next build in a down state forgets it).
       if (keep == null) {
-        if (_isUp(auth)) _declined = address;
+        _declined = address;
         return;
       }
       if (!_isUp(auth)) return;

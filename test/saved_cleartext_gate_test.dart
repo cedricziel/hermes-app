@@ -225,4 +225,38 @@ void main() {
       );
     });
   }
+
+  testWidgets('a dismissed question comes back once the connection was lost '
+      'and restored', (tester) async {
+    final auth = await pumpGate(tester, _publicHttp);
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Keep using http://?'), findsNothing);
+
+    server.on('GET', '/api/status', {'detail': 'down'}, status: 503);
+    await tester.runAsync(() => auth.connect(_publicHttp, restoring: true));
+    await tester.pumpAndSettle();
+    server.on('GET', '/api/status', {'auth_required': false});
+    await tester.runAsync(() => auth.connect(_publicHttp, restoring: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keep using http://?'), findsOneWidget);
+  });
+
+  testWidgets('a dialog closed by the connection ending is not a dismissal', (
+    tester,
+  ) async {
+    final auth = await pumpGate(tester, _publicHttp);
+    server.on('GET', '/api/status', {'detail': 'down'}, status: 503);
+    await tester.runAsync(() => auth.connect(_publicHttp, restoring: true));
+    expect(auth.state, HermesConnectionState.connectionError);
+
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pumpAndSettle();
+    server.on('GET', '/api/status', {'auth_required': false});
+    await tester.runAsync(() => auth.connect(_publicHttp, restoring: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keep using http://?'), findsOneWidget);
+  });
 }
