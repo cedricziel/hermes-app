@@ -70,12 +70,14 @@ class NotificationSettings extends ChangeNotifier {
     final agentMessageEditsBefore = _agentMessageEdits;
     bool? enabled, asked, denied, schedules, liveActivities, agentMessages;
     List<String>? muted;
+    var mutedRead = false;
     try {
       enabled = await _prefs.getBool(_prefsEnabledKey);
       asked = await _prefs.getBool(_prefsAskedKey);
       denied = await _prefs.getBool(_prefsDeniedKey);
       schedules = await _prefs.getBool(_prefsSchedulesKey);
       muted = await _prefs.getStringList(_prefsMutedKey);
+      mutedRead = true;
       liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
       agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
       _mutedUnreadable = false;
@@ -84,7 +86,7 @@ class NotificationSettings extends ChangeNotifier {
       // ones read before it: a user who chose off, or muted a chat, would
       // otherwise get message text.
       enabled = schedules = liveActivities = agentMessages = false;
-      _mutedUnreadable = muted == null;
+      _mutedUnreadable = !mutedRead;
       reportUnreadablePrefs(error, stack, 'the saved notification settings');
     }
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;

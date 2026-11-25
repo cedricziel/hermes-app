@@ -94,18 +94,30 @@ List<String> exactShortfalls(
           '${(actual[e.key] ?? 0) == 0 ? ' (remove the entry)' : ''}.',
 ];
 
-/// A guard with its own scan.
+/// A guard with its own scan. With [exact], a file within its allowance is
+/// clean, one above it reports all its hits and one below it fails the exact
+/// allowlist check, as in [_guard].
 Rule _custom({
   required String name,
   required String message,
   required List<Hit> Function() hits,
+  Map<String, ExactAllow> exact = const {},
 }) {
   List<Hit>? cached;
   List<Hit> run() => cached ??= hits();
+  if (exact.isNotEmpty) {
+    _exactChecks['arch.$name'] = (
+      allowed: {for (final e in exact.entries) e.key: e.value.count},
+      counts: () => countByPath(run()),
+    );
+  }
   return Rule(
     id: 'arch.$name',
     message: message,
-    scan: () => countByPath(run()),
+    scan: () => {
+      for (final e in countByPath(run()).entries)
+        if (e.value > (exact[e.key]?.count ?? 0)) e.key: e.value,
+    },
     locate: (path) => hitLines(run(), path),
   );
 }
@@ -623,16 +635,9 @@ const _prefsReadThrows = {
   ),
 };
 
-List<Hit> _prefsReadsUnhandled() {
-  final hits = <Hit>[];
-  for (final file in dartFiles('lib')) {
-    final found = prefsReadHitsIn(file);
-    if (found.length > (_prefsReadThrows[file.path]?.count ?? 0)) {
-      hits.addAll(found);
-    }
-  }
-  return hits;
-}
+List<Hit> _prefsReadsUnhandled() => [
+  for (final file in dartFiles('lib')) ...prefsReadHitsIn(file),
+];
 
 List<Hit> _errorInterpolation() => [
   for (final file in dartFiles('lib')) ...errorInterpolationHits(file),
@@ -1949,6 +1954,7 @@ final guardRules = <Rule>[
         'default. A choice that guards something (App Lock, an index of chat '
         'titles) falls back to the safe side, not just the default.',
     hits: _prefsReadsUnhandled,
+    exact: _prefsReadThrows,
   ),
   _custom(
     name: 'theme-platform-copy',

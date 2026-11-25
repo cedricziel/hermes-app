@@ -47,6 +47,17 @@ base class _MutedUnreadable extends InMemorySharedPreferencesAsync {
       : super.getStringList(key, options);
 }
 
+/// Nothing saved, and the Live Activities switch cannot be read.
+base class _LateUnreadable extends InMemorySharedPreferencesAsync {
+  _LateUnreadable() : super.empty();
+
+  @override
+  Future<bool?> getBool(String key, SharedPreferencesOptions options) =>
+      key == 'hermes.live_activities'
+      ? Future.error(PlatformException(code: 'channel-error'))
+      : super.getBool(key, options);
+}
+
 NotificationSettings? hooked;
 
 void main() {
@@ -119,6 +130,21 @@ void main() {
       expect((await relaunch()).isMuted('p/2'), isTrue);
     },
   );
+
+  test('mutes are still saved when only a later read failed', () async {
+    SharedPreferencesAsyncPlatform.instance = _LateUnreadable();
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+
+    await settings.setMuted('p/2', true);
+
+    expect(
+      await SharedPreferencesAsync().getStringList(
+        'hermes.notifications_muted_jobs',
+      ),
+      ['p/2'],
+    );
+  });
 
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();
