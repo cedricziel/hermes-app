@@ -63,7 +63,9 @@ lower-cased names with `-` for spaces.
    component in `widgetbook/directories.dart`. Wrap the widget in `frame(...)`.
 3. Cover the states a user can see: empty, running, failed, answered, expired.
    Pass callbacks that resolve (`Future.delayed`) or throw, so the buttons work.
-4. `flutter test test/widgetbook_test.dart -j 1`. Run it with `-j 1`: the
+4. `flutter test test/widgetbook_test.dart -j 1 --name '^<Folder> / <Component> '`
+   for your component (the whole file does not fit in one process, see
+   Rules). Run it with `-j 1`: the
    catalog test is heavy and times out when it runs in parallel with other
    tests. It builds every use case in each
    theme and viewport of `widgetbook/environment.dart` and fails on an
@@ -160,14 +162,27 @@ real fonts, so the PNGs read like the app. Don't commit the test.
   screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
   let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
   repository itself.
-- `widgetbook/main.dart` mounts the app's `AppThemeScopes` through a
-  `BuilderAddon` after the theme addon (`gpt_markdown` draws near-black
-  headings in dark without it). `test/widgetbook_test.dart` mounts it too.
+- `widgetbook/main.dart` builds every use case in `material_ui`'s
+  `MaterialApp` (its `appBuilder`) with a `Scaffold` from the theme addon:
+  Widgetbook's default builds Flutter's `MaterialApp` and `Material`, which
+  `material_ui` widgets do not see ("No Material widget found", #1354). A
+  bare `Navigator` sits around Widgetbook itself, under the picked theme and
+  locale, because a dialog that asks for the root navigator leaves the
+  workbench; such a route covers the whole window. It is not a second app:
+  an app's navigator would report routes to the browser and take the address
+  bar's, which are Widgetbook's.
+- `test/widgetbook_test.dart` opens each use case in `HermesWidgetbook`
+  itself, by its link, so the test and the catalog cannot wrap a use case
+  differently. Never give the test an app of its own again.
 - `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
   may build an `AuthController`, and it unmounts each use case and lets timers
   run out, so a screen that polls must cancel its timer on dispose.
-- Keep knobs out for now: the smoke test builds use cases without a
-  Widgetbook state, so `context.knobs` would throw.
+- The whole test is about 17,500 cases and its process grows with each one
+  (past 11 GB before the end), so never run the file in one process:
+  `scripts/test-shard.sh 0 4` runs it in six, one after the other (CI's
+  shard 0). In a cloud container run a part of it, about 100 cases at a time,
+  `flutter test test/widgetbook_test.dart -j 1 --name '^(Handoff|Files / Questions) '`
+  (a regular expression on "folder / component / use case").
 - Nothing under `widgetbook/` may import `lib/src/telemetry/`; the catalog
   starts no SDK.
 

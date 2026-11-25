@@ -41,15 +41,13 @@ To see one widget in every state without a flow around it, use the
   `MaterialUiThemeScope` add nothing: a test app's `MaterialApp` already gives
   `gpt_markdown` the app's theme. The guard below still requires the mount
   until both scopes are removed.
-- Third-party widgets that read a theme from a scope (`gpt_markdown` reads
-  `material_ui`'s) need the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`).
-  `HermesApp`, `pumpScreen` and the Widgetbook catalog all mount that one widget;
-  a hand-built test app (`MaterialApp`, `CupertinoApp`, `WidgetsApp`, or a helper
+- The mount the guard requires: `HermesApp`, `pumpScreen` and the Widgetbook
+  catalog all mount the app's `AppThemeScopes` (`lib/src/theme/material_ui_bridge.dart`),
+  and a hand-built test app (`MaterialApp`, `CupertinoApp`, `WidgetsApp`, or a helper
   such as `pumpChatScreen`, `pumpOnPlatform` or `pumpFiles` that builds one) that
-  renders markdown, code, files or skills widgets must mount `AppThemeScopes` in
-  its `builder:`. Without it `mui.Theme.of` does not throw but falls back to the
-  light theme, so dark markdown headings draw near-black (1.17:1) and code blocks
-  draw light on a dark page, in the screenshot and never in the app.
+  renders markdown, code, files or skills widgets must mount it in its
+  `builder:`. A test without the mount draws the same today (see the note
+  above); before #1354 it drew dark markdown headings near-black.
   `test/app_theme_scopes_test.dart` enforces it. It reads the sources with the
   analyzer's unresolved syntax tree (`parseString`, no analysis context, nothing
   resolved), so it sees names and shapes, not types. It derives the readers from

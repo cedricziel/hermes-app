@@ -31,9 +31,10 @@ const _notTheme = {
 };
 
 /// `HermesApp` and the workflow tests' `pumpScreen` must draw third-party
-/// widgets with the same theme. `gpt_markdown` reads `material_ui`'s theme from
-/// [AppThemeScopes]; without it a dark screenshot shows near-black headings
-/// the app never draws.
+/// widgets with the same theme. `gpt_markdown` reads `material_ui`'s theme,
+/// which the app's `MaterialApp` has supplied since #1354; [AppThemeScopes]
+/// adds nothing to it today, and the mount is still required until the scopes
+/// are removed.
 void main() {
   Color headingColor(WidgetTester tester) {
     final span = tester
@@ -139,7 +140,8 @@ void main() {
           .colorScheme
           .surface;
       final color = headingColor(tester);
-      // The light fallback is near black; the app draws a light heading.
+      // A heading drawn with a light theme is near black; the app draws a
+      // light one.
       expect(color.computeLuminance(), greaterThan(surface.computeLuminance()));
       expect(
         (color.computeLuminance() + 0.05) / (surface.computeLuminance() + 0.05),
