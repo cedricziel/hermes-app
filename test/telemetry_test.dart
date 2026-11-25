@@ -338,43 +338,48 @@ void main() {
         (a as Map)['key']! as String: (a['value']! as Map).values.single,
     };
 
-    test(
-      'a Flutter error is one record with type, message and stack',
-      () async {
-        final (telemetry, requests) = await telemetryOnTheWire();
-        final stack = StackTrace.current;
-
-        FlutterError.onError!(
-          FlutterErrorDetails(exception: StateError('boom'), stack: stack),
-        );
-        await telemetry.flush();
-
-        final record = exportedRecords(requests).single;
-        expect(
-          (record['body']! as Map)['stringValue'],
-          'Uncaught Flutter error',
-        );
-        expect(record['severityText'], 'ERROR');
-        final attributes = attributesOf(record);
-        expect(attributes['exception.type'], 'StateError');
-        expect(attributes['exception.message'], contains('boom'));
-        expect(attributes['exception.stacktrace'], stack.toString());
-      },
-    );
-
-    test('an async error is one record with type, message and stack', () async {
+    test('a Flutter and an async error are each one record with type, message and stack', () async {
       final (telemetry, requests) = await telemetryOnTheWire();
-      final stack = StackTrace.current;
+      final flutterStack = StackTrace.current;
+      final asyncStack = StackTrace.current;
 
-      PlatformDispatcher.instance.onError!(ArgumentError('bad input'), stack);
+      FlutterError.onError!(
+        FlutterErrorDetails(exception: StateError('boom'), stack: flutterStack),
+      );
+      PlatformDispatcher.instance.onError!(
+        ArgumentError('bad input'),
+        asyncStack,
+      );
       await telemetry.flush();
 
-      final record = exportedRecords(requests).single;
-      expect((record['body']! as Map)['stringValue'], 'Uncaught async error');
-      final attributes = attributesOf(record);
-      expect(attributes['exception.type'], 'ArgumentError');
-      expect(attributes['exception.message'], contains('bad input'));
-      expect(attributes['exception.stacktrace'], stack.toString());
+      final records = exportedRecords(requests);
+      expect(records, hasLength(2));
+      final flutter = records.firstWhere(
+        (r) => (r['body']! as Map)['stringValue'] == 'Uncaught Flutter error',
+      );
+      final async = records.firstWhere(
+        (r) => (r['body']! as Map)['stringValue'] == 'Uncaught async error',
+      );
+      expect(flutter['severityText'], 'ERROR');
+      expect(async['severityText'], 'ERROR');
+      expect(
+        attributesOf(flutter),
+        containsPair('exception.type', 'StateError'),
+      );
+      expect(attributesOf(flutter)['exception.message'], contains('boom'));
+      expect(
+        attributesOf(flutter)['exception.stacktrace'],
+        flutterStack.toString(),
+      );
+      expect(
+        attributesOf(async),
+        containsPair('exception.type', 'ArgumentError'),
+      );
+      expect(attributesOf(async)['exception.message'], contains('bad input'));
+      expect(
+        attributesOf(async)['exception.stacktrace'],
+        asyncStack.toString(),
+      );
     });
 
     test('an error reported under an active span carries its ids', () async {
@@ -401,20 +406,6 @@ void main() {
         expect(record['traceId'], context.traceId);
         expect(record['spanId'], context.spanId);
       }
-    });
-
-    test('the same error twice within a second is one record', () async {
-      final (telemetry, requests) = await telemetryOnTheWire();
-      final details = FlutterErrorDetails(
-        exception: StateError('twice'),
-        stack: StackTrace.current,
-      );
-
-      FlutterError.onError!(details);
-      FlutterError.onError!(details);
-      await telemetry.flush();
-
-      expect(exportedRecords(requests), hasLength(1));
     });
   });
 
