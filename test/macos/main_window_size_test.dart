@@ -139,6 +139,17 @@ void main() {
       expect(correct, isNot(contains('contentRect(forFrameRect')));
       expect(correct, isNot(contains('setContentSize')));
       expect(correct, contains('restoredFrame = self.frame'));
+      // A frame on a display that is gone is centred: reachable means 100x40
+      // points of it on some screen, and only the unreachable case centres.
+      expect(
+        RegExp(
+          r'NSScreen\.screens\.contains \{.*?'
+          r'shown\.width >= 100 && shown\.height >= 40.*?'
+          r'if !reachable \{ center\(\) \}',
+          dotAll: true,
+        ).hasMatch(correct),
+        isTrue,
+      );
       // Dart-side styling happens after awakeFromNib; the runner puts the frame
       // back once it is done.
       expect(swift, contains('case "settleFrame":'));
@@ -238,10 +249,40 @@ void main() {
     expect(ci, isNot(contains('Measure the main window size')));
     // Every launch of the app in ci.yml goes through quit_launch, which fails
     // on a crash; the window launches add the report to the same hook.
+    final from = ci.indexOf('name: Launch the app and quit it normally');
+    expect(from, isNonNegative);
+    final body = ci.substring(from, ci.indexOf('\n  # The only test', from));
+    var function = '';
+    final uses = <String>[];
+    for (final line in body.split('\n')) {
+      final start = RegExp(r'^ {10}(\w+)\(\) \{').firstMatch(line);
+      if (start != null) function = start.group(1)!;
+      if (RegExp(r'^ {10}\S').hasMatch(line) && start == null) function = '';
+      final t = line.trim();
+      if (t.startsWith('#')) continue;
+      final touchesApp = RegExp(r'\$bin|\$app').hasMatch(line);
+      final setup =
+          t.startsWith('bin=') ||
+          t.startsWith('app=') ||
+          t.startsWith('name=') ||
+          t.startsWith('[ -x "\$bin" ]') ||
+          t.startsWith('bundle=');
+      final opens = RegExp(r'(^|[\s;&|(])open\s').hasMatch(line);
+      if ((touchesApp && !setup) || opens) uses.add('$function: $t');
+    }
     expect(
-      'exec @ARGV\' "\$bin"'.allMatches(ci),
-      hasLength(1),
-      reason: 'the debug binary is started only inside quit_launch',
+      uses.where(
+        (u) => !u.startsWith('quit_launch:') && !u.startsWith('lldb_rerun:'),
+      ),
+      isEmpty,
+      reason:
+          'the app is started only inside quit_launch (and lldb_rerun, '
+          'its diagnosis rerun), which fail on a crash',
+    );
+    expect(
+      uses.where((u) => u.startsWith('quit_launch:')),
+      isNotEmpty,
+      reason: 'the scan sees the launch in quit_launch',
     );
     expect(
       ci,
