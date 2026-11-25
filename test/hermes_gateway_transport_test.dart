@@ -2457,13 +2457,15 @@ void main() {
       expect(gateway.methods, isNot(contains('session.undo')));
     });
 
-    test('a result without a parent names none', () async {
-      gateway.branchParent = null;
+    test('a result without a usable parent names none', () async {
+      for (final parent in [null, '', '  ']) {
+        gateway.branchParent = parent;
 
-      final branch = await transport.branchThread('stored-2');
+        final branch = await transport.branchThread('stored-2');
 
-      expect(branch?.id, 'stored-branch');
-      expect(branch?.parent, isNull);
+        expect(branch?.id, 'stored-branch');
+        expect(branch?.parent, isNull, reason: 'parent: "$parent"');
+      }
     });
 
     test('takes back the turns after the branch point in the copy', () async {

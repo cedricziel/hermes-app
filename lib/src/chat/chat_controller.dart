@@ -1248,8 +1248,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Opens the chat [target] names. With [fetchMissing] one the loaded
   /// threads do not hold is fetched, on its own profile. A [prompt] goes to
   /// the composer once the chat is open, and is dropped when it cannot be.
-  /// A [branchParent] is the parent of a chat that was just branched; it is
-  /// kept unless the server's own row names one.
+  /// A [branchParent] is the parent of a chat that was just branched; it
+  /// stands until the next list read, which brings the server's own marker,
+  /// and a row that names one wins over it. A chat opened while the list is
+  /// loading takes the list's marker instead.
   void open(
     NotificationTarget target, {
     required bool fetchMissing,

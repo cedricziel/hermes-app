@@ -104,6 +104,32 @@ void main() {
     expect(branchOf().branchParentId, 'from-row');
   });
 
+  test('a branch already in the list takes the result\'s parent', () async {
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(
+          id: 'branch-1',
+          title: 'Run failure #2',
+          lastActive: 1780000600,
+        ),
+        sessionRow(id: 's1', title: 'Run failure'),
+      ]),
+    );
+    await chat.loadThreads();
+    await flush();
+    chat.select('s1');
+    await flush();
+    transport.branchResult = const BranchedThread('branch-1', parent: 's1');
+
+    await chat.branch(chat.threads.firstWhere((t) => t.id == 's1'));
+    await flush();
+
+    expect(chat.selectedThread?.id, 'branch-1');
+    expect(branchOf().branchParentId, 's1');
+  });
+
   test('a result without a parent leaves the chat unmarked', () async {
     server.on(
       'GET',
