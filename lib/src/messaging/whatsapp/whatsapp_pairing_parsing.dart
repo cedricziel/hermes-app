@@ -49,6 +49,14 @@ WhatsAppPairingFailure? whatsAppFailureFor(
           detail.isNotEmpty
       ? WhatsAppServerText(detail)
       : null;
+  // A reverse proxy in front of Hermes (502, 503, 504) answers without a
+  // detail and says nothing about whether the apply reached the server and
+  // saved: the same as no answer. Hermes itself fails an apply with a 500.
+  if (route == WhatsAppRoute.apply &&
+      (status == 502 || status == 503 || status == 504) &&
+      !(detail is String && detail.isNotEmpty)) {
+    return const WhatsAppPairingFailure(WhatsAppPairingFailureKind.lostAnswer);
+  }
   return WhatsAppPairingFailure(serverText: shown, switch (status) {
     404 => switch (route) {
       WhatsAppRoute.start =>
