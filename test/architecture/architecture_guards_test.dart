@@ -1573,44 +1573,11 @@ const _chatCatchAllSwallows = <String, ExactAllow>{
   ),
   'lib/src/chat/todo_plan/todo_plan_state.dart#TodoPlanState._outcome':
       ExactAllow(1, 'telemetry must never break the app it measures'),
-  'lib/src/chat/attachments/plugin_attachment_source.dart#PluginAttachmentSource.hasFilesToPaste':
-      ExactAllow(1, 'a clipboard probe: no answer is no files to paste'),
-  'lib/src/chat/billing_verification_controller.dart#BillingVerificationController.copyVerificationCode':
-      ExactAllow(
-        1,
-        'a clipboard write is a platform call; the user is told it failed',
-      ),
-  'lib/src/chat/chat_screen_navigation.dart#_ChatScreenNavigation._openSoul':
-      ExactAllow(
-        1,
-        'a second try to read the profile; unresolved opens nothing',
-      ),
-  'lib/src/chat/chat_screen_navigation.dart#_ChatScreenNavigation._openTools':
-      ExactAllow(
-        1,
-        'a second try to read the profile; unresolved opens nothing',
-      ),
-  'lib/src/chat/chat_screen_read_aloud.dart#_ChatScreenReadAloud._refreshReadAloud':
-      ExactAllow(
-        1,
-        'an unknown voice state keeps what is shown until the next check',
-      ),
-  'lib/src/chat/checkpoints/checkpoints_controller.dart#CheckpointsController._settle':
-      ExactAllow(
-        1,
-        'best-effort session re-establish; the user is asked to try again either way',
-      ),
   'lib/src/chat/chat_controller_queues.dart#_ChatControllerQueues._enqueueProtected':
       ExactAllow(
         1,
         'cleanup of a revoked scope; the identity refusal is thrown right after',
       ),
-  'lib/src/chat/gateway/gateway_event_mapper.dart#_toolResult': ExactAllow(
-    1,
-    'a display fallback for an already decoded payload',
-  ),
-  'lib/src/chat/gateway/gateway_rpc_client.dart#GatewayRpcClient.isResponsive':
-      ExactAllow(1, 'a liveness probe: any failure means not responsive'),
   'lib/src/chat/gateway/hermes_gateway_transport_commands.dart#_Commands._detach':
       ExactAllow(1, 'best-effort detach after the send already failed'),
   'lib/src/chat/gateway/hermes_gateway_transport_sending.dart#_Sending._sendReply':
@@ -1618,8 +1585,6 @@ const _chatCatchAllSwallows = <String, ExactAllow>{
         3,
         'fail closed: a failed check is a no, and failed restoration cannot erase proof that nothing was sent',
       ),
-  'lib/src/chat/invalidation/change_invalidation_controller.dart#ChangeInvalidationController._refresh':
-      ExactAllow(1, 'a failing failure callback must not break the refresh'),
   'lib/src/chat/media/file_export.dart#FileExport.saveCopy': ExactAllow(
     1,
     'best-effort delete of a partial file, then the copy error is rethrown',
@@ -1665,14 +1630,6 @@ const _chatCatchAllSwallows = <String, ExactAllow>{
     1,
     'privacy: a decode error message holds file content, so it is dropped',
   ),
-  'lib/src/chat/session_export.dart#_detail': ExactAllow(
-    1,
-    'a body that is not JSON has no detail',
-  ),
-  'lib/src/chat/session_export_flow.dart#_aboveComposer': ExactAllow(
-    1,
-    'a layout measurement; the snack bar keeps its default inset',
-  ),
   'lib/src/chat/subagents/chat_roster_environment.dart#ChatRosterEnvironment.new':
       ExactAllow(
         1,
@@ -1682,7 +1639,7 @@ const _chatCatchAllSwallows = <String, ExactAllow>{
       ExactAllow(1, 'no widgets binding'),
   'lib/src/chat/subagents/lenient_read.dart#readSeconds': ExactAllow(
     1,
-    'lenient parsing of server rows (docs/architecture/telemetry.md)',
+    'a server number out of the date range (NaN, infinity, huge) is data, not a bug',
   ),
   'lib/src/chat/thread_housekeeping.dart#ThreadHousekeeping._remove':
       ExactAllow(
@@ -1701,8 +1658,6 @@ const _chatCatchAllSwallows = <String, ExactAllow>{
     1,
     'an unloaded locale falls back to en_US',
   ),
-  'lib/src/chat/widgets/tool_value_view.dart#_ToolValuePanelState._copy':
-      ExactAllow(1, 'a clipboard write is a platform call; nothing to show'),
 };
 
 List<CatchAllFinding>? _chatCatchAlls;
@@ -3595,6 +3550,43 @@ void main() {
       expect(count('try { g(); } catch (e) { if (isCancel(e)) return; }'), 1);
       expect(count('try { g(); } catch (e) { errors.add(e); }'), 1);
       expect(count('try { g(); } catch (e) { name = e; }'), 1);
+    });
+
+    test('a reporter needs the bare error as its first argument', () {
+      expect(
+        count("try { g(); } catch (e, s) { reportBug(kindOf(e), s, 'x'); }"),
+        1,
+      );
+      expect(
+        count(
+          "try { g(); } catch (e, s) { reportBug(Object(), s, kindOf(e)); }",
+        ),
+        1,
+      );
+      expect(count("try { g(); } catch (e, s) { reportBug(e, s, 'x'); }"), 0);
+      expect(
+        count(
+          "try { g(); } catch (e, s) { reportChatBug(e as Object, s, 'x'); }",
+        ),
+        0,
+      );
+      expect(
+        count(
+          'try { g(); } catch (e, s) { FlutterError.reportError(FlutterErrorDetails(exception: other)); }',
+        ),
+        1,
+      );
+    });
+
+    test('error: on a logger is not a hand-off, on a state object is', () {
+      expect(count("try { g(); } catch (e) { log('x', error: e); }"), 1);
+      expect(
+        count("try { g(); } catch (e) { developer.log('x', error: e); }"),
+        1,
+      );
+      expect(count("try { g(); } catch (e) { debugPrint('x', error: e); }"), 1);
+      expect(count('try { g(); } catch (e) { s = s.copyWith(error: e); }'), 0);
+      expect(count('try { g(); } catch (e) { s = Failed(error: e); }'), 0);
     });
 
     test('a call that is not the reporter does not count', () {

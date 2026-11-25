@@ -444,7 +444,8 @@ class GatewayRpcClient {
       return true;
     } on GatewayRpcException {
       return true;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a gateway liveness probe');
       return false;
     }
   }

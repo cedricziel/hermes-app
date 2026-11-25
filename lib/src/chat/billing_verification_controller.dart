@@ -310,7 +310,8 @@ class BillingVerificationController extends ChangeNotifier {
       await _copyCode(code);
       if (_disposed || _locked || !_currentDetails(details, generation)) return;
       _log('copied');
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a verification code copy');
       if (_disposed || _locked || !_currentDetails(details, generation)) return;
       message = 'Could not copy the code.';
       _log('copy_failed');

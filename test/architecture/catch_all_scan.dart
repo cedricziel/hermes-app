@@ -31,6 +31,9 @@ const _sinkCalls = {
   'handleError',
 };
 
+/// Calls that only print or log: `log('x', error: e)` is not a hand-off.
+const _loggers = {'log', 'debugPrint', 'print'};
+
 /// Named arguments that carry the error (`copyWith(error: e)`).
 const _namedSlots = {'error', 'exception', 'cause'};
 
@@ -154,22 +157,31 @@ class _SinkFinder extends RecursiveAstVisitor<void> {
       handled = true;
     } else if (error != null) {
       if (_reporters.contains(name) && target == null) {
+        // The error itself is the first positional argument.
+        final first = args.where((a) => a is! NamedArgument).firstOrNull;
         handled =
-            handled || args.any((a) => _mentions(a.argumentExpression, error));
+            handled ||
+            (first != null && _isBare(first.argumentExpression, error));
       } else if (name == 'reportError' &&
           target is SimpleIdentifier &&
           target.name == 'FlutterError') {
+        // FlutterError.reportError(FlutterErrorDetails(exception: e, ...)).
         handled =
-            handled || args.any((a) => _mentions(a.argumentExpression, error));
+            handled ||
+            args.any((a) => _isDetailsOf(a.argumentExpression, error));
       } else if (_sinkCalls.contains(name) ||
           (name == 'error' && _isNamed(target, 'Future')) ||
           (name == 'call' && _isErrorCallback(target))) {
         handled =
             handled || args.any((a) => _isBare(a.argumentExpression, error));
       }
-      handled =
-          handled ||
-          args.any((a) => a is NamedArgument && _namedErrorSlot(a, error));
+      // `error: e` carries the error into a state object or exception, not
+      // into a logger.
+      if (!_loggers.contains(name)) {
+        handled =
+            handled ||
+            args.any((a) => a is NamedArgument && _namedErrorSlot(a, error));
+      }
     }
     super.visitMethodInvocation(node);
   }
@@ -212,6 +224,17 @@ bool _isErrorCallback(Expression? target) {
   return _errorSlot.hasMatch(name);
 }
 
+/// `FlutterErrorDetails(exception: e, ...)`.
+bool _isDetailsOf(Expression expression, String error) =>
+    expression is MethodInvocation &&
+    expression.methodName.name == 'FlutterErrorDetails' &&
+    expression.argumentList.arguments.any(
+      (a) =>
+          a is NamedArgument &&
+          a.name.lexeme == 'exception' &&
+          _isBare(a.argumentExpression, error),
+    );
+
 bool _isNamed(Expression? target, String name) =>
     target is SimpleIdentifier && target.name == name;
 
@@ -240,37 +263,4 @@ bool _isBare(Expression expression, String error) {
     }
   }
   return node is SimpleIdentifier && node.name == error;
-}
-
-/// Whether the error variable occurs in [node] outside a string interpolation
-/// and a function literal.
-bool _mentions(AstNode node, String error) {
-  final finder = _Mention(error);
-  node.accept(finder);
-  return finder.found;
-}
-
-class _Mention extends RecursiveAstVisitor<void> {
-  _Mention(this.error);
-  final String error;
-  bool found = false;
-
-  @override
-  void visitInterpolationExpression(InterpolationExpression node) {}
-
-  @override
-  void visitFunctionExpression(FunctionExpression node) {}
-
-  @override
-  void visitSimpleIdentifier(SimpleIdentifier node) {
-    if (node.name == error && !_isMemberRead(node)) found = true;
-  }
-}
-
-/// `e.runtimeType`, `e.message`, `e?.x`: a read of a member, not the error.
-bool _isMemberRead(SimpleIdentifier node) {
-  final parent = node.parent;
-  return (parent is PrefixedIdentifier && parent.prefix == node) ||
-      (parent is PropertyAccess && parent.target == node) ||
-      (parent is MethodInvocation && parent.target == node);
 }

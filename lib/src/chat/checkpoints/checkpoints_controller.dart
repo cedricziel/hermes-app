@@ -590,7 +590,8 @@ class CheckpointsController extends ChangeNotifier {
           if (live()) {
             try {
               await bridge.reestablishSession();
-            } on Object {
+            } on Object catch (error, stack) {
+              reportChatBug(error, stack, 'a session re-establish');
               // The user is asked to try again either way.
             }
           }
