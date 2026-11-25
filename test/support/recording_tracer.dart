@@ -26,6 +26,9 @@ class RecordingSpan implements Span {
   String? statusDescription;
   bool ended = false;
 
+  /// The end time the code gave, if any.
+  DateTime? endTime;
+
   @override
   bool get isRecording => !ended;
 
@@ -63,7 +66,10 @@ class RecordingSpan implements Span {
   }
 
   @override
-  void end([DateTime? endTime]) => ended = true;
+  void end([DateTime? endTime]) {
+    ended = true;
+    this.endTime = endTime;
+  }
 }
 
 class RecordingTracer implements Tracer {
