@@ -1121,7 +1121,9 @@ List<Hit> _englishDefaultHits() => [
 /// method).
 typedef LabelHelper = ({Hit hit, String owner, String literal});
 
-final _labelHelperName = RegExp(r'(?:Label|Title|Summary)$');
+final _labelHelperName = RegExp(
+  r'^(?:label|title|summary)$|(?:Label|Title|Summary)$',
+);
 final _l10nParameterType = RegExp(r'\b(?:AppLocalizations|BuildContext)\b');
 
 /// The top-level functions and static methods of [file] named `*Label`,
@@ -1149,7 +1151,7 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
   ) {
     if (!_labelHelperName.hasMatch(name.lexeme)) return;
     final type = returnType?.toSource();
-    if (type != 'String' && type != 'String?') return;
+    if (type != null && type != 'String' && type != 'String?') return;
     for (final p in parameters?.parameters ?? const <FormalParameter>[]) {
       if (_l10nParameterType.hasMatch(p.toSource())) return;
     }
@@ -1174,21 +1176,37 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
         member.functionExpression.parameters,
         member.functionExpression.body,
       );
-    } else if (member is ClassDeclaration) {
-      for (final m in member.body.members) {
-        if (m is MethodDeclaration && m.isStatic && !m.isGetter) {
-          check(
-            member.namePart.typeName.lexeme,
-            m.name,
-            m.returnType,
-            m.parameters,
-            m.body,
-          );
-        }
-      }
     }
   }
+  unit.accept(
+    _StaticMethods((owner, m) {
+      if (m.isGetter || m.isSetter) return;
+      check(owner, m.name, m.returnType, m.parameters, m.body);
+    }),
+  );
   return found;
+}
+
+/// The static methods of classes, enums, mixins, extensions and extension
+/// types, with the name of the one that holds each.
+class _StaticMethods extends RecursiveAstVisitor<void> {
+  _StaticMethods(this.onMethod);
+  final void Function(String owner, MethodDeclaration) onMethod;
+
+  @override
+  void visitMethodDeclaration(MethodDeclaration node) {
+    if (!node.isStatic) return;
+    final holder = node.parent?.parent;
+    final name = switch (holder) {
+      ClassDeclaration() => holder.namePart.typeName.lexeme,
+      EnumDeclaration() => holder.namePart.typeName.lexeme,
+      MixinDeclaration() => holder.name.lexeme,
+      ExtensionDeclaration() => holder.name?.lexeme ?? 'extension',
+      ExtensionTypeDeclaration() => holder.namePart.typeName.lexeme,
+      _ => null,
+    };
+    if (name != null) onMethod(name, node);
+  }
 }
 
 /// The first string literal with a letter in an expression a body returns.
@@ -1220,7 +1238,11 @@ class _ReturnedLiteral extends RecursiveAstVisitor<void> {
 
 class _LiteralFinder extends RecursiveAstVisitor<void> {
   String? literal;
-  static final _letter = RegExp(r'[A-Za-zÀ-ɏ]');
+  // Latin letters; the multiplication and division signs (U+00D7, U+00F7)
+  // sit inside the accented range and are not letters.
+  static final _letter = RegExp(
+    r'[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]',
+  );
 
   @override
   void visitSimpleStringLiteral(SimpleStringLiteral node) {
@@ -1238,6 +1260,23 @@ class _LiteralFinder extends RecursiveAstVisitor<void> {
 
   @override
   void visitArgumentList(ArgumentList node) {}
+
+  // `s == 'done' ? a : b` tests a value; the literal is never shown.
+  @override
+  void visitBinaryExpression(BinaryExpression node) {
+    final op = node.operator.type;
+    if (op == TokenType.EQ_EQ || op == TokenType.BANG_EQ) return;
+    super.visitBinaryExpression(node);
+  }
+
+  // `'a' => ...` is a pattern that matches; only the arm's value is shown.
+  @override
+  void visitSwitchExpressionCase(SwitchExpressionCase node) {
+    node.expression.accept(this);
+  }
+
+  @override
+  void visitThrowExpression(ThrowExpression node) {}
 
   @override
   void visitIndexExpression(IndexExpression node) {
@@ -2700,6 +2739,83 @@ void main() {
           reason: '$entry no longer is a label helper: remove it',
         );
       }
+    });
+
+    test('static methods of an enum, a mixin and an extension hit', () {
+      expect(owners("enum E { a; static String modeLabel(E e) => 'Auto'; }"), [
+        'lib/src/y.dart#E.modeLabel',
+      ]);
+      expect(owners("mixin M { static String pageTitle() => 'Home'; }"), [
+        'lib/src/y.dart#M.pageTitle',
+      ]);
+      expect(
+        owners("extension X on int { static String runSummary() => 'Runs'; }"),
+        ['lib/src/y.dart#X.runSummary'],
+      );
+      expect(
+        owners(
+          "extension type T(int v) { static String tagLabel() => 'Tag'; }",
+        ),
+        ['lib/src/y.dart#T.tagLabel'],
+      );
+    });
+
+    test('helpers named exactly label, title or summary hit', () {
+      expect(owners("String label(S s) => 'Done';"), ['lib/src/y.dart#label']);
+      expect(owners("String title() => 'Home';"), ['lib/src/y.dart#title']);
+      expect(owners("class K { static String summary() => 'Runs'; }"), [
+        'lib/src/y.dart#K.summary',
+      ]);
+    });
+
+    test('a helper with no declared return type hits when it returns text', () {
+      expect(owners("statusLabel(S s) => 'Done';"), [
+        'lib/src/y.dart#statusLabel',
+      ]);
+      expect(owners("pageTitle() { return 'Home'; }"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(owners('statusLabel(S s) => s.id;'), isEmpty);
+    });
+
+    test('a literal that is compared, matched or thrown is not shown text', () {
+      expect(
+        owners("String statusLabel(S s) => s.id == 'done' ? s.a : s.b;"),
+        isEmpty,
+      );
+      expect(
+        owners("String statusLabel(S s) => s.id != 'done' ? s.a : s.b;"),
+        isEmpty,
+      );
+      expect(
+        owners(
+          "String statusLabel(S s) => switch (s.id) { 'a' => s.a, _ => s.b };",
+        ),
+        isEmpty,
+      );
+      expect(
+        owners("String statusLabel(S s) => s.a ?? (throw StateError('no'));"),
+        isEmpty,
+      );
+      // The value of an arm, a fallback and a ternary branch still count.
+      expect(
+        owners(
+          "String statusLabel(S s) => switch (s.id) { 'a' => 'Done', _ => s.b };",
+        ),
+        ['lib/src/y.dart#statusLabel'],
+      );
+      expect(owners("String statusLabel(S s) => s.a ?? 'None';"), [
+        'lib/src/y.dart#statusLabel',
+      ]);
+    });
+
+    test('a multiplication or division sign is not a letter', () {
+      expect(owners("String sizeLabel(S s) => '×';"), isEmpty);
+      expect(owners("String sizeLabel(S s) => '÷ 2';"), isEmpty);
+      expect(owners("String sizeLabel(S s) => '3 × 4';"), isEmpty);
+      expect(owners("String sizeLabel(S s) => 'ä';"), [
+        'lib/src/y.dart#sizeLabel',
+      ]);
     });
 
     test('other names, return types, getters and instance methods pass', () {
