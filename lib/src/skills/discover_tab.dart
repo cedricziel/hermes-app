@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../l10n/l10n.dart';
 import '../theme/app_icons.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/state_message.dart';
@@ -36,13 +37,13 @@ class DiscoverTab extends StatelessWidget {
               ),
             );
           case HubStatus.ready:
-            return _list();
+            return _list(context.l10n);
         }
       },
     );
   }
 
-  Widget _list() {
+  Widget _list(AppLocalizations l10n) {
     if (hub.isSearch) {
       if (hub.searchFailed) {
         return StateMessage(
@@ -65,7 +66,7 @@ class DiscoverTab extends StatelessWidget {
           if (hub.results.isNotEmpty)
             GroupedSection(
               header: 'Results',
-              children: [for (final s in hub.results) _row(s)],
+              children: [for (final s in hub.results) _row(l10n, s)],
             ),
           if (timedOut > 0)
             GroupedSection(
@@ -95,23 +96,23 @@ class DiscoverTab extends StatelessWidget {
         if (featured.isNotEmpty)
           GroupedSection(
             header: 'Featured',
-            children: [for (final s in featured) _row(s)],
+            children: [for (final s in featured) _row(l10n, s)],
           ),
         if (official.isNotEmpty)
           GroupedSection(
             header: 'Official',
-            children: [for (final s in official) _row(s)],
+            children: [for (final s in official) _row(l10n, s)],
           ),
       ],
     );
   }
 
-  Widget _row(HubSkill skill) => GroupedRow(
+  Widget _row(AppLocalizations l10n, HubSkill skill) => GroupedRow(
     wrapWhenStacked: true,
     key: ValueKey('hub-${skill.identifier}'),
     title: skill.name,
     subtitle: [
-      trustLabel(skill.trustLevel),
+      trustLabel(l10n, skill.trustLevel),
       if (skill.description.isNotEmpty) skill.description,
     ].join(' · '),
     value: hub.isInstalled(skill) ? 'Installed' : null,
