@@ -30,5 +30,6 @@ Plain-model widgets only: no controller, no repository, no screen.
 
 ## 4. PR 4 - `feat(chat): mark branches in the chat list`
 
-- [ ] 4.1 `ThreadSidebar` rows, the Mac source list and both search views pass the glyph flag from `ChatThread.branchParentId`.
-- [ ] 4.2 Docs: `docs/architecture/chat.md` Branching bullet, `openspec/specs/chat/spec.md`; archive this change.
+- [x] 4.1 `ThreadSidebar` rows, the Mac source list and both search views pass the glyph flag from `ChatThread.branchParentId`.
+- [x] 4.2 Docs: `docs/architecture/chat.md` Branching bullet, `openspec/specs/chat/spec.md` (scenarios under "Thread list loading" and "Thread search").
+- [ ] 4.3 Archive this change, in the last of the four PRs to merge.
