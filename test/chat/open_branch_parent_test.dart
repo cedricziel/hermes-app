@@ -199,6 +199,37 @@ void main() {
       expect(outcome(), 'opened');
     });
 
+    test(
+      'the row names the tip even when the original is listed above it',
+      () async {
+        server.on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([
+            sessionRow(
+              id: _parent,
+              title: _parentTitle,
+              lastActive: 1780000900,
+            ),
+            sessionRow(id: _tip, title: _tipTitle, lastActive: 1780000800),
+            sessionRow(id: 'branch', title: 'Try another way')
+              ..['_branched_from'] = _parent,
+          ]),
+        );
+        answerParent(_tip);
+        await chat.loadThreads();
+        await flush();
+        chat.select('branch');
+        await flush();
+        expect(chat.branchParentTitleOf(branch()), _parentTitle);
+
+        await chat.openBranchParent(branch());
+        await flush();
+
+        expect(chat.branchParentTitleOf(branch()), _tipTitle);
+      },
+    );
+
     test('a deleted parent ends in deleted, and a second tap sends '
         'nothing', () async {
       server.on('GET', _descendant(_parent), {
@@ -361,6 +392,37 @@ void main() {
       expect(chat.selectedId, 'other');
       expect(chat.branchParentStatusOf(branch()), BranchParentStatus.resting);
       expect(outcome(), 'dropped');
+    });
+
+    test('after App Lock engaged and was lifted opens nothing', () async {
+      final tap = chat.openBranchParent(branch());
+      await flush();
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      await flush();
+      await lock.unlock();
+      expect(lock.locked, isFalse);
+
+      await land();
+      await tap;
+
+      expect(chat.selectedId, 'branch');
+      expect(outcome(), 'dropped');
+    });
+
+    test('a tap made under the App Lock cover sends nothing', () async {
+      TestWidgetsFlutterBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      await flush();
+      expect(lock.locked, isTrue);
+      expect(chat.canOpenBranchParent(branch()), isFalse);
+
+      await chat.openBranchParent(branch());
+
+      expect(server.requestsTo('GET', _descendant(_parent)), isEmpty);
+      expect(outcome(), isNull);
     });
 
     test('after a profile switch opens nothing', () async {

@@ -618,12 +618,10 @@ extension _ChatControllerBranchParent on ChatController {
     final parent = thread.branchParentId;
     if (parent == null) return null;
     final tip = _branchParent.tips[(_profile ?? '', parent)];
-    for (final candidate in _threads) {
-      if (candidate.id == parent || candidate.id == tip) {
-        return candidate.title.trim().isEmpty ? null : candidate.title;
-      }
-    }
-    return null;
+    ChatThread? loaded(String? id) =>
+        _threads.where((t) => t.id == id).firstOrNull;
+    final title = (loaded(tip) ?? loaded(parent))?.title;
+    return title == null || title.trim().isEmpty ? null : title;
   }
 
   /// Reads where the original ends and opens it. The answer counts only if,
@@ -655,10 +653,7 @@ extension _ChatControllerBranchParent on ChatController {
     if (disposed) return;
 
     final wanted =
-        data.run == run &&
-        _currentActivity(epoch) &&
-        selectedId == thread.id &&
-        !(appLock?.locked ?? false);
+        data.run == run && _currentActivity(epoch) && selectedId == thread.id;
     if (data.run == run) data.reads.remove(key);
     final String outcome;
     if (!wanted) {

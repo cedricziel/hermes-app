@@ -481,9 +481,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _ChatControllerBranchParent(this)._branchParentTitleImpl(thread);
 
   /// Whether a tap on [thread]'s original does anything now: it is the chat in
-  /// front and no read is running or has found the original gone.
+  /// front, App Lock is not covering it and no read is running or has found
+  /// the original gone.
   bool canOpenBranchParent(ChatThread thread) =>
       active &&
+      !(appLock?.locked ?? false) &&
       selectedId == thread.id &&
       switch (branchParentStatusOf(thread)) {
         BranchParentStatus.resting || BranchParentStatus.unreachable => true,
