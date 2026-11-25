@@ -229,4 +229,138 @@ void main() {
       async.flushMicrotasks();
     });
   });
+
+  test('an answer that arrives after the deadline, before the timer ran, is '
+      'a timeout and ends the span once, at the deadline', () {
+    run((async, open, jump, now) {
+      final client = open();
+      final sent = now();
+      Object? error;
+      Map<String, Object?>? result;
+      client
+          .requestWithin('slash.exec', const {}, timeout: deadline)
+          .then<void>((r) => result = r, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+      final id = frames.single['id'];
+
+      // The app slept past the deadline; the answer was waiting on the socket
+      // and is read before the overdue timer runs.
+      jump(const Duration(minutes: 10));
+      wire.foreign.sink.add(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': id,
+          'result': {'ok': true},
+        }),
+      );
+      async.flushMicrotasks();
+
+      expect(result, isNull);
+      expect(error, isA<GatewayRequestTimeout>());
+      final span = tracer.spans.single;
+      expect(span.endCalls, 1);
+      expect(span.attributes['error.type'], 'GatewayRequestTimeout');
+      expect(span.endTime, sent.add(deadline));
+
+      async.elapse(deadline);
+      async.flushMicrotasks();
+      expect(span.endCalls, 1);
+      unawaited(client.close());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('a liveness probe answered late still finds the socket alive', () {
+    run((async, open, jump, now) {
+      final client = open();
+      bool? alive;
+      client.isResponsive(deadline).then((v) => alive = v);
+      async.flushMicrotasks();
+      final id = frames.single['id'];
+
+      jump(const Duration(minutes: 10));
+      wire.foreign.sink.add(
+        jsonEncode({'jsonrpc': '2.0', 'id': id, 'result': <String, Object?>{}}),
+      );
+      async.flushMicrotasks();
+
+      expect(alive, isTrue);
+      expect(client.isClosed, isFalse);
+      expect(tracer.spans.single.endCalls, 1);
+      unawaited(client.close());
+      async.flushMicrotasks();
+    });
+  });
+
+  test('the answer of a request that timed out is handed to onLateResult, '
+      'once', () {
+    run((async, open, jump, now) {
+      final client = open();
+      final late = <Map<String, Object?>>[];
+      client
+          .requestWithin(
+            'image.attach_bytes',
+            const {},
+            timeout: deadline,
+            onLateResult: late.add,
+          )
+          .then<void>((_) {}, onError: (Object _) {});
+      async.flushMicrotasks();
+      final id = frames.single['id'];
+      async.elapse(deadline);
+      async.flushMicrotasks();
+      expect(late, isEmpty);
+
+      for (var i = 0; i < 2; i++) {
+        wire.foreign.sink.add(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': id,
+            'result': {'path': '/p.png'},
+          }),
+        );
+        async.flushMicrotasks();
+      }
+
+      expect(late, [
+        {'path': '/p.png'},
+      ]);
+      unawaited(client.close());
+      async.flushMicrotasks();
+    });
+  });
+
+  test(
+    'an answer that is a timeout by the clock also reaches onLateResult',
+    () {
+      run((async, open, jump, now) {
+        final client = open();
+        final late = <Map<String, Object?>>[];
+        client
+            .requestWithin(
+              'image.attach_bytes',
+              const {},
+              timeout: deadline,
+              onLateResult: late.add,
+            )
+            .then<void>((_) {}, onError: (Object _) {});
+        async.flushMicrotasks();
+        jump(const Duration(minutes: 10));
+        wire.foreign.sink.add(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': frames.single['id'],
+            'result': {'path': '/p.png'},
+          }),
+        );
+        async.flushMicrotasks();
+
+        expect(late, [
+          {'path': '/p.png'},
+        ]);
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    },
+  );
 }

@@ -149,11 +149,22 @@ extension _Commands on HermesGatewayTransport {
       try {
         if (attachment.kind == AttachmentKind.image) {
           try {
-            final result = await client.requestWithin('image.attach_bytes', {
-              'session_id': sessionId,
-              'content_base64': encoded,
-              'filename': name,
-            }, timeout: _uploadTimeout(encoded));
+            final result = await client.requestWithin(
+              'image.attach_bytes',
+              {
+                'session_id': sessionId,
+                'content_base64': encoded,
+                'filename': name,
+              },
+              timeout: _uploadTimeout(encoded),
+              onLateResult: (late) {
+                // The server queued the image after this send gave up: take it
+                // off again, or the session's next prompt would carry it.
+                if (late['path'] case final String path) {
+                  unawaited(_detach(client, sessionId, [path]));
+                }
+              },
+            );
             if (result['path'] case final String path) queued.add(path);
             continue;
           } on GatewayRpcException catch (error) {

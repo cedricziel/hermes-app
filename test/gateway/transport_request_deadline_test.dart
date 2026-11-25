@@ -240,4 +240,42 @@ void main() {
       expect(granted, {'granted': true});
     });
   });
+
+  test('an image whose attach answered after the timeout is taken off the '
+      'session again, so no later prompt carries it', () {
+    run((async, gateway, transport, tracer, jump, now, events) {
+      gateway.silent.add('image.attach_bytes');
+      Object? error;
+      transport
+          .send(
+            text: 'Look',
+            attachments: [
+              OutgoingAttachment(
+                name: 'a.png',
+                kind: AttachmentKind.image,
+                read: () async => Uint8List(16),
+              ),
+            ],
+          )
+          .listen((_) {}, onError: (Object e) => error = e);
+      async.flushMicrotasks();
+      final attach = gateway.requestOf('image.attach_bytes');
+
+      async.elapse(transport.longTimeout + const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(error, isA<GatewayRequestTimeout>());
+
+      // The server got to the attach late: the image is queued for the next
+      // prompt of the session, and the answer comes back.
+      gateway.queuedImages.add('/home/u/.hermes/images/late.png');
+      gateway.replyTo(attach, {'path': '/home/u/.hermes/images/late.png'});
+      async.flushMicrotasks();
+
+      expect(gateway.requestOf('image.detach')['params'], {
+        'session_id': 'rt-1',
+        'path': '/home/u/.hermes/images/late.png',
+      });
+      expect(gateway.queuedImages, isEmpty);
+    });
+  });
 }
