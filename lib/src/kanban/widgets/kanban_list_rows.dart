@@ -93,9 +93,9 @@ class KanbanWorkerRow extends StatelessWidget {
     final l10n = context.l10n;
     final times = [
       if (w.startedAt case final at?)
-        l10n.kanbanWorkersStarted(relativeTime(at)),
+        l10n.kanbanWorkersStarted(relativeTimeLabel(l10n, at)),
       if (w.lastHeartbeatAt case final at?)
-        l10n.kanbanWorkersHeartbeat(relativeTime(at)),
+        l10n.kanbanWorkersHeartbeat(relativeTimeLabel(l10n, at)),
     ];
     return _MenuRow(
       title: w.taskTitle,

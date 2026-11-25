@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
@@ -131,7 +132,14 @@ class KanbanBoardsScreen extends StatelessWidget {
               const SizedBox(height: 8),
               SelectableText(exported.archive),
               const SizedBox(height: 8),
-              Text(context.l10n.kanbanBoardsExportedSize(exported.size / 1024)),
+              Text(
+                context.l10n.kanbanBoardsExportedSize(
+                  NumberFormat(
+                    '0.0',
+                    context.l10n.localeName,
+                  ).format(exported.size / 1024),
+                ),
+              ),
             ],
           ),
         ),

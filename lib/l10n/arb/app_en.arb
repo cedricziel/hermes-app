@@ -3018,9 +3018,9 @@
   },
   "kanbanBoardsExportedSize": "{kilobytes} KB",
   "@kanbanBoardsExportedSize": {
-    "description": "Size of an exported board archive in kilobytes, with one decimal.",
+    "description": "Size of an exported board archive in kilobytes. {kilobytes} is already formatted with one decimal for the locale.",
     "placeholders": {
-      "kilobytes": {"type": "double", "format": "decimalPatternDigits", "optionalParameters": {"decimalDigits": 1}, "example": "12.5"}
+      "kilobytes": {"type": "String", "example": "12.5"}
     }
   },
   "kanbanBoardsExportedTitle": "Board exported",
@@ -3108,7 +3108,7 @@
   },
   "kanbanBulkEffortDefault": "Profile default",
   "@kanbanBulkEffortDefault": {
-    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile."
+    "description": "Option in the bulk reasoning-effort picker: leave the effort to the profile. Also the value of the task panel's Model row when the task sets no model."
   },
   "kanbanBulkEffortTitle": "Reasoning effort",
   "@kanbanBulkEffortTitle": {
@@ -3641,7 +3641,7 @@
   },
   "kanbanWorkersTerminate": "Terminate",
   "@kanbanWorkersTerminate": {
-    "description": "Confirm button of the question that stops a worker run."
+    "description": "Confirm button of the question that stops a worker run, and the button on a run line of the task panel that stops it."
   },
   "kanbanWorkersTerminateTitle": "Terminate run #{run}?",
   "@kanbanWorkersTerminateTitle": {

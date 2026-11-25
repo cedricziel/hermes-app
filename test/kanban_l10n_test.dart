@@ -118,6 +118,24 @@ void main() {
       expect(find.text('Rename board'), findsNothing);
     });
 
+    testWidgets('the export result shows its size with a German comma', (
+      tester,
+    ) async {
+      server.on('POST', '/api/plugins/kanban/boards/default/export', {
+        'board': 'default',
+        'archive': '/srv/hermes/exports/default.tar.gz',
+        'size': 3072,
+      });
+      await pump(tester);
+      await openMenu(tester, 'Exportieren…');
+      await tester.tap(find.widgetWithText(FilledButton, 'Exportieren'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Board exportiert'), findsOneWidget);
+      expect(find.text('3,0 KB'), findsOneWidget);
+      expect(find.text('3.0 KB'), findsNothing);
+    });
+
     testWidgets('the archive question is German', (tester) async {
       await pump(tester);
       await openMenu(tester, 'Archivieren');
@@ -156,7 +174,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('t1 · Lauf #7 · coder'), findsOneWidget);
-      expect(find.textContaining('gestartet'), findsOneWidget);
+      expect(
+        find.textContaining(RegExp(r'^gestartet (vor|am|gestern|gerade)')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('ago'), findsNothing);
       expect(find.textContaining('started'), findsNothing);
 
       await tester.tap(find.byType(PopupMenuButton<RowAction>));
@@ -268,6 +290,48 @@ void main() {
       expect(find.tooltip('Anhang speichern'), findsOneWidget);
       expect(find.tooltip('Anhang entfernen'), findsOneWidget);
     });
+
+    for (final (action, endpoint, one, many) in [
+      (
+        'Zerlegen',
+        'decompose',
+        'In 1 Aufgabe zerlegt',
+        'In 2 Aufgaben zerlegt',
+      ),
+      (
+        'Spezifizieren',
+        'specify',
+        'In 1 Aufgabe spezifiziert',
+        'In 2 Aufgaben spezifiziert',
+      ),
+    ]) {
+      for (final (children, expected, other) in [
+        (['t2'], one, many),
+        (['t2', 't3'], many, one),
+      ]) {
+        testWidgets('$action with ${children.length} child task(s) is German', (
+          tester,
+        ) async {
+          server
+            ..on(
+              'GET',
+              '/api/plugins/kanban/tasks/t1',
+              kanbanTaskDetailBody(
+                kanbanTaskRow(id: 't1', title: 'Rough idea', status: 'triage'),
+              ),
+            )
+            ..on('POST', '/api/plugins/kanban/tasks/t1/$endpoint', {
+              'ok': true,
+              'child_ids': children,
+            });
+          await pump(tester);
+          await tester.tap(find.text(action));
+          await tester.pumpAndSettle();
+          expect(find.text(expected), findsOneWidget);
+          expect(find.text(other), findsNothing);
+        });
+      }
+    }
 
     testWidgets('the prompts and questions are German', (tester) async {
       await pump(tester);
