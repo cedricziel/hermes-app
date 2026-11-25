@@ -56,6 +56,50 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   String? _cachedLanguage;
   List<CodeRun>? _cachedRuns;
 
+  /// What [build] returned last time. Returning the identical widget lets
+  /// Flutter skip the whole subtree, which matters because the markdown
+  /// package creates every block again on every streamed delta. It is dropped
+  /// whenever something the subtree shows may have changed: a widget field
+  /// ([didUpdateWidget], comparing the style with its own `==`), an inherited widget this State's own context reads
+  /// ([didChangeDependencies], which tracks them without a list to keep in
+  /// step), and any [setState]. Descendants that read an inherited widget
+  /// through their own context (builders, tooltips, icons, text) are marked
+  /// dirty by it themselves and rebuild even when this widget is reused.
+  Widget? _built;
+
+  @override
+  void setState(VoidCallback fn) {
+    _built = null;
+    super.setState(fn);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _built = null;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _built = null;
+  }
+
+  @override
+  void didUpdateWidget(HermesCodeBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameConfig(oldWidget, widget)) _built = null;
+  }
+
+  /// `CodeBlockStyle` defines `==` over all its fields, so one a package
+  /// upgrade adds is compared too.
+  static bool _sameConfig(HermesCodeBlock a, HermesCodeBlock b) =>
+      a.name == b.name &&
+      a.codes == b.codes &&
+      a.highlightCode == b.highlightCode &&
+      a.scalesItsOwnText == b.scalesItsOwnText &&
+      a.style == b.style;
+
   List<CodeRun> _runs() {
     final language = widget.highlightCode
         ? widget.name.trim().toLowerCase()
@@ -145,7 +189,9 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _built ??= _buildBlock(context);
+
+  Widget _buildBlock(BuildContext context) {
     final theme = mui.Theme.of(context);
     final scheme = theme.colorScheme;
     final borderColor = widget.style.borderColor;
