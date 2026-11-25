@@ -26,7 +26,7 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 #### Scenario: A read at an offset
 
-- **WHEN** a `read_file` call with `offset` 2001 returns rows starting `  2001|`
+- **WHEN** a `read_file` call with `offset` 2001 returns rows starting `2001|`
 - **THEN** the gutter starts at 2001 and Copy copies the text after each bar
 
 #### Scenario: Cut short
@@ -60,12 +60,12 @@ A `write_file` card SHALL show the content as sent, coloured as soon as the call
 
 ### Requirement: Binary and image reads
 
-A `read_file` result that is binary or an image SHALL show the path and a note with its type, dimensions and size. It SHALL NOT draw, copy or log the base64 content.
+A `read_file` result with `is_binary` or `is_image` SHALL show the path and a note with Hermes' description and the size, even when it also carries `error`. It SHALL NOT draw, copy or log any base64 content.
 
 #### Scenario: An image read
 
-- **WHEN** the result carries `is_image` and `base64_content`
-- **THEN** the card shows "Not a text file." and no picture
+- **WHEN** the result is `{is_binary: true, file_size, error}`
+- **THEN** the card shows "Not a text file.", Hermes' description and the size, and no content
 
 ### Requirement: Link preview
 
@@ -128,8 +128,18 @@ A result that is a list of flat rows, or a map whose one large value is such a l
 
 #### Scenario: Search matches
 
-- **WHEN** a `search_files` result has 12 `matches` of `{path, line, content}`
+- **WHEN** a `search_files` result has 12 matches as a path-grouped `matches_text` block
 - **THEN** the card shows a table with the columns path, line and content and "12 matches · 3 columns"
+
+#### Scenario: Few matches
+
+- **WHEN** a `search_files` result has three `matches` of `{path, line, content}`
+- **THEN** the same table shows
+
+#### Scenario: A line that is not a row
+
+- **WHEN** a `matches_text` block has a line that is neither a path nor a `  <line>: <content>` row
+- **THEN** the card shows its generic input and result
 
 #### Scenario: A tool with a view that declined
 
