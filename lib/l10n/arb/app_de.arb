@@ -679,7 +679,7 @@
   "kanbanWorkersLoadFailed": "Die Worker konnten nicht geladen werden",
   "kanbanWorkersPreviousTitle": "Kanban",
   "kanbanWorkersRefreshFailed": "Aktualisieren fehlgeschlagen: {reason}",
-  "kanbanWorkersRunning": "{count} laufen",
+  "kanbanWorkersRunning": "{count, plural, =1{1 läuft} other{{count} laufen}}",
   "kanbanWorkersTerminate": "Beenden",
   "kanbanWorkersTerminateTitle": "Lauf #{run} beenden?",
   "kanbanWorkersTitle": "Aktive Worker",

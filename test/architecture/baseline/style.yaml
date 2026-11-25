@@ -345,7 +345,6 @@ style.string:
   lib/src/chat/widgets/composer_stop_button.dart: 2
   lib/src/chat/widgets/connector_operation_card.dart: 9
   lib/src/chat/widgets/image_viewer.dart: 3
-  lib/src/chat/widgets/mac_chat_toolbar.dart: 2
   lib/src/chat/widgets/mac_search_results.dart: 3
   lib/src/chat/widgets/mac_thread_row.dart: 3
   lib/src/chat/widgets/memory_tool_body.dart: 3
