@@ -65,8 +65,3 @@ arch.widget-layer-imports:
   lib/src/skills/widgets/installed_skills_list.dart: 2
   lib/src/skills/widgets/skill_badges.dart: 1
   lib/src/voice/widgets/dictation_notice.dart: 1
-
-arch.label-helper-takes-l10n:
-  lib/src/memory/widgets/memory_learning_section.dart: 2
-  lib/src/schedules/schedule_widgets.dart: 1
-  lib/src/skills/widgets/skill_badges.dart: 2
