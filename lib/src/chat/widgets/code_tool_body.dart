@@ -12,6 +12,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/busy_bar.dart';
 import '../read_file_result.dart' show CodeRow;
+import '../report_chat_bug.dart';
 import '../tool_value_budget.dart';
 import '../tool_value_language.dart' show ToolValueNotice, ToolValueShape;
 import 'tool_value_view.dart';
@@ -145,7 +146,8 @@ class _CodeToolBodyState extends State<CodeToolBody> {
     final direction = Directionality.of(context);
     try {
       await Clipboard.setData(ClipboardData(text: _text));
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a code view copy');
       return;
     }
     if (!mounted) return;

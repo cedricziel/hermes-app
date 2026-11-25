@@ -252,6 +252,32 @@ void main() {
     expect(find.byKey(const ValueKey('tool-value-notice')), findsOneWidget);
   });
 
+  testWidgets('a closed code card gives its colour share back', (tester) async {
+    final budget = ToolValueBudget(maxChars: 1500);
+    Widget app({required bool open}) => MaterialApp(
+      theme: buildHermesLightTheme(),
+      home: ToolValueBudgetScope(
+        budget: budget,
+        child: Scaffold(
+          body: open
+              ? _read(
+                  readCall(
+                    readAnswer(
+                      content: numbered(List.filled(60, 'final value = 1;')),
+                    ),
+                  ),
+                )
+              : const SizedBox(),
+        ),
+      ),
+    );
+    await tester.pumpWidget(app(open: true));
+    expect(budget.holders, 1);
+    await tester.pumpWidget(app(open: false));
+    expect(budget.holders, 0);
+    expect(budget.used, 0);
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,
