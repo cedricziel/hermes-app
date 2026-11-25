@@ -26,12 +26,14 @@ void main() {
   late AuthController controller;
   late List<Duration> slept;
   late int unreachable;
+  Future<void> Function()? onRetryWait;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     slept = [];
     unreachable = 0;
+    onRetryWait = null;
     server = FakeHermesServer()
       ..on('GET', '/api/status', {'auth_required': true})
       ..on('GET', '/api/auth/providers', {'providers': []})
@@ -51,7 +53,10 @@ void main() {
       devServerUrl: _baseUrl,
       telemetry: events.connection,
       rejectionRecheck: Duration.zero,
-      getRetryDelay: (delay) async => slept.add(delay),
+      getRetryDelay: (delay) async {
+        slept.add(delay);
+        await onRetryWait?.call();
+      },
       interceptors: [
         InterceptorsWrapper(
           onRequest: (options, handler) async {
@@ -99,6 +104,27 @@ void main() {
     expect(unreachable, 7);
     expect(slept, hasLength(2));
     expect(controller.state, HermesConnectionState.ready);
+  });
+
+  test('a GET waiting to be sent again is dropped when the user signs out '
+      'meanwhile', () async {
+    await controller.bootstrap();
+    unreachable = 10;
+    onRetryWait = controller.signOut;
+
+    await expectLater(
+      controller.api!.fetchMe(),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.type,
+          'type',
+          DioExceptionType.cancel,
+        ),
+      ),
+    );
+
+    expect(unreachable, 9);
+    expect(slept, hasLength(1));
   });
 
   test('a POST that cannot connect is not sent again', () async {
