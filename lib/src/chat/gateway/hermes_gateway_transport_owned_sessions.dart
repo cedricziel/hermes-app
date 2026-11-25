@@ -80,17 +80,20 @@ extension _OwnedSessions on HermesGatewayTransport {
       throw ArgumentError('Empty connection response');
     }
     final client = binding.connection as GatewayRpcClient;
-    final response = await client
-        .requestGuarded('connection.respond', {
-          'owner': {'type': 'session', 'session_id': binding.runtimeId},
-          'op_id': opId,
-          'profile': binding.profile,
-          'result': {
-            'targets': rows,
-            if (result['settled_by'] == 'continue') 'settled_by': 'continue',
-          },
-        }, authorize: () => _ownsBinding(binding) && authorize())
-        .timeout(requestTimeout);
+    final response = await client.requestGuarded(
+      'connection.respond',
+      {
+        'owner': {'type': 'session', 'session_id': binding.runtimeId},
+        'op_id': opId,
+        'profile': binding.profile,
+        'result': {
+          'targets': rows,
+          if (result['settled_by'] == 'continue') 'settled_by': 'continue',
+        },
+      },
+      authorize: () => _ownsBinding(binding) && authorize(),
+      timeout: requestTimeout,
+    );
     if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
     return response;
   }
@@ -150,12 +153,10 @@ extension _OwnedSessions on HermesGatewayTransport {
     }
     if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
     final client = binding.connection as GatewayRpcClient;
-    final result = await client
-        .request(method, {
-          'session_id': binding.runtimeId,
-          'profile': binding.profile,
-        })
-        .timeout(requestTimeout);
+    final result = await client.requestWithin(method, {
+      'session_id': binding.runtimeId,
+      'profile': binding.profile,
+    }, timeout: requestTimeout);
     if (!_ownsBinding(binding)) throw const GatewayConnectionClosed();
     return result;
   }

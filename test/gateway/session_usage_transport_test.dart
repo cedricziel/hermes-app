@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/owned_session_transport.dart';
 
@@ -124,7 +125,7 @@ void main() {
       clock.flushMicrotasks();
       clock.elapse(const Duration(seconds: 2));
       clock.flushMicrotasks();
-      expect(failure, isA<TimeoutException>());
+      expect(failure, isA<GatewayRequestTimeout>());
       expect(
         transport.ownedSessionFor('stored-1')?.connection,
         same(binding.connection),
