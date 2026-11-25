@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -14,12 +15,14 @@ import 'package:hermes_app/src/chat/subagents/widgets/agent_note_field.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_row.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../../support/fake_attachment_source.dart';
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
+import '../../support/tooltip_finder.dart';
 
 const _audit =
     'Audit the dependency tree for packages with known vulnerabilities';
@@ -209,6 +212,7 @@ void main() {
     addTearDown(latest.dispose);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: ListenableBuilder(
             listenable: Listenable.merge([chat, panelShown]),
@@ -420,9 +424,9 @@ void main() {
         findsNothing,
         reason: 'the sections are covered while the detail is open',
       );
-      expect(find.byTooltip('Back to Activity'), findsOneWidget);
+      expect(find.tooltip('Back to Activity'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
       expect(selection.key, isNull);
       expect(find.byKey(const Key('activity-panel')), findsOneWidget);
@@ -498,7 +502,7 @@ void main() {
         tester.widget<TextField>(noteField()).controller!.text,
         'Only check the Go modules',
       );
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
       await openDetail(tester, 'a1');
       await tester.ensureVisible(noteField());
@@ -844,6 +848,60 @@ void main() {
       expect(find.byType(AgentNoteField), findsNothing);
     });
 
+    panelTest('Escape after a mouse click inside the detail, outside the '
+        'field, still goes back', (tester) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.enterText(noteField(), 'x');
+      await tester.pump();
+
+      // Above the field, inside the detail, on a paragraph: a mouse click
+      // takes focus out of the field.
+      final at = tester.getTopLeft(noteField()) - const Offset(0, 30);
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: at);
+      await mouse.down(at);
+      await mouse.up();
+      await mouse.removePointer();
+      await tester.pump();
+      expect(find.byType(AgentNoteField), findsOneWidget);
+
+      // The first Escape with text in the note only steps out: leaving the
+      // detail drops the note. The second goes back.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsOneWidget);
+      expect(tester.widget<TextField>(noteField()).controller!.text, 'x');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byType(AgentNoteField), findsNothing);
+    });
+
+    panelTest('Tab from the note field reaches the chat beside the detail', (
+      tester,
+    ) async {
+      await arrangeOne(tester);
+      await openDetail(tester, 'a1');
+      await tester.ensureVisible(noteField());
+      await tester.tap(noteField());
+      await tester.pump();
+      final composerField = find.descendant(
+        of: find.byKey(const Key('strip-side')),
+        matching: find.byType(EditableText),
+      );
+      var reached = false;
+      for (var i = 0; i < 60 && !reached; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        reached = tester
+            .widgetList<EditableText>(composerField)
+            .any((f) => f.focusNode.hasFocus);
+      }
+      expect(reached, isTrue);
+    });
+
     panelTest('an agent that ends while Stopping leaves no banner under '
         'Stopped', (tester) async {
       await arrangeOne(tester);
@@ -951,7 +1009,7 @@ void main() {
       await tapText(tester, 'Stop agent');
       await tester.tap(dialogText('Stop agent'));
       await settle(tester);
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
 
       final crumbs = [
@@ -1048,7 +1106,7 @@ void main() {
         await pumpEventQueue();
       });
       await settle(tester);
-      await tester.tap(find.byTooltip('Back to Activity'));
+      await tester.tap(find.tooltip('Back to Activity'));
       await settle(tester);
 
       final crumbs = [for (final crumb in trail.recent) crumb.name];

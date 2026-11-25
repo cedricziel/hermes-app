@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/widgets/file_details_view.dart';
@@ -17,6 +17,7 @@ import 'package:hermes_app/src/widgets/app_banner.dart';
 
 import '../../../widgetbook/files_sample_image.dart';
 import 'files_widget_harness.dart';
+import '../../support/tooltip_finder.dart';
 
 const _longName =
     'quarterly-soil-moisture-survey-results-final-reviewed-2026-v3.pdf';
@@ -99,7 +100,7 @@ void main() {
 
       expect(find.bySemanticsLabel('Quick Look'), findsOneWidget);
       expect(find.bySemanticsLabel('Share'), findsNothing);
-      expect(find.byTooltip('Quick Look (Space)'), findsOneWidget);
+      expect(find.tooltip('Quick Look (Space)'), findsOneWidget);
       final size = tester.getSize(
         find.ancestor(
           of: find.bySemanticsLabel('Save'),
@@ -169,7 +170,7 @@ void main() {
 
       expect(wrapped, greaterThan(0));
       expect(find.byKey(const Key('drag')), findsOneWidget);
-      expect(find.byTooltip('Drag to Finder'), findsOneWidget);
+      expect(find.tooltip('Drag to Finder'), findsOneWidget);
     });
 
     testWidgets('at the largest text the actions drop under the name', (

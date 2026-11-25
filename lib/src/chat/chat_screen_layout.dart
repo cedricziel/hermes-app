@@ -21,7 +21,12 @@ extension _ChatScreenLayout on _ChatScreenState {
       ),
       actions: [
         NamedIconButton(
-          label: 'New message',
+          label: context.l10n.chatWidgetsNewMessage,
+          tooltip: withChordHint(
+            context,
+            context.l10n.chatWidgetsNewMessage,
+            MacCommand.newChat,
+          ),
           icon: AppIcons.compose,
           onPressed: _newThread,
         ),
@@ -74,6 +79,9 @@ extension _ChatScreenLayout on _ChatScreenState {
             ? folderLineBuilder(chat, selected)
             : null;
         _latestReply.follow(chat, selected);
+        final titleBelow = !isWide && chatTitleBelowBar(context);
+        final barTitle =
+            bot?.title ?? selected?.title ?? context.l10n.chatNewMessageTitle;
         final showNewChatFab =
             !isWide && platformChromeOf(context) == PlatformChrome.ios;
         ThreadSidebar buildSidebar({
@@ -87,6 +95,7 @@ extension _ChatScreenLayout on _ChatScreenState {
           avatarBuilder: (_) => _avatar(24),
           navigation: navigation,
           changeFolderFor: _changeFolderOffer,
+          exportJsonFor: _exportJsonOffer,
           onOpenInNewWindow: _windows == null
               ? null
               : (thread) => unawaited(_openInWindow(thread)),
@@ -96,6 +105,10 @@ extension _ChatScreenLayout on _ChatScreenState {
           selectedId: chat.selectedId,
           onSelect: _pickInSidebar,
           onNewThread: _newThread,
+          onRefresh: () async {
+            await chat.pullRefreshThreadList();
+          },
+          refreshFailed: chat.threadListRefreshFailed,
           busy: chat.activeThreads,
           housekeeping: chat.housekeeping,
           search: chat.search,
@@ -148,6 +161,7 @@ extension _ChatScreenLayout on _ChatScreenState {
             onOpenScreen: () => _openViewer('preview'),
             onShowAgentDetails: _showAgentDetails,
             toolCallExpansion: _toolCallExpansion,
+            toolValueBudget: _toolValueBudget,
             needsYou: _needsYou,
             // The inspector lists the same items, so it replaces the line
             // (a phone's sheet covers the chat, so there the line stays); the
@@ -211,7 +225,9 @@ extension _ChatScreenLayout on _ChatScreenState {
                       onCopyTranscript: selected == null
                           ? null
                           : () => _copyTranscript(selected),
+                      exportJson: _exportJsonOffer(selected),
                       onShowFiles: showFiles,
+                      callButton: _macCallButton,
                       folderButton: workspacesOffered(chat)
                           ? BoundFolderToolbarButton(
                               chat: chat,
@@ -236,6 +252,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                     onNewChat: _newThread,
                     callButton: _callButton,
                     onShowFiles: showFiles,
+                    exportJson: _exportJsonOffer(selected),
                     folderLine: folderLine,
                     activityOpen: _activityOpen,
                     activityWaiting: _needsYou.count,
@@ -276,28 +293,37 @@ extension _ChatScreenLayout on _ChatScreenState {
                   leading: compactMessenger
                       ? BackButton(onPressed: _showChats)
                       : null,
-                  title: Row(
-                    children: [
-                      _avatar(),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child:
-                            folderLine != null &&
-                                bot == null &&
-                                !workingDirectoryLineBelowBar(context)
-                            ? folderLine(
-                                context,
-                                belowBar: false,
-                                title: selected?.title ?? 'New message',
-                              )
-                            : Text(
-                                bot?.title ?? selected?.title ?? 'New message',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                      ),
-                    ],
-                  ),
+                  title: titleBelow
+                      ? null
+                      : Row(
+                          children: [
+                            _avatar(),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child:
+                                  folderLine != null &&
+                                      bot == null &&
+                                      !workingDirectoryLineBelowBar(context)
+                                  ? folderLine(
+                                      context,
+                                      belowBar: false,
+                                      title: barTitle,
+                                    )
+                                  : Text(
+                                      barTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                            ),
+                          ],
+                        ),
+                  bottom: titleBelow
+                      ? chatTitleBelowBarRow(
+                          context,
+                          text: barTitle,
+                          avatar: _avatar(),
+                        )
+                      : null,
                   actions: [
                     ?_callButton,
                     if (selected != null && selected.remote)
@@ -308,6 +334,7 @@ extension _ChatScreenLayout on _ChatScreenState {
                         includeCopyTranscript: true,
                         onShowFiles: showFiles,
                         changeFolder: _changeFolderOffer(selected),
+                        exportJson: _exportJsonOffer(selected),
                       ),
                     if (selected != null)
                       ActivityButton(
@@ -434,7 +461,12 @@ extension _ChatScreenLayout on _ChatScreenState {
                       ),
                       actions: [
                         NamedIconButton(
-                          label: 'New message',
+                          label: context.l10n.chatWidgetsNewMessage,
+                          tooltip: withChordHint(
+                            context,
+                            context.l10n.chatWidgetsNewMessage,
+                            MacCommand.newChat,
+                          ),
                           icon: AppIcons.compose,
                           onPressed: _newThread,
                         ),
@@ -465,6 +497,13 @@ extension _ChatScreenLayout on _ChatScreenState {
               MacCommand.find: MacCommandHandler(
                 !_detailOpen && search != null ? _focusSidebarSearch : null,
               ),
+              // Show or hide the sidebar is the chat list's drawer on
+              // Windows and Linux, while the list is showing; a wide window
+              // keeps its sidebar.
+              if (bindsDesktopChords(Theme.of(context).platform))
+                MacCommand.toggleSidebar: MacCommandHandler(
+                  _detailOpen ? null : _toggleDrawer,
+                ),
             },
             child: phone,
           );

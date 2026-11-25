@@ -151,14 +151,50 @@ class FakeChatTransport
   /// What [activeStatuses] answers for a profile asked about by name.
   final activeInProfile = <String, Map<String, String>>{};
 
+  /// When set, [activeStatuses] throws it: the server cannot be asked.
+  Object? activeError;
+
   /// The profiles [activeStatuses] was asked about, in order.
   final activeAsked = <String?>[];
 
   @override
   Future<Map<String, String>> activeStatuses({String? profile}) async {
     activeAsked.add(profile);
+    if (activeError case final error?) throw error; // ignore: only_throw_errors
+    if (activeUnanswered) return const {};
     return Map.of(profile == null ? active : activeInProfile[profile] ?? {});
   }
+
+  /// What the real transport answers when the server cannot be asked: no
+  /// answer at all, which is not an empty list ([activeError] makes it so).
+  @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) async {
+    if (answeredError case final error?) {
+      throw error; // ignore: only_throw_errors
+    }
+    if (activeError != null || activeUnanswered) return null;
+    activeAsked.add(profile);
+    final answer = Map<String, String>.of(
+      profile == null ? active : activeInProfile[profile] ?? {},
+    );
+    // The answer is what the server said when asked, not when it arrives.
+    if (answeredGate case final gate?) {
+      answeredGate = null;
+      await gate.future;
+    }
+    return answer;
+  }
+
+  /// When set, the next [activeStatusesAnswered] answers only once it
+  /// completes (a probe in flight); later asks go straight through.
+  Completer<void>? answeredGate;
+
+  /// The server answers nothing usable (offline, an error, a bad list), as
+  /// the real transport's [activeStatuses] reports it: an empty map.
+  bool activeUnanswered = false;
+
+  /// When set, [activeStatusesAnswered] throws it (a bug, not an answer).
+  Object? answeredError;
 
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =

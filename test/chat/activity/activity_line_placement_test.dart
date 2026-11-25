@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -14,6 +14,7 @@ import 'package:hermes_app/src/chat/todo_plan/todo_plan_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -21,6 +22,7 @@ import '../../support/fake_attachment_source.dart';
 import '../../support/fake_gateway.dart';
 import '../../support/fake_hermes_server.dart';
 import '../billing_fixtures.dart';
+import '../../support/test_localizations.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +82,7 @@ void main() {
       await chat.loadThreads('work');
       chat.select('stored-1');
       await pumpEventQueue();
-      chat.submit('Start', const []);
+      await chat.submit('Start', const []);
       await pumpEventQueue();
       gateway.event('todo.updated', 'rt-1', {
         'revision': 1,
@@ -117,7 +119,8 @@ void main() {
     }
     await tester.pumpWidget(
       MaterialApp(
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        builder: (_, child) => AppThemeScopes(child: child!),
+        localizationsDelegates: kTestLocalizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: Row(

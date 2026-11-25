@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
 import 'package:hermes_app/src/memory/memory_proposals_repository.dart';
@@ -32,30 +33,30 @@ void main() {
   });
 
   test('reads how many changes wait in the profile', () async {
-    await count.refresh('work');
+    await count.refresh(resolvedProfile('work'));
     expect(count.waiting, 2);
     expect(transport.asked.map((a) => a.$2).toSet(), {'work'});
   });
 
   test('nothing waiting reads as zero', () async {
     transport.script['/memory pending'] = noPendingMemory;
-    await count.refresh('work');
+    await count.refresh(resolvedProfile('work'));
     expect(count.waiting, 0);
   });
 
   test('a read that fails shows no count', () async {
-    await count.refresh('work');
+    await count.refresh(resolvedProfile('work'));
     transport.script['/memory pending'] = const GatewayConnectionClosed();
     transport.script['/skills pending'] = const GatewayConnectionClosed();
-    await count.refresh('work');
+    await count.refresh(resolvedProfile('work'));
     expect(count.waiting, isNull);
   });
 
   test('another profile starts without the first one count', () async {
-    await count.refresh('work');
+    await count.refresh(resolvedProfile('work'));
     final gate = Completer<String>();
     transport.script['/memory pending'] = gate;
-    final reading = count.refresh('home');
+    final reading = count.refresh(resolvedProfile('home'));
     expect(count.waiting, isNull);
     gate.complete(noPendingMemory);
     await reading;
@@ -65,25 +66,25 @@ void main() {
   test('a late answer of an earlier profile is dropped', () async {
     final slow = Completer<String>();
     transport.script['/memory pending'] = slow;
-    final first = count.refresh('work');
+    final first = count.refresh(resolvedProfile('work'));
     transport.script['/memory pending'] = noPendingMemory;
-    await count.refresh('home');
+    await count.refresh(resolvedProfile('home'));
     slow.complete(_two);
     await first;
     expect(count.waiting, 0);
   });
 
   test('on resume it reads at most every five minutes', () async {
-    await count.refreshIfStale('work');
-    await count.refreshIfStale('work');
+    await count.refreshIfStale(resolvedProfile('work'));
+    await count.refreshIfStale(resolvedProfile('work'));
     now = now.add(const Duration(minutes: 4, seconds: 59));
-    await count.refreshIfStale('work');
+    await count.refreshIfStale(resolvedProfile('work'));
     expect(
       transport.slashRuns.where((c) => c == '/memory pending'),
       hasLength(1),
     );
     now = now.add(const Duration(seconds: 2));
-    await count.refreshIfStale('work');
+    await count.refreshIfStale(resolvedProfile('work'));
     expect(
       transport.slashRuns.where((c) => c == '/memory pending'),
       hasLength(2),
@@ -91,8 +92,8 @@ void main() {
   });
 
   test('on resume another profile is read at once', () async {
-    await count.refreshIfStale('work');
-    await count.refreshIfStale('home');
+    await count.refreshIfStale(resolvedProfile('work'));
+    await count.refreshIfStale(resolvedProfile('home'));
     expect(
       transport.slashRuns.where((c) => c == '/memory pending'),
       hasLength(2),
@@ -100,7 +101,7 @@ void main() {
   });
 
   test('clearing forgets the count', () async {
-    await count.refresh('work');
+    await count.refresh(resolvedProfile('work'));
     count.clear();
     expect(count.waiting, isNull);
   });

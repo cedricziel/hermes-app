@@ -1,6 +1,7 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 import '../navigation/desktop_navigation_history.dart';
 
@@ -98,18 +99,21 @@ class _ChevronOnlyBackButton extends StatelessWidget {
         label: label,
         onTap: back,
         excludeSemantics: true,
-        child: InkResponse(
-          onTap: back,
+        child: FocusRing.outside(
           radius: 22,
-          child: SizedBox.square(
-            dimension: 44,
-            child: Icon(
-              CupertinoIcons.back,
-              size: 30,
-              color: color,
-              // Mirrors the chevron in a right-to-left layout.
-              textDirection: Directionality.of(context),
-              applyTextScaling: false,
+          child: InkResponse(
+            onTap: back,
+            radius: 22,
+            child: SizedBox.square(
+              dimension: 44,
+              child: Icon(
+                CupertinoIcons.back,
+                size: 30,
+                color: color,
+                // Mirrors the chevron in a right-to-left layout.
+                textDirection: Directionality.of(context),
+                applyTextScaling: false,
+              ),
             ),
           ),
         ),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
@@ -8,11 +8,13 @@ import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
 import 'package:hermes_app/src/chat/activity/widgets/needs_you_models.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ComposerHeightNotifier;
 
 import '../../support/fake_attachment_source.dart';
+import '../../support/test_localizations.dart';
 
 const _billing = NeedsYouItem(
   id: 'billing',
@@ -53,7 +55,8 @@ Future<void> _pump(
   }
   await tester.pumpWidget(
     MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      builder: (_, child) => AppThemeScopes(child: child!),
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: ChatThreadView(

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_orchestration_fields.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_edit_fields.dart';
 import 'package:widgetbook/widgetbook.dart';

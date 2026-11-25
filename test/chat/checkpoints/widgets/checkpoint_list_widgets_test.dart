@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -11,10 +11,12 @@ import 'package:hermes_app/src/chat/checkpoints/widgets/restore_all_bar.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/destructive_tint_button.dart';
 
+import '../../../support/test_localizations.dart';
+
 Widget _app(Widget child, {double scale = 1, TargetPlatform? platform}) =>
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: MediaQuery(
         data: MediaQueryData(
@@ -498,6 +500,45 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Before editing a file'), findsOneWidget);
+    });
+
+    testWidgets('a tall header scrolls with the list as one page', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          SizedBox(
+            height: 400,
+            child: CheckpointListBody(
+              status: CheckpointListStatus.loaded,
+              header: const SizedBox(
+                key: Key('header'),
+                height: 600,
+                child: Text('Restored 5 files'),
+              ),
+              items: const [
+                CheckpointListItem(
+                  checkpoint: Checkpoint(
+                    hash: 'aaa111bbb222',
+                    reason: CheckpointReason.beforeEdit,
+                  ),
+                  timeLabel: '12 min ago',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      // The header is not capped to half the height: it is the first thing
+      // in the list, and the list's own scroll reaches the rows below it.
+      expect(tester.getSize(find.byKey(const Key('header'))).height, 600);
+      await tester.scrollUntilVisible(
+        find.text('Before editing a file'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Before editing a file'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

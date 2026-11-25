@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +37,7 @@ import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -53,6 +54,7 @@ import 'support/fake_session_auth.dart';
 import 'support/kanban_fixtures.dart';
 import 'support/mac_commands_builder.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 /// The Kanban tab exists only while the server has the plugin on.
 void main() {
@@ -117,10 +119,12 @@ void main() {
             ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           builder: (context, child) {
             final content =
-                macCommandsBuilder(commands)?.call(context, child) ?? child!;
+                macCommandsBuilder(commands)
+                    ?.call(context, AppThemeScopes(child: child!)) ??
+                AppThemeScopes(child: child!);
             return lock == null ? content : AppLockGate(child: content);
           },
           home: AppShell(
@@ -148,17 +152,11 @@ void main() {
   /// Opens the drawer of a narrow layout: Chat's own, or the shell's on
   /// another page.
   Future<void> openMenu(WidgetTester tester) async {
-    if (find
-        .byTooltip('Open navigation menu')
-        .hitTestable()
-        .evaluate()
-        .isEmpty) {
+    if (find.tooltip('Open navigation menu').hitTestable().evaluate().isEmpty) {
       await tester.tap(find.byType(BackButton).hitTestable().first);
       await tester.pumpAndSettle();
     }
-    await tester.tap(
-      find.byTooltip('Open navigation menu').hitTestable().first,
-    );
+    await tester.tap(find.tooltip('Open navigation menu').hitTestable().first);
     await tester.pumpAndSettle();
   }
 
@@ -582,7 +580,7 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(find.byTooltip('Open navigation menu'), findsNothing);
+        expect(find.tooltip('Open navigation menu'), findsNothing);
         expect(tester.takeException(), isNull);
       });
     }
@@ -596,7 +594,7 @@ void main() {
         platform: TargetPlatform.iOS,
       );
 
-      expect(find.byTooltip('Open navigation menu'), findsWidgets);
+      expect(find.tooltip('Open navigation menu'), findsWidgets);
     });
 
     testWidgets('keeps the drawer on Android at 834', (tester) async {
@@ -608,7 +606,7 @@ void main() {
         platform: TargetPlatform.android,
       );
 
-      expect(find.byTooltip('Open navigation menu'), findsWidgets);
+      expect(find.tooltip('Open navigation menu'), findsWidgets);
     });
   });
 
@@ -1971,6 +1969,26 @@ void main() {
 
     await openInSidebar(tester, 'Chat');
     expect(newTitle(), isNull);
+  });
+
+  testWidgets('on Linux the shell offers Settings and the chat New Chat', (
+    tester,
+  ) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpShell(
+      tester,
+      size: const Size(1400, 900),
+      platform: TargetPlatform.linux,
+      commands: commands,
+    );
+
+    expect(commands.handlerFor(MacCommand.settings)?.enabled, isTrue);
+    expect(commands.handlerFor(MacCommand.newChat)?.enabled, isTrue);
+
+    expect(commands.invoke(MacCommand.settings), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Keyboard shortcuts'), findsOneWidget);
   });
 
   group('Schedules', () {

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -16,7 +16,10 @@ import '../workspaces/ui/bound_working_directory.dart';
 import '../chat/queue_storage/queue_broker.dart';
 import '../chat/queue_storage/queue_record.dart';
 import '../chat/chat_models.dart';
+import '../api/hermes_api_client.dart';
 import '../chat/chat_thread_bindings.dart';
+import '../chat/session_export_controller.dart';
+import '../chat/session_export_flow.dart';
 import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../chat/widgets/thread_actions_menu.dart';
@@ -27,6 +30,7 @@ import '../share/shared_item.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../widgets/inspector_layout.dart';
 import 'conversation_window_args.dart';
+import '../chat/tool_value_budget.dart';
 import '../chat/widgets/tool_call_expansion.dart';
 import 'conversation_windows.dart' show kInspectorWindowCommand;
 import 'desktop_conversation_windows.dart';
@@ -44,6 +48,7 @@ class ConversationWindowScreen extends StatefulWidget {
     this.models,
     this.transport,
     this.attachmentSource,
+    this.api,
   });
 
   final ConversationWindowArgs args;
@@ -59,6 +64,10 @@ class ConversationWindowScreen extends StatefulWidget {
   /// The platform's plugins unless a test supplies its own.
   final AttachmentSource? attachmentSource;
 
+  /// The window's API client, for "Export chat as JSON"; without it the row
+  /// is left out.
+  final HermesApiClient? api;
+
   @override
   State<ConversationWindowScreen> createState() =>
       _ConversationWindowScreenState();
@@ -72,6 +81,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   /// The tool calls the reader opened. A window holds one chat, so it is never
   /// cleared; it goes with the window.
   final _toolCallExpansion = ToolCallExpansionStore();
+  final _toolValueBudget = ToolValueBudget();
   BrokerQueueStore? _protectedQueue;
   late final AttachmentSource _attachmentSource;
   late final _composerController = TextEditingController(
@@ -82,6 +92,11 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   final _latestReply = LatestReply();
   bool _queueSending = false;
   final _subscriptions = <StreamSubscription<Object?>>[];
+
+  /// This window's own export, for the chat it shows. It has no App Lock or
+  /// session of its own: the main window's lock reaches it as the queue's
+  /// visibility, and a sign-out closes the window.
+  SessionExportController? _export;
 
   /// Whether the chat was shown; once it is, losing it (deleted or archived)
   /// closes the window.
@@ -165,10 +180,56 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       NotificationTarget(threadId: _args.threadId, profile: _args.profile),
       fetchMissing: true,
     );
+    final api = widget.api;
+    if (api != null) {
+      _export = newSessionExportController(context, api: api)
+        ..addListener(_exportChanged);
+    }
     _subscriptions
       ..add(_link.commands.listen(_onCommand))
       ..add(_link.keyChanges.listen(_onKeyChanged));
+    if (link is QueueWindowLink) {
+      _subscriptions.add(
+        (link as QueueWindowLink).queueVisibility.listen((visible) {
+          if (!visible) _export?.locked();
+        }),
+      );
+    }
     unawaited(_link.present(frameName: _args.frameName, title: _args.title));
+  }
+
+  bool _exportBusyReported = false;
+
+  void _exportChanged() {
+    if (!mounted) return;
+    final busy = _export?.busy ?? false;
+    if (busy != _exportBusyReported) {
+      _exportBusyReported = busy;
+      if (_link case final ExportBusyWindowLink link) {
+        link.reportExportBusy(busy);
+      }
+    }
+    setState(() {});
+  }
+
+  /// "Export Chat as JSON…" for [thread]: absent without a profile, disabled
+  /// while this window's export runs.
+  ExportJsonOffer? _exportOffer(ChatThread thread) {
+    final export = _export;
+    final profile = _args.profile;
+    if (export == null || profile == null || !thread.remote) return null;
+    return ExportJsonOffer(
+      enabled: !export.busy,
+      onSelected: () => unawaited(
+        showSessionExport(
+          context,
+          export,
+          sessionId: thread.id,
+          profile: profile,
+          title: thread.title,
+        ),
+      ),
+    );
   }
 
   ChatThread? get _thread {
@@ -209,6 +270,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         action,
         thread: thread,
         housekeeping: _chat.housekeeping,
+        exportJson: _exportOffer(thread),
       ),
     );
   }
@@ -272,6 +334,9 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
+    _export
+      ?..removeListener(_exportChanged)
+      ..dispose();
     _needsYou.dispose();
     _chat
       ..removeListener(_changed)
@@ -315,6 +380,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
               thread: thread,
               conversationWindow: true,
             ),
+      exportJson: thread == null ? null : _exportOffer(thread),
       onAction: thread == null
           ? null
           : (action) => runThreadAction(
@@ -322,6 +388,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
               action,
               thread: thread,
               housekeeping: chat.housekeeping,
+              exportJson: _exportOffer(thread),
             ),
     );
     final Widget body;
@@ -329,6 +396,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       body = boundChatThreadView(
         onShowAgentDetails: _showAgentDetails,
         toolCallExpansion: _toolCallExpansion,
+        toolValueBudget: _toolValueBudget,
         chat: chat,
         thread: thread,
         composerController: _composerController,

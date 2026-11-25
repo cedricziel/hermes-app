@@ -1,10 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../auth/auth_controller.dart';
+import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../models/hermes_status.dart';
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_scaffold.dart';
 import 'widgets/connection_summary.dart';
 
@@ -27,6 +34,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<HermesStatus> _loadStatus() =>
       context.read<AuthController>().api!.fetchStatus();
 
+  bool _reloading = false;
+
+  /// A reload the user asked for, from the bar or View > Reload.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _refresh();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   Future<void> _refresh() async {
     final future = _loadStatus();
     setState(() {
@@ -39,17 +58,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final identity = auth.identity;
-    return SettingsScaffold(
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final scaffold = SettingsScaffold(
       title: 'Connection',
       actions: [
         SettingsBarAction(
           key: const Key('connection-refresh'),
-          label: 'Refresh',
+          label: context.l10n.screensRefreshAction,
           icon: AppIcons.refresh,
-          onPressed: _refresh,
+          command: MacCommand.reload,
+          shortcut: mac ? '⌘R' : null,
+          busy: _reloading,
+          onPressed: _reload,
         ),
       ],
-      body: RefreshIndicator(
+      body: PlatformRefresh(
         onRefresh: _refresh,
         child: GroupedListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -81,6 +104,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+    if (!mac && !bindsDesktopChords(Theme.of(context).platform)) {
+      return scaffold;
+    }
+    // View > Reload owns ⌘R, and Ctrl+R and F5 on Windows and Linux.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(
+          _reloading ? null : () => unawaited(_reload()),
+        ),
+      },
+      child: scaffold,
     );
   }
 }

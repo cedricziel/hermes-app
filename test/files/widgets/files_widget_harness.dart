@@ -1,8 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/files/server_path.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
+
+import '../../support/test_localizations.dart';
 
 ServerPath serverPath(String text) => ServerPath.tryParse(text)!;
 
@@ -30,7 +33,7 @@ Future<void> pumpFiles(
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: base,
       builder: (context, app) => MediaQuery(
@@ -38,7 +41,7 @@ Future<void> pumpFiles(
           textScaler: TextScaler.linear(textScale),
           disableAnimations: reduceMotion,
         ),
-        child: app!,
+        child: AppThemeScopes(child: app!),
       ),
       home: Scaffold(body: child),
     ),

@@ -1,8 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
+import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
+import '../app_lock/app_lock_controller.dart';
+import '../telemetry/breadcrumbs.dart';
+import '../telemetry/telemetry.dart';
+import '../widgets/app_inactive_watcher.dart';
+import 'curator/curator_config.dart';
+import 'curator/curator_controller.dart';
+import 'curator/curator_section_host.dart';
+import 'curator/curator_telemetry.dart';
+import 'curator/hermes_curator_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
@@ -22,6 +35,7 @@ import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
 import 'skills_hub_controller.dart';
 import 'widgets/installed_skills_list.dart';
+import '../widgets/grouped_list.dart';
 import '../widgets/route_dismissal.dart';
 
 /// The skills installed on a profile: switch them on and off, read and edit
@@ -38,12 +52,19 @@ class SkillsScreen extends StatefulWidget {
     this.hubRepository,
     this.profiles,
     this.chatProfile,
+    this.curatorRepository,
+    this.curatorConfig,
   });
 
   final HermesSkillsRepository? repository;
   final HermesSkillsHubRepository? hubRepository;
   final HermesProfilesRepository? profiles;
   final String? chatProfile;
+
+  /// The skill curator's routes, for a test; the connection's otherwise. With
+  /// neither there is no curator section.
+  final HermesCuratorRepository? curatorRepository;
+  final CuratorConfigReader? curatorConfig;
 
   @override
   State<SkillsScreen> createState() => _SkillsScreenState();
@@ -55,6 +76,15 @@ class _SkillsScreenState extends State<SkillsScreen>
   SkillsHubController? _hub;
   late final TabController _tabs;
   bool _hubLoaded = false;
+
+  /// The skill curator of the profile shown, created with the first profile
+  /// this screen knows. It belongs to this State alone: the home shell builds
+  /// the next State before this one disposes, so [dispose] touches only it.
+  CuratorController? _curator;
+  HermesCuratorRepository? _curatorRepository;
+  CuratorConfigReader? _curatorConfig;
+  AppLockController? _lock;
+  AppInactiveWatcher? _away;
 
   @override
   void initState() {
@@ -81,6 +111,94 @@ class _SkillsScreenState extends State<SkillsScreen>
     _controller
       ..load()
       ..loadProfiles();
+    _startCurator(widget.curatorRepository, widget.curatorConfig, repositories);
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  void _startCurator(
+    HermesCuratorRepository? repository,
+    CuratorConfigReader? config,
+    HermesRepositories? known,
+  ) {
+    final connection = known ?? HermesRepositories.maybeOf(context);
+    repository ??= connection?.curator;
+    config ??= connection?.curatorConfig;
+    if (repository == null || config == null) return;
+    _curatorRepository = repository;
+    _curatorConfig = config;
+    _lock = _maybeRead<AppLockController>()?..addListener(_onLock);
+    _away = AppInactiveWatcher()..addListener(_onAway);
+    _controller.addListener(_onSkillsChanged);
+    final profile = _controller.profile;
+    if (profile != null) _ensureCurator(profile);
+  }
+
+  /// Creates the curator for [profile], or points it at the new profile.
+  void _ensureCurator(String profile) {
+    final existing = _curator;
+    if (existing != null) {
+      existing.switchProfile(profile);
+      return;
+    }
+    final repository = _curatorRepository;
+    final config = _curatorConfig;
+    if (repository == null || config == null) return;
+    final connection = HermesRepositories.maybeOf(context);
+    final curator = CuratorController(
+      repository: repository,
+      readConfig: config.call,
+      profile: profile,
+      telemetry: CuratorTelemetry(
+        connection?.telemetry ?? const ConnectionTelemetry(),
+        _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+      ),
+      onProfileGone: () => unawaited(_controller.loadProfiles()),
+      // Archived skills leave the list.
+      onRunEnded: () => unawaited(_controller.load(quiet: true)),
+    );
+    _curator = curator;
+    _syncSearching();
+    final lock = _lock;
+    if (lock != null && lock.locked) curator.lock();
+    curator.setInactive(_away?.away ?? false);
+    curator.start();
+  }
+
+  /// A search or a filter hides the section; nothing else of it changes.
+  void _syncSearching() {
+    _curator?.searching =
+        _controller.query.trim().isNotEmpty ||
+        _controller.filter != SkillFilter.all;
+  }
+
+  void _onSkillsChanged() => _syncSearching();
+
+  /// App Lock locked: the output is dropped and an open question closes.
+  void _onLock() {
+    final curator = _curator;
+    final lock = _lock;
+    if (curator == null || lock == null) return;
+    if (lock.locked) {
+      curator.lock();
+    } else {
+      curator.unlocked();
+    }
+    if (lock.covered) curator.cancelRun();
+  }
+
+  void _onAway() {
+    final away = _away;
+    final curator = _curator;
+    if (away == null || curator == null) return;
+    curator.setInactive(away.away);
+    if (!away.away) curator.resumed();
   }
 
   /// The hub loads the first time its tab is opened, not with the page.
@@ -98,10 +216,11 @@ class _SkillsScreenState extends State<SkillsScreen>
     if (hub == null || job == null || job.running || hub.sheetOpen) return;
     hub.dismissJob();
     if (!mounted) return;
+    final l10n = context.l10n;
     final text = switch (job.state) {
-      JobState.succeeded => 'Done: ${job.title}',
-      JobState.failed => 'Failed: ${job.title}',
-      _ => 'Could not confirm: ${job.title}',
+      JobState.succeeded => l10n.skillsScreenJobDone(job.title),
+      JobState.failed => l10n.skillsScreenJobFailed(job.title),
+      _ => l10n.skillsScreenJobUnconfirmed(job.title),
     };
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
@@ -112,6 +231,12 @@ class _SkillsScreenState extends State<SkillsScreen>
 
   @override
   void dispose() {
+    _controller.removeListener(_onSkillsChanged);
+    _lock?.removeListener(_onLock);
+    _away?.dispose();
+    // Cancelling first closes an open question; then the controller goes.
+    _curator?.cancelRun();
+    _curator?.dispose();
     _hub?.dispose();
     _tabs.dispose();
     _controller.dispose();
@@ -145,7 +270,10 @@ class _SkillsScreenState extends State<SkillsScreen>
   }
 
   Future<void> _selectProfile(String name) async {
-    await _controller.selectProfile(name);
+    final selected = _controller.selectProfile(name);
+    // The old profile's result, polling and question go with the switch.
+    if (_curatorRepository != null) _ensureCurator(name);
+    await selected;
     if (_hubLoaded) await _hub?.reset();
   }
 
@@ -170,9 +298,11 @@ class _SkillsScreenState extends State<SkillsScreen>
   Future<void> _toggle(HermesSkill skill, bool enabled) async {
     final ok = await _controller.toggle(skill.name, enabled);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not change ${skill.name}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.skillsScreenToggleFailed(skill.name)),
+        ),
+      );
     }
   }
 
@@ -184,25 +314,28 @@ class _SkillsScreenState extends State<SkillsScreen>
         final hub = _hub;
         final onDiscover = hub != null && _tabs.index == 1;
         final ready = _controller.status == SkillsStatus.ready;
+        final l10n = context.l10n;
         return SettingsScaffold(
-          title: 'Skills',
+          title: l10n.skillsScreenTitle,
           subtitle: _subtitle(context),
           subtitleMenu: _profileMenu(),
           actions: [
             if (ready && !onDiscover)
               SettingsBarAction(
                 key: const Key('skills-new'),
-                label: 'New skill',
+                label: l10n.skillsScreenNewSkill,
                 icon: AppIcons.add,
                 onPressed: _create,
               ),
           ],
-          tabs: hub == null ? null : const ['Installed', 'Discover'],
+          tabs: hub == null
+              ? null
+              : [l10n.skillsScreenTabInstalled, l10n.skillsScreenTabDiscover],
           tabController: _tabs,
           search: onDiscover
-              ? _hubSearch(hub)
+              ? _hubSearch(hub, l10n)
               : ready && _controller.hasSkills
-              ? _skillsSearch()
+              ? _skillsSearch(l10n)
               : null,
           body: hub == null
               ? _body()
@@ -235,7 +368,7 @@ class _SkillsScreenState extends State<SkillsScreen>
       return profile;
     }
     final count = _controller.skillCount;
-    return '$profile · $count skill${count == 1 ? '' : 's'}';
+    return context.l10n.skillsScreenSubtitleMac(profile, count);
   }
 
   SettingsSubtitleMenu<String>? _profileMenu() {
@@ -243,7 +376,7 @@ class _SkillsScreenState extends State<SkillsScreen>
     final others = _controller.availableProfiles;
     if (profile == null || others.isEmpty) return null;
     return SettingsSubtitleMenu<String>(
-      label: 'Profile',
+      label: context.l10n.skillsScreenProfileMenu,
       onSelected: _selectProfile,
       itemBuilder: (_) => [
         for (final p in others)
@@ -256,30 +389,30 @@ class _SkillsScreenState extends State<SkillsScreen>
     );
   }
 
-  SettingsSearch _skillsSearch() => SettingsSearch(
+  SettingsSearch _skillsSearch(AppLocalizations l10n) => SettingsSearch(
     query: _controller.query,
     onChanged: _controller.setQuery,
-    hint: 'Search skills',
+    hint: l10n.skillsScreenSearchHint,
     filters: [
       for (final filter in SkillFilter.values)
         SettingsFilter(
-          label: _filterLabel(filter),
+          label: _filterLabel(l10n, filter),
           selected: _controller.filter == filter,
           onSelected: () => _controller.setFilter(filter),
         ),
     ],
   );
 
-  SettingsSearch? _hubSearch(SkillsHubController hub) {
+  SettingsSearch? _hubSearch(SkillsHubController hub, AppLocalizations l10n) {
     if (hub.status != HubStatus.ready) return null;
     return SettingsSearch(
       query: hub.query,
       onChanged: hub.setQuery,
-      hint: 'Search the skills hub',
+      hint: l10n.skillsScreenHubSearchHint,
       filters: [
         if (hub.sources.isNotEmpty)
           for (final (id, label) in [
-            (SkillsHubController.allSources, 'All sources'),
+            (SkillsHubController.allSources, l10n.skillsScreenAllSources),
             for (final s in hub.sources) (s.id, s.label),
           ])
             SettingsFilter(
@@ -292,28 +425,35 @@ class _SkillsScreenState extends State<SkillsScreen>
   }
 
   Widget _body() {
+    final l10n = context.l10n;
     switch (_controller.status) {
       case SkillsStatus.loading:
-        return const Center(child: CircularProgressIndicator.adaptive());
-      case SkillsStatus.unsupported:
-        return const StateMessage(
-          title: 'The connected Hermes does not support skills.',
+        return _withCurator(
+          const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(child: CircularProgressIndicator.adaptive()),
+          ),
         );
+      case SkillsStatus.unsupported:
+        return StateMessage(title: l10n.skillsScreenUnsupported);
       case SkillsStatus.failed:
-        return StateMessage(
-          title: 'Could not load skills',
-          action: FilledButton(
-            onPressed: _controller.load,
-            child: const Text('Retry'),
+        return _withCurator(
+          StateMessage(
+            title: l10n.skillsScreenLoadFailed,
+            action: FilledButton(
+              onPressed: _controller.load,
+              child: Text(l10n.commonRetry),
+            ),
           ),
         );
       case SkillsStatus.ready:
         break;
     }
     if (!_controller.hasSkills) {
-      return const StateMessage(title: 'This profile has no skills yet.');
+      return _withCurator(StateMessage(title: l10n.skillsScreenEmpty));
     }
     final hub = _hub;
+    final curator = _curator;
     return InstalledSkillsList(
       groups: _controller.groups,
       onOpen: _open,
@@ -324,16 +464,32 @@ class _SkillsScreenState extends State<SkillsScreen>
           : null,
       updating: hub?.busy ?? false,
       onWhatsTheDifference: () => showToolsDifferenceSheet(context),
+      header: curator == null ? null : CuratorSectionHost(controller: curator),
     );
   }
 
-  static String _filterLabel(SkillFilter f) => switch (f) {
-    SkillFilter.all => 'All',
-    SkillFilter.enabled => 'Enabled',
-    SkillFilter.hub => 'Hub',
-    SkillFilter.bundled => 'Bundled',
-    SkillFilter.agent => 'Agent',
-  };
+  /// A state with no list (loading, empty, failed) keeps the curator above
+  /// it: a run works on a profile with no skills, and a failed list says
+  /// nothing about the curator. Without a curator the state stands alone.
+  Widget _withCurator(Widget state) {
+    final curator = _curator;
+    if (curator == null) return state;
+    return GroupedListView(
+      children: [
+        CuratorSectionHost(controller: curator),
+        state,
+      ],
+    );
+  }
+
+  static String _filterLabel(AppLocalizations l10n, SkillFilter f) =>
+      switch (f) {
+        SkillFilter.all => l10n.skillsScreenFilterAll,
+        SkillFilter.enabled => l10n.skillsScreenFilterEnabled,
+        SkillFilter.hub => l10n.skillsScreenFilterHub,
+        SkillFilter.bundled => l10n.skillsScreenFilterBundled,
+        SkillFilter.agent => l10n.skillsScreenFilterAgent,
+      };
 }
 
 /// Shown while a job runs that the user has sent to the background.

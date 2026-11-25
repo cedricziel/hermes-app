@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_dialog.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
@@ -11,12 +11,15 @@ import 'package:stream_channel/stream_channel.dart';
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
   late KanbanBoardController controller;
+  var platform = TargetPlatform.android;
 
   setUp(() async {
+    platform = TargetPlatform.android;
     server = FakeHermesServer()
       ..on(
         'GET',
@@ -42,7 +45,7 @@ void main() {
   Future<void> pump(WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme(),
+        theme: buildHermesLightTheme(platform: platform),
         home: Builder(
           builder: (context) => Scaffold(
             body: TextButton(
@@ -64,6 +67,24 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Opening a board fetches it through Dio, whose zero-duration timer runs
+  /// outside the fake clock. Let that request finish, so no timer outlives
+  /// the test, and fail if it has not: the fetch for [slug] was made, and the
+  /// controller is done loading with no error.
+  Future<void> boardLoaded(WidgetTester tester, String slug) async {
+    await tester.runAsync(pumpEventQueue);
+    await tester.pumpAndSettle();
+    expect(
+      server
+          .requestsTo('GET', '/api/plugins/kanban/board')
+          .last
+          .queryParameters['board'],
+      slug,
+    );
+    expect(controller.loading, isFalse);
+    expect(controller.error, isNull);
+  }
+
   test('derives a slug the plugin accepts from a name', () {
     expect(KanbanBoardsScreen.slugFor('  Ops team! '), 'ops-team');
     expect(KanbanBoardsScreen.slugFor('Q3 / Launch'), 'q3-launch');
@@ -74,14 +95,14 @@ void main() {
 
     expect(find.text('Default'), findsOneWidget);
     expect(find.text('default · 3 tasks'), findsOneWidget);
-    expect(find.text('ops · 1 tasks'), findsOneWidget);
+    expect(find.text('ops · 1 task'), findsOneWidget);
   });
 
   testWidgets('creates a board from its name', (tester) async {
     server.on('POST', '/api/plugins/kanban/boards', {'board': {}});
     await pump(tester);
 
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Q3 Launch');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -97,7 +118,7 @@ void main() {
   testWidgets('will not send a name that leaves no slug', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '日本語');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -116,7 +137,7 @@ void main() {
     }, status: 400);
     await pump(tester);
 
-    await tester.tap(find.byTooltip('New board'));
+    await tester.tap(find.tooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Ops');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -147,6 +168,7 @@ void main() {
 
     await tester.tap(find.text('Ops'));
     await tester.pumpAndSettle();
+    await boardLoaded(tester, 'ops');
 
     expect(controller.boardSlug, 'ops');
   });
@@ -155,7 +177,8 @@ void main() {
     server.on('POST', '/api/plugins/kanban/boards/ops/export', {
       'board': 'ops',
       'archive': '/srv/hermes/exports/ops.tar.gz',
-      'size': 3072,
+      // Over a thousand kilobytes: the size has no thousands separator.
+      'size': 1299968,
     });
     await pump(tester);
 
@@ -169,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('/srv/hermes/exports/ops.tar.gz'), findsOneWidget);
-    expect(find.text('3.0 KB'), findsOneWidget);
+    expect(find.text('1269.5 KB'), findsOneWidget);
     expect(
       jsonBody(
         server
@@ -180,6 +203,31 @@ void main() {
     );
   });
 
+  testWidgets('the export alert keeps the path start-aligned on iOS', (
+    tester,
+  ) async {
+    platform = TargetPlatform.iOS;
+    server.on('POST', '/api/plugins/kanban/boards/ops/export', {
+      'board': 'ops',
+      'archive': '/srv/hermes/exports/ops.tar.gz',
+      'size': 3072,
+    });
+    await pump(tester);
+
+    await tester.longPress(find.text('Ops'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Export…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Export'));
+    await tester.pumpAndSettle();
+
+    for (final text in ['/srv/hermes/exports/ops.tar.gz', '3.0 KB']) {
+      final align = DefaultTextStyle.of(tester.element(find.text(text)))
+          .textAlign;
+      expect(align, TextAlign.start, reason: text);
+    }
+  });
+
   testWidgets('imports an archive and opens the new board', (tester) async {
     server.on('POST', '/api/plugins/kanban/boards/import', {
       'board': 'restored',
@@ -187,7 +235,7 @@ void main() {
     });
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Import a board'));
+    await tester.tap(find.tooltip('Import a board'));
     await tester.pumpAndSettle();
     expect(find.byType(GroupedDialog), findsOneWidget);
     expect(
@@ -203,6 +251,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Import'));
     await tester.pumpAndSettle();
+    await boardLoaded(tester, 'restored');
 
     expect(
       jsonBody(
@@ -222,7 +271,7 @@ void main() {
     });
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Import a board'));
+    await tester.tap(find.tooltip('Import a board'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Archive path'),
@@ -231,6 +280,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Import'));
     await tester.pumpAndSettle();
+    await boardLoaded(tester, 'ops-2');
 
     expect(find.textContaining('the board is ops-2'), findsOneWidget);
   });
@@ -241,7 +291,7 @@ void main() {
     }, status: 404);
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Import a board'));
+    await tester.tap(find.tooltip('Import a board'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Archive path'),

@@ -97,6 +97,7 @@ class ConversationWindowEntry {
     this.windowId,
     this.args, {
     this.pinned = false,
+    this.exportBusy = false,
   });
 
   final String windowId;
@@ -104,6 +105,9 @@ class ConversationWindowEntry {
 
   /// Whether the window's chat is pinned, as the window last reported.
   final bool pinned;
+
+  /// Whether the window's own chat export runs, as it last reported.
+  final bool exportBusy;
 }
 
 /// Keeps the open windows' arguments for the next launch.
@@ -288,6 +292,19 @@ class ConversationWindows extends ChangeNotifier {
   /// The conversation window that is key; null while the main window is.
   String? get keyWindowId => _keyWindowId;
   String? _keyWindowId;
+
+  /// Whether the quick panel is shown, and so key: the native panel is made
+  /// key when shown and hides itself when it loses focus, except while it is
+  /// held (then it stays up with no event until the hold ends). It reports
+  /// shown and hidden, not key changes, so those stand for them.
+  bool get quickPanelKey => _panelKey;
+  bool _panelKey = false;
+
+  void _setPanelKey(bool key) {
+    if (_panelKey == key) return;
+    _panelKey = key;
+    notifyListeners();
+  }
 
   final _touched = <ConversationRef>{};
 
@@ -656,6 +673,7 @@ class ConversationWindows extends ChangeNotifier {
     if (_windows.isNotEmpty) _breadcrumbs('window.closed', {'open': 0});
     _windows.clear();
     _panel = null;
+    _setPanelKey(false);
     _creatingPanel = null;
     _touched.clear();
     _setKey(null);
@@ -694,7 +712,10 @@ class ConversationWindows extends ChangeNotifier {
   }
 
   void _retain(Set<String> live) {
-    if (!live.contains(_panel?.id)) _panel = null;
+    if (!live.contains(_panel?.id)) {
+      _panel = null;
+      _setPanelKey(false);
+    }
     unawaited(_removeWhere((w) => !live.contains(w.windowId)));
   }
 
@@ -826,12 +847,25 @@ class ConversationWindows extends ChangeNotifier {
           window.windowId,
           window.args.withTitle(title),
           pinned: pinned,
+          exportBusy: window.exportBusy,
         );
         if (window.args.title == title) {
           notifyListeners();
         } else {
           unawaited(_changed());
         }
+      case 'exportBusy':
+        final busy = args['busy'] == true;
+        final index = _windows.indexWhere((w) => w.windowId == windowId);
+        if (index < 0 || _windows[index].exportBusy == busy) return null;
+        final window = _windows[index];
+        _windows[index] = ConversationWindowEntry(
+          window.windowId,
+          window.args,
+          pinned: window.pinned,
+          exportBusy: busy,
+        );
+        notifyListeners();
       case 'showInMain':
         final threadId = args['thread_id'];
         if (threadId is String) {
@@ -849,6 +883,14 @@ class ConversationWindows extends ChangeNotifier {
       case 'panel':
         if (args['event'] == 'shown' && windowId == _panel?.id) {
           _panel?.presented = true;
+        }
+        if (windowId == _panel?.id) {
+          switch (args['event']) {
+            case 'shown':
+              _setPanelKey(true);
+            case 'hidden':
+              _setPanelKey(false);
+          }
         }
         _recordPanel(args['event'], args['reason'], args['continued']);
       case 'panel.showInWindow':

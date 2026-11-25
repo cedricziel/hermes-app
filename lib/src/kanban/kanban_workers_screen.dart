@@ -1,14 +1,22 @@
-import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'dart:async';
 
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
+
+import '../../l10n/l10n.dart';
+import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'widgets/kanban_list_rows.dart';
+import 'widgets/kanban_run_inspect_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
@@ -34,12 +42,25 @@ class KanbanWorkersScreen extends StatefulWidget {
 class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   List<KanbanWorker>? _workers;
   String? _failure;
+  bool _failed = false;
   int _loads = 0;
+  bool _reloading = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  /// A reload the user asked for, from the bar or View > Reload: the button
+  /// shows a spinner meanwhile.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _load();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
   }
 
   Future<void> _load() async {
@@ -54,20 +75,24 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
       setState(() {
         _workers = workers;
         _failure = null;
+        _failed = false;
       });
     } on Object catch (e) {
       if (!mounted || load != _loads) return;
-      final reason = e is KanbanException
-          ? e.message
-          : 'Could not load the workers';
+      final message = e is KanbanException ? e.message : null;
       if (_workers == null) {
-        setState(() => _failure = reason);
+        setState(() {
+          _failure = message;
+          _failed = true;
+        });
       } else {
         // Keep what is on screen, but do not let a failed refresh pass
         // as a successful one.
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not refresh: $reason')));
+        final l10n = context.l10n;
+        final reason = message ?? l10n.kanbanWorkersLoadFailed;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.kanbanWorkersRefreshFailed(reason))),
+        );
       }
     }
   }
@@ -83,37 +108,18 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     );
     if (!ok || inspection == null || !mounted) return;
     final i = inspection!;
-    await showAdaptiveDialog<void>(
+    await showAppDialog<void>(
       context: context,
-      builder: (context) => AppAlertDialog(
-        title: Text('Run #${worker.runId}'),
-        content: Text(
-          i.alive
-              ? [
-                  if (i.pid != null) 'Process ${i.pid}',
-                  if (i.status != null) 'Status: ${i.status}',
-                  if (i.memoryBytes != null)
-                    'Memory: ${(i.memoryBytes! / (1024 * 1024)).toStringAsFixed(0)} MB',
-                  if (i.threads != null) 'Threads: ${i.threads}',
-                  if (i.note != null) i.note!,
-                ].join('\n')
-              : 'The process is not running${i.note == null ? '' : ': ${i.note}'}.',
-        ),
-        actions: [
-          AppDialogAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (context) =>
+          KanbanRunInspectDialog(runId: worker.runId, inspection: i),
     );
   }
 
   Future<void> _terminate(KanbanWorker worker) async {
     if (!await confirmKanban(
       context,
-      title: 'Terminate run #${worker.runId}?',
-      confirm: 'Terminate',
+      title: context.l10n.kanbanWorkersTerminateTitle(worker.runId),
+      confirm: context.l10n.kanbanWorkersTerminate,
     )) {
       return;
     }
@@ -131,38 +137,48 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   @override
   Widget build(BuildContext context) {
     final workers = _workers;
-    final failure = _failure;
-    return SettingsScaffold(
-      title: 'Active workers',
-      subtitle: workers == null ? null : '${workers.length} running',
-      previousTitle: 'Kanban',
+    final l10n = context.l10n;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final scaffold = SettingsScaffold(
+      title: l10n.kanbanWorkersTitle,
+      subtitle: workers == null
+          ? null
+          : l10n.kanbanWorkersRunning(workers.length),
+      previousTitle: l10n.kanbanWorkersPreviousTitle,
       actions: [
         SettingsBarAction(
-          label: 'Refresh',
+          label: l10n.kanbanRefreshAction,
           icon: AppIcons.refresh,
-          onPressed: _load,
+          command: MacCommand.reload,
+          shortcut: mac ? '⌘R' : null,
+          busy: _reloading,
+          onPressed: _reload,
         ),
       ],
       body: workers == null
-          ? failure != null
+          ? _failed
                 ? StateMessage(
-                    title: failure,
+                    title: _failure ?? l10n.kanbanWorkersLoadFailed,
                     action: FilledButton(
                       onPressed: () {
-                        setState(() => _failure = null);
+                        setState(() {
+                          _failure = null;
+                          _failed = false;
+                        });
                         _load();
                       },
-                      child: const Text('Retry'),
+                      child: Text(l10n.commonRetry),
                     ),
                   )
                 : const Center(child: CircularProgressIndicator.adaptive())
-          : RefreshIndicator(
+          : PlatformRefresh(
               onRefresh: _load,
               child: workers.isEmpty
                   ? ListView(
-                      children: const [
-                        SizedBox(height: 120),
-                        StateMessage(title: 'No workers are running'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        const SizedBox(height: 120),
+                        StateMessage(title: l10n.kanbanWorkersEmpty),
                       ],
                     )
                   : GroupedListView(
@@ -190,6 +206,18 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                       ],
                     ),
             ),
+    );
+    if (!mac && !bindsDesktopChords(Theme.of(context).platform)) {
+      return scaffold;
+    }
+    // View > Reload owns ⌘R, and Ctrl+R and F5 on Windows and Linux.
+    return MacCommandScope(
+      commands: {
+        MacCommand.reload: MacCommandHandler(
+          _reloading ? null : () => unawaited(_reload()),
+        ),
+      },
+      child: scaffold,
     );
   }
 }

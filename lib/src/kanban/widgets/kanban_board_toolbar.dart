@@ -1,7 +1,8 @@
-import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoSearchTextField;
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -44,6 +45,7 @@ class KanbanBoardToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
       child: Column(
@@ -56,7 +58,7 @@ class KanbanBoardToolbar extends StatelessWidget {
                   constraints: const BoxConstraints(maxWidth: 420),
                   child: platformChromeOf(context).isApple
                       ? CupertinoSearchTextField(
-                          placeholder: 'Search tasks',
+                          placeholder: l10n.kanbanToolbarSearch,
                           backgroundColor: Theme.of(context)
                               .colorScheme
                               .surfaceContainerHighest,
@@ -70,7 +72,7 @@ class KanbanBoardToolbar extends StatelessWidget {
                               AppIcons.search,
                               size: 18,
                             ),
-                            hintText: 'Search tasks',
+                            hintText: l10n.kanbanToolbarSearch,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(
                                 kHermesRadius,
@@ -82,9 +84,10 @@ class KanbanBoardToolbar extends StatelessWidget {
                         ),
                 ),
               ),
-              if (wide)
+              // The Mac has Refresh in its own toolbar.
+              if (wide && platformChromeOf(context) != PlatformChrome.macos)
                 NamedIconButton(
-                  label: 'Refresh',
+                  label: context.l10n.kanbanRefreshAction,
                   icon: AppIcons.refresh,
                   onPressed: onRefresh,
                 ),
@@ -97,23 +100,23 @@ class KanbanBoardToolbar extends StatelessWidget {
               children: [
                 if (assignees.isNotEmpty)
                   KanbanFilterMenu(
-                    label: assignee ?? 'All assignees',
-                    all: 'All assignees',
+                    label: assignee ?? l10n.kanbanToolbarAllAssignees,
+                    all: l10n.kanbanToolbarAllAssignees,
                     options: assignees,
                     onSelected: onAssigneeChanged,
                   ),
                 if (tenants.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   KanbanFilterMenu(
-                    label: tenant ?? 'All tenants',
-                    all: 'All tenants',
+                    label: tenant ?? l10n.kanbanToolbarAllTenants,
+                    all: l10n.kanbanToolbarAllTenants,
                     options: tenants,
                     onSelected: onTenantChanged,
                   ),
                 ],
                 const SizedBox(width: 8),
                 FilterChip(
-                  label: const Text('Archived'),
+                  label: Text(l10n.kanbanToolbarArchived),
                   selected: includeArchived,
                   onSelected: onIncludeArchivedChanged,
                 ),
@@ -145,7 +148,13 @@ class KanbanFilterMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     // PopupMenuButton reads a null result as a dismissed menu, so each entry
     // wraps its value in a record that is never null itself.
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
     return AdaptivePopupMenuButton<({String? option})>(
+      // On iOS the chip is the trigger's box, so its keyboard ring hugs it,
+      // and the 44 pt hit box is the button's own.
+      focusRadius: 8,
+      focusInside: true,
+      minTapTarget: kAppleMinTapTarget,
       onSelected: (choice) => onSelected(choice.option),
       itemBuilder: (_) => [
         PopupMenuItem(value: (option: null), child: Text(all)),
@@ -153,6 +162,7 @@ class KanbanFilterMenu extends StatelessWidget {
           PopupMenuItem(value: (option: o), child: Text(o)),
       ],
       child: Chip(
+        materialTapTargetSize: ios ? MaterialTapTargetSize.shrinkWrap : null,
         label: Text(label),
         avatar: const AppIcon(AppIcons.filter, size: 16),
       ),
@@ -181,11 +191,14 @@ class KanbanRefreshFailedNotice extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Could not refresh. Showing the last board.',
+                  context.l10n.kanbanToolbarRefreshFailed,
                   style: TextStyle(color: scheme.onErrorContainer),
                 ),
               ),
-              TextButton(onPressed: onRetry, child: const Text('Retry')),
+              TextButton(
+                onPressed: onRetry,
+                child: Text(context.l10n.commonRetry),
+              ),
             ],
           ),
         ),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/profiles/soul/widgets/soul_changed_sheet.dart';
@@ -15,6 +15,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 // Invented sample text: the catalog is public.
 const _profile = 'work';
@@ -247,7 +248,7 @@ WidgetbookUseCase _android(
 ) => WidgetbookUseCase(
   name: name,
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+    data: platformTheme(context, TargetPlatform.android),
     child: Builder(builder: (context) => openOnShow(open)),
   ),
 );

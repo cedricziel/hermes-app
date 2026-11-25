@@ -1,0 +1,397 @@
+import 'dart:ui' show SemanticsAction;
+
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/app_banner.dart';
+import 'package:hermes_app/src/widgets/motion_spinner.dart';
+
+import 'support/screenshot_recorder.dart';
+import 'support/test_localizations.dart';
+
+Widget _host(
+  Widget child, {
+  TargetPlatform platform = TargetPlatform.android,
+  double textScale = 1,
+  double width = 360,
+}) => MaterialApp(
+  localizationsDelegates: kTestLocalizationsDelegates,
+  supportedLocales: AppLocalizations.supportedLocales,
+  theme: buildHermesLightTheme(platform: platform),
+  home: MediaQuery(
+    data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+    child: Scaffold(
+      body: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(width: width, child: child),
+      ),
+    ),
+  ),
+);
+
+void main() {
+  final retry = find.byType(TextButton);
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets('Retry is at least 44 high on ${platform.name} and reads '
+        'once per tap', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        _host(
+          ChatEarlierMessagesFailedRow(
+            status: ChatEarlierMessagesStatus.failed,
+            onRetry: () => taps++,
+          ),
+          platform: platform,
+        ),
+      );
+
+      expect(find.text("Couldn't load earlier messages"), findsOneWidget);
+      expect(tester.getSize(retry).height, greaterThanOrEqualTo(44));
+      await tester.tap(retry);
+      expect(taps, 1);
+    });
+  }
+
+  testWidgets('on desktop Retry is compact', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.failed,
+          onRetry: () {},
+        ),
+        platform: TargetPlatform.macOS,
+        width: 680,
+      ),
+    );
+    expect(tester.getSize(retry).height, 32);
+  });
+
+  testWidgets(
+    'retrying shows a spinner and a button that is off, at the height of '
+    'the failed row',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatEarlierMessagesFailedRow(
+            status: ChatEarlierMessagesStatus.failed,
+            onRetry: () {},
+          ),
+        ),
+      );
+      final failed = tester.getSize(find.byType(ChatEarlierMessagesFailedRow));
+
+      await tester.pumpWidget(
+        _host(
+          const ChatEarlierMessagesFailedRow(
+            status: ChatEarlierMessagesStatus.retrying,
+          ),
+        ),
+      );
+
+      expect(find.text('Retrying…'), findsOneWidget);
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNull,
+      );
+      expect(
+        tester.getSize(find.byType(ChatEarlierMessagesFailedRow)).height,
+        failed.height,
+      );
+    },
+  );
+
+  testWidgets('without a callback a failed row offers no button', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.failed,
+        ),
+      ),
+    );
+    expect(find.byType(TextButton), findsNothing);
+  });
+
+  testWidgets('at the largest text size it stacks and does not overflow', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.failed,
+          onRetry: () {},
+        ),
+        textScale: 3.1,
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(retry).height, greaterThanOrEqualTo(44));
+  });
+
+  testWidgets('a screen reader gets a title-only live region and a pressable '
+      'Retry', (tester) async {
+    final handle = tester.ensureSemantics();
+    var taps = 0;
+    await tester.pumpWidget(
+      _host(
+        ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.failed,
+          onRetry: () => taps++,
+        ),
+      ),
+    );
+    final banner = tester.getSemantics(find.byType(AppBanner));
+    expect(banner.flagsCollection.isLiveRegion, isTrue);
+    expect(banner.label, "Couldn't load earlier messages");
+    final button = tester.getSemantics(find.byType(TextButton));
+    expect(button.label, 'Retry loading earlier messages');
+    expect(button.flagsCollection.isButton, isTrue);
+    expect(button.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(button.getSemanticsData().hasAction(SemanticsAction.focus), isTrue);
+    tester.semantics.tap(
+      find.semantics.byLabel('Retry loading earlier messages'),
+    );
+    expect(taps, 1);
+    handle.dispose();
+  });
+
+  testWidgets('the banner label is the same while retrying', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _host(
+        ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.failed,
+          onRetry: () {},
+        ),
+      ),
+    );
+    final failed = tester.getSemantics(find.byType(AppBanner)).label;
+    await tester.pumpWidget(
+      _host(
+        const ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.retrying,
+        ),
+      ),
+    );
+    final retrying = tester.getSemantics(find.byType(AppBanner)).label;
+    expect(retrying, failed);
+    expect(failed, "Couldn't load earlier messages");
+    handle.dispose();
+  });
+
+  for (final platform in [
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+    TargetPlatform.linux,
+  ]) {
+    testWidgets('the banner keeps its height from failed to retrying on '
+        '${platform.name}', (tester) async {
+      Future<double> height(ChatEarlierMessagesStatus status) async {
+        await tester.pumpWidget(
+          _host(
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ChatEarlierMessagesFailedRow(
+                  status: status,
+                  onRetry: status == ChatEarlierMessagesStatus.failed
+                      ? () {}
+                      : null,
+                ),
+              ],
+            ),
+            platform: platform,
+            // Wide enough that the test font's wide glyphs do not wrap the
+            // title in one state and not the other.
+            width: 680,
+          ),
+        );
+        return tester.getSize(find.byType(AppBanner)).height;
+      }
+
+      final failed = await height(ChatEarlierMessagesStatus.failed);
+      final retrying = await height(ChatEarlierMessagesStatus.retrying);
+      expect(retrying, failed);
+    });
+  }
+
+  // Real fonts: the test font is far wider than any real one, and the row's
+  // height must not depend on the state at any text size or language.
+  for (final (platform, scale, locale, width) in [
+    (TargetPlatform.macOS, 1.5, const Locale('en'), 680.0),
+    (TargetPlatform.macOS, 2.0, const Locale('en'), 680.0),
+    (TargetPlatform.iOS, 2.0, const Locale('en'), 390.0),
+    (TargetPlatform.android, 3.1, const Locale('de'), 360.0),
+    (TargetPlatform.android, 3.1, const Locale('en'), 360.0),
+    (TargetPlatform.linux, 3.1, const Locale('en'), 680.0),
+  ]) {
+    testWidgets('the row keeps its height with real fonts on ${platform.name} '
+        'at ${scale}x in ${locale.languageCode} at $width', (tester) async {
+      await ScreenshotRecorder('row-fit').start(tester, Size(width, 900));
+      Future<double> height(ChatEarlierMessagesStatus status) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: kTestLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: withScreenshotFont(
+              buildHermesLightTheme(platform: platform),
+            ),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ChatEarlierMessagesFailedRow(
+                      status: status,
+                      onRetry: status == ChatEarlierMessagesStatus.failed
+                          ? () {}
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 50));
+        return tester.getSize(find.byType(AppBanner)).height;
+      }
+
+      final failed = await height(ChatEarlierMessagesStatus.failed);
+      final retrying = await height(ChatEarlierMessagesStatus.retrying);
+      expect(retrying, failed);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  // Stacked under the title (German, or a large text size), the Retry's
+  // content starts where the title does, failed and retrying alike.
+  for (final (locale, scale) in [
+    (const Locale('de'), 1.0),
+    (const Locale('en'), 2.0),
+  ]) {
+    for (final status in ChatEarlierMessagesStatus.values) {
+      testWidgets('the stacked ${status.name} content lines up with the title '
+          'in ${locale.languageCode} at ${scale}x', (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            locale: locale,
+            localizationsDelegates: kTestLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            theme: buildHermesLightTheme(),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 680,
+                    child: ChatEarlierMessagesFailedRow(
+                      status: status,
+                      onRetry: status == ChatEarlierMessagesStatus.failed
+                          ? () {}
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final title = tester.getTopLeft(
+          find.text(
+            locale.languageCode == 'de'
+                ? 'Frühere Nachrichten konnten nicht geladen werden'
+                : "Couldn't load earlier messages",
+          ),
+        );
+        final lead = status == ChatEarlierMessagesStatus.failed
+            ? find.descendant(
+                of: find.byType(TextButton),
+                matching: find.byType(Icon),
+              )
+            : find.byType(MotionSpinner);
+        expect(tester.getTopLeft(lead).dx, closeTo(title.dx, 0.5));
+      });
+    }
+  }
+
+  testWidgets('while retrying a screen reader hears one plain "Retrying…" and '
+      'no button, and the banner label is unchanged', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(
+      _host(
+        const ChatEarlierMessagesFailedRow(
+          status: ChatEarlierMessagesStatus.retrying,
+        ),
+      ),
+    );
+    final banner = tester.getSemantics(find.byType(AppBanner));
+    expect(banner.label, "Couldn't load earlier messages");
+    expect(banner.flagsCollection.isLiveRegion, isTrue);
+    final node = tester.getSemantics(find.text('Retrying…'));
+    expect(node.label, 'Retrying…');
+    expect(node.flagsCollection.isButton, isFalse);
+    handle.dispose();
+  });
+
+  for (final brightness in Brightness.values) {
+    testWidgets('the "Retrying…" label is in the text colour, at least 7:1 on '
+        'the banner in ${brightness.name}', (tester) async {
+      final theme = brightness == Brightness.light
+          ? buildHermesLightTheme()
+          : buildHermesDarkTheme();
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: kTestLocalizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          theme: theme,
+          home: const Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: 680,
+                child: ChatEarlierMessagesFailedRow(
+                  status: ChatEarlierMessagesStatus.retrying,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final color = tester
+          .widget<RichText>(
+            find.descendant(
+              of: find.byType(TextButton),
+              matching: find.byType(RichText),
+            ),
+          )
+          .text
+          .style!
+          .color!;
+      final warning = tester
+          .element(find.byType(AppBanner))
+          .hermesColors
+          .warning;
+      final background = Color.alphaBlend(
+        warning.withValues(alpha: 0.1),
+        theme.scaffoldBackgroundColor,
+      );
+      final hi = color.computeLuminance() > background.computeLuminance()
+          ? color
+          : background;
+      final lo = identical(hi, color) ? background : color;
+      final ratio =
+          (hi.computeLuminance() + 0.05) / (lo.computeLuminance() + 0.05);
+      expect(ratio, greaterThanOrEqualTo(7));
+    });
+  }
+}

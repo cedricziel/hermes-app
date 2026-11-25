@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +27,9 @@ import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
+
+import 'support/test_localizations.dart';
 
 Message _custom(Map<String, dynamic> metadata) => Message.custom(
   id: 'm-${metadata.hashCode}',
@@ -55,6 +58,7 @@ Future<void> _pumpChat(
   addTearDown(controller.dispose);
   await tester.pumpWidget(
     MaterialApp(
+      builder: (_, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: Scaffold(
         body: Chat(
@@ -291,8 +295,9 @@ void main() {
         addTearDown(controller.dispose);
         await tester.pumpWidget(
           MaterialApp(
+            builder: (_, child) => AppThemeScopes(child: child!),
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: Scaffold(

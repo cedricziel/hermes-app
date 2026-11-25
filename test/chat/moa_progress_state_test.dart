@@ -148,4 +148,24 @@ void main() {
     );
     expect(MoaUpdate.decode('unknown', {}), isNull);
   });
+  test('a reference update keeps the aggregating stage and the phase name', () {
+    final state = MoaProgressState();
+    final attachment = Object(), turn = Object();
+    state.adopt(attachment);
+    state.apply(
+      MoaUpdate.decode('moa.aggregating', {'aggregator': 'Model A'})!,
+      attachment: attachment,
+      turn: turn,
+      eventIdentity: '1',
+    );
+    state.apply(
+      MoaUpdate.decode('moa.reference', {'label': 'One', 'text': 'answer'})!,
+      attachment: attachment,
+      turn: turn,
+      eventIdentity: '2',
+    );
+    expect(state.cards.single.aggregating, isTrue);
+    state.finish(turn);
+    expect(state.cards.single.aggregating, isTrue);
+  });
 }

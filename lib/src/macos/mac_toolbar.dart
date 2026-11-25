@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../server_care/widgets/server_attention_dot.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
-import 'mac_sidebar.dart';
 import '../widgets/adaptive_popup_menu_button.dart';
 import '../widgets/named_icon_button.dart';
+import 'mac_sidebar.dart';
 import 'mac_window.dart';
 
 /// The unified toolbar at the top of a page in a Mac window: 52 points high,
@@ -174,6 +175,7 @@ class MacToolbarButton extends StatelessWidget {
     this.shortcut,
     this.selected,
     this.marked = false,
+    this.busy = false,
   });
 
   final String label;
@@ -189,6 +191,9 @@ class MacToolbarButton extends StatelessWidget {
   /// Draws the attention mark at the icon's top right; [label] says why.
   final bool marked;
 
+  /// A spinner takes the glyph's place while the action runs.
+  final bool busy;
+
   @override
   Widget build(BuildContext context) {
     final shortcut = this.shortcut;
@@ -197,6 +202,7 @@ class MacToolbarButton extends StatelessWidget {
       tooltip: shortcut == null ? label : '$label $shortcut',
       icon: icon,
       isSelected: selected,
+      busy: busy,
       onPressed: onPressed,
       style: macToolbarButtonStyle(context),
     );
@@ -220,22 +226,28 @@ class MacToolbarButton extends StatelessWidget {
 ButtonStyle macToolbarButtonStyle(BuildContext context) {
   final onSurface = Theme.of(context).colorScheme.onSurface;
   return IconButton.styleFrom(
-    fixedSize: const Size.square(28),
-    minimumSize: const Size.square(28),
-    padding: EdgeInsets.zero,
-    iconSize: 18,
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    visualDensity: VisualDensity.standard,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-    hoverColor: onSurface.withValues(alpha: 0.06),
-    highlightColor: onSurface.withValues(alpha: 0.1),
-  ).copyWith(
-    backgroundColor: WidgetStateProperty.resolveWith(
-      (states) => states.contains(WidgetState.selected)
-          ? onSurface.withValues(alpha: 0.1)
-          : null,
-    ),
-  );
+        fixedSize: const Size.square(28),
+        minimumSize: const Size.square(28),
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+        hoverColor: onSurface.withValues(alpha: 0.06),
+        highlightColor: onSurface.withValues(alpha: 0.1),
+      )
+      .copyWith(
+        shape: focusRingShapeOf(
+          context,
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        ),
+      )
+      .copyWith(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? onSurface.withValues(alpha: 0.1)
+              : null,
+        ),
+      );
 }
 
 /// The 1 by 20 point rule between groups of toolbar buttons.

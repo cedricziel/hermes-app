@@ -1,12 +1,12 @@
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 
 import '../../files/widgets/safe_path_text.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../files/widgets/files_metrics.dart';
-import '../../files/widgets/middle_ellipsis.dart';
+import '../../widgets/middle_ellipsis.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';

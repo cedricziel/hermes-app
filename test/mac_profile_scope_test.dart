@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -21,6 +21,7 @@ import '../widgetbook/catalog_auth.dart';
 import 'support/fake_device_authenticator.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/protected_catalog_auth.dart';
+import 'support/tooltip_finder.dart';
 
 /// Profile scope in a Mac window: the switcher at the top of the sidebar, the
 /// Profiles page, and the account footer.
@@ -587,7 +588,7 @@ void main() {
         find.bySemanticsLabel(RegExp('Account, server needs attention')),
         findsOne,
       );
-      await tester.tap(find.byTooltip('Account'));
+      await tester.tap(find.tooltip('Account'));
       await tester.pumpAndSettle();
       final connection = tester.getTopLeft(find.text('Connection details')).dy;
       final server = tester
@@ -625,7 +626,7 @@ void main() {
         trail: trail,
         lock: await loadedLock(tester),
       );
-      await tester.tap(find.byTooltip('Account'));
+      await tester.tap(find.tooltip('Account'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Server · needs attention'));
       await tester.pumpAndSettle();
@@ -651,7 +652,7 @@ void main() {
         platform: TargetPlatform.android,
         lock: await loadedLock(tester),
       );
-      await tester.tap(find.byTooltip('Account'));
+      await tester.tap(find.tooltip('Account'));
       await tester.pumpAndSettle();
       expect(find.text('Server'), findsOneWidget);
       expect(find.text('Server · needs attention'), findsNothing);

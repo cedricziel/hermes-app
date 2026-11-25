@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, Message, User;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -116,6 +117,7 @@ void main() {
       late StateSetter switchThread;
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: Scaffold(
             body: StatefulBuilder(

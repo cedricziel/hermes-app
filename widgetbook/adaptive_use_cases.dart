@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/screens/widgets/cleartext_server_alert.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
@@ -7,6 +7,7 @@ import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'host.dart';
+import 'platform_theme.dart';
 
 const _platforms = {
   'iOS': TargetPlatform.iOS,
@@ -21,7 +22,7 @@ WidgetbookUseCase _on(
 ) => WidgetbookUseCase(
   name: name,
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
+    data: platformTheme(context, platform),
     child: Builder(builder: builder),
   ),
 );

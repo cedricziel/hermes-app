@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
@@ -13,8 +13,10 @@ import 'package:hermes_app/src/chat/chat_thread_bindings.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -140,7 +142,7 @@ void main() {
       screen ??= BotScreenController(
         BotScreenRepository(transport.requestKeepingConnection),
         transport.connectionEvents,
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
     }
     final composer = TextEditingController();
@@ -153,6 +155,7 @@ void main() {
       Provider<Breadcrumbs>.value(
         value: Breadcrumbs.of(trail),
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           home: Scaffold(
             body: ListenableBuilder(
               listenable: chat,

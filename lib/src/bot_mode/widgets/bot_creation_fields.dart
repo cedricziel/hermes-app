@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../models/model_provider_option.dart';
 import '../../widgets/disclosure_tile.dart';
 import '../../widgets/grouped_dialog.dart';
 import '../../widgets/grouped_form.dart';
 import '../../widgets/grouped_list.dart';
+import '../../../l10n/l10n.dart';
 
 class BotCreationFields extends StatelessWidget {
   const BotCreationFields({
@@ -49,7 +50,7 @@ class BotCreationFields extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GroupedSection(
-          footer: nameError ?? 'Name is the permanent profile identifier.',
+          footer: nameError ?? context.l10n.botModeCreateNameFooter,
           children: [
             GroupedTextFieldRow(
               label: 'Name',
@@ -101,7 +102,9 @@ class BotCreationFields extends StatelessWidget {
                 children: [
                   GroupedValueRow(
                     title: 'Default model',
-                    value: chosen?.modelId ?? 'Use server default',
+                    value:
+                        chosen?.modelId ??
+                        context.l10n.botModeCreateModelServerDefault,
                     caption: chosen?.providerId,
                     warning: modelError,
                     busy: modelLoading,

@@ -7,7 +7,7 @@ import '../../chat/gateway/gateway_rpc_client.dart';
 import '../../chat/gateway/hermes_gateway_transport.dart'
     show ServerRequestHandler;
 import '../../chat/gateway_connection_transport.dart';
-import '../../surfaces/surface_snapshot.dart' show kDefaultProfile;
+import '../../profiles/profile_resolver.dart';
 import '../../telemetry/telemetry.dart';
 import '../bot_screen_models.dart';
 import '../bot_screen_repository.dart';
@@ -35,7 +35,7 @@ typedef RegisterServerRequestHandler = void Function() Function(
 /// the question. [ended] completes when the question no longer matters: the
 /// install is over or the server withdrew the request.
 typedef SudoPasswordAsker = Future<String?> Function(
-  String host,
+  String? host,
   String profile,
   Future<void> ended,
 );
@@ -75,8 +75,9 @@ class BotScreenInstalls extends ChangeNotifier {
     );
   }
 
-  /// The Hermes host named in the password question; shown, never logged.
-  final String host;
+  /// The Hermes host named in the password question, null when the server's
+  /// address cannot be read; shown, never logged.
+  final String? host;
   final ConnectionTelemetry telemetry;
   final Duration patience;
 
@@ -91,10 +92,10 @@ class BotScreenInstalls extends ChangeNotifier {
   void Function()? _unregister;
   var _disposed = false;
 
-  /// What the install of [profile] (null is the default profile) is doing or
+  /// What the install of [profile] is doing or
   /// ended with; null when none was started.
-  InstallState? stateFor(String? profile) {
-    final name = profile ?? kDefaultProfile;
+  InstallState? stateFor(ResolvedProfile profile) {
+    final name = profile;
     for (final install in _running) {
       if (install.profile == name) {
         return InstallRunning(
@@ -110,8 +111,8 @@ class BotScreenInstalls extends ChangeNotifier {
   /// profile as `display.status` reported it, so the broadcasts that arrive
   /// before Hermes' answer are not lost. Does nothing while an install of
   /// that profile runs.
-  Future<void> start(String? profile, {String? profileKey}) async {
-    final name = profile ?? kDefaultProfile;
+  Future<void> start(ResolvedProfile profile, {String? profileKey}) async {
+    final name = profile;
     if (_disposed || _running.any((install) => install.profile == name)) return;
     final install = _Install(name, profileKey);
     install.span = _startSpan();
@@ -356,7 +357,7 @@ class BotScreenInstalls extends ChangeNotifier {
 class _Install {
   _Install(this.profile, this.profileKey);
 
-  final String profile;
+  final ResolvedProfile profile;
 
   /// The key its broadcasts carry; known from the status before Hermes
   /// answers, and confirmed by the answer.

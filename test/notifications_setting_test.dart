@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -9,12 +9,14 @@ import 'package:hermes_app/src/notifications/notifications_dialog.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_live_activity_service.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late NotificationSettings settings;
@@ -48,6 +50,7 @@ void main() {
           Provider<LiveActivities?>.value(value: liveActivities),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: const ChatScreen(),
         ),
@@ -55,7 +58,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Account'));
+    await tester.tap(find.tooltip('Account'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Notifications'));
     await tester.pumpAndSettle();
@@ -199,7 +202,8 @@ void main() {
         ChangeNotifierProvider.value(
           value: settings,
           child: MaterialApp(
-            theme: buildHermesLightTheme().copyWith(platform: platform),
+            builder: (_, child) => AppThemeScopes(child: child!),
+            theme: buildHermesLightTheme(platform: platform),
             home: Builder(
               builder: (context) => TextButton(
                 onPressed: () => showNotificationsDialog(context),

@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 import '../hermes_profiles_repository.dart';
 import 'profile_avatar.dart';
+import '../../../l10n/l10n.dart';
 
 sealed class _Pick {
   const _Pick();
@@ -53,7 +54,8 @@ class MacProfileSwitcher extends StatelessWidget {
     final colors = context.hermesColors;
     final scheme = Theme.of(context).colorScheme;
     final profile = _currentProfile;
-    final label = profile?.label ?? current ?? 'Profile';
+    final label =
+        profile?.label ?? current ?? context.l10n.profilesSwitcherFallbackLabel;
     final description = profile?.description ?? '';
     return MergeSemantics(
       child: Semantics(

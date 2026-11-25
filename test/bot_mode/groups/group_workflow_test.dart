@@ -1,11 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/bot_mode/groups/group_chat_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import '../group_protocol/groups_repository_test.dart' as fixtures;
 import '../../support/screenshot_recorder.dart';
 import '../../../widgetbook/environment.dart';
+import '../../support/tooltip_finder.dart';
 
 void main() {
   for (final theme in themes.entries) {
@@ -130,6 +132,7 @@ void main() {
         await tester.pumpWidget(
           shots.frame(
             MaterialApp(
+              builder: (_, child) => AppThemeScopes(child: child!),
               debugShowCheckedModeBanner: false,
               theme: withScreenshotFont(theme.value),
               home: GroupChatScreen(
@@ -181,7 +184,7 @@ void main() {
         expect(calls.where((call) => call.$1 == 'message_agent'), isEmpty);
         expect(tester.takeException(), isNull);
         await shots.capture(tester, 'discussion');
-        await tester.tap(find.byTooltip('Room actions'));
+        await tester.tap(find.tooltip('Room actions'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Rename'));
         await tester.pumpAndSettle();
@@ -192,7 +195,7 @@ void main() {
         await tester.tap(find.text('Save'));
         await tester.pumpAndSettle();
         expect(find.text('New name'), findsOneWidget);
-        await tester.tap(find.byTooltip('Room actions'));
+        await tester.tap(find.tooltip('Room actions'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Disband'));
         await tester.pumpAndSettle();

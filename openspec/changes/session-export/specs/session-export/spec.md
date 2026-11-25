@@ -101,7 +101,7 @@ A `FormatException` from decoding the body embeds part of the file. The app SHAL
 
 ### Requirement: System save sheet only
 
-The file SHALL leave the app only through the platform save sheet the user completes. The app SHALL NOT write it silently, copy it to the clipboard, stage it in the media cache or keep it after the sheet closes; the platform plugin's own temporary export copy is deleted when the sheet returns.
+The file SHALL leave the app only through the platform save sheet the user completes. The app SHALL NOT write it silently, copy it to the clipboard, stage it in the media cache or keep it after the sheet closes; the platform plugin's own temporary export copy is deleted when the sheet returns (wired on iOS through `FilePicker.clearTemporaryFiles`; not verified on a device).
 
 #### Scenario: Cancelled sheet
 

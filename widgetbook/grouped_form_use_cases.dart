@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
@@ -72,7 +73,7 @@ class _FormPageState extends State<_FormPage> {
   Widget build(BuildContext context) => SettingsScaffold(
     title: 'New task',
     subtitle: 'work',
-    previousTitle: null,
+    previousTitle: context.l10n.widgetsBack,
     cancel: true,
     formAction: SettingsFormAction(
       label: 'Save',

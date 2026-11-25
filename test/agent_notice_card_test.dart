@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_warning_state.dart';
 import 'package:hermes_app/src/chat/widgets/agent_notice_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/tooltip_finder.dart';
 
 void main() {
   testWidgets(
@@ -32,7 +34,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.getSemantics(find.byTooltip('Dismiss notice')),
+        tester.getSemantics(find.tooltip('Dismiss notice')),
         matchesSemantics(
           tooltip: 'Dismiss notice',
           isButton: true,
@@ -73,7 +75,7 @@ void main() {
     await tester.tap(find.text('[Warning](https://example.invalid)').first);
     await tester.pumpAndSettle();
     expect(find.byType(SelectableText), findsOneWidget);
-    await tester.tap(find.byTooltip('Dismiss notice'));
+    await tester.tap(find.tooltip('Dismiss notice'));
     expect(dismissed, isTrue);
   });
 

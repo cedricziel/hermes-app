@@ -22,7 +22,10 @@ the job summary. Read that step first.
 `scripts/test-shard.sh <index> 4` reproduces the file partition. CI's split and
 a local one match only when run on the same tree, since adding or removing a
 test file moves the rest. Shard 0 is the
-catalog; the other files are sorted and distributed round-robin. Adding a test
+catalog, run in `CATALOG_PARTS` processes (default 6) one after the other,
+because one process for the whole file runs out of memory; its coverage file
+and failure report hold all parts. The other files are sorted and distributed
+round-robin. Adding a test
 file can move existing tests between shards. Start with the failing file before
 running a full shard.
 
@@ -36,8 +39,10 @@ production timeout or add retries to mask a test-only scheduling assumption.
 
 After a fix, run the affected tests and analysis, push to the existing PR and
 check that CI starts for the new commit. Preserve the user's preference about
-waiting; describe pending checks as pending, never as green. Keep auto-merge
-subject to the required checks.
+waiting; describe pending checks as pending, never as green. The orchestrator
+arms auto-merge once the PR is READY, and GitHub merges when the required
+checks are green on the head (`fleet-rules`). Never push to a PR with
+auto-merge armed.
 
 VM catalog tests do not establish that the catalog compiles for the web. A
 native plugin may export a browser stub without its native-only methods (for
@@ -45,6 +50,15 @@ example, media_kit's NativePlayer property API). Keep that implementation
 behind a conditional import/export with a matching browser stub; a runtime
 platform check alone cannot fix missing-method compilation errors. Validate
 with `scripts/build-widgetbook.sh` locally or the catalog build in CI.
+
+## Require pubspec.lock resolved with the pinned Flutter
+
+The `Analyze` step of that name fails when `flutter pub get` rewrites
+`pubspec.lock`. The lock was resolved with another Flutter than `.fvmrc`, for
+example by dependabot, or an SDK-pinned package such as `test_api` moved with
+the SDK. Fix: run `flutter pub get` on the `.fvmrc` Flutter and commit
+`pubspec.lock` (by name; pub get also rewrites generated platform files, which
+stay out). `update-flutter.yml` does this for its bump PR.
 
 ## Which jobs run
 
@@ -77,6 +91,19 @@ runs for every code PR in its own job, `Test native audio (Linux)`, which
 new path (a script it calls, a new asset folder), add it to the `builds` case in
 the `Changes` job, or PRs that touch only that path will skip the build.
 
+`verify-hermes-api-client.yml`'s job is a required check, so the workflow has no
+`paths:` filter (a skipped required workflow stays pending). Its first step
+diffs the merge commit like `Changes` does and sets `steps.scope.outputs.run`;
+the setup and regeneration steps carry `if:` on it, so the job still reports
+success when nothing under `openapi/`, `scripts/`, `packages/hermes_api/`,
+`openapitools.json`, `.fvmrc`, `pubspec.yaml`, `pubspec.lock` or the workflow
+changed. A non-merge HEAD or an empty diff runs the full check, and so does
+push to main.
+
+Every job in `ci.yml`, `widgetbook.yml` and `verify-hermes-api-client.yml` has
+`timeout-minutes` at 2x or more of the longest successful run seen (shards 45,
+platform builds 25 to 40, Analyze 15); raise it when a job legitimately grows.
+
 Only pull-request runs are cancelled by a newer push (`cancel-in-progress` is
 conditional in `ci.yml`, `messenger-plugin.yml`, `real-backend-contract.yml`
 and `verify-hermes-api-client.yml`). On main a run in progress finishes and a
@@ -84,12 +111,43 @@ queued one is replaced by the newer one, so main's latest finished run is the
 one to read. `widgetbook.yml` still cancels on main: a Pages deploy is
 superseded by the next one.
 
+`Analyze & test` runs before the builds and cannot wait for them, so the `Builds`
+job (`needs` all five, `if: always()`) aggregates them. It fails when `Analyze &
+test` did not succeed. Only an explicit `false` in `code` or `builds` from
+`Changes` makes it expect every build `skipped`; any other value, empty
+included, expects `success` from every build, so it fails closed. A
+failed, cancelled or unexpectedly skipped build fails it, and the log names the
+job and what was expected. `Test native audio (Linux)` is left out on purpose
+(advisory). `Builds` is a required check only once the owner adds it to the
+ruleset; until then a red `Builds` does not block a merge, so read it before
+merging a PR that touches native code or `pubspec.yaml`.
+
 The platform builds must not rely on the default `success()`: it is false when
 any job upstream was skipped, and `Test watch core` is skipped on most pull
 requests. Their `if` therefore names `needs.analyze-and-test.result ==
 'success'` under `!cancelled()`. If builds show as skipped on a pull request that
 changes code, look there first.
 
+## flutter_soloud build guard
+
+`Build Linux (release)` runs `flutter build linux --release -v`, writes
+`build/flutter_build_linux.log`, then `scripts/check-soloud-build-log.sh`. It
+fails when the flutter_soloud build hook downloaded or built Xiph libraries or
+enabled VST3: it needs `[flutter_soloud] Building on Linux (<arch>) with Xiph
+libs [disabled]` (read from the hook's `stdout.txt` under
+`.dart_tool/hooks_runner/flutter_soloud/`, since Flutter keeps it out of the
+verbose log) and none of `Downloading prebuild archive`, `Extracting archive`,
+`releases/download`, `Configuring ogg|opus|vorbis|flac`, `Cloning`. A failure
+means `hooks.user_defines.flutter_soloud` in `pubspec.yaml` lost
+`no_xiph_libs: true` or `enable_vst3: false`, or a new version changed what the
+hook does. The unit-level twin is `test/dependency_flutter_soloud_guard_test.dart`
+(user-defines, exact pin, `kFlutterSoloudNoticesVersion` equal to the pin and the
+lock). To fix after a bump: read the new `hook/build.dart`, update
+`lib/src/settings/third_party_notices.dart` and its constant together, and adjust
+the script and `scripts/test_check_soloud_build_log.py` if the print line
+changed. Details: the flutter_soloud paragraph in
+`docs/architecture/native.md`. The script is in the `builds` path filter, so
+changing it runs the Linux build on a pull request.
 ## PR policy and Review recorded
 
 `pr-policy.yml` runs `scripts/pr_policy.py` (`policy` and `review`) on every
@@ -108,7 +166,9 @@ payload, so edit the body to re-check. Each failure names its fix:
 - `pubspec.yaml` version: revert; release-please bumps it.
 - `docs/roadmap.md`: revert it and send the orchestrator the row. The check is by branch prefix (`claude/quirky-einstein-`), so it is loud, not tight.
 - "looks corrupted by a Markdown formatter": the hook turned `x86_64` into `x86*64` or unbalanced a backtick in CLAUDE.md or the roadmap. Restore the line from main and re-apply only your change, with a script instead of Edit/Write.
-- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push.
+- Review recorded: run the isolated-reviewer on the current head and paste its block into `## Review`. It needs exactly one line outside code fences, `Reviewer: <name> Head: <full sha> Verdict: clean`; Head and Verdict are read from that line only. Any push makes it stale, so paste the new block after the last push. A block pasted with leading indentation is not recognised: paste it flush left.
+- "New public widgets have no Widgetbook use case" (catalog first, `PR policy`): the PR adds a file under `lib/src/**/widgets/` that declares a public `class X extends StatelessWidget|StatefulWidget`, and no line the PR adds in a `widgetbook/` `.dart` file names any of the new classes as a whole word. Add a use case that builds one (`component-catalog` skill). Only the file list and patches are read; commit order is not checked (squash merges erase it). A modified, renamed or removed file never triggers. Widgetbook patches are fetched only when a widget triggers the check; a file that cannot be read just does not count. If a use case truly does not apply (no state or layout to show, or "shown through the `<Parent>` use case"), the isolated reviewer emits `Catalog-first: not applicable, <reason>` in its block (reason of at least 10 characters, not `n/a`, `tbd`, `todo`, `<reason>` or punctuation). It counts only between the block's `Reviewer:` line (clean, for the current head) and its `Proof reproduced:` line (when there is none, up to the next blank line), outside code fences and HTML comments (an unclosed `<!--` hides the rest of the body). An author's line elsewhere in `## Review` does not count. Any push changes the head and re-locks the check until the review is redone.
+- "Design:" line (advisory, not a `PR policy` check): a PR that changes `lib/src/**/widgets/`, a `lib/**/*_screen.dart` or `lib/src/theme/` names its design record in the body, `Design: <canvas link or record path>` or `Design: not needed, <reason>`. The isolated reviewer confirms it (`Design: confirmed ...` in its block) or lists a finding; nothing fails CI for it yet.
 - "The PR head moved (<old> → <new>)": a push landed while the job ran, or the API lagged. The run on the newer head decides; re-run the job if that run is missing.
 - Known gap: model names inside inline code or fenced code are not checked.
 - TODO, TBD, n/a, `-` and `...` count as empty; "Nothing" is a valid answer for `## Not verified on a device`.

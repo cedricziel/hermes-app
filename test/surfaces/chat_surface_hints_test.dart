@@ -57,7 +57,7 @@ void main() {
 
   Future<FakeSend> sendHello() async {
     chat.newThread();
-    chat.submit('Hello', const []);
+    await chat.submit('Hello', const []);
     final send = transport.sends.single..emit(const ThreadBound('s1'));
     await pumpEventQueue();
     return send;
@@ -289,7 +289,7 @@ void main() {
 
   test('a chat without a server id is not reported', () async {
     chat.newThread();
-    chat.submit('Hello', const []);
+    await chat.submit('Hello', const []);
     transport.sends.single.emit(const ReplyDelta('Hi'));
     transport.sends.single.emit(const ReplyCompleted('Hi'));
     await pumpEventQueue();

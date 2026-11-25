@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show TextMessage;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
-import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
@@ -19,6 +18,7 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -28,6 +28,7 @@ import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/pump_chat.dart' show composerField, openThread;
+import 'support/tooltip_finder.dart';
 
 Finder get waitingForReasoning => find.byWidgetPredicate(
   (widget) => widget is ReasoningBlock && widget.active && widget.text.isEmpty,
@@ -42,6 +43,10 @@ typedef _SharedFiles = ({
 /// Sending through a [ChatTransport]: the streamed reply, from the composer
 /// through the real widget tree, against a fake dashboard for the session
 /// list and a hand-driven fake transport for the reply.
+const _failedText = 'Something went wrong. Try sending it again.';
+const _profileGoneText =
+    'That profile is no longer available. Pick another one.';
+
 void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
@@ -108,6 +113,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
@@ -285,10 +291,10 @@ void main() {
     transport.sends.single.fail();
     await tester.pump();
 
-    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
+    expect(inTranscript(_failedText), findsOneWidget);
     expect(waitingForReasoning, findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {kMetaError: kReplyFailedMessage});
+    expect(last.metadata, {kMetaFailure: 'generic'});
   });
 
   chatTest('a profile that no longer exists is explained, not retried', (
@@ -300,12 +306,12 @@ void main() {
     transport.sends.single.fail(const ProfileUnavailableException());
     await tester.pump();
 
-    expect(inTranscript(kProfileUnavailableMessage), findsOneWidget);
-    expect(inTranscript(kReplyFailedMessage), findsNothing);
+    expect(inTranscript(_profileGoneText), findsOneWidget);
+    expect(inTranscript(_failedText), findsNothing);
     expect(inTranscript('Any news?'), findsOneWidget);
     expect(waitingForReasoning, findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {kMetaError: kProfileUnavailableMessage});
+    expect(last.metadata, {kMetaFailure: 'profileUnavailable'});
     expect(transport.sends, hasLength(1));
   });
 
@@ -321,9 +327,9 @@ void main() {
     await tester.pump();
 
     expect(inTranscript('Half an ans'), findsOneWidget);
-    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
+    expect(inTranscript(_failedText), findsOneWidget);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {kMetaError: kReplyFailedMessage});
+    expect(last.metadata, {kMetaFailure: 'generic'});
   });
 
   chatTest('the user can send again after a dropped stream', (tester) async {
@@ -339,7 +345,7 @@ void main() {
 
     expect(transport.sends, hasLength(2));
     expect(inTranscript('Here you go.'), findsOneWidget);
-    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
+    expect(inTranscript(_failedText), findsOneWidget);
   });
 
   chatTest('sending to a server thread passes its id', (tester) async {
@@ -577,6 +583,7 @@ void main() {
               ChangeNotifierProvider<ShareController>(create: (_) => share),
             ],
             child: MaterialApp(
+              builder: (_, child) => AppThemeScopes(child: child!),
               theme: buildHermesLightTheme(),
               home: ChatScreen(
                 repository: HermesChatRepository(server.client().raw),
@@ -596,7 +603,7 @@ void main() {
           tester.widget<EditableText>(composerField).controller.text,
           'Review the startup report',
         );
-        expect(find.byTooltip('Remove startup-report.pdf'), findsOneWidget);
+        expect(find.tooltip('Remove startup-report.pdf'), findsOneWidget);
         expect(find.byType(BackButton), findsOneWidget);
         expect(
           tester
@@ -636,7 +643,7 @@ void main() {
       expect(attachment.kind, AttachmentKind.file);
       expect(attachment.mimeType, 'application/pdf');
       expect((await tester.runAsync(attachment.read))!, hasLength(120 * 1024));
-      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+      expect(find.tooltip('Remove report.pdf'), findsNothing);
     });
 
     chatTest('the sent message shows the file as a card with its size', (
@@ -729,7 +736,7 @@ void main() {
         findsOneWidget,
       );
       expect(transport.sends, isEmpty);
-      expect(find.byTooltip('Remove big.bin'), findsOneWidget);
+      expect(find.tooltip('Remove big.bin'), findsOneWidget);
       expect(find.text('take a look'), findsOneWidget);
       // Only the two stored messages of the open thread.
       expect(transcriptMessages(tester), hasLength(2));
@@ -753,7 +760,7 @@ void main() {
         findsOneWidget,
       );
       expect(transport.sends, isEmpty);
-      expect(find.byTooltip('Remove gone.txt'), findsOneWidget);
+      expect(find.tooltip('Remove gone.txt'), findsOneWidget);
     });
 
     chatTest('a shared file stays with the conversation it was received in', (
@@ -768,10 +775,10 @@ void main() {
       );
 
       await openThread(tester, 'Release notes');
-      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+      expect(find.tooltip('Remove report.pdf'), findsNothing);
       await openThread(tester, 'Run failure');
 
-      expect(find.byTooltip('Remove report.pdf'), findsOneWidget);
+      expect(find.tooltip('Remove report.pdf'), findsOneWidget);
       expect(transport.sends, isEmpty);
     });
 
@@ -794,7 +801,7 @@ void main() {
         inTranscript('Could not attach report.pdf: disk full'),
         findsOneWidget,
       );
-      expect(inTranscript(kReplyFailedMessage), findsNothing);
+      expect(inTranscript(_failedText), findsNothing);
       expect(waitingForReasoning, findsNothing);
     });
   });

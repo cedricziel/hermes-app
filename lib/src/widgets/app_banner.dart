@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
@@ -67,14 +67,27 @@ class AppBanner extends StatelessWidget {
   /// lines up with the text above it while the target still extends past the
   /// label vertically. A button that sets its own side padding through
   /// `style:` is moved toward the leading edge by that padding instead (the
-  /// theme cannot beat a button's own style; a button inside a wrapper widget
-  /// is not seen and is not moved). The move is done in layout, by the
+  /// theme cannot beat a button's own style; a button inside a Semantics,
+  /// ExcludeSemantics or MergeSemantics wrapper is seen, one inside any other
+  /// wrapper widget is not and is not moved). The move is done in layout, by the
   /// caller, through [_stackedShift], so the whole button stays tappable.
   /// With [isButton] false the widget is
   /// placed as it is.
   static double _stackedShift(BuildContext context, Widget action) {
-    final own = action is ButtonStyleButton
-        ? action.style?.padding?.resolve(const <WidgetState>{})
+    // Semantics wrappers around the button do not hide its padding.
+    var button = action;
+    while (true) {
+      final next = switch (button) {
+        Semantics(:final child?) => child,
+        ExcludeSemantics(:final child?) => child,
+        MergeSemantics(:final child?) => child,
+        _ => null,
+      };
+      if (next == null) break;
+      button = next;
+    }
+    final own = button is ButtonStyleButton
+        ? button.style?.padding?.resolve(const <WidgetState>{})
         : null;
     if (own == null) return 0;
     final direction = Directionality.of(context);
@@ -83,17 +96,23 @@ class AppBanner extends StatelessWidget {
         .clamp(0.0, _iconSize + _iconGap);
   }
 
+  /// The smallest height a button action is given on this platform: 48 on
+  /// Material, 44 on iOS, 28 on a Mac. A caller that swaps the button for
+  /// something else keeps the banner's height by using at least this.
+  static double minActionTarget(BuildContext context) =>
+      switch (platformChromeOf(context)) {
+        PlatformChrome.material => 48.0,
+        PlatformChrome.ios => kAppleMinTapTarget,
+        PlatformChrome.macos => 28.0,
+      };
+
   static Widget _target(
     BuildContext context,
     Widget action,
     bool flush,
     bool isButton,
   ) {
-    final minimum = switch (platformChromeOf(context)) {
-      PlatformChrome.material => 48.0,
-      PlatformChrome.ios => kAppleMinTapTarget,
-      PlatformChrome.macos => 28.0,
-    };
+    final minimum = minActionTarget(context);
     final base = Theme.of(context).textButtonTheme.style;
     final style = ButtonStyle(
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,

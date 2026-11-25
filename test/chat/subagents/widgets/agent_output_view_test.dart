@@ -1,8 +1,10 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/generated/app_localizations.dart';
 import 'package:hermes_app/src/chat/subagents/widgets/agent_output_view.dart';
+
+import '../../../support/test_localizations.dart';
 
 const _text =
     '12:04:31 tool    | -> read_file(path="go.sum")\n'
@@ -25,7 +27,7 @@ Future<void> _pump(
     MaterialApp(
       theme: ThemeData(platform: platform),
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../profiles/profile_resolver.dart';
 import 'memory_proposals_repository.dart';
 
 /// "Memory · 2 waiting" when changes wait, plain "Memory" otherwise.
@@ -22,7 +23,7 @@ class MemoryWaitingCount extends ChangeNotifier {
   final Duration staleAfter;
   final DateTime Function() _now;
 
-  String? _profile;
+  ResolvedProfile? _profile;
   DateTime? _readAt;
   int _reads = 0;
   bool _disposed = false;
@@ -31,7 +32,7 @@ class MemoryWaitingCount extends ChangeNotifier {
   /// asked, and when the read failed.
   int? waiting;
 
-  Future<void> refresh(String? profile) async {
+  Future<void> refresh(ResolvedProfile? profile) async {
     if (profile == null) return clear();
     final read = ++_reads;
     if (profile != _profile) {
@@ -47,7 +48,7 @@ class MemoryWaitingCount extends ChangeNotifier {
   }
 
   /// Reads again unless [profile] was read within [staleAfter].
-  Future<void> refreshIfStale(String? profile) async {
+  Future<void> refreshIfStale(ResolvedProfile? profile) async {
     final readAt = _readAt;
     if (profile == _profile &&
         readAt != null &&

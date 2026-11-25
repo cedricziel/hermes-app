@@ -34,11 +34,11 @@ class FilesAvailability extends ChangeNotifier {
     HermesRepositories repositories, {
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
   }) {
-    final files = HermesFilesRepository(
-      repositories.api,
-      telemetry: FilesTelemetry(repositories.telemetry, breadcrumbs),
+    final telemetry = FilesTelemetry(repositories.telemetry, breadcrumbs);
+    return FilesAvailability(
+      () => probeFiles(repositories.api, telemetry: telemetry),
+      connection: repositories.api,
     );
-    return FilesAvailability(() => files.probe(), connection: repositories.api);
   }
 
   final Future<FilesResult<void>> Function() _probe;

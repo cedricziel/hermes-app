@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/server_care/log_line.dart';
@@ -11,10 +11,13 @@ import 'package:hermes_app/src/server_care/widgets/update_status_card.dart';
 import 'package:hermes_app/src/server_care/widgets/update_step_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../../support/test_localizations.dart';
+import '../../support/tooltip_finder.dart';
+
 Widget _german(Widget child) => MaterialApp(
   theme: buildHermesLightTheme(platform: TargetPlatform.iOS),
   locale: const Locale('de'),
-  localizationsDelegates: AppLocalizations.localizationsDelegates,
+  localizationsDelegates: kTestLocalizationsDelegates,
   supportedLocales: AppLocalizations.supportedLocales,
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );
@@ -79,7 +82,7 @@ void main() {
       _german(ServerRestartBanner.ready(version: '0.23.0', onClose: () {})),
     );
     expect(find.text('Hermes 0.23.0 ist bereit'), findsOneWidget);
-    expect(find.byTooltip('Schließen'), findsOneWidget);
+    expect(find.tooltip('Schließen'), findsOneWidget);
   });
 
   testWidgets('log widgets speak German', (tester) async {

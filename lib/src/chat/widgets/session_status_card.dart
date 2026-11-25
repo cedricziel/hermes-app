@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
+import 'package:material_ui/material_ui.dart';
 
 import '../../widgets/disclosure_tile.dart';
 import '../chat_session_state.dart';
+import '../../../l10n/l10n.dart';
 
 class SessionStatusCard extends StatelessWidget {
   const SessionStatusCard({
@@ -20,16 +23,17 @@ class SessionStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!state.visible) return const SizedBox.shrink();
     final control = state.control;
+    final unavailable = context.l10n.chatWidgetsSessionStatusUnavailable;
     final summary = [
       if (state.reclaimedReason != null) 'Session reclaimed',
       if (state.resume case final progress?)
         'Restoring session: ${progress.phase} · ${progress.status}',
       if (control?.goal case final goal?)
-        'Goal: ${goal['status'] ?? 'Unavailable'}',
+        'Goal: ${goal['status'] ?? unavailable}',
       if (control?.loop case final loop?)
-        'Loop: ${loop['status'] ?? 'Unavailable'}',
+        'Loop: ${loop['status'] ?? unavailable}',
       if (control?.heartbeat case final heartbeat?)
-        'Heartbeat: ${heartbeat['status'] ?? 'Unavailable'}',
+        'Heartbeat: ${heartbeat['status'] ?? unavailable}',
       ...state.waits.values,
     ].join(' · ');
     return DisclosureTile(
@@ -38,7 +42,11 @@ class SessionStatusCard extends StatelessWidget {
       onExpansionChanged: (open) {
         if (open) onDetails?.call();
       },
-      title: Text(summary, maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text(
+        wellFormedText(summary),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
       children: [
         Padding(
           padding: const EdgeInsets.all(12),

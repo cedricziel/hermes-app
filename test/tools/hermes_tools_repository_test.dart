@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/tools/hermes_tools_repository.dart';
 import 'package:hermes_app/src/tools/tools_models.dart';
@@ -68,8 +69,10 @@ void main() {
       },
     );
 
-    test('forProfile binds another profile', () async {
-      await repository.forProfile('home').list();
+    test('the root binds the profile it is given', () async {
+      await HermesToolsRoot(server.client().raw)
+          .forProfile(resolvedProfile('home'))
+          .list();
 
       expect(server.requests.single.queryParameters['profile'], 'home');
     });
@@ -324,7 +327,7 @@ void main() {
         ]);
         final traced = HermesToolsRepository(
           server.client().raw,
-          profile: 'work-private',
+          profile: resolvedProfile('work-private'),
           telemetry: ConnectionTelemetry(
             tracer: tracer,
             events: (name, [attributes = const {}]) =>
@@ -351,7 +354,7 @@ void main() {
       server.on('GET', '/api/tools/toolsets', {'detail': 'x'}, status: 500);
       final traced = HermesToolsRepository(
         server.client().raw,
-        profile: 'work',
+        profile: resolvedProfile('work'),
         telemetry: ConnectionTelemetry(tracer: tracer),
       );
 

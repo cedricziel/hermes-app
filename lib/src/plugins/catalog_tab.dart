@@ -1,17 +1,19 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
+import 'package:hermes_app/src/theme/focus_ring.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/platform_chrome.dart';
 import '../widgets/adaptive_sheet.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/platform_refresh.dart';
 import '../widgets/settings_search_field.dart';
-
 import 'catalog_controller.dart';
 import 'catalog_detail.dart';
 import 'catalog_entry.dart';
 import 'install_report.dart';
 import 'plugins_controller.dart' show PluginsFailure;
+import 'plugins_refresh.dart';
 import 'sheet_host.dart';
 import 'widgets/catalog_row.dart';
 
@@ -46,14 +48,11 @@ class _CatalogTabState extends State<CatalogTab>
     _controller.load();
   }
 
-  Future<void> _refresh() async {
-    final messenger = ScaffoldMessenger.of(context);
-    if (!await _controller.refresh()) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Could not refresh the catalog')),
-      );
-    }
-  }
+  Future<void> _refresh() => refreshReporting(
+    ScaffoldMessenger.of(context),
+    _controller.refresh,
+    kCatalogRefreshFailed,
+  );
 
   Future<void> _open(CatalogEntry entry, {required bool wide}) async {
     _controller.select(entry.name);
@@ -169,7 +168,7 @@ class _CatalogTabState extends State<CatalogTab>
         break;
     }
     final entries = _controller.visible;
-    return RefreshIndicator(
+    return PlatformRefresh(
       onRefresh: _refresh,
       child: entries.isEmpty
           ? ListView(
@@ -249,12 +248,17 @@ class _InstallActionsState extends State<InstallActions> {
         SizedBox(height: metrics.sectionGap),
         FilledButton(
           key: const Key('catalog-detail-install'),
-          style: FilledButton.styleFrom(
-            minimumSize: Size.fromHeight(metrics.rowMinHeight),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(metrics.radius),
-            ),
-          ),
+          style:
+              FilledButton.styleFrom(
+                minimumSize: Size.fromHeight(metrics.rowMinHeight),
+              ).copyWith(
+                shape: focusRingShapeOf(
+                  context,
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(metrics.radius),
+                  ),
+                ),
+              ),
           onPressed: widget.installing ? null : () => widget.onInstall(_enable),
           child: widget.installing
               ? const SizedBox.square(

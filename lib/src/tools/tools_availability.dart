@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/safe_notifier.dart';
+import '../profiles/profile_resolver.dart';
 import '../telemetry/telemetry.dart';
 import 'hermes_tools_repository.dart';
 import 'tools_models.dart';
@@ -34,11 +35,11 @@ enum ToolsAvailabilityRead {
 /// that was read only: a screen for another profile reads its own list.
 class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   ToolsAvailability(
-    HermesToolsRepository repository, {
+    HermesToolsRoot repository, {
     this.telemetry = const ConnectionTelemetry(),
   }) : _repository = repository;
 
-  final HermesToolsRepository _repository;
+  final HermesToolsRoot _repository;
   final ConnectionTelemetry telemetry;
 
   var _epoch = 0;
@@ -70,7 +71,7 @@ class ToolsAvailability extends ChangeNotifier with SafeNotifier {
   int? enabledCount(String profile) =>
       profile == _rowsProfile ? _rows.where((t) => t.enabled).length : null;
 
-  Future<ToolsAvailabilityRead> refresh(String profile) async {
+  Future<ToolsAvailabilityRead> refresh(ResolvedProfile profile) async {
     final epoch = ++_epoch;
     _requested = profile;
     final result = await _repository.forProfile(profile).list();

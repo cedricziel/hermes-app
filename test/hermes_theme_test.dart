@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -25,7 +25,7 @@ void main() {
         (tester) async {
           await tester.pumpWidget(
             MaterialApp(
-              theme: buildHermesLightTheme().copyWith(platform: platform),
+              theme: buildHermesLightTheme(platform: platform),
               home: Scaffold(
                 appBar: AppBar(
                   automaticallyImplyLeading: false,

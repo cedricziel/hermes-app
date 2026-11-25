@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/voice/calls/call_phase.dart';
@@ -147,6 +147,27 @@ void main() {
       await pumpVoice(tester, _view(phase: CallPhase.speaking, hint: hint));
       expect(find.text(text), findsOneWidget);
     }
+  });
+
+  testWidgets('a route the platform does not name shows no route line', (
+    tester,
+  ) async {
+    Widget view(String route) => VoiceCallView(
+      phase: CallPhase.listening,
+      elapsed: Duration.zero,
+      muted: false,
+      speaker: false,
+      route: route,
+      onMute: () {},
+      onSpeaker: () {},
+      onEnd: () {},
+      onShowChat: () {},
+    );
+    await pumpVoice(tester, view('iPhone'));
+    expect(find.text('iPhone'), findsOneWidget);
+    await pumpVoice(tester, view(''));
+    expect(find.text('iPhone'), findsNothing);
+    expect(find.text('Mute'), findsOneWidget);
   });
 
   testWidgets('the orb interrupts only while speaking', (tester) async {

@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
@@ -64,11 +65,18 @@ class _ThreadSearchFieldState extends State<ThreadSearchField> {
                 label: 'Clear search',
                 iconSize: 16,
                 visualDensity: VisualDensity.compact,
+                style: isAndroid(context)
+                    ? IconButton.styleFrom(
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                      )
+                    : null,
                 icon: AppIcons.close,
                 onPressed: () => widget.onChanged(''),
               ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        contentPadding: EdgeInsets.symmetric(
+          vertical: isAndroid(context) ? 15 : 8,
+        ),
       ),
     );
   }

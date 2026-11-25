@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/server_path.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/widgets/folder_browser_view.dart';
 import 'package:hermes_app/src/workspaces/widgets/path_entry_view.dart';
@@ -104,7 +105,7 @@ void main() {
     picker = WorkspacePickerController(
       repository: repository,
       loader: loader,
-      profile: 'work',
+      profile: resolvedProfile('work'),
       current: current,
       picked: picked,
       wait: wait,
@@ -150,7 +151,7 @@ void main() {
     });
     loader = WorkspaceCatalogLoader(
       repository: repository,
-      profile: 'work',
+      profile: resolvedProfile('work'),
       slowAfter: _wait,
     );
     fs['/home/me'] = () => ok(_dir(['code', 'solo']));

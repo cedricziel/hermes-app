@@ -75,7 +75,7 @@ void main() {
     },
   );
   test('a busy chat is not queued or interrupted by a new call', () async {
-    chat.submit('Unrelated work', const []);
+    await chat.submit('Unrelated work', const []);
     await expectLater(
       agent.reply(
         'Voice',

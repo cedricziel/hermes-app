@@ -1,15 +1,22 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/test_localizations.dart';
+
 final _registry = MacCommandRegistry();
 
-Future<void> _pump(WidgetTester tester, {double width = 1280}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  double width = 1280,
+  Locale locale = const Locale('en'),
+}) async {
   tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -17,6 +24,9 @@ Future<void> _pump(WidgetTester tester, {double width = 1280}) async {
     MacCommandScope.root(
       registry: _registry,
       child: MaterialApp(
+        locale: locale,
+        localizationsDelegates: const [...kTestLocalizationsDelegates],
+        supportedLocales: AppLocalizations.supportedLocales,
         home: MacSidebarScope(
           child: Scaffold(
             body: MacSplitView(
@@ -55,6 +65,20 @@ void main() {
     await tester.drag(handle, const Offset(-400, 0));
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 220);
+  });
+
+  testWidgets('the View menu titles follow the language', (tester) async {
+    await _pump(tester, locale: const Locale('de'));
+    expect(
+      _registry.handlerFor(MacCommand.toggleSidebar)!.title,
+      'Seitenleiste ausblenden',
+    );
+    _registry.invoke(MacCommand.toggleSidebar);
+    await tester.pumpAndSettle();
+    expect(
+      _registry.handlerFor(MacCommand.toggleSidebar)!.title,
+      'Seitenleiste einblenden',
+    );
   });
 
   testWidgets('the View menu command collapses and restores the sidebar', (

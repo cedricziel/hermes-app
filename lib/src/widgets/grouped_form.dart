@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_popup_menu_button.dart';
@@ -68,13 +69,32 @@ class GroupedValueRow extends StatelessWidget {
         chevron: false,
         onTap: onTap,
       ),
-      PlatformChrome.macos => GroupedRow(
-        title: title,
-        caption: caption,
-        warning: warning,
-        trailing:
-            progress ??
-            _PopUpValue(value: value, enabled: enabled, onPressed: onTap),
+      // One semantics node for the row, as the row's own merge makes it, so
+      // the LayoutBuilder above it adds no node of its own.
+      PlatformChrome.macos => MergeSemantics(
+        child: LayoutBuilder(
+          builder: (context, box) => GroupedRow(
+            title: title,
+            // The pop-up takes the rest of the row, so the title keeps a third
+            // of it and wraps.
+            titleMaxLines: 2,
+            caption: caption,
+            warning: warning,
+            // The pop-up draws its own ring, so the row must not draw a second
+            // one round the whole row when the pop-up has focus.
+            focusable: false,
+            trailing:
+                progress ??
+                _PopUpValue(
+                  value: value,
+                  enabled: enabled,
+                  onPressed: onTap,
+                  maxWidth: _popUpMaxWidth(context, box.maxWidth, title),
+                  tooltip: !_inMenu,
+                  inMenu: _inMenu,
+                ),
+          ),
+        ),
       ),
       // The value stays inside the row's tap target, which a trailing
       // widget beside a tappable GroupedRow would not.
@@ -84,27 +104,52 @@ class GroupedValueRow extends StatelessWidget {
           title: title,
           caption: caption,
           warning: warning,
-          // GroupedRow's own value does not shrink for a long one.
-          trailing:
-              progress ??
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.sizeOf(context).width * 0.45,
-                ),
-                child: Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: GroupedMetrics.of(context).subtitleSize,
-                    color: context.hermesColors.subtleText,
-                  ),
-                ),
-              ),
+          // Beside the title while both fit on one line, under it otherwise.
+          value: progress == null ? value : null,
+          valueStyle: const TextStyle(),
+          stackCrampedValue: true,
+          wrapWhenStacked: true,
+          trailing: progress,
           chevron: enabled,
         ),
       ),
     };
+  }
+
+  /// The widest the Mac pop-up gets in a row [rowWidth] wide: at most 260,
+  /// and what is left once the title has its longest word or a third of the
+  /// row inside its padding, whichever is wider, and the gap to the pop-up.
+  /// The longest word is reserved only while the pop-up keeps room for its
+  /// chrome and about three characters of the value and an ellipsis;
+  /// otherwise the title gets a third.
+  static double _popUpMaxWidth(
+    BuildContext context,
+    double rowWidth,
+    String title,
+  ) {
+    final inner = rowWidth - 2 * GroupedMetrics.of(context).rowPadding;
+    // The row draws its text over its Material's body style, so both the
+    // title word and the pop-up text are measured in that.
+    final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
+    final style = base.copyWith(fontSize: GroupedMetrics.of(context).titleSize);
+    var word = 0.0;
+    for (final part in title.split(RegExp(r'(?<=-)|\s+'))) {
+      if (part.isEmpty) continue;
+      word = math.max(word, measureRowText(context, part, style));
+    }
+    // The pop-up's padding, gap and chevron, and "Abc…" at its 12 pt size.
+    final readable =
+        31 +
+        measureRowText(
+          context,
+          'Abc…',
+          base.merge(_popUpTextStyle(Colors.transparent)),
+        );
+    final wordMin = word + 1;
+    final titleMin = inner - 8 - wordMin >= readable
+        ? math.max(inner / 3, wordMin)
+        : inner / 3;
+    return math.max(32, math.min(260, inner - 8 - titleMin));
   }
 
   static Widget _tappable(VoidCallback? onTap, Widget row) => onTap == null
@@ -112,10 +157,12 @@ class GroupedValueRow extends StatelessWidget {
       : MergeSemantics(
           child: Semantics(
             button: true,
-            child: InkWell(onTap: onTap, child: row),
+            child: GroupedRowInk(onTap: onTap, child: row),
           ),
         );
 }
+
+TextStyle _popUpTextStyle(Color color) => TextStyle(fontSize: 12, color: color);
 
 /// A Mac pop-up button showing [value].
 class _PopUpValue extends StatelessWidget {
@@ -123,11 +170,22 @@ class _PopUpValue extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onPressed,
+    required this.inMenu,
+    required this.maxWidth,
+    required this.tooltip,
   });
 
   final String value;
   final bool enabled;
+
+  /// Whether a menu button round the row takes the focus and the tap.
+  final bool inMenu;
   final VoidCallback? onPressed;
+  final double maxWidth;
+
+  /// Whether a tooltip shows the whole [value], for a pop-up whose own menu
+  /// does not.
+  final bool tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +203,7 @@ class _PopUpValue extends StatelessWidget {
               value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, color: color),
+              style: _popUpTextStyle(color),
             ),
           ),
           AppIcon(AppIcons.expandMore, size: 12, color: color),
@@ -153,8 +211,8 @@ class _PopUpValue extends StatelessWidget {
       ),
     );
     final onPressed = this.onPressed;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 260),
+    final pill = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
       child: Material(
         color: scheme.surface,
         shape: RoundedRectangleBorder(
@@ -168,14 +226,26 @@ class _PopUpValue extends StatelessWidget {
                 value: value,
                 onTap: onPressed,
                 excludeSemantics: true,
-                child: InkWell(
-                  borderRadius: radius,
-                  onTap: onPressed,
-                  child: face,
+                // The row has 12 pt of padding round it: the ring goes
+                // outside.
+                child: FocusRing.outside(
+                  radius: 6,
+                  child: InkWell(
+                    borderRadius: radius,
+                    onTap: onPressed,
+                    child: face,
+                  ),
                 ),
               ),
       ),
     );
+    // In a menu the button round the row takes the focus, not the face.
+    final ringed = inMenu
+        ? AncestorFocusRing.outside(radius: 6, child: pill)
+        : pill;
+    return tooltip
+        ? Tooltip(message: value, excludeFromSemantics: true, child: ringed)
+        : ringed;
   }
 }
 
@@ -212,6 +282,8 @@ class GroupedMenuRow<T> extends StatelessWidget {
         button: true,
         child: AdaptivePopupMenuButton<T>(
           tooltip: '',
+          focusRadius: GroupedMetrics.of(context).radius,
+          focusInside: true,
           padding: EdgeInsets.zero,
           position: PopupMenuPosition.under,
           onSelected: onSelected,
@@ -467,32 +539,35 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final chrome = platformChromeOf(context);
     final Widget control = chrome.isApple
-        ? CupertinoSlidingSegmentedControl<T>(
-            groupValue: value,
-            backgroundColor: scheme.surfaceContainerHighest,
-            thumbColor: scheme.surface,
-            padding: const EdgeInsets.all(2),
-            children: {
-              for (final MapEntry(key: segment, value: label)
-                  in segments.entries)
-                segment: Semantics(
-                  button: true,
-                  selected: segment == value,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: ShrinkToFitText(
-                      label,
-                      style: TextStyle(
-                        fontSize: chrome == PlatformChrome.macos ? 12 : 13,
-                        color: scheme.onSurface,
+        ? FocusRing.outside(
+            radius: 9,
+            child: CupertinoSlidingSegmentedControl<T>(
+              groupValue: value,
+              backgroundColor: scheme.surfaceContainerHighest,
+              thumbColor: scheme.surface,
+              padding: const EdgeInsets.all(2),
+              children: {
+                for (final MapEntry(key: segment, value: label)
+                    in segments.entries)
+                  segment: Semantics(
+                    button: true,
+                    selected: segment == value,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: ShrinkToFitText(
+                        label,
+                        style: TextStyle(
+                          fontSize: chrome == PlatformChrome.macos ? 12 : 13,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            },
-            onValueChanged: (segment) {
-              if (segment != null) onChanged(segment);
-            },
+              },
+              onValueChanged: (segment) {
+                if (segment != null) onChanged(segment);
+              },
+            ),
           )
         : PillSegmentedControl<T>(
             value: value,

@@ -1,12 +1,14 @@
-import 'package:flutter/cupertino.dart' show CupertinoButton;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoButton;
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../models/model_provider_option.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
+import 'kanban_task_choice_dialog.dart';
 
 /// The actions for the tasks picked in selection mode. Each asks for its
 /// value first and reports it; nothing is offered while none are picked.
@@ -34,61 +36,71 @@ class KanbanBulkBar extends StatelessWidget {
   final ValueChanged<String> onEffort;
   final VoidCallback onArchive;
 
+  /// Asks which of [options] to apply to every selected task. No row is
+  /// checked, since the tasks have no single current value; the footer says
+  /// how many tasks the pick reaches. Closing without a pick returns null.
   Future<T?> _pick<T>(
     BuildContext context,
     String title,
     List<(String, T)> options,
-  ) => showDialog<T>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: Text(title),
-      children: [
-        for (final (label, value) in options)
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, value),
-            child: Text(label),
-          ),
+  ) => showKanbanDialog<T>(
+    context,
+    builder: (dialog) => KanbanTaskChoiceDialog<(String, T)>(
+      title: title,
+      options: options,
+      labelOf: (option) => option.$1,
+      selected: null,
+      footer: dialog.l10n.kanbanBulkPickerFooter(selectedCount),
+      // Cancel, not the header's Done: Move to has a status named Done.
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialog),
+          child: Text(dialog.l10n.widgetsCancel),
+        ),
       ],
+      onPicked: (option) => Navigator.pop(dialog, option.$2),
     ),
   );
 
   @override
   Widget build(BuildContext context) {
     final none = selectedCount == 0;
+    final l10n = context.l10n;
     final actions = <_BulkAction>[
-      _BulkAction('Move', AppIcons.move, () async {
-        final status = await _pick(context, 'Move to', [
-          for (final s in kanbanSettableStatuses) (kanbanStatusLabel(s), s),
+      _BulkAction(l10n.kanbanBulkActionMove, AppIcons.move, () async {
+        final status = await _pick(context, l10n.kanbanBulkMoveTitle, [
+          for (final s in kanbanSettableStatuses)
+            (kanbanStatusLabel(l10n, s), s),
         ]);
         if (status != null) onMove(status);
       }),
-      _BulkAction('Assign', AppIcons.personAdd, () async {
-        final assignee = await _pick(context, 'Assign to', [
-          ('Nobody', ''),
+      _BulkAction(l10n.kanbanBulkActionAssign, AppIcons.personAdd, () async {
+        final assignee = await _pick(context, l10n.kanbanBulkAssignTitle, [
+          (l10n.kanbanBulkNobody, ''),
           for (final n in assignees) (n, n),
         ]);
         if (assignee != null) onAssign(assignee);
       }),
-      _BulkAction('Priority', AppIcons.flag, () async {
-        final priority = await _pick(context, 'Priority', [
-          ('Normal', 0),
+      _BulkAction(l10n.kanbanBulkActionPriority, AppIcons.flag, () async {
+        final priority = await _pick(context, l10n.kanbanBulkPriorityTitle, [
+          (l10n.kanbanBulkPriorityNormal, 0),
           for (final p in [1, 2, 3]) ('P$p', p),
         ]);
         if (priority != null) onPriority(priority);
       }),
-      _BulkAction('Effort', AppIcons.reasoning, () async {
-        final effort = await _pick(context, 'Reasoning effort', [
-          ('Profile default', ''),
+      _BulkAction(l10n.kanbanBulkActionEffort, AppIcons.reasoning, () async {
+        final effort = await _pick(context, l10n.kanbanBulkEffortTitle, [
+          (l10n.kanbanBulkEffortDefault, ''),
           for (final e in kReasoningEfforts)
-            if (e != 'none') (effortLabel(e), e),
+            if (e != 'none') (effortLabel(l10n, e), e),
         ]);
         if (effort != null) onEffort(effort);
       }),
-      _BulkAction('Archive', AppIcons.archive, () async {
+      _BulkAction(l10n.kanbanBulkActionArchive, AppIcons.archive, () async {
         if (await confirmKanban(
           context,
-          title: 'Archive $selectedCount tasks?',
-          confirm: 'Archive',
+          title: l10n.kanbanBulkArchiveTitle(selectedCount),
+          confirm: l10n.kanbanBulkArchiveConfirm,
         )) {
           onArchive();
         }

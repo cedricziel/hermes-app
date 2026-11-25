@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
@@ -10,6 +10,8 @@ import 'app_lock/app_lock_controller.dart';
 import 'api/hermes_repositories.dart';
 import 'navigation/connection_pages.dart';
 import 'navigation/desktop_history_owner.dart';
+import 'navigation/desktop_menu_bar_host.dart';
+import 'navigation/modal_route_observer.dart';
 import 'navigation/desktop_navigation_history.dart';
 import 'navigation/desktop_navigation_commands.dart';
 import 'navigation/workers_navigation_resolver.dart';
@@ -57,6 +59,7 @@ class _HermesAppState extends State<HermesApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _handoffObserver = HandoffNavigationObserver();
   final _pushedRoutes = PushedRoutes();
+  final _modalRoutes = ModalRouteObserver();
   late final _connectionPages = ConnectionPageCloser(_pushedRoutes);
   late final _history = DesktopNavigationHistory(
     canNavigate: _canNavigate,
@@ -156,6 +159,7 @@ class _HermesAppState extends State<HermesApp> {
     unawaited(_windowlessChanges?.cancel());
     _connectionPages.dispose();
     _history.dispose();
+    _modalRoutes.dispose();
     super.dispose();
   }
 
@@ -172,7 +176,12 @@ class _HermesAppState extends State<HermesApp> {
     _syncHistory(auth);
     return MaterialApp(
       navigatorKey: _navigatorKey,
-      navigatorObservers: [_handoffObserver, _history, _pushedRoutes],
+      navigatorObservers: [
+        _handoffObserver,
+        _history,
+        _pushedRoutes,
+        _modalRoutes,
+      ],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: [
@@ -183,11 +192,12 @@ class _HermesAppState extends State<HermesApp> {
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) => MaterialUiThemeScope(
+      builder: (context, child) => AppThemeScopes(
         child: MenuBarExtraHost(
           navigatorKey: _navigatorKey,
           child: MacMenuBar(
             navigatorKey: _navigatorKey,
+            modalRoutes: _modalRoutes,
             child: ConversationWindowsMenu(
               child: DesktopNavigationHistoryScope(
                 history: _history,
@@ -197,7 +207,10 @@ class _HermesAppState extends State<HermesApp> {
                       child: AppLockGate(
                         child: DockMenuGate(
                           child: HandoffGate(
-                            child: HandsFreeStripLayer(child: child!),
+                            child: DesktopMenuBarHost(
+                              modalRoutes: _modalRoutes,
+                              child: HandsFreeStripLayer(child: child!),
+                            ),
                           ),
                         ),
                       ),

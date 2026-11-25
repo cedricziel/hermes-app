@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_page_scaffold.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_panel.dart';
@@ -375,6 +375,7 @@ Widget _page({
         actions: [
           ActivityPageAction(
             label: context.l10n.chatCheckpointsPageRefresh,
+            tooltip: context.l10n.chatCheckpointsPageRefreshTooltip,
             icon: AppIcons.refresh,
             onPressed: () {},
           ),

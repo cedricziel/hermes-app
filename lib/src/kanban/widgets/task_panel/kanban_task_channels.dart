@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../../../../l10n/l10n.dart';
 
 import '../../kanban_models.dart';
 import '../../../widgets/grouped_list.dart';
@@ -23,11 +25,11 @@ class KanbanTaskChannels extends StatelessWidget {
   Widget build(BuildContext context) {
     if (channels.isEmpty) return const SizedBox.shrink();
     return GroupedSection(
-      header: 'Notify',
+      header: context.l10n.kanbanTaskNotify,
       children: [
         for (final c in channels)
           GroupedSwitchRow(
-            title: 'Post updates to ${c.name}',
+            title: context.l10n.kanbanTaskPostUpdates(c.name),
             titleMaxLines: null,
             subtitle: c.platform,
             value: c.subscribed,

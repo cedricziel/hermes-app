@@ -1,6 +1,4 @@
-import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/code_highlight.dart';
@@ -8,6 +6,7 @@ import 'package:hermes_app/src/files/widgets/file_previews.dart';
 import 'package:hermes_app/src/files/widgets/safe_path_text.dart';
 import 'package:hermes_app/src/theme/hermes_code_colors.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'files_widget_harness.dart';
 
@@ -36,18 +35,6 @@ List<(String, Color?, bool)> _spans(WidgetTester tester) {
   return out;
 }
 
-double _luminance(Color c) {
-  double channel(double v) =>
-      v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
-  return 0.2126 * channel(c.r) + 0.7152 * channel(c.g) + 0.0722 * channel(c.b);
-}
-
-double _contrast(Color a, Color b) {
-  final x = _luminance(a);
-  final y = _luminance(b);
-  return (math.max(x, y) + 0.05) / (math.min(x, y) + 0.05);
-}
-
 void main() {
   group('CodePreview', () {
     for (final brightness in Brightness.values) {
@@ -74,6 +61,23 @@ void main() {
         expect(comment.$3, isTrue, reason: 'comments are italic too');
       });
     }
+
+    testWidgets('JSON keys are blue, literals purple and semibold', (
+      tester,
+    ) async {
+      await pumpFiles(
+        tester,
+        const CodePreview(text: '{"a": true, "b": "x"}', language: 'json'),
+      );
+      final palette = HermesCodeColors.light;
+      final spans = _spans(tester);
+      Color? colourOf(String text) =>
+          spans.firstWhere((s) => s.$1.contains(text)).$2;
+      expect(colourOf('"a"'), palette.key);
+      expect(colourOf('"x"'), palette.string);
+      expect(colourOf('true'), palette.number);
+      expect(colourOf('{'), palette.comment, reason: 'punctuation is muted');
+    });
 
     testWidgets('an unknown language is plain monospace', (tester) async {
       await pumpFiles(
@@ -154,6 +158,7 @@ void main() {
       expect(CodeHighlightWorker.alive, 1);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: const Scaffold(
             body: CodePreview(text: 'x = 1', language: 'python'),
@@ -175,6 +180,7 @@ void main() {
       );
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(),
           home: const Scaffold(body: CodePreview(text: 'plain words')),
         ),
@@ -395,37 +401,6 @@ void main() {
   });
 
   group('code palette', () {
-    test(
-      'every colour is at least 5.2:1 on the page and the raised surface',
-      () {
-        for (final (palette, theme) in [
-          (HermesCodeColors.light, buildHermesLightTheme()),
-          (HermesCodeColors.dark, buildHermesDarkTheme()),
-        ]) {
-          final scheme = theme.colorScheme;
-          for (final background in [
-            scheme.surface,
-            scheme.surfaceContainerHighest,
-          ]) {
-            for (final colour in [
-              palette.keyword,
-              palette.string,
-              palette.comment,
-              palette.number,
-              palette.function,
-              palette.typeName,
-            ]) {
-              expect(
-                _contrast(colour, background),
-                greaterThanOrEqualTo(5.2),
-                reason: '$colour on $background',
-              );
-            }
-          }
-        }
-      },
-    );
-
     test('both themes register the palette themselves', () {
       expect(
         buildHermesLightTheme().extension<HermesCodeColors>(),

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/context/context_models.dart';
@@ -8,6 +8,8 @@ import 'package:hermes_app/src/chat/context/widgets/compress_outcome_note.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_format.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../../support/test_localizations.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -22,7 +24,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme(platform: platform),
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(context)

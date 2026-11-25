@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
@@ -63,32 +63,36 @@ class _ChatHistoryStateState extends State<ChatHistoryState> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final Widget content = switch (widget.status) {
-      // Read out once when it appears, so a screen reader hears that the
-      // messages did not load without hunting for the text.
+      // The title is read out once when it appears, so a screen reader hears
+      // that the messages did not load; Retry keeps its own node.
       ChatHistoryStatus.failed => _FadeIn(
         key: const ValueKey('failed'),
-        child: Semantics(
-          container: true,
-          liveRegion: true,
-          child: StateMessage(
-            icon: AppIcons.error,
-            title: l10n.chatWidgetsHistoryFailedTitle,
-            detail: l10n.chatWidgetsHistoryFailedDetail,
-            action: widget.onRetry == null
-                ? null
-                : FilledButton(
-                    onPressed: widget.onRetry,
-                    // 44 pt to hit on touch; the padded tap target makes it
-                    // 48 dp on Android. A pointer platform keeps its own size.
-                    style: _touch(context)
-                        ? FilledButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                            tapTargetSize: MaterialTapTargetSize.padded,
-                          )
-                        : null,
-                    child: Text(l10n.commonRetry),
-                  ),
-          ),
+        child: StateMessage(
+          icon: AppIcons.error,
+          title: l10n.chatWidgetsHistoryFailedTitle,
+          detail: l10n.chatWidgetsHistoryFailedDetail,
+          announceTitle: true,
+          action: widget.onRetry == null
+              ? null
+              : FilledButton(
+                  onPressed: widget.onRetry,
+                  // 44 pt to hit on touch; the padded tap target makes it
+                  // 48 dp on Android. Other platforms keep their own size.
+                  style: _touch(context)
+                      ? FilledButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          tapTargetSize: MaterialTapTargetSize.padded,
+                        )
+                      : Theme.of(context).platform == TargetPlatform.macOS
+                      // The Mac theme's compact density shrinks the button to
+                      // 20 pt; the design is 32.
+                      ? FilledButton.styleFrom(
+                          minimumSize: const Size(0, 32),
+                          visualDensity: VisualDensity.standard,
+                        )
+                      : null,
+                  child: Text(l10n.commonRetry),
+                ),
         ),
       ),
       ChatHistoryStatus.loading =>

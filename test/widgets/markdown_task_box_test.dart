@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/bot_mode/groups/widgets/group_widgets.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
 import 'package:hermes_app/src/skills/widgets/skill_markdown_panel.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import '../bot_mode/group_protocol/groups_repository_test.dart' as fixtures;
 
@@ -43,7 +44,8 @@ void main() {
   ) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(body: SkillMarkdownPanel(text: _radios)),
       ),
     );
@@ -75,7 +77,8 @@ void main() {
   testWidgets('skill detail panel renders a task list', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(body: SkillMarkdownPanel(text: _tasks)),
       ),
     );
@@ -92,6 +95,7 @@ void main() {
     });
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: GroupEventRow(
             event: event,
@@ -108,6 +112,7 @@ void main() {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: SkillEditorScreen.edit(
           name: 'x',
           initialText: '---\nname: x\n---\n$_tasks',

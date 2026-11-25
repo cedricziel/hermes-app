@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
@@ -28,8 +28,10 @@ import '../../voice/voice_message_recording.dart';
 import '../activity/widgets/needs_you_dock.dart'
     show NeedsYouDockBuilder, needsYouCompactFor;
 import 'chat_composer_builder.dart';
+import 'chat_earlier_messages_failed_row.dart';
 import 'chat_history_state.dart';
 import 'message_actions.dart' show TurnActionStatus;
+import '../tool_value_budget.dart';
 import 'tool_call_expansion.dart';
 import '../reactions/reaction_state.dart';
 
@@ -101,10 +103,12 @@ class ChatThreadView extends StatelessWidget {
     this.draftHandedBack = false,
     this.onShowAgentDetails,
     this.toolCallExpansion,
+    this.toolValueBudget,
     this.workingDirectoryRow,
     this.workspaceNotice,
     this.historyStatus,
     this.onRetryHistory,
+    this.earlierMessages,
   });
 
   /// Set while a stored chat has no messages on screen because they are
@@ -114,6 +118,10 @@ class ChatThreadView extends StatelessWidget {
 
   /// Reads the messages of a chat whose [historyStatus] is failed again.
   final VoidCallback? onRetryHistory;
+
+  /// Set when the chat shows messages but its older ones failed to load: a
+  /// row with Retry then leads the transcript ([onRetryHistory] reads again).
+  final ChatEarlierMessagesStatus? earlierMessages;
 
   final ChatThread? thread;
 
@@ -229,6 +237,9 @@ class ChatThreadView extends StatelessWidget {
   /// each row keeps its own when null.
   final ToolCallExpansionStore? toolCallExpansion;
 
+  /// What the open tool cards of this chat may colour in all.
+  final ToolValueBudget? toolValueBudget;
+
   @override
   Widget build(BuildContext context) {
     final openThread = thread;
@@ -254,6 +265,25 @@ class ChatThreadView extends StatelessWidget {
           onReactionDetails: onReactionDetails,
           screenPreview: screenPreview,
           onShowAgentDetails: onShowAgentDetails,
+          topSliver: earlierMessages == null
+              ? null
+              : SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      kChatGutter,
+                      0,
+                      kChatGutter,
+                      kChatTurnGap,
+                    ),
+                    child: ChatEarlierMessagesFailedRow(
+                      status: earlierMessages!,
+                      onRetry:
+                          earlierMessages == ChatEarlierMessagesStatus.failed
+                          ? onRetryHistory
+                          : null,
+                    ),
+                  ),
+                ),
           toolCallExpansion: toolCallExpansion,
         ).copyWith(
           composerBuilder: buildChatComposer(
@@ -302,7 +332,7 @@ class ChatThreadView extends StatelessWidget {
             emptyChatListBuilder: (_) => const SizedBox.shrink(),
           );
 
-    return Column(
+    final column = Column(
       children: [
         if (header case final header?) ...[
           header,
@@ -352,5 +382,9 @@ class ChatThreadView extends StatelessWidget {
         ),
       ],
     );
+    final budget = toolValueBudget;
+    return budget == null
+        ? column
+        : ToolValueBudgetScope(budget: budget, child: column);
   }
 }

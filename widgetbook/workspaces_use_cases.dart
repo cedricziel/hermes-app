@@ -1,5 +1,7 @@
-import 'package:flutter/cupertino.dart' show CupertinoMenuAnchor;
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoMenuAnchor;
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart';
 import 'package:hermes_app/src/chat/widgets/thread_grouping_controls.dart';
 import 'package:hermes_app/src/chat/thread_list_preferences.dart';
@@ -22,6 +24,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
 import 'host.dart';
+import 'platform_theme.dart';
 
 // Everything here is invented: a made-up server, folders, projects and chats.
 
@@ -51,10 +54,8 @@ Widget _german(Widget child) => Builder(
 );
 
 Widget _on(TargetPlatform platform, Widget child) => Builder(
-  builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: platform),
-    child: child,
-  ),
+  builder: (context) =>
+      Theme(data: platformTheme(context, platform), child: child),
 );
 
 Widget _reducedMotion(Widget child) => Builder(
@@ -395,7 +396,12 @@ class _SelectPathOnShowState extends State<_SelectPathOnShow> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _select());
+      // In a microtask: the catalog rebuilds a use case once it is on screen,
+      // and the selection area takes in the rebuilt text in a callback after
+      // this one. Selecting before that throws inside the framework.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => scheduleMicrotask(_select),
+      );
     });
   }
 

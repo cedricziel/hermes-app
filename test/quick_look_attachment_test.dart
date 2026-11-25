@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +25,7 @@ import 'support/fake_media_actions.dart';
 import 'support/fake_quick_look.dart';
 import 'support/recorded_events.dart';
 import 'support/wait_until.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -83,7 +84,7 @@ void main() {
           ),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(platform: platform),
+          theme: buildHermesLightTheme(platform: platform),
           home: Scaffold(
             body: Align(alignment: Alignment.topLeft, child: child),
           ),
@@ -483,7 +484,7 @@ void main() {
     ) async {
       await pump(tester, AttachmentCard(attachment: embedded));
 
-      await tester.runAsync(() => tester.tap(find.byTooltip('Save')));
+      await tester.runAsync(() => tester.tap(find.tooltip('Save')));
       await waitForSaved(tester);
 
       expect(actions.saved.single.name, 'notes.txt');
@@ -499,7 +500,7 @@ void main() {
         platform: TargetPlatform.iOS,
       );
 
-      expect(find.byTooltip('Save'), findsNothing);
+      expect(find.tooltip('Save'), findsNothing);
     });
 
     testWidgets('elsewhere a file with a server path comes from the server', (
@@ -519,7 +520,7 @@ void main() {
         platform: TargetPlatform.iOS,
       );
 
-      await tester.runAsync(() => tester.tap(find.byTooltip('Save')));
+      await tester.runAsync(() => tester.tap(find.tooltip('Save')));
       await waitForSaved(tester);
 
       expect(downloads(), 1);

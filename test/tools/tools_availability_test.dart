@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:hermes_app/src/tools/hermes_tools_repository.dart'
+    show HermesToolsRoot;
 import 'package:hermes_app/src/tools/tools_availability.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -18,7 +21,7 @@ void main() {
       ..on('GET', '/api/tools/toolsets', toolsetsFixture);
     events = [];
     availability = ToolsAvailability(
-      toolsRepository(server),
+      HermesToolsRoot(server.client().raw),
       telemetry: ConnectionTelemetry(
         events: (name, [attributes = const {}]) =>
             events.add('$name $attributes'),
@@ -29,7 +32,7 @@ void main() {
   tearDown(() => availability.dispose());
 
   test('a read offers Tools and hands the rows to that profile only', () async {
-    final read = await availability.refresh('work');
+    final read = await availability.refresh(resolvedProfile('work'));
 
     expect(read, ToolsAvailabilityRead.ok);
     expect(availability.offered, isTrue);
@@ -51,10 +54,10 @@ void main() {
   test(
     'remembers the profile it was last asked for, answered or not',
     () async {
-      await availability.refresh('work');
+      await availability.refresh(resolvedProfile('work'));
       server.on('GET', '/api/tools/toolsets', {'detail': 'x'}, status: 500);
 
-      await availability.refresh('home');
+      await availability.refresh(resolvedProfile('home'));
 
       expect(availability.requestedProfile, 'home');
       expect(availability.profile, 'work');
@@ -68,7 +71,7 @@ void main() {
       'detail': 'Not Found',
     }, status: 404);
 
-    final read = await availability.refresh('work');
+    final read = await availability.refresh(resolvedProfile('work'));
 
     expect(read, ToolsAvailabilityRead.unsupported);
     expect(availability.offered, isFalse);
@@ -77,20 +80,20 @@ void main() {
   });
 
   test('405 hides Tools and forgets earlier rows', () async {
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
     server.on('GET', '/api/tools/toolsets', {'detail': 'x'}, status: 405);
 
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
 
     expect(availability.offered, isFalse);
     expect(availability.rowsFor('work'), isEmpty);
   });
 
   test('a failed read keeps the previous answer', () async {
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
     server.on('GET', '/api/tools/toolsets', {'detail': 'boom'}, status: 503);
 
-    final read = await availability.refresh('work');
+    final read = await availability.refresh(resolvedProfile('work'));
 
     expect(read, ToolsAvailabilityRead.unreachable);
     expect(availability.offered, isTrue);
@@ -108,7 +111,7 @@ void main() {
         );
       });
 
-      final read = await availability.refresh('work');
+      final read = await availability.refresh(resolvedProfile('work'));
 
       expect(read, ToolsAvailabilityRead.unreachable);
       expect(availability.offered, isFalse);
@@ -116,10 +119,10 @@ void main() {
   );
 
   test('a resume reads again and takes the new rows', () async {
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
     server.on('GET', '/api/tools/toolsets', [toolsetsFixture.first]);
 
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
 
     expect(availability.rowsFor('work'), hasLength(1));
     expect(server.requestsTo('GET', '/api/tools/toolsets'), hasLength(2));
@@ -131,8 +134,8 @@ void main() {
       if (r.queryParameters['profile'] == 'work') await gate.future;
       return (status: 200, body: toolsetsFixture);
     });
-    final first = availability.refresh('work');
-    final second = await availability.refresh('home');
+    final first = availability.refresh(resolvedProfile('work'));
+    final second = await availability.refresh(resolvedProfile('home'));
     gate.complete();
 
     expect(await first, ToolsAvailabilityRead.dropped);
@@ -142,12 +145,12 @@ void main() {
   });
 
   test('a profile that is gone is not "unsupported"', () async {
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
     server.on('GET', '/api/tools/toolsets', {
       'detail': "Profile 'work' does not exist",
     }, status: 404);
 
-    final read = await availability.refresh('work');
+    final read = await availability.refresh(resolvedProfile('work'));
 
     expect(read, ToolsAvailabilityRead.profileGone);
     expect(availability.profileGone, isTrue);
@@ -162,7 +165,7 @@ void main() {
       await gate.future;
       return (status: 200, body: toolsetsFixture);
     });
-    final pending = availability.refresh('work');
+    final pending = availability.refresh(resolvedProfile('work'));
     availability.clear();
     gate.complete();
 
@@ -172,7 +175,7 @@ void main() {
   });
 
   test('nothing in the log names the profile or a toolset', () async {
-    await availability.refresh('work');
+    await availability.refresh(resolvedProfile('work'));
 
     expect(events.join(), isNot(contains('work')));
     expect(events.join(), isNot(contains('terminal')));

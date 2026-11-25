@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
@@ -27,6 +27,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import 'bot_screen_repository_test.dart' show statusJson;
+import '../support/tooltip_finder.dart';
 
 /// The still preview under the `computer_use` call of a running reply, on the
 /// chat screen over the real transport.
@@ -169,7 +170,7 @@ void main() {
   Future<void> startReply(WidgetTester tester) async {
     await tester.enterText(composerField, 'Book a table');
     await tester.pump();
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.tooltip('Send'));
     await tester.pump();
     await settle(tester);
     emit('message.start');
@@ -398,7 +399,7 @@ void main() {
       await tester.pump();
       await settle(tester);
 
-      await tester.tap(find.byTooltip('Close (Esc)'));
+      await tester.tap(find.tooltip('Close (Esc)'));
       await tester.pump();
       await settle(tester);
       await tester.pump(const Duration(milliseconds: 500));

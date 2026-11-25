@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
 import '../../macos/mac_source_list.dart';
@@ -22,13 +22,19 @@ class ThreadGroupingMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mac = platformChromeOf(context) == PlatformChrome.macos;
-    return NamedPopupMenuButton<ThreadGrouping>(
+    final android = isAndroid(context);
+    final side = mac
+        ? 24.0
+        : android
+        ? kMaterialMinTapTarget
+        : kAppleMinTapTarget;
+    final button = NamedPopupMenuButton<ThreadGrouping>(
       iconSize: 14,
       color: context.hermesColors.subtleText,
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
-        minimumSize: Size.square(mac ? 24 : kAppleMinTapTarget),
-        maximumSize: Size.square(mac ? 24 : kAppleMinTapTarget),
+        minimumSize: Size.square(side),
+        maximumSize: Size.square(side),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.standard,
       ),
@@ -45,6 +51,10 @@ class ThreadGroupingMenu extends StatelessWidget {
           ),
       ],
     );
+    // Inset so the glyph sits over the row buttons' glyphs below.
+    return android
+        ? Padding(padding: const EdgeInsets.only(right: 8), child: button)
+        : button;
   }
 }
 

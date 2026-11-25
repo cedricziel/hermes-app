@@ -73,6 +73,10 @@ class TappedTransport implements ChatTransport {
       _inner.activeStatuses(profile: profile);
 
   @override
+  Future<Map<String, String>?> activeStatusesAnswered({String? profile}) =>
+      _inner.activeStatusesAnswered(profile: profile);
+
+  @override
   Future<void> checkConnection() => _inner.checkConnection();
 
   @override

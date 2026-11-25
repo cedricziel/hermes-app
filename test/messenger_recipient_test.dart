@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -18,6 +18,7 @@ import 'support/fake_attachment_source.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/find_app_icon.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 Map<String, Object?> _profiles() => profileListBody([
   profileRow(
@@ -104,7 +105,7 @@ void main() {
   );
 
   Future<void> newMessage(WidgetTester tester, String recipient) async {
-    await tester.tap(find.byTooltip('New message'));
+    await tester.tap(find.tooltip('New message'));
     await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
@@ -270,7 +271,7 @@ void main() {
       expect(rowAvatar.profile.name, 'default');
       expect(rowAvatar.profile.label, 'Personal assistant');
 
-      await tester.tap(find.byTooltip('New message'));
+      await tester.tap(find.tooltip('New message'));
       await tester.pumpAndSettle();
       final pickerAvatar = tester.widget<ProfileAvatar>(
         find.descendant(
@@ -315,7 +316,7 @@ void main() {
       await pump(tester);
       server.on('GET', '/api/profiles', {'detail': 'Unavailable'}, status: 500);
 
-      await tester.tap(find.byTooltip('New message'));
+      await tester.tap(find.tooltip('New message'));
       await tester.pumpAndSettle();
 
       expect(find.text('Could not load recipients.'), findsOneWidget);
@@ -448,9 +449,7 @@ void main() {
         ];
       await pump(tester, attachmentSource: source);
       await newMessage(tester, 'Personal assistant');
-      await tester.tap(find.byTooltip('Add attachment'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Choose files'));
+      await tester.tap(find.tooltip('Add attachment'));
       await tester.pumpAndSettle();
       expect(find.text('release-checklist.txt'), findsOneWidget);
 
@@ -492,9 +491,7 @@ void main() {
       await pump(tester, attachmentSource: source, commands: commands);
       await newMessage(tester, 'Personal assistant');
       await tester.enterText(composerField, 'Private planning draft');
-      await tester.tap(find.byTooltip('Add attachment'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Choose files'));
+      await tester.tap(find.tooltip('Add attachment'));
       await tester.pumpAndSettle();
       expect(find.text('private-planning.txt'), findsOneWidget);
       final pending = Completer<FakeResponse>();

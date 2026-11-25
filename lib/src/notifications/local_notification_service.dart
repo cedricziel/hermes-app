@@ -1,9 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io'
+    show
+        File,
+        FileSystemEntity,
+        FileSystemEntityType,
+        Platform,
+        SocketException;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, visibleForTesting;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -17,6 +24,170 @@ import 'request_notifications.dart';
 const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
 
+/// Whether the session bus the Linux plugin will connect to can exist. It
+/// mirrors `DBusClient.session()` of the `dbus` package, which the plugin
+/// uses: `DBUS_SESSION_BUS_ADDRESS` if set, else `$XDG_USER_DIR/bus`, else
+/// `/run/user/<uid>/bus`. Only a precheck: a stale address passes it, which
+/// the guarded initialize catches.
+bool linuxSessionBusAvailable({
+  Map<String, String>? environment,
+  bool Function(String path)? exists,
+  int Function()? uid,
+}) {
+  final env = environment ?? Platform.environment;
+  final address = env['DBUS_SESSION_BUS_ADDRESS'];
+  if (address != null) return usableBusAddress(address);
+  final userDir = env['XDG_USER_DIR'];
+  final dir = userDir ?? '/run/user/${(uid ?? _currentUid)()}';
+  if (dir.isEmpty) return false;
+  final path = '$dir/bus';
+  return (exists ?? _socketExists)(path);
+}
+
+/// An address the `dbus` package can open, as its `DBusAddress` parser reads
+/// it (the package is not a direct dependency: a direct one would have to
+/// follow the latest release, which this app has not verified): the whole
+/// value is one address, every property is `key=value` with `%nn` escapes
+/// decoded, and no key repeats. Only `unix:` with a `path=` or `abstract=`
+/// and `tcp:` with a `host=`, a `port=` from 0 to 65535 and, if given,
+/// `family=` ipv4 or ipv6 are opened. Anything else (such as the `disabled:`
+/// that switches D-Bus off) makes the package throw, so the plugin is not
+/// started for it.
+bool usableBusAddress(String address) {
+  final colon = address.indexOf(':');
+  if (colon < 0) return false;
+  final transport = address.substring(0, colon);
+  final props = <String, String>{};
+  final rest = address.substring(colon + 1);
+  if (rest.isNotEmpty) {
+    for (final p in rest.split(',')) {
+      final eq = p.indexOf('=');
+      if (eq < 0) return false;
+      final key = p.substring(0, eq);
+      if (props.containsKey(key)) return false;
+      final value = _decodeBusValue(p.substring(eq + 1));
+      if (value == null) return false;
+      props[key] = value;
+    }
+  }
+  if (transport == 'unix') {
+    // The package takes `path` whenever the key is there, even empty, and
+    // `abstract` only without it.
+    final path = props['path'] ?? props['abstract'];
+    return path != null && path.isNotEmpty;
+  }
+  if (transport == 'tcp') {
+    final port = int.tryParse(props['port'] ?? '');
+    final family = props['family'];
+    return (props['host']?.isNotEmpty ?? false) &&
+        port != null &&
+        port >= 0 &&
+        port <= 65535 &&
+        (family == null || family == 'ipv4' || family == 'ipv6');
+  }
+  return false;
+}
+
+/// A `%nn`-escaped address value, decoded the way the `dbus` package does, or
+/// null when it cannot be.
+String? _decodeBusValue(String encoded) {
+  try {
+    final bytes = utf8.encode(encoded);
+    final out = <int>[];
+    for (var i = 0; i < bytes.length; i++) {
+      if (bytes[i] == 0x25) {
+        if (i + 3 > bytes.length) return null;
+        out.add(
+          int.parse(utf8.decode([bytes[i + 1], bytes[i + 2]]), radix: 16),
+        );
+        i += 2;
+      } else {
+        out.add(bytes[i]);
+      }
+    }
+    return utf8.decode(out);
+  } on Object {
+    return null;
+  }
+}
+
+bool _socketExists(String path) => isUnixSocket(path);
+
+/// Whether [path], symlinks followed, is a unix domain socket: a regular file
+/// or a folder where the bus socket should be is no bus.
+@visibleForTesting
+bool isUnixSocket(String path) {
+  try {
+    return FileSystemEntity.typeSync(path) ==
+        FileSystemEntityType.unixDomainSock;
+  } on Object {
+    return false;
+  }
+}
+
+int _currentUid() {
+  try {
+    for (final line in File('/proc/self/status').readAsLinesSync()) {
+      if (line.startsWith('Uid:')) {
+        return int.parse(line.split(RegExp(r'\s+'))[1]);
+      }
+    }
+  } on Object {
+    // Falls through to the unknown uid.
+  }
+  return -1;
+}
+
+/// Whether [error] comes from the D-Bus connection: a socket error, an
+/// exception of the `dbus` package (named `DBus...`; it is not a direct
+/// dependency, so matched by name), or one of the plain strings and address
+/// `FormatException`s it throws for a malformed address. A `TimeoutException`
+/// is not one: a timeout fails only its own call (and latches only until a
+/// `show` is answered).
+bool isLinuxBusError(Object error) =>
+    error is SocketException ||
+    // The dbus package is the only thing in these zones that throws raw
+    // Strings. Its address parser throws FormatExceptions naming the "D-Bus
+    // address"; any other FormatException (a corrupt JSON file read by the
+    // notification plugin, say) is not a bus error.
+    error is String ||
+    (error is FormatException && error.message.contains('D-Bus address')) ||
+    error.runtimeType.toString().startsWith('DBus');
+
+/// The `dbus` package's exceptions that carry an answer from the bus
+/// (dbus 0.7.15: `DBusMethodResponseException` and its subclasses, and
+/// `DBusReplySignatureException`). The package is not a direct dependency, so
+/// they are matched by exact name. Others, such as `DBusClosedException`
+/// (thrown locally before anything is sent), prove nothing about the bus.
+const _dbusReplyExceptions = {
+  'DBusMethodResponseException',
+  'DBusErrorException',
+  'DBusFailedException',
+  'DBusServiceUnknownException',
+  'DBusUnknownObjectException',
+  'DBusUnknownInterfaceException',
+  'DBusUnknownMethodException',
+  'DBusTimeoutException',
+  'DBusTimedOutException',
+  'DBusInvalidArgsException',
+  'DBusUnknownPropertyException',
+  'DBusPropertyReadOnlyException',
+  'DBusPropertyWriteOnlyException',
+  'DBusNotSupportedException',
+  'DBusAccessDeniedException',
+  'DBusAuthFailedException',
+  'DBusReplySignatureException',
+};
+
+/// Whether [error] is one the bus itself answered with.
+bool isDBusReplyError(Object error) =>
+    _dbusReplyExceptions.contains(error.runtimeType.toString());
+
+/// How long a Linux plugin call may take. The D-Bus client of the plugin never
+/// completes a call when its connection failed, so without a bound a post
+/// would wait forever.
+const kLinuxCallTimeout = Duration(seconds: 5);
+
 /// Identifies the app to Windows for its toasts, in the form
 /// `CompanyName.ProductName`. Unpackaged, Windows files the toasts under it.
 const _windowsAppUserModelId = 'com.cedricziel.hermesApp';
@@ -24,6 +195,11 @@ const _windowsAppUserModelId = 'com.cedricziel.hermesApp';
 /// Names the toast activation callback of the Windows plugin; fixed, since
 /// Windows keys the callback registration by it.
 const _windowsActivationGuid = 'c7d1a9f4-3b2e-4c6a-9e51-8f0d2a7b6e13';
+
+/// Android's status bar icon: a white glyph on transparent, since the
+/// adaptive launcher icon is opaque and would show as a white square. Kept
+/// from resource shrinking in `res/raw/keep.xml`.
+const kAndroidStatusIcon = '@drawable/ic_stat_hermes';
 
 /// Tags Android's answerable notifications: its plugin lists no payloads, so
 /// the tag is how they are found again.
@@ -223,26 +399,105 @@ class LocalNotificationService
     FlutterLocalNotificationsPlugin? plugin,
     CategoryRegistrar registerCategories = registerCategoriesNatively,
     this._background = false,
+    this._hasLinuxSessionBus = linuxSessionBusAvailable,
   }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin(),
        _register = registerCategories;
 
   final FlutterLocalNotificationsPlugin _plugin;
   final CategoryRegistrar _register;
   final bool _background;
+  final bool Function() _hasLinuxSessionBus;
   final _taps = StreamController<NotificationTarget>.broadcast();
   final _answers = StreamController<NotificationAnswer>.broadcast();
   final _replies = StreamController<NotificationReply>.broadcast();
   Future<void>? _initialized;
   var _launchAnswered = false;
 
-  static bool get _supported =>
+  /// Whether a call that waits for a D-Bus reply (`show`) ever got one, an
+  /// error reply included. `initialize` waits only on the disk, listing calls
+  /// throw locally and a `cancel` may never reach the bus, so they say
+  /// nothing.
+  var _busResponded = false;
+  final _pendingCalls = <void Function()>{};
+
+  @visibleForTesting
+  int get pendingGuardedCalls => _pendingCalls.length;
+
+  /// Set while the failure is only a timeout's verdict, which a late answer
+  /// to the call that timed out takes back. A bus failure never is.
+  var _timeoutLatched = false;
+  var _failedForGood = false;
+
+  bool get _linuxBusFailed => _failedForGood || _timeoutLatched;
+
+  /// A call that waits for the bus got its answer, possibly after it timed
+  /// out: a verdict that only a timeout reached is taken back.
+  void _answered() {
+    _busResponded = true;
+    _timeoutLatched = false;
+  }
+
+  /// A confirmed bus failure: final, and it ends every call still waiting.
+  void _markBusFailed() {
+    _failedForGood = true;
+    for (final fail in _pendingCalls.toList()) {
+      fail();
+    }
+  }
+
+  /// Runs a plugin call. On Linux it also ends, as an error, when the bus
+  /// has failed for good or [kLinuxCallTimeout] passes. A timeout ends only
+  /// its own call; unless a call that waits for the bus was ever answered it
+  /// also refuses new calls until one is. The plugin's D-Bus client leaves a
+  /// call pending forever once its connection failed.
+  Future<T> _guard<T>(Future<T> Function() call, {bool awaitsBus = false}) {
+    if (defaultTargetPlatform != TargetPlatform.linux) return call();
+    if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
+    final out = Completer<T>();
+    final timer = Timer(kLinuxCallTimeout, () {
+      // A bus that never answered is dead; one that has answered before may
+      // only be slow (a notification daemon starting on demand).
+      if (!_busResponded) _timeoutLatched = true;
+      if (!out.isCompleted) {
+        out.completeError(TimeoutException('D-Bus call', kLinuxCallTimeout));
+      }
+    });
+    void fail() {
+      if (!out.isCompleted) out.completeError(StateError('D-Bus failed'));
+    }
+
+    _pendingCalls.add(fail);
+    Future.sync(call).then(
+      (value) {
+        if (awaitsBus) _answered();
+        if (!out.isCompleted) out.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        // A local throw before Notify went out proves nothing about the bus,
+        // but a closed connection is gone for good.
+        if (awaitsBus && isDBusReplyError(error)) _answered();
+        if (error.runtimeType.toString() == 'DBusClosedException') {
+          _markBusFailed();
+        }
+        if (!out.isCompleted) out.completeError(error, stack);
+      },
+    );
+    return out.future.whenComplete(() {
+      timer.cancel();
+      _pendingCalls.remove(fail);
+    });
+  }
+
+  /// Linux without a session bus counts as unsupported, so the plugin is
+  /// never initialized there.
+  bool get _supported =>
       !kIsWeb &&
       switch (defaultTargetPlatform) {
         TargetPlatform.android ||
         TargetPlatform.iOS ||
         TargetPlatform.macOS ||
-        TargetPlatform.windows ||
-        TargetPlatform.linux => true,
+        TargetPlatform.windows => true,
+        TargetPlatform.linux => !_linuxBusFailed && _hasLinuxSessionBus(),
         _ => false,
       };
 
@@ -251,13 +506,55 @@ class LocalNotificationService
     _ => false,
   };
 
-  Future<void> _initialize() => _initialized ??= _start().then<void>(
-    (_) {},
-    onError: (Object error, StackTrace stack) {
-      _initialized = null;
-      Error.throwWithStackTrace(error, stack);
-    },
-  );
+  /// The plugin's start, shared by every caller. On Linux each caller waits
+  /// at most [kLinuxCallTimeout] for it, and a timeout latches nothing: the
+  /// plugin's initialize waits only on the disk, so a slow one finishes later
+  /// and the next caller reuses the same start.
+  Future<void> _initialize() {
+    final started = _initialized ??= _startGuarded().then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {
+        _initialized = null;
+        Error.throwWithStackTrace(error, stack);
+      },
+    );
+    if (defaultTargetPlatform != TargetPlatform.linux) return started;
+    if (_linuxBusFailed) return Future.error(StateError('D-Bus unavailable'));
+    return started.timeout(kLinuxCallTimeout);
+  }
+
+  /// On Linux the plugin subscribes to D-Bus signals without an error
+  /// handler, so a bus that cannot be reached throws from futures nobody
+  /// holds. Run in an error zone, those errors end here, mark the service
+  /// unsupported and fail the initialize.
+  Future<void> _startGuarded() {
+    if (defaultTargetPlatform != TargetPlatform.linux) return _start();
+    final done = Completer<void>();
+    void fail(Object error, StackTrace stack) {
+      if (isLinuxBusError(error)) _markBusFailed();
+      if (!done.isCompleted) done.completeError(error, stack);
+    }
+
+    // The zone outlives this call: the plugin's signal listeners and
+    // `_onResponse` run in it. Only bus errors end here; anything else goes
+    // to the parent zone, so the crash reporter still sees it.
+    runZoned(
+      () => _start().then<void>(
+        (_) => done.isCompleted ? null : done.complete(),
+        onError: fail,
+      ),
+      zoneSpecification: ZoneSpecification(
+        handleUncaughtError: (self, parent, zone, error, stack) {
+          if (isLinuxBusError(error)) {
+            fail(error, stack);
+          } else {
+            parent.handleUncaughtError(zone, error, stack);
+          }
+        },
+      ),
+    );
+    return done.future;
+  }
 
   Future<void> _start() async {
     final categories = _background
@@ -273,7 +570,7 @@ class LocalNotificationService
     );
     await _plugin.initialize(
       settings: InitializationSettings(
-        android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+        android: const AndroidInitializationSettings(kAndroidStatusIcon),
         iOS: darwin,
         macOS: darwin,
         // Not localized: it is below the widget layer, and servers that
@@ -456,36 +753,45 @@ class LocalNotificationService
       if (defaultTargetPlatform == TargetPlatform.android) {
         // Android keys a notification by tag and id; keep one per chat.
         try {
-          await _plugin.cancel(id: id, tag: answerable ? null : kAnswerableTag);
+          await _guard(
+            () =>
+                _plugin.cancel(id: id, tag: answerable ? null : kAnswerableTag),
+          );
         } on Object {
           // Posting still replaces what it can.
         }
       }
-      await _plugin.show(
-        id: id,
-        title: notification.title,
-        body: notification.bodyIsPlainText ? body : notificationPreview(body),
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
-            channelDescription: 'Replies and requests from Hermes',
-            importance: Importance.high,
-            priority: Priority.high,
-            // The plugin cannot set a public version or require
-            // authentication, so a private notification would show the
-            // command and working buttons on a lock screen that shows all
-            // content. Secret keeps both off it.
-            actions: answerable ? androidCategory.toAndroid() : null,
-            visibility: answerable ? NotificationVisibility.secret : null,
-            tag: answerable ? kAnswerableTag : null,
+      if (!_supported) {
+        return const NotificationPostResult(NotificationPostStatus.unsupported);
+      }
+      await _guard(
+        () => _plugin.show(
+          id: id,
+          title: notification.title,
+          body: notification.bodyIsPlainText ? body : notificationPreview(body),
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channelId,
+              _channelName,
+              channelDescription: 'Replies and requests from Hermes',
+              importance: Importance.high,
+              priority: Priority.high,
+              // The plugin cannot set a public version or require
+              // authentication, so a private notification would show the
+              // command and working buttons on a lock screen that shows all
+              // content. Secret keeps both off it.
+              actions: answerable ? androidCategory.toAndroid() : null,
+              visibility: answerable ? NotificationVisibility.secret : null,
+              tag: answerable ? kAnswerableTag : null,
+            ),
+            iOS: darwin,
+            macOS: darwin,
+            linux: const LinuxNotificationDetails(),
+            windows: const WindowsNotificationDetails(),
           ),
-          iOS: darwin,
-          macOS: darwin,
-          linux: const LinuxNotificationDetails(),
-          windows: const WindowsNotificationDetails(),
+          payload: notificationPayload(notification),
         ),
-        payload: notificationPayload(notification),
+        awaitsBus: true,
       );
       return const NotificationPostResult(NotificationPostStatus.accepted);
     } on Object catch (error) {
@@ -505,15 +811,15 @@ class LocalNotificationService
     if (!_supported) return;
     try {
       await _initialize();
-      for (final active in await _plugin.getActiveNotifications()) {
+      for (final active in await _guard(_plugin.getActiveNotifications)) {
         final id = active.id;
         if (id == null) continue;
         if (defaultTargetPlatform == TargetPlatform.android) {
           if (active.tag == kAnswerableTag) {
-            await _plugin.cancel(id: id, tag: kAnswerableTag);
+            await _guard(() => _plugin.cancel(id: id, tag: kAnswerableTag));
           }
         } else if (isWithdrawnPayload(active.payload)) {
-          await _plugin.cancel(id: id);
+          await _guard(() => _plugin.cancel(id: id));
         }
       }
     } on Object {
@@ -551,7 +857,7 @@ class LocalNotificationService
     if (!_supported) return null;
     try {
       await _initialize();
-      final details = await _plugin.getNotificationAppLaunchDetails();
+      final details = await _guard(_plugin.getNotificationAppLaunchDetails);
       if (details == null || !details.didNotificationLaunchApp) return null;
       final response = details.notificationResponse;
       if (response == null) return null;

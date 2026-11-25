@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../support/screenshot_recorder.dart';
 import '../voice/calls/call_harness.dart';
+import '../support/test_localizations.dart';
 
 /// The Hands-free strip in the app around a page and a pushed page, in every
 /// state, on a phone and on a desktop window.
@@ -39,7 +40,7 @@ void main() {
               debugShowCheckedModeBanner: false,
               navigatorKey: navigator,
               theme: theme,
-              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              localizationsDelegates: kTestLocalizationsDelegates,
               supportedLocales: AppLocalizations.supportedLocales,
               builder: (context, child) =>
                   shots.frame(HandsFreeStripLayer(child: child!)),

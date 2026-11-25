@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
 
@@ -27,21 +28,43 @@ class KanbanDropStrip extends StatelessWidget {
               DragTarget<KanbanTask>(
                 onWillAcceptWithDetails: (d) => d.data.status != status,
                 onAcceptWithDetails: (d) => onDrop(d.data, status),
-                builder: (context, over, rejected) => Chip(
-                  label: Text(kanbanStatusLabel(status)),
-                  backgroundColor: over.isEmpty
-                      ? null
-                      : theme.colorScheme.primaryContainer,
-                  side: BorderSide(
-                    color: over.isEmpty
-                        ? theme.colorScheme.outline
-                        : theme.colorScheme.primary,
-                  ),
+                builder: (context, over, rejected) => KanbanDropStripChip(
+                  label: kanbanStatusLabel(context.l10n, status),
+                  active: over.isNotEmpty,
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One status in [KanbanDropStrip]. [active] is a card hovering over it.
+class KanbanDropStripChip extends StatelessWidget {
+  const KanbanDropStripChip({
+    super.key,
+    required this.label,
+    required this.active,
+  });
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Chip(
+      label: Text(label),
+      // The theme defines no container roles, so primaryContainer falls back
+      // to primary and the default label colour vanished on it. Pair the fill
+      // with onPrimary.
+      backgroundColor: active ? scheme.primary : null,
+      labelStyle: active
+          ? theme.textTheme.labelLarge?.copyWith(color: scheme.onPrimary)
+          : null,
+      side: BorderSide(color: active ? scheme.primary : scheme.outline),
     );
   }
 }

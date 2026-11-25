@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../widgets/dialog_presentation.dart';
 import '../../widgets/grouped_choice_row.dart';
 import '../../widgets/grouped_dialog.dart';
 import '../../widgets/grouped_list.dart';
@@ -11,7 +12,7 @@ Future<T?> showMemoryChoice<T>(
   required String title,
   required List<(T, String)> options,
   required T current,
-}) => showDialog<T>(
+}) => showAppDialog<T>(
   context: context,
   builder: (dialog) => GroupedDialog(
     title: title,

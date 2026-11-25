@@ -43,6 +43,33 @@ extension _FollowUps on HermesGatewayTransport {
     return follow.watch.close();
   }
 
+  /// Logs how picking up a reply that lost its connection went: the same
+  /// reply still running (`same_reply`), a turn that ended while the app was
+  /// away (`finished_while_away`, with its stored reply or a refetch), one
+  /// that ended with nothing to show (`finished_no_reply`), a session the
+  /// server no longer has (`gone`), or a server that could not be reached
+  /// (`unreachable`). Nothing is logged for a pick-up that was cancelled.
+  void _reportReattach(_Resumed resumed, bool cancelled) {
+    if (cancelled) return;
+    final String outcome;
+    if (resumed.gone != null) {
+      outcome = 'gone';
+    } else if (resumed.turnEnded) {
+      outcome = 'finished_no_reply';
+    } else if (resumed.giveUp) {
+      outcome = 'unreachable';
+    } else if (resumed.watch != null) {
+      outcome = 'same_reply';
+    } else {
+      outcome = 'finished_while_away';
+    }
+    _record('gateway.reattach', {
+      'outcome': outcome,
+      'refetch': resumed.refetch,
+      'replayed_count': resumed.replayedCount,
+    });
+  }
+
   Future<void> _pickUp(
     _ThreadOwner owner,
     StreamController<ChatEvent> out,
@@ -53,14 +80,25 @@ extension _FollowUps on HermesGatewayTransport {
     // starts from the snapshot the resume answer carries. One attempt: this
     // runs when a thread opens, which must not wait on a server that is down.
     final mine = <String>{};
+    // A reply this app showed that lost its connection is picked up where it
+    // left off: replayed by seq from the runtime session it was on, and
+    // reported as failed when the server cannot say, instead of rebuilt as a
+    // turn nobody here has seen.
+    final lost = _lostReplies[owner];
     final resumed = await _reattach(
       owner,
-      runtimeId: null,
+      runtimeId: lost,
       shown: mine,
       drops: 0,
       maxAttempts: 1,
       cancelled: () => canceled || out.isClosed,
     );
+    if (lost != null) _reportReattach(resumed, canceled || out.isClosed);
+    // The server answered (reached, gone or over): nothing is waited for.
+    if (lost != null &&
+        (!resumed.giveUp || resumed.gone != null || resumed.turnEnded)) {
+      _lostReplies.remove(owner);
+    }
     final watch = resumed.watch;
     if (_reclaimOf(resumed.ended) case final reclaim?) {
       resumed.discard();
@@ -82,6 +120,13 @@ extension _FollowUps on HermesGatewayTransport {
         if (event is ReplyCompleted) _settledEarly.remove(owner);
       }
       _forgetRequests(mine);
+      if (lost != null && resumed.giveUp && !canceled && !out.isClosed) {
+        // The server was not reached, or says the turn is over with nothing to
+        // show: the reply this picks up tells which by the error it gets.
+        out.addError(resumed.failure);
+        await out.close();
+        return;
+      }
       if (idle == null || canceled || out.isClosed) {
         await out.close();
         return;
@@ -172,8 +217,9 @@ extension _FollowUps on HermesGatewayTransport {
             more = replying
                 ? await _advance(follow.watch, key.$2)
                 : await follow.watch.events.moveNext();
-          } on GatewayConnectionClosed {
-            if (!out.isClosed) out.addError(const GatewayConnectionClosed());
+          } on GatewayConnectionClosed catch (error) {
+            // Kept as it is: a turn the server ended is not a lost connection.
+            if (!out.isClosed) out.addError(error);
             return;
           }
           if (!more) break;
@@ -191,7 +237,8 @@ extension _FollowUps on HermesGatewayTransport {
         if (follow.watch.closedByUs) return;
         final made = drops.dropped();
         if (made >= _maxReplyReconnects) {
-          out.addError(const GatewayConnectionClosed());
+          _lostReplies[key] = runtimeId;
+          out.addError(const GatewayReplyLost());
           return;
         }
         drops.attempt();
@@ -232,7 +279,10 @@ extension _FollowUps on HermesGatewayTransport {
             out.add(event);
           }
           if (resumed.giveUp && !out.isClosed) {
-            out.addError(const GatewayConnectionClosed());
+            if (resumed.gone == null && !resumed.turnEnded) {
+              _lostReplies[key] = runtimeId;
+            }
+            out.addError(resumed.failure);
           }
           if (idle == null || out.isClosed || follow.cancelled) return;
           // The turn is over, but the session goes on: the idle watch carries
@@ -414,6 +464,14 @@ Map<String, String> _statusesOf(Map<String, Object?> result) {
       if (row
           case {'session_key': final String key, 'status': final String status}
           when key.isNotEmpty) {
+        // Two rows of one session: a running one wins, so an idle row never
+        // hides a turn that runs.
+        final known = statuses[key];
+        if (known != null &&
+            _liveStatuses.contains(known) &&
+            !_liveStatuses.contains(status)) {
+          continue;
+        }
         statuses[key] = status;
       }
     }

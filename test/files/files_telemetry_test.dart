@@ -11,6 +11,7 @@ import 'package:hermes_app/src/files/files_models.dart';
 import 'package:hermes_app/src/files/files_telemetry.dart';
 import 'package:hermes_app/src/files/hermes_files_repository.dart';
 import 'package:hermes_app/src/files/server_path.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import '../support/fake_hermes_server.dart';
@@ -45,7 +46,7 @@ void main() {
     RecordingTracer? withTracer,
   }) => HermesFilesRepository(
     client,
-    profile: 'work',
+    profile: resolvedProfile('work'),
     idleTimeout: idle,
     telemetry: FilesTelemetry(
       ConnectionTelemetry(

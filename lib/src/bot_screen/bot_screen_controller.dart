@@ -5,6 +5,7 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
 import '../chat/gateway_connection_transport.dart';
+import '../profiles/profile_resolver.dart';
 import 'bot_screen_models.dart';
 import 'bot_screen_repository.dart';
 import 'bot_screen_viewer_ids.dart';
@@ -48,7 +49,7 @@ class BotScreenController extends ChangeNotifier {
   BotScreenController(
     this._repository,
     Stream<GatewayConnectionEvent> connectionEvents, {
-    this.profile,
+    required this.profile,
     this.pollEvery = kFramePollInterval,
     this.events = noopAppEventLogger,
     this.installs,
@@ -69,7 +70,7 @@ class BotScreenController extends ChangeNotifier {
   final BotScreenRepository _repository;
 
   /// The profile the screen is read for; null is the server's default.
-  final String? profile;
+  final ResolvedProfile profile;
   final Duration pollEvery;
 
   /// Where `bot_screen.start` is logged, with its outcome only.
