@@ -102,10 +102,6 @@ const _maxUnansweredAttempts = 100;
 /// How many times a send opens its socket and session before it fails.
 const _sendOpenAttempts = 3;
 
-/// The longest wait of the ticket gate (after a server error) that a send
-/// sits out before its next open; a longer one fails the send at once.
-const _sendGateWait = Duration(seconds: 5);
-
 /// How long one reconnect may take, from the drop, before the reply gives up.
 const _reconnectBudget = Duration(seconds: 60);
 

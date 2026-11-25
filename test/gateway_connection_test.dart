@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -159,6 +162,31 @@ void main() {
         opened.single.toString(),
         'ws://hermes.test/api/audio/transcribe-stream?ticket=tkt-1',
       );
+    });
+
+    test('a retry 500 ms after a 503 on the ticket is not held back by the '
+        'gate, as a voice call opening its socket retries', () {
+      fakeAsync((async) {
+        var answered = 0;
+        server.onRequest(
+          'POST',
+          '/api/auth/ws-ticket',
+          (_) => answered++ == 0
+              ? (status: 503, body: {'detail': 'restarting'})
+              : (status: 200, body: {'ticket': 'tkt-2'}),
+        );
+        final open = connect(authRequired: true);
+        Object? first;
+        unawaited(open().then<void>((_) {}, onError: (Object e) => first = e));
+        async.elapse(const Duration(milliseconds: 10));
+        expect(first, isNotNull);
+
+        async.elapse(const Duration(milliseconds: 500));
+        unawaited(open());
+        async.elapse(const Duration(seconds: 3));
+
+        expect(opened.single.toString(), contains('ticket=tkt-2'));
+      });
     });
   });
 }

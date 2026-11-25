@@ -831,9 +831,9 @@ class AuthController extends ChangeNotifier {
     _apiOwnerEpoch = _ownerEpoch;
     _api = HermesApiClient(
       _dio!,
-      // A refresh renews the token and an expiry bumps the generation: either
-      // ends a wait the ticket gate began under the earlier one.
-      sessionEpoch: () => (_sessionExpiryGeneration, _session?.accessToken),
+      // The token changes with a refresh, and is gone when the session ends:
+      // either ends a wait the ticket gate began under the earlier one.
+      sessionEpoch: () => _session?.accessToken,
     );
   }
 

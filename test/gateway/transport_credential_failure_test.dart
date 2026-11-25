@@ -185,9 +185,8 @@ void main() {
     },
   );
 
-  group('a send meeting the wait after the server answered with errors', () {
-    test('sits out a short wait and opens again, so one 503 does not end '
-        'it', () {
+  group('a send meeting a 503 on its ticket', () {
+    test('opens again after its short backoff, so one 503 does not end it', () {
       var asked = 0;
       fake(
         firstMintOk: false,
@@ -205,13 +204,14 @@ void main() {
       );
     });
 
-    test('fails at once when the wait is long, and the user sends again', () {
+    test('inside a longer wait its opens fail locally, and no request goes '
+        'out', () {
       fake(
         firstMintOk: false,
         answer: () => (status: 200, body: {'ticket': 'tkt'}),
         (async) {
-          // Four server errors in a row: the wait is now 12 s.
-          for (var i = 0; i < 4; i++) {
+          // Five server errors in a row: the wait is now 4.8 s.
+          for (var i = 0; i < 5; i++) {
             unawaited(
               gate
                   .run<void>(() async {
@@ -227,14 +227,14 @@ void main() {
                   .then<void>((_) {}, onError: (Object _) {}),
             );
             async.flushMicrotasks();
-            if (i < 3) async.elapse(const Duration(seconds: 20));
+            if (i < 4) async.elapse(const Duration(seconds: 20));
           }
 
           final seen = _listen(transport.send(text: 'hi'));
-          // Before any retry would have waited out its first backoff.
-          async.elapse(const Duration(milliseconds: 100));
+          async.elapse(const Duration(seconds: 2));
 
           expect(seen.error, isA<GatewayCredentialBackedOff>());
+          expect(mints(), 0);
           expect(count('prompt.submit'), 0);
         },
       );

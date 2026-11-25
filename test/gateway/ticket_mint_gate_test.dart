@@ -338,36 +338,49 @@ void main() {
   });
 
   group('after another answer of the server (a restart, an overload)', () {
-    test('it backs off from a shorter step, up to a minute', () {
-      fake((async) {
-        failure = _answered(503);
-        final waits = <Duration>[];
-        for (var i = 0; i < 8; i++) {
+    test(
+      'the first wait is shorter than a caller\'s own retry after 500 ms',
+      () {
+        fake((async) {
+          failure = _answered(503);
           unawaited(mint());
           async.flushMicrotasks();
-          final before = mints;
-          var waited = Duration.zero;
-          while (mints == before && waited < const Duration(minutes: 2)) {
-            async.elapse(const Duration(seconds: 1));
-            waited += const Duration(seconds: 1);
-            unawaited(mint());
-            async.flushMicrotasks();
-          }
-          waits.add(waited);
+
+          async.elapse(const Duration(milliseconds: 500));
+          unawaited(mint());
+          async.flushMicrotasks();
+
+          expect(mints, 2);
+        });
+      },
+    );
+
+    test('the wait doubles, to a minute at most', () {
+      fake((async) {
+        failure = _answered(503);
+        final left = <Duration>[];
+        for (var i = 0; i < 10; i++) {
+          unawaited(mint());
+          async.flushMicrotasks();
+          unawaited(
+            gate
+                .run(() async => 'never')
+                .then<void>(
+                  (_) {},
+                  onError: (e) {
+                    left.add((e as GatewayCredentialBackedOff).retryAfter);
+                  },
+                ),
+          );
+          async.flushMicrotasks();
+          // Let the wait run out before the next failure.
+          async.elapse(const Duration(minutes: 2));
         }
 
+        // A draw just under 1 is just under the bound.
         expect(
-          waits,
-          [
-            2,
-            4,
-            8,
-            16,
-            32,
-            60,
-            60,
-            60,
-          ].map((s) => Duration(seconds: s)).toList(),
+          [for (final d in left) (d.inMilliseconds / 100).round()],
+          [3, 6, 12, 24, 48, 96, 192, 384, 600, 600],
         );
       });
     });

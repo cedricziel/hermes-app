@@ -70,7 +70,9 @@ class TicketMintGate {
   static const _refusedCap = Duration(minutes: 10);
 
   // ... and after any other answer with an error.
-  static const _errorBase = Duration(seconds: 2);
+  // Short at first: a caller's own one retry after 500 ms (a voice call
+  // opening its socket) is not turned away by the first wait.
+  static const _errorBase = Duration(milliseconds: 300);
   static const _errorCap = Duration(minutes: 1);
 
   final Random _random;
@@ -82,19 +84,32 @@ class TicketMintGate {
 
   bool get _cooling => _until?.isAfter(clock.now()) ?? false;
 
-  /// Runs [mint] unless the wait after the last failure is still running, in
-  /// which case it throws [GatewayCredentialBackedOff]. A wait never outlives
-  /// its session: when a 401 ends the session, or the user signs in again, the
-  /// next mint goes out.
-  Future<T> run<T>(Future<T> Function() mint) async {
+  /// What is left of the wait, or null when none runs.
+  Duration? _left() {
+    final left = _until?.difference(clock.now());
+    return left != null && left > Duration.zero ? left : null;
+  }
+
+  /// Drops the wait when the session or token it began under has changed;
+  /// returns the current epoch.
+  Object? _checkEpoch() {
     final epoch = _sessionEpoch();
     if (epoch != _epoch) {
       _epoch = epoch;
       _failures = 0;
       _until = null;
     }
-    final left = _until?.difference(clock.now());
-    if (left != null && left > Duration.zero) {
+    return epoch;
+  }
+
+  /// Runs [mint] unless the wait after the last failure is still running, in
+  /// which case it throws [GatewayCredentialBackedOff] with nothing sent. A
+  /// wait never outlives its session: when it ends, or the access token is
+  /// renewed, the next mint goes out.
+  Future<T> run<T>(Future<T> Function() mint) async {
+    final epoch = _checkEpoch();
+    final left = _left();
+    if (left != null) {
       throw GatewayCredentialBackedOff(refused: _refused, retryAfter: left);
     }
     try {

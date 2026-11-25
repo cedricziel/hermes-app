@@ -41,7 +41,7 @@ class HermesApiClient {
   final Object? Function()? _sessionEpoch;
 
   /// Changes when the session this client acts for ends or its access token
-  /// is renewed (compare with `==`), so a wait that began under an earlier
+  /// is renewed (compare with `==`), so a wait that began under the earlier
   /// session or token is over. Constant for a client that is told nothing.
   Object? get sessionEpoch => _sessionEpoch?.call() ?? 0;
 
