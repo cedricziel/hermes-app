@@ -1139,10 +1139,17 @@ typedef LabelHelper = ({Hit hit, String owner, String literal});
 final _labelHelperName = RegExp(
   r'^(?:label|title|summary)$|(?:Label|Title|Summary)$',
 );
+const _labelReturnTypes = {
+  'String',
+  'String?',
+  'Future<String>',
+  'Future<String?>',
+};
 final _l10nParameterType = RegExp(r'\b(?:AppLocalizations|BuildContext)\b');
 
 /// The top-level functions and static methods of [file] named `*Label`,
-/// `*Title` or `*Summary` that return `String` (or `String?`), return at
+/// `*Title` or `*Summary` that return `String`, `String?`, `Future<String>`
+/// or `Future<String?>` (or declare no type), return at
 /// least one string literal that holds a letter, and take neither an
 /// `AppLocalizations` nor a `BuildContext`. Read from the analyzer's
 /// unresolved syntax tree. A literal counts when it sits in a returned
@@ -1166,7 +1173,7 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
   ) {
     if (!_labelHelperName.hasMatch(name.lexeme)) return;
     final type = returnType?.toSource();
-    if (type != null && type != 'String' && type != 'String?') return;
+    if (type != null && !_labelReturnTypes.contains(type)) return;
     for (final p in parameters?.parameters ?? const <FormalParameter>[]) {
       if (_l10nParameterType.hasMatch(p.toSource())) return;
     }
@@ -1269,6 +1276,8 @@ class _LiteralFinder extends RecursiveAstVisitor<void> {
     for (final part in node.elements) {
       if (part is InterpolationString && _letter.hasMatch(part.value)) {
         literal ??= part.value;
+      } else if (part is InterpolationExpression) {
+        part.expression.accept(this);
       }
     }
   }
@@ -2697,6 +2706,49 @@ void main() {
       expect(
         owners("class K { static String tagLabel(int x) => 'Tag \$x'; }"),
         ['lib/src/y.dart#K.tagLabel'],
+      );
+    });
+
+    test('a literal inside an interpolated expression hits', () {
+      expect(
+        owners(
+          "String statusLabel(bool done) => '\${done ? 'Done' : 'Open'}';",
+        ),
+        ['lib/src/y.dart#statusLabel'],
+      );
+      expect(
+        owners(
+          "String runSummary(int n) { return 'x\${n == 1 ? 'run' : 'runs'}'; }",
+        ),
+        ['lib/src/y.dart#runSummary'],
+      );
+      // The exclusions hold inside the braces too: an argument and a
+      // compared value are not shown.
+      expect(
+        owners("String nameLabel(Item i) => '\${i.pick('Done')}';"),
+        isEmpty,
+      );
+      expect(
+        owners("String nameLabel(Item i) => '\${i.s == 'done' ? 1 : 2}';"),
+        isEmpty,
+      );
+    });
+
+    test('a helper that returns a Future of text hits', () {
+      expect(
+        owners("Future<String> pageTitle() async { return 'Settings'; }"),
+        ['lib/src/y.dart#pageTitle'],
+      );
+      expect(owners("Future<String?> pageTitle() async => 'Settings';"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(
+        owners("Future<String> pageTitle(AppLocalizations l) async => 'a';"),
+        isEmpty,
+      );
+      expect(
+        owners("Future<int> pageTitle() async => 'Settings'.length;"),
+        isEmpty,
       );
     });
 

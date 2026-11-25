@@ -893,6 +893,9 @@
   "memoryDeleteConfirmMessage": "Die ausgewählte Erinnerung wird endgültig entfernt. Sie lässt sich in der App nicht wiederherstellen.",
   "memoryDeleteConfirmTitle": "Diese Erinnerung endgültig löschen?",
   "memoryEntryPlace": "Eintrag {index} von {count} in {tab} ({file})",
+  "memoryLearningIntervalEvery": "{turns, plural, =1{Nach jeder Nachricht} other{Nach jeweils {turns} Nachrichten}}",
+  "memoryLearningReportDetailed": "Mit Details",
+  "memoryLearningReportShort": "Kurze Notiz",
   "memoryLeaveDiscard": "Entwurf verwerfen",
   "memoryLeaveKeepDraft": "Entwurf behalten",
   "memoryLeaveMessagePending": "Die Anfrage kann im ursprünglichen Profil noch abgeschlossen werden. Wenn du gehst, wird dieser Entwurf verworfen.",
@@ -1289,6 +1292,8 @@
   "quickPanelTitleFallback": "Hermes fragen",
 
   "@@x-area-schedules": "",
+  "schedulesDeliveryLocal": "Lokal",
+  "schedulesDeliveryOrigin": "Ursprungschat",
   "schedulesFormAdvanced": "Erweitert",
   "schedulesRefreshAction": "Aktualisieren",
   "schedulesRunRequested": "Ausführung angefordert",
@@ -1741,6 +1746,9 @@
   "skillsScreenTitle": "Skills",
   "skillsScreenToggleFailed": "{name} konnte nicht geändert werden",
   "skillsScreenUnsupported": "Das verbundene Hermes unterstützt keine Skills.",
+  "skillsTrustCommunity": "Community",
+  "skillsTrustOfficial": "Offiziell",
+  "skillsTrustTrusted": "Vertrauenswürdig",
 
   "@@x-area-spotlight": "",
 
