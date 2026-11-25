@@ -101,7 +101,7 @@ void main() {
 
       final slash = span(tracer, 'slash.exec');
       expect(slash.ended, isTrue);
-      expect(slash.endedAt, sent.add(transport.requestTimeout));
+      expect(slash.endTime, sent.add(transport.requestTimeout));
     });
   });
 

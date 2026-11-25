@@ -26,8 +26,8 @@ class RecordingSpan implements Span {
   String? statusDescription;
   bool ended = false;
 
-  /// The end time `end` was given, when it was given one.
-  DateTime? endedAt;
+  /// The end time the code gave, if any.
+  DateTime? endTime;
 
   /// How often `end` was called.
   int endCalls = 0;
@@ -71,7 +71,7 @@ class RecordingSpan implements Span {
   @override
   void end([DateTime? endTime]) {
     ended = true;
-    endedAt = endTime;
+    this.endTime = endTime;
     endCalls++;
   }
 }

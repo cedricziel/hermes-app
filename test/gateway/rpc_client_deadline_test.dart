@@ -69,7 +69,7 @@ void main() {
       expect(span.ended, isTrue);
       expect(span.status?.name, 'error');
       expect(span.attributes['error.type'], 'GatewayRequestTimeout');
-      expect(span.endedAt, isNull, reason: 'on time, nothing is backdated');
+      expect(span.endTime, isNull, reason: 'on time, nothing is backdated');
       expect(now().difference(sent), deadline);
       unawaited(client.close());
       async.flushMicrotasks();
@@ -134,7 +134,7 @@ void main() {
       final span = tracer.spans.single;
       expect(span.ended, isTrue);
       expect(span.attributes['error.type'], 'GatewayRequestTimeout');
-      expect(span.endedAt, sent.add(deadline));
+      expect(span.endTime, sent.add(deadline));
       unawaited(client.close());
       async.flushMicrotasks();
     });
@@ -158,7 +158,7 @@ void main() {
       expect(error, isA<GatewayConnectionClosed>());
       final span = tracer.spans.single;
       expect(span.attributes['error.type'], 'GatewayConnectionClosed');
-      expect(span.endedAt, sent.add(deadline));
+      expect(span.endTime, sent.add(deadline));
     });
   });
 
@@ -176,7 +176,7 @@ void main() {
 
       final span = tracer.spans.single;
       expect(span.attributes['error.type'], 'GatewayConnectionClosed');
-      expect(span.endedAt, isNull);
+      expect(span.endTime, isNull);
     });
   });
 

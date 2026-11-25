@@ -1,20 +1,22 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/app_badge.dart';
 import '../hermes_skills_repository.dart';
 
-String skillSourceLabel(SkillSource source) => switch (source) {
-  SkillSource.hub => 'Hub',
-  SkillSource.bundled => 'Bundled',
-  SkillSource.agent => 'Agent',
-};
+String skillSourceLabel(AppLocalizations l10n, SkillSource source) =>
+    switch (source) {
+      SkillSource.hub => l10n.skillsScreenFilterHub,
+      SkillSource.bundled => l10n.skillsScreenFilterBundled,
+      SkillSource.agent => l10n.skillsScreenFilterAgent,
+    };
 
 /// "Official", "Trusted" or "Community".
-String trustLabel(String level) => switch (level) {
-  'builtin' => 'Official',
-  'trusted' => 'Trusted',
-  _ => 'Community',
+String trustLabel(AppLocalizations l10n, String level) => switch (level) {
+  'builtin' => l10n.skillsTrustOfficial,
+  'trusted' => l10n.skillsTrustTrusted,
+  _ => l10n.skillsTrustCommunity,
 };
 
 class TrustBadge extends StatelessWidget {
@@ -39,7 +41,7 @@ class TrustBadge extends StatelessWidget {
       _ => (scheme.surfaceContainerHighest, scheme.onSurface),
     };
     return AppBadge.filled(
-      label: trustLabel(level),
+      label: trustLabel(context.l10n, level),
       fill: fill,
       labelColor: labelColor,
     );
@@ -53,7 +55,7 @@ class SourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppBadge.filled(
-    label: skillSourceLabel(source),
+    label: skillSourceLabel(context.l10n, source),
     fill: Theme.of(context).colorScheme.surfaceContainerHighest,
     labelColor: Theme.of(context).colorScheme.onSurface,
   );
