@@ -19,7 +19,9 @@ class GatewayCredentialBackedOff implements Exception {
   final Duration retryAfter;
 
   @override
-  String toString() => 'Minting a ticket is paused after the server refused';
+  String toString() => refused
+      ? 'Minting a ticket is paused after the server refused'
+      : 'Minting a ticket is paused after a server error';
 }
 
 /// Whether [error] says the server refused the credential: a 401 or 403 to

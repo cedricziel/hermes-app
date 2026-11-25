@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/windows/window_api_client.dart';
 import 'package:hermes_app/src/windows/window_auth_interceptor.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -54,6 +55,25 @@ void main() {
 
     expect(sent, ['Bearer access-1']);
     expect(main.asked, [null]);
+  });
+
+  test('the epoch the ticket gate reads follows the credential the main window '
+      'hands out, so a refresh there ends a wait here', () async {
+    final window = windowApiClient(
+      'http://hermes.test',
+      main.headers,
+      adapter: server,
+    );
+    // Nothing handed out yet: the client's constant.
+    expect(window.sessionEpoch, 0);
+
+    await window.raw.getSessionsApiSessionsGet();
+    final first = window.sessionEpoch;
+    validToken = 'access-2';
+    await window.raw.getSessionsApiSessionsGet();
+
+    expect(first, 'Bearer access-1');
+    expect(window.sessionEpoch, 'Bearer access-2');
   });
 
   test('a 401 asks the main window again, naming the rejected headers, and '
