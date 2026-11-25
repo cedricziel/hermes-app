@@ -114,13 +114,13 @@ class MacChatToolbar extends StatelessWidget {
         else ...[
           MacToolbarButton(
             key: const Key('toolbar-share'),
-            label: 'Copy Transcript',
+            label: context.l10n.macosMenuCopyTranscript,
             icon: AppIcons.share,
             onPressed: onCopyTranscript,
           ),
           MacToolbarButton(
             key: const Key('toolbar-connection'),
-            label: 'Connection Details',
+            label: context.l10n.macosMenuConnectionDetails,
             icon: AppIcons.info,
             onPressed: onShowConnection,
           ),

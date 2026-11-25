@@ -63,6 +63,17 @@ void main() {
     expect(events, ['copy', 'connection', 'new']);
   });
 
+  testWidgets('a German locale shows the German Copy and Connection labels', (
+    tester,
+  ) async {
+    await pump(tester, width: 1160, locale: const Locale('de'));
+
+    expect(find.tooltip('Verlauf kopieren'), findsOneWidget);
+    expect(find.tooltip('Verbindungsdetails'), findsOneWidget);
+    expect(find.tooltip('Copy Transcript'), findsNothing);
+    expect(find.tooltip('Connection Details'), findsNothing);
+  });
+
   testWidgets('a medium window has a search button until a search opens', (
     tester,
   ) async {
