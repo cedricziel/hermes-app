@@ -2094,6 +2094,31 @@ void main() {
       );
     });
 
+    test('a local reassigned before the timeout holds what it was given '
+        'last', () {
+      expect(
+        hits(
+          'f() async {\n'
+          "  var pending = client.request('session.resume', {});\n"
+          '  await pending;\n'
+          '  pending = other();\n'
+          '  await pending.timeout(t);\n'
+          '}',
+        ),
+        0,
+      );
+      expect(
+        hits(
+          'f() async {\n'
+          '  var pending = other();\n'
+          "  pending = client.request('session.resume', {});\n"
+          '  await pending.timeout(t);\n'
+          '}',
+        ),
+        1,
+      );
+    });
+
     test('a variable of another member is not followed', () {
       expect(
         hits(

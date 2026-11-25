@@ -93,10 +93,28 @@ class _Declarations extends RecursiveAstVisitor<void> {
     }
     super.visitVariableDeclaration(node);
   }
+
+  /// `pending = other();` replaces what the local holds from there on.
+  @override
+  void visitAssignmentExpression(AssignmentExpression node) {
+    final target = node.leftHandSide;
+    final scope = node.thisOrAncestorOfType<FunctionBody>();
+    if (target is SimpleIdentifier &&
+        node.operator.lexeme == '=' &&
+        scope != null) {
+      (byName[target.name] ??= []).add((
+        offset: node.offset,
+        init: node.rightHandSide,
+        scope: scope,
+      ));
+    }
+    super.visitAssignmentExpression(node);
+  }
 }
 
-/// The initializer of the declaration of [name] that [use] sees: the closest
-/// one before it whose block holds it.
+/// What the local [name] holds at [use]: the initializer of the closest
+/// declaration before it whose block holds it, or the value of an assignment
+/// since.
 Expression? _visibleInitializer(
   Map<String, List<_Declaration>> byName,
   String name,
