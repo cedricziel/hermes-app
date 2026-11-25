@@ -220,6 +220,7 @@ void main() {
         ..._macTable,
         MacCommand.openInNewWindow: '⌥⌘O',
         MacCommand.closeWindow: '⌘W',
+        MacCommand.save: '⌘S',
         MacCommand.toggleInspector: '⌥⌘I',
       });
     });

@@ -91,6 +91,8 @@ import 'invalidation/change_invalidation_binding.dart';
 import 'invalidation/change_signal.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
+import '../profiles/soul/open_soul.dart';
+import '../profiles/soul/soul_telemetry.dart' show SoulOpenedFrom;
 import '../providers/providers_repository.dart';
 import '../providers/providers_screen.dart';
 import '../providers/widgets/connect_model_card.dart';
