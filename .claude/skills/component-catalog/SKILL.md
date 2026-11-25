@@ -160,14 +160,23 @@ real fonts, so the PNGs read like the app. Don't commit the test.
   screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
   let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
   repository itself.
-- `widgetbook/main.dart` mounts the app's `AppThemeScopes` through a
-  `BuilderAddon` after the theme addon (`gpt_markdown` draws near-black
-  headings in dark without it). `test/widgetbook_test.dart` mounts it too.
+- `widgetbook/main.dart` builds every use case in `material_ui`'s
+  `MaterialApp` (its `appBuilder`) with a `Scaffold` from the theme addon:
+  Widgetbook's default builds Flutter's `MaterialApp` and `Material`, which
+  `material_ui` widgets do not see ("No Material widget found", #1354). A
+  second `material_ui` app sits around Widgetbook itself, because a dialog
+  that asks for the root navigator leaves the workbench; such a route covers
+  the whole window and is in the system language, not the Locale addon's.
+- `test/widgetbook_test.dart` opens each use case in `HermesWidgetbook`
+  itself, by its link, so the test and the catalog cannot wrap a use case
+  differently. Never give the test an app of its own again.
 - `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
   may build an `AuthController`, and it unmounts each use case and lets timers
   run out, so a screen that polls must cancel its timer on dispose.
-- Keep knobs out for now: the smoke test builds use cases without a
-  Widgetbook state, so `context.knobs` would throw.
+- The whole test is about 17,500 cases and its process grows past 11 GB:
+  it runs alone in CI (shard 0). In a cloud container run a part of it,
+  `flutter test test/widgetbook_test.dart -j 1 --name '^(Handoff|Files / Questions)'`
+  (a regular expression on "folder / component / use case").
 - Nothing under `widgetbook/` may import `lib/src/telemetry/`; the catalog
   starts no SDK.
 

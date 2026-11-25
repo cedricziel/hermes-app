@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoMenuAnchor;
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart';
@@ -394,7 +396,12 @@ class _SelectPathOnShowState extends State<_SelectPathOnShow> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _select());
+      // In a microtask: the catalog rebuilds a use case once it is on screen,
+      // and the selection area takes in the rebuilt text in a callback after
+      // this one. Selecting before that throws inside the framework.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => scheduleMicrotask(_select),
+      );
     });
   }
 
