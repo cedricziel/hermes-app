@@ -78,10 +78,10 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> load() async {
     final (enabled, available) = await (
-      _prefs.getBool(_prefsEnabledKey),
+      savedEnabled(_prefs),
       _authenticator.isAvailable(),
     ).wait;
-    _enabled = enabled ?? false;
+    _enabled = enabled;
     _available = available;
     _loaded = true;
     _locked = _enforced;

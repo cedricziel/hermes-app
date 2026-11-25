@@ -12,6 +12,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_device_authenticator.dart';
+import 'support/unreadable_prefs.dart';
 
 void main() {
   setUp(() {
@@ -54,6 +55,18 @@ void main() {
 
     expect(controller.mode, ThemeMode.system);
   });
+
+  test(
+    'falls back to the system mode when the saved one is unreadable',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+
+      final controller = ThemeController();
+      await controller.load();
+
+      expect(controller.mode, ThemeMode.system);
+    },
+  );
 
   test('notifies listeners only when the mode changes', () async {
     final controller = ThemeController();

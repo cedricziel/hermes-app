@@ -17,6 +17,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_device_authenticator.dart';
+import 'support/unreadable_prefs.dart';
 
 void main() {
   late FakeDeviceAuthenticator authenticator;
@@ -57,6 +58,27 @@ void main() {
       await enabledLock();
 
       expect(await AppLockController.savedEnabled(), isTrue);
+    });
+
+    test('stays locked when the saved choice is unreadable', () async {
+      SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+      authenticator.succeeds = false;
+
+      final lock = await relaunched();
+
+      expect(lock.loaded, isTrue);
+      expect(lock.locked, isTrue);
+    });
+
+    test('does not lock out a device that cannot confirm when the saved '
+        'choice is unreadable', () async {
+      SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+      authenticator.available = false;
+
+      final lock = await relaunched();
+
+      expect(lock.loaded, isTrue);
+      expect(lock.locked, isFalse);
     });
 
     test('is off and unlocked on a fresh install', () async {

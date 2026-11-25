@@ -19,7 +19,12 @@ class ThemeController extends ChangeNotifier {
 
   Future<void> load() async {
     final picksBefore = _picks;
-    final saved = await _prefs.getString(_prefsThemeModeKey);
+    String? saved;
+    try {
+      saved = await _prefs.getString(_prefsThemeModeKey);
+    } on Object {
+      // An unreadable store keeps the system mode instead of failing startup.
+    }
     if (_picks != picksBefore) return;
     final mode = ThemeMode.values.asNameMap()[saved] ?? ThemeMode.system;
     if (mode == _mode) return;

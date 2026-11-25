@@ -45,7 +45,12 @@ class DictationSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final picksBefore = _picks;
-    final saved = await _prefs.getString(_prefsEngineKey);
+    String? saved;
+    try {
+      saved = await _prefs.getString(_prefsEngineKey);
+    } on Object {
+      // An unreadable store keeps the default engine instead of failing startup.
+    }
     if (_picks != picksBefore) return;
     _engine = DictationEngine.values.asNameMap()[saved] ?? _default;
     _loaded = true;

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import '../support/unreadable_prefs.dart';
+
 /// Runs [onRead] while the saved engine is being read.
 class _HookedPrefs extends SharedPreferencesAsync {
   _HookedPrefs(this.onRead);
@@ -32,6 +34,19 @@ void main() {
 
     await settings.load();
 
+    expect(settings.loaded, isTrue);
+    expect(told, 1);
+  });
+
+  test('keeps the default engine when the saved one is unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final settings = DictationSettings();
+    var told = 0;
+    settings.addListener(() => told++);
+
+    await settings.load();
+
+    expect(settings.engine, DictationEngine.hermes);
     expect(settings.loaded, isTrue);
     expect(told, 1);
   });
