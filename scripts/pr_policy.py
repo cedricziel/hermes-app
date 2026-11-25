@@ -646,50 +646,22 @@ class _Review:
         return []
 
     def covered(self, commit):
-        """Whether every commit up to `commit` has been read by a reviewer.
-        True when it is on the base branch, when the checker accepts it (a
-        clean review, rule b1 or b2, the legacy block), or when a CLEAN block
-        for it has a valid Range whose base is itself covered. A block that
-        asked for changes (changes-requested, changes-needed) never counts as
-        a Range base: nothing makes the next reviewer re-check its findings,
-        so a clean B..D after a rejected A..B would accept D with A..B's
-        findings unread. After a rejected round the next clean review starts
-        at the last accepted commit or the base branch. The same holds for a
-        commit with a rejected block next to a clean one. `commit` is a strict
-        ancestor of the commit being decided, so this terminates."""
-        if commit in self._covered:
-            return self._covered[commit]
-        self._covered[commit] = False
-        found = self.git.is_ancestor(commit, self.base_tip) or not self.accepted(commit)
-        # A commit with ANY non-clean plain or Merge-review block is never a
-        # base, whatever clean block also names it (the rule `_decide` applies:
-        # a block that asks for changes outweighs a clean one).
-        rejected = any(
-            b.head == commit and b.verdict != "clean"
-            for b in self.plain + self.merge_blocks
-        )
-        for block in self.plain:
-            if found or rejected:
-                break
-            m = (
-                block.head == commit
-                and block.verdict == "clean"
-                and block.range
-                and _RANGE_RE.match(block.range)
-            )
-            if not m:
-                continue
-            base, tip = m.group(1).lower(), m.group(2).lower()
-            # An empty range (base == tip) asks about `commit` itself, which
-            # is still marked uncovered here, so it fails by itself.
-            found = (
-                tip == commit
-                and self.git.has_commit(base)
-                and self.git.is_ancestor(base, commit)
-                and self.covered(base)
-            )
-        self._covered[commit] = found
-        return found
+        """Whether every commit up to `commit` has been read by a reviewer: it
+        is on the base branch, or the checker would accept it as a head
+        (`accepted`: a clean block with a valid Range, rule b1 or b2, the
+        legacy block). One predicate for both, so no commit is a Range base
+        through a path that refuses it as a head: a commit with any rejected
+        block (plain or Merge-review) is never one, and a merge is one only as
+        a clean automatic merge over an accepted parent or through a valid
+        Merge-review block, never on a plain block. After a rejected round the
+        next clean review starts at the last accepted commit or the base
+        branch. `commit` is a strict ancestor of the commit being decided, so
+        this terminates."""
+        if commit not in self._covered:
+            self._covered[commit] = self.git.is_ancestor(
+                commit, self.base_tip
+            ) or not self.accepted(commit)
+        return self._covered[commit]
 
     def requested_changes(self, commit, merge=False):
         what = "merge review" if merge else "review"

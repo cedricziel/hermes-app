@@ -1264,6 +1264,34 @@ class MergeReviewTest(unittest.TestCase):
         self.assertIn(f"Merge {h} is not a clean automatic merge", out[0])
         self.assertIn("evil.txt", out[0])
 
+    def test_dirty_merge_is_no_range_base_on_a_plain_block(self):
+        r = self.r
+        self.advance_main("m1.txt")
+        r.git("merge", "-q", "--no-ff", "--no-commit", "main")
+        r.write("evil.txt", "payload\n")
+        r.git("add", "evil.txt")
+        r.git("commit", "-q", "-m", "Merge main")
+        h = r.head()
+        d = r.commit("after.txt")
+        out = self.review(d, blk(self.rev, self.root) + blk(h, self.root) + blk(d, h))
+        self.assertTrue(out)
+        self.assertIn(f"starts at {h}", out[0])
+
+    def test_clean_merge_is_a_range_base(self):
+        h = self.clean_merge_of_main()
+        d = self.r.commit("after.txt")
+        self.assertEqual(self.review(d, blk(self.rev, self.root) + blk(d, h)), [])
+
+    def test_rejected_merge_review_block_makes_a_merge_no_range_base(self):
+        h = self.clean_merge_of_main()
+        d = self.r.commit("after.txt")
+        rejected = self.merge_review(h, files="x.txt", verdict="changes-requested")
+        review = blk(self.rev, self.root) + rejected + blk(h, self.root)
+        self.assertTrue(self.review(h, review))
+        out = self.review(d, review + blk(d, h))
+        self.assertTrue(out)
+        self.assertIn(f"starts at {h}", out[0])
+
     def test_forged_line_for_dirty_merge_as_first_parent_fails(self):
         r = self.r
         self.advance_main("m1.txt")
