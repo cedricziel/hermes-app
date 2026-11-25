@@ -2167,6 +2167,50 @@
   "@chatWidgetsApprovalAnswered": {
     "description": "Note on an approval card that was answered, when the answer is not one the app knows."
   },
+  "chatWidgetsBranchNoticeDeleted": "The original chat was deleted.",
+  "@chatWidgetsBranchNoticeDeleted": {
+    "description": "Shown, as information and not as a button, in the row under a branched chat's header after Hermes said the chat it was branched from no longer exists."
+  },
+  "chatWidgetsBranchNoticeFrom": "Branched from {title}",
+  "@chatWidgetsBranchNoticeFrom": {
+    "description": "Row under a branched chat's header; a tap opens the original chat. The placeholder is the original chat's title and ends the sentence.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsBranchNoticeFromUnknown": "Branched from another chat",
+  "@chatWidgetsBranchNoticeFromUnknown": {
+    "description": "Same row when the original chat's title is not known on the device; a tap still opens it."
+  },
+  "chatWidgetsBranchNoticeOpening": "Opening the original chat…",
+  "@chatWidgetsBranchNoticeOpening": {
+    "description": "Same row while the original chat is being opened, beside a small spinner; taps are ignored."
+  },
+  "chatWidgetsBranchNoticeRetry": "Try again",
+  "@chatWidgetsBranchNoticeRetry": {
+    "description": "Label in the same row, after the sentence that Hermes could not be reached; a tap asks again."
+  },
+  "chatWidgetsBranchNoticeSemantics": "Branched from {title}. Opens the original chat.",
+  "@chatWidgetsBranchNoticeSemantics": {
+    "description": "Screen reader label of the row under a branched chat's header when the original's title is known.",
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Release notes"
+      }
+    }
+  },
+  "chatWidgetsBranchNoticeUnreachable": "Couldn't reach Hermes. Check your connection.",
+  "@chatWidgetsBranchNoticeUnreachable": {
+    "description": "Same row when asking for the original chat failed; \"Try again\" follows it."
+  },
+  "chatWidgetsBranchRowLabel": "Branch",
+  "@chatWidgetsBranchRowLabel": {
+    "description": "Added to a chat's screen reader label in the chat list and in search results when the chat was branched from another; the branch glyph before its title has no label of its own."
+  },
   "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
   "@chatWidgetsHistoryEarlierFailedTitle": {
     "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
@@ -4077,6 +4121,10 @@
   "macosMenuOpenInNewWindow": "Open in New Window",
   "@macosMenuOpenInNewWindow": {
     "description": "File menu, and the Mac chat row menu: opens the chat in a window of its own."
+  },
+  "macosMenuOpenParentChat": "Open Parent Chat",
+  "@macosMenuOpenParentChat": {
+    "description": "Chat menu item: opens the chat the open chat was branched from. Greyed out when the open chat is not a branch or its original was deleted. Title case."
   },
   "macosMenuPaste": "Paste",
   "@macosMenuPaste": {

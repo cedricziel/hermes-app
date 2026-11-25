@@ -10,9 +10,9 @@ Four PRs, each under about 500 changed lines. The catalog PR comes first (`docs/
 
 Plain-model widgets only: no controller, no repository, no screen.
 
-- [ ] 1.1 Acceptance first: a catalog use case per state (`title`, `unknown`, `opening`, `deleted`, `unreachable`) in light and dark, phone and desktop width, largest text; `test/widgetbook_test.dart` builds them.
-- [ ] 1.2 `ChatBranchNotice(state, parentTitle, onTap)` in `lib/src/chat/widgets/`: one button (not for `deleted`), 44 pt (48 dp Material, 32 pt Mac), title wraps to two lines, status as icon plus words, semantics label "Branched from <title>. Opens the original chat." ARB keys in en and de under the `chat/widgets` anchor (`chatWidgets…`).
-- [ ] 1.3 The branch glyph on a thread row model (`SidebarRow` child, `MacThreadRow`, search rows): a `branch` flag, glyph 14 pt (12 pt Mac), "Branch" in the semantics label. Use cases for each row.
+- [x] 1.1 Acceptance first: a catalog use case per state (`title`, `unknown`, `opening`, `deleted`, `unreachable`) in light and dark, phone and desktop width, largest text; `test/widgetbook_test.dart` builds them.
+- [x] 1.2 `ChatBranchNotice(state, parentTitle, onTap)` in `lib/src/chat/widgets/`: one button (not for `deleted`), 44 pt (48 dp Material, 32 pt Mac), title wraps to two lines, status as icon plus words, semantics label "Branched from <title>. Opens the original chat." ARB keys in en and de under the `chat/widgets` anchor (`chatWidgets…`).
+- [x] 1.3 The branch glyph on a thread row model (`SidebarRow` child, `MacThreadRow`, search rows): a `branch` flag, glyph 14 pt (12 pt Mac), "Branch" in the semantics label. Use cases for each row.
 
 ## 2. PR 2 - `feat(chat): read the branch parent from session rows`
 

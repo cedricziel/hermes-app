@@ -7,6 +7,7 @@ import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
+import 'branch_glyph.dart';
 import 'relative_time.dart';
 
 /// [hits] split into the chats whose title holds [query] and those that
@@ -236,15 +237,21 @@ class MacSearchHitRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      if (hit.branch) const BranchGlyph(size: 12),
                       Expanded(
-                        child: Text(
-                          hit.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.onSurface,
+                        child: branchTitled(
+                          context,
+                          branch: hit.branch,
+                          title: hit.title,
+                          child: Text(
+                            hit.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: scheme.onSurface,
+                            ),
                           ),
                         ),
                       ),
