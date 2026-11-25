@@ -38,14 +38,14 @@ Copy added by the design (English; German in the table):
 
 | Key (suggested) | English | German |
 | --- | --- | --- |
-| `chatBranchNoticeFrom` | Branched from {title} | Verzweigt von {title} |
-| `chatBranchNoticeFromUnknown` | Branched from another chat | Verzweigt von einem anderen Chat |
-| `chatBranchNoticeOpening` | Opening the original chat… | Der ursprüngliche Chat wird geöffnet… |
-| `chatBranchNoticeDeleted` | The original chat was deleted. | Der ursprüngliche Chat wurde gelöscht. |
-| `chatBranchNoticeUnreachable` | Couldn't reach Hermes. Check your connection. | Hermes ist nicht erreichbar. Prüfe deine Verbindung. |
-| `chatBranchNoticeRetry` | Try again | Erneut versuchen |
-| `chatBranchNoticeSemantics` | Branched from {title}. Opens the original chat. | Verzweigt von {title}. Öffnet den ursprünglichen Chat. |
-| `chatBranchRowLabel` | Branch | Verzweigung |
+| `chatWidgetsBranchNoticeFrom` | Branched from {title} | Verzweigt von {title} |
+| `chatWidgetsBranchNoticeFromUnknown` | Branched from another chat | Verzweigt von einem anderen Chat |
+| `chatWidgetsBranchNoticeOpening` | Opening the original chat… | Der ursprüngliche Chat wird geöffnet… |
+| `chatWidgetsBranchNoticeDeleted` | The original chat was deleted. | Der ursprüngliche Chat wurde gelöscht. |
+| `chatWidgetsBranchNoticeUnreachable` | Couldn't reach Hermes. Check your connection. | Hermes ist nicht erreichbar. Prüfe deine Verbindung. |
+| `chatWidgetsBranchNoticeRetry` | Try again | Erneut versuchen |
+| `chatWidgetsBranchNoticeSemantics` | Branched from {title}. Opens the original chat. | Verzweigt von {title}. Öffnet den ursprünglichen Chat. |
+| `chatWidgetsBranchRowLabel` | Branch | Verzweigung |
 | `macosMenuOpenParentChat` | Open Parent Chat | Übergeordneten Chat öffnen |
 
 New components needed:
