@@ -1397,8 +1397,9 @@ final guardRules = <Rule>[
         '.timeout(...) on a gateway RPC future abandons the caller and leaves '
         'the request, its pending entry and its span open until the socket '
         'ends: pass the deadline to the request instead, '
-        'GatewayRpcClient.request(..., timeout: d) (or requestWithin / '
-        'requestGuarded, or the timeout: of requestKeepingConnection), which '
+        'GatewayRpcClient.requestWithin(method, params, timeout: d) (or '
+        'requestGuarded, the timeout: of requestKeepingConnection, or the '
+        'third argument of BackgroundContext.request), which '
         'settles the request and ends its span '
         '(lib/src/chat/gateway/gateway_rpc_client.dart).',
     hits: gatewayRequestTimeoutHits,
