@@ -17,7 +17,7 @@ const _retriesKey = 'hermes.getRetries';
 /// with it).
 ///
 /// Place it after the telemetry interceptor: each try then keeps its own
-/// span and log record. A resent request runs the whole chain again, so the
+/// span (the burst logger folds their log records into one). A resent request runs the whole chain again, so the
 /// session checks of [AuthController] apply to it as to any other.
 class GetRetryInterceptor extends Interceptor {
   GetRetryInterceptor(
