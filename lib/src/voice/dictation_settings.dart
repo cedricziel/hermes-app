@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
 import 'on_device_speech.dart';
 
 const _prefsEngineKey = 'hermes.dictation_engine';
@@ -48,8 +49,9 @@ class DictationSettings extends ChangeNotifier {
     String? saved;
     try {
       saved = await _prefs.getString(_prefsEngineKey);
-    } on Object {
+    } on Object catch (error, stack) {
       // An unreadable store keeps the default engine instead of failing startup.
+      reportUnreadablePrefs(error, stack, 'the saved dictation engine');
     }
     if (_picks != picksBefore) return;
     _engine = DictationEngine.values.asNameMap()[saved] ?? _default;

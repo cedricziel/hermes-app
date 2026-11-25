@@ -64,10 +64,14 @@ void main() {
       SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
       authenticator.succeeds = false;
 
-      final lock = await relaunched();
+      late AppLockController lock;
+      final reported = await reportedErrors(() async {
+        lock = await relaunched();
+      });
 
       expect(lock.loaded, isTrue);
       expect(lock.locked, isTrue);
+      expect(reported.single.exception, isA<PlatformException>());
     });
 
     test('does not lock out a device that cannot confirm when the saved '

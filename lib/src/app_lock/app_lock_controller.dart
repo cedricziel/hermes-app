@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
 import 'device_authenticator.dart';
 
 const _prefsEnabledKey = 'hermes.app_lock_enabled';
@@ -71,7 +72,8 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
             _prefsEnabledKey,
           ) ??
           false;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportUnreadablePrefs(error, stack, 'the App Lock choice');
       return true;
     }
   }

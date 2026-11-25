@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,11 +45,12 @@ void main() {
     var told = 0;
     settings.addListener(() => told++);
 
-    await settings.load();
+    final reported = await reportedErrors(settings.load);
 
     expect(settings.engine, DictationEngine.hermes);
     expect(settings.loaded, isTrue);
     expect(told, 1);
+    expect(reported.single.exception, isA<PlatformException>());
   });
 
   for (final (platform, engine) in [
