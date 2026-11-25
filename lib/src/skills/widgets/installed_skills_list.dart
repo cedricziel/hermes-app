@@ -109,8 +109,7 @@ const _brandedCategories = {
 String skillSubtitle(AppLocalizations l10n, HermesSkill skill) => [
   if (skill.description.isNotEmpty) skill.description,
   skillSourceLabel(l10n, skill.source),
-  if (skill.usage == 1) 'used once',
-  if (skill.usage > 1) 'used ${skill.usage} times',
+  if (skill.usage > 0) l10n.skillsScreenUsed(skill.usage),
 ].join(' · ');
 
 /// The group that checks the hub skills for updates: a row on iOS and

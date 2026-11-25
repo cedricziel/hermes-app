@@ -271,6 +271,20 @@ void main() {
   group('German', () {
     const de = Locale('de');
 
+    testWidgets('how often a skill was used is German, once and many', (
+      tester,
+    ) async {
+      server.on('GET', '/api/skills', [
+        skillRow(name: 'apple-notes', category: 'apple', usage: 14),
+        skillRow(name: 'solo', category: 'apple', usage: 1),
+      ]);
+      await pumpSkills(tester, locale: de);
+
+      expect(find.textContaining('14-mal verwendet'), findsOneWidget);
+      expect(find.textContaining('einmal verwendet'), findsOneWidget);
+      expect(find.textContaining('used'), findsNothing);
+    });
+
     testWidgets('the page chrome and filters are in German', (tester) async {
       await pumpSkills(tester, locale: de);
 

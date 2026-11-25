@@ -134,7 +134,7 @@ void main() {
     // Mutation: translate or drop the server's own word for an unknown mode.
     expect(find.text('loud'), findsOneWidget);
 
-    await tester.tap(find.text('Review chats'));
+    await tester.tap(find.text('Chats überprüfen'));
     await tester.pumpAndSettle();
     // Mutation: put 'Off' back in intervalLabel.
     expect(find.text('Aus'), findsOneWidget);
@@ -158,11 +158,82 @@ void main() {
     );
     // Mutation: put 'Short note' back in reportLabel.
     expect(find.text('Kurze Notiz'), findsOneWidget);
-    await tester.tap(find.text('Memory updates in chat'));
+    await tester.tap(find.text('Speicher-Updates im Chat'));
     await tester.pumpAndSettle();
     // Mutation: put 'With details' back in reportLabel.
     expect(find.text('Mit Details'), findsOneWidget);
     expect(find.text('With details'), findsNothing);
+  });
+
+  testWidgets('the Learning section is German in every state', (tester) async {
+    await tester.pumpWidget(
+      german(
+        ListView(
+          children: [
+            MemoryLearningSection(
+              settings: MemorySettings.defaults,
+              onChanged: (_, _) {},
+              onRetry: () {},
+            ),
+          ],
+        ),
+      ),
+    );
+    // Mutation: put any of these English texts back in the section.
+    for (final text in [
+      'Lernen',
+      'Dinge über mich merken',
+      'Deine Vorlieben, dein Name und deine Gewohnheiten',
+      'Agent-Notizen führen',
+      'Fakten zu deinem Setup, deinen Tools und Konventionen',
+      'Vor dem Speichern fragen',
+      'Hermes fragt dich, bevor er den Speicher ändert',
+      'Chats überprüfen',
+      'Speicher-Updates im Chat',
+      '„Vor dem Speichern fragen“ gilt sofort, der Rest ab dem nächsten Chat.',
+    ]) {
+      expect(find.text(text), findsOneWidget, reason: text);
+    }
+    for (final text in [
+      'Learning',
+      'Remember things about me',
+      'Keep agent notes',
+      'Ask before saving',
+      'Review chats',
+      'Memory updates in chat',
+    ]) {
+      expect(find.text(text), findsNothing, reason: text);
+    }
+
+    for (final unreadable in [false, true]) {
+      await tester.pumpWidget(
+        german(
+          ListView(
+            children: [
+              MemoryLearningSection(
+                settings: null,
+                unreadable: unreadable,
+                onChanged: (_, _) {},
+                onRetry: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(
+        find.text(
+          unreadable
+              ? 'Speicher-Einstellungen konnten nicht gelesen werden'
+              : 'Speicher-Einstellungen werden gelesen',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Erneut versuchen'),
+        unreadable ? findsOneWidget : findsNothing,
+      );
+      expect(find.text('Retry'), findsNothing);
+    }
   });
 
   testWidgets("a schedule's delivery is German in the list and the facts", (
