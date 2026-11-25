@@ -386,14 +386,21 @@ class GatewayRpcClient {
       limit,
       onLateResult,
     );
-    _channel.sink.add(
-      jsonEncode({
-        'jsonrpc': '2.0',
-        'id': id,
-        'method': method,
-        'params': params,
-      }),
-    );
+    try {
+      _channel.sink.add(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': id,
+          'method': method,
+          'params': params,
+        }),
+      );
+    } on Object catch (error) {
+      // Nothing went out: the request must not stay pending, nor its span open.
+      _pending.remove(id);
+      _finish(pending, failure: error);
+      rethrow;
+    }
     // Armed once the frame is out, so the wait never counts the send.
     pending.startedAt = clock.now();
     if (limit != null) {

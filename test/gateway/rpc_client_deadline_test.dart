@@ -68,7 +68,12 @@ void main() {
           .requestWithin('slash.exec', const {}, timeout: deadline)
           .then<void>((_) {}, onError: (Object e) => error = e);
 
-      async.elapse(deadline);
+      async.elapse(deadline - const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(error, isNull, reason: 'still within the deadline');
+      expect(tracer.spans.single.ended, isFalse);
+
+      async.elapse(const Duration(seconds: 1));
       async.flushMicrotasks();
 
       expect(error, isA<GatewayRequestTimeout>());
@@ -509,6 +514,28 @@ void main() {
       });
     },
   );
+
+  test('a request whose frame cannot be written ends its span and is not '
+      'left pending', () {
+    run((async, open, jump, now) {
+      final client = open();
+
+      expect(
+        () => client.requestWithin('slash.exec', {
+          'unencodable': Object(),
+        }, timeout: deadline),
+        throwsA(isA<JsonUnsupportedObjectError>()),
+      );
+
+      final span = tracer.spans.single;
+      expect(span.endCalls, 1);
+      expect(span.status?.name, 'error');
+      expect(span.attributes['error.type'], 'JsonUnsupportedObjectError');
+      unawaited(client.close());
+      async.flushMicrotasks();
+      expect(span.endCalls, 1);
+    });
+  });
 }
 
 class _SlowSink implements StreamSink<String> {

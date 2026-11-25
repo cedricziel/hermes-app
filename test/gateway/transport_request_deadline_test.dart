@@ -208,7 +208,12 @@ void main() {
         reason: 'the upload counts against nobody',
       );
 
-      async.elapse(const Duration(minutes: 2));
+      // 3 MiB is 4 MiB of base64: 64 s of upload on top of the long timeout.
+      async.elapse(const Duration(seconds: 63) - const Duration(seconds: 1));
+      async.flushMicrotasks();
+      expect(span(tracer, 'file.attach').ended, isFalse);
+
+      async.elapse(const Duration(seconds: 1));
       async.flushMicrotasks();
       expect(span(tracer, 'file.attach').ended, isTrue);
       expect(events.named('gateway.send_failed').single['cause'], 'timeout');
