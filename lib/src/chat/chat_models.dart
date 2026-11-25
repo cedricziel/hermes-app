@@ -862,4 +862,14 @@ class ThreadSearchHit {
   /// Whether the chat was branched from another: the result row shows a glyph
   /// before the title.
   final bool branch;
+
+  /// This hit as the hit of a branch.
+  ThreadSearchHit asBranch() => ThreadSearchHit(
+    id: id,
+    title: title,
+    snippet: snippet,
+    updatedAt: updatedAt,
+    profile: profile,
+    branch: true,
+  );
 }
