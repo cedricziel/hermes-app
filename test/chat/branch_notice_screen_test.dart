@@ -20,6 +20,8 @@ FakeHermesServer _server() {
       sessionListBody([
         sessionRow(id: 'b1', title: 'Try another way', lastActive: 1780000500)
           ..['_branched_from'] = 'p1',
+        sessionRow(id: 'b2', title: 'Another branch', lastActive: 1780000400)
+          ..['_branched_from'] = 'p2',
         sessionRow(id: 'p1', title: 'The original', lastActive: 1780000300),
         sessionRow(id: 'plain', title: 'A plain chat', lastActive: 1780000200),
       ]),
@@ -30,7 +32,7 @@ FakeHermesServer _server() {
       'path': ['p1'],
       'changed': false,
     });
-  for (final id in ['b1', 'p1', 'plain']) {
+  for (final id in ['b1', 'b2', 'p1', 'plain']) {
     server.on('GET', '/api/sessions/$id/messages', messageListBody(id, []));
   }
   return server;
@@ -113,7 +115,8 @@ void main() {
         'The original chat was deleted.',
       ]);
 
-      await openThread(tester, 'A plain chat');
+      // The same row widget serves the next branch, and then this one again.
+      await openThread(tester, 'Another branch');
       await openThread(tester, 'Try another way');
       expect(said, hasLength(2));
     });
