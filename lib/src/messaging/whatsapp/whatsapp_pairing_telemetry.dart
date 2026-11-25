@@ -76,6 +76,23 @@ class WhatsAppPairingTelemetry {
     this.breadcrumbs = Breadcrumbs.none,
   ]);
 
+  /// The one telemetry of [owner], the object that stands for a connection
+  /// (its repositories), made on first use. `whatsapp.pair.unavailable` is
+  /// logged once for it, however many times the Messaging list or the pairing
+  /// screen is opened on that connection; a new connection starts again.
+  factory WhatsAppPairingTelemetry.forConnection(
+    Object owner,
+    ConnectionTelemetry connection,
+    Breadcrumbs breadcrumbs,
+  ) => _byConnection[owner] ??= WhatsAppPairingTelemetry(
+    connection,
+    breadcrumbs,
+  );
+
+  static final _byConnection = Expando<WhatsAppPairingTelemetry>(
+    'whatsapp pairing telemetry',
+  );
+
   final ConnectionTelemetry connection;
   final Breadcrumbs breadcrumbs;
 

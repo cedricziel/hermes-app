@@ -554,6 +554,14 @@ void main() {
         (result.confirmed, result.restartStarted, result.needsRestart),
         (true, false, true),
       );
+      expect(result.restartError?.text, 'could not run /usr/bin/hermes');
+      expect('$result', isNot(contains('/usr/bin/hermes')));
+    });
+
+    test('a started restart has no restart error', () async {
+      server.on('POST', waApplyPath, waApplyRestartStarted);
+      final result = await repository.applyWhatsAppPairing(id);
+      expect(result.restartError, isNull);
     });
 
     test('a 200 without ok: true is not confirmed', () async {
