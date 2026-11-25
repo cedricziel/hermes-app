@@ -115,15 +115,15 @@ extension _Reconnect on HermesGatewayTransport {
           resumed.discard();
           break;
         }
-        // A refused credential, or a session that ended, stays so however
-        // often it is asked: the reply gives up now, and the next ticket is
-        // minted when the app asks the connection again.
-        if (isCredentialStop(attempt.error)) break;
         if (attempt.answered || !patient) {
           tried++;
         } else {
           unanswered++;
         }
+        // A refused credential, or a session that ended, stays so however
+        // often it is asked: the reply gives up now, and the next ticket is
+        // minted when the app asks the connection again.
+        if (isCredentialStop(attempt.error)) break;
       }
       final failed = _Resumed(
         runtimeId: runtimeId ?? owner.$2,

@@ -50,6 +50,7 @@ void main() {
   late HermesGatewayTransport transport;
   late FakeHermesServer server;
   late TicketMintGate gate;
+  late List<(String, Map<String, Object?>)> logged;
   late List<Duration> mintTimes;
 
   int count(String method) => gateway.methods.where((m) => m == method).length;
@@ -63,6 +64,7 @@ void main() {
     bool firstMintOk = true,
   }) => fakeAsync((async) {
     mintTimes = [];
+    logged = [];
     gateway = FakeGateway()
       ..stampSeq = true
       ..sendReady = true
@@ -85,6 +87,7 @@ void main() {
     final api = server.client();
     transport = HermesGatewayTransport(
       random: _HalfRandom(),
+      events: (name, [attributes = const {}]) => logged.add((name, attributes)),
       connect: hermesGatewayConnect(
         baseUrl: 'http://hermes.test',
         authRequired: true,
@@ -107,6 +110,20 @@ void main() {
 
         expect(mints(), 2, reason: 'the first connect and one attempt');
         expect(seen.error, isA<GatewayReplyLost>());
+
+        // The stopping attempt is counted, and named by its cause.
+        expect(
+          [
+            for (final (name, attributes) in logged)
+              if (name == 'gateway.reconnect' ||
+                  name == 'gateway.reconnect_attempt')
+                (name, attributes['attempt'], attributes['result']),
+          ],
+          [
+            ('gateway.reconnect_attempt', 1, 'credential'),
+            ('gateway.reconnect', 1, null),
+          ],
+        );
         expect(count('prompt.submit'), 1);
       });
     });
