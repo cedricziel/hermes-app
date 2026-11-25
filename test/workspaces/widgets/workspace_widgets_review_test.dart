@@ -1,5 +1,6 @@
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_workspace_state.dart';
@@ -179,20 +180,23 @@ void main() {
     }
   });
 
-  testWidgets('iOS bars at 3x show the whole Cancel and back label', (
-    tester,
-  ) async {
+  testWidgets('iOS bars at 3x drop the Cancel and back labels for a 44 point '
+      'target that keeps their names', (tester) async {
+    final semantics = tester.ensureSemantics();
     await pumpFiles(tester, _picker(), textScale: 3);
     expect(tester.takeException(), isNull);
-    final cancel = find.text('Cancel');
+    // The text label gives way to an icon so the title fits; the button keeps
+    // its name and a full-size target in the leading slot.
+    expect(find.text('Cancel'), findsNothing);
+    final cancel = find.bySemanticsLabel('Cancel');
     expect(cancel, findsOneWidget);
-    final box = tester.renderObject<RenderBox>(cancel);
-    final painted = tester.getSize(cancel);
-    expect(painted.width, box.size.width);
-    // The leading slot is wide enough for the label it holds.
-    expect(tester.getTopLeft(cancel).dx + painted.width, lessThan(390 * 0.55));
+    final node = tester.getSemantics(cancel);
+    expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    expect(node.rect.size, const Size(44, 44));
+    expect(tester.getTopLeft(cancel).dx + 44, lessThan(390 * 0.55));
     await pumpFiles(tester, _browser('/home/me/code'), textScale: 3);
     expect(tester.takeException(), isNull);
+    semantics.dispose();
   });
 
   group('picker keyboard and Mac foot', () {

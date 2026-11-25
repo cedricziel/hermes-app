@@ -39,15 +39,11 @@ void main() {
 
   setUp(() {
     server = FakeHermesServer()
-      ..on(
-        'POST',
-        '/api/messaging/telegram/onboarding/start',
-        telegramPairingStartBody(),
-      )
-      ..on('GET', '/api/messaging/telegram/onboarding/p1', {
-        'status': 'waiting',
-      })
-      ..on('DELETE', '/api/messaging/telegram/onboarding/p1', {'ok': true});
+      // A failed start leaves the pairing screen with no spinner and no
+      // poll, so the route settles; the back button is what is under test.
+      ..on('POST', '/api/messaging/telegram/onboarding/start', {
+        'detail': 'no',
+      }, status: 500);
   });
 
   final screens = <String, Widget Function(BuildContext)>{
@@ -73,9 +69,7 @@ void main() {
             _app(scale, entry.value, brightness: brightness),
           );
           await tester.tap(find.text('Open'));
-          await tester.pump();
-          await tester.pump(const Duration(seconds: 1));
-          await tester.pump(const Duration(seconds: 1));
+          await tester.pumpAndSettle();
 
           expect(tester.takeException(), isNull);
           expect(find.text('Messaging'), findsNothing);
@@ -86,11 +80,9 @@ void main() {
           expect(rect.width, greaterThanOrEqualTo(30));
 
           await tester.tap(chevron);
-          await tester.pump(const Duration(seconds: 1));
-          await tester.pump(const Duration(seconds: 1));
+          await tester.pumpAndSettle();
           expect(find.text('Open'), findsOneWidget);
           await tester.pumpWidget(const SizedBox());
-          await tester.pump(const Duration(seconds: 1));
         });
       }
     }

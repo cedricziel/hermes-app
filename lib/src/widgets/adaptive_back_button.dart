@@ -1,9 +1,11 @@
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../theme/focus_ring.dart';
+import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../navigation/desktop_navigation_history.dart';
+import 'named_icon_button.dart';
+import 'settings_scaffold.dart';
 
 /// The back button of a pushed screen: on iOS a chevron with the title of the
 /// screen underneath, elsewhere the stock [BackButton], which already draws a
@@ -13,20 +15,10 @@ import '../navigation/desktop_navigation_history.dart';
 /// `leadingWidth: adaptiveBackLeadingWidth(context)`. It draws nothing when
 /// there is no route to go back to.
 class AdaptiveBackButton extends StatelessWidget {
-  const AdaptiveBackButton({
-    super.key,
-    this.previousTitle,
-    this.collapseLabel = false,
-  });
+  const AdaptiveBackButton({super.key, this.previousTitle});
 
   /// The title of the screen underneath, or null to show "Back".
   final String? previousTitle;
-
-  /// On iOS, draws the chevron alone, in a 44 point target, and keeps the
-  /// label as the button's accessible name. It does so by itself from
-  /// [kLargeBarTextScale], matching [adaptiveBackLeadingWidth]; pass true to
-  /// collapse at smaller text too.
-  final bool collapseLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -46,13 +38,17 @@ class AdaptiveBackButton extends StatelessWidget {
             : () => history.back(),
       );
     }
-    if (collapseLabel || largeBarText(context)) {
+    // From [kLargeBarTextScale] the chevron stands alone, in a 44 point
+    // target, and the title stays as the button's accessible name.
+    if (largeBarText(context)) {
       final title = previousTitle;
-      return _ChevronOnlyBackButton(
+      return CollapsedBarIconButton(
         label: title == null || title.isEmpty
             ? MaterialLocalizations.of(context).backButtonTooltip
             : title,
-        color: Theme.of(context).colorScheme.primary,
+        icon: _backChevron,
+        iconSize: 30,
+        onPressed: () => Navigator.of(context).maybePop(),
       );
     }
     return CupertinoNavigationBarBackButton(
@@ -83,43 +79,38 @@ const double kCollapsedLeadingWidth = 52;
 bool largeBarText(BuildContext context) =>
     MediaQuery.textScalerOf(context).scale(17) / 17 >= kLargeBarTextScale;
 
-class _ChevronOnlyBackButton extends StatelessWidget {
-  const _ChevronOnlyBackButton({required this.label, required this.color});
+const _backChevron = AppIconSet(Icons.arrow_back_ios_new, CupertinoIcons.back);
+
+/// The leading item of an iOS bar once its label collapses: a glyph in a 44
+/// point target (the bar's icon button style) that keeps [label] as its
+/// accessible name.
+class CollapsedBarIconButton extends StatelessWidget {
+  const CollapsedBarIconButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.iconSize,
+    required this.onPressed,
+  });
 
   final String label;
-  final Color color;
+  final AppIconSet icon;
+  final double iconSize;
+  final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) {
-    void back() => Navigator.of(context).maybePop();
-    return Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: Semantics(
-        button: true,
-        label: label,
-        onTap: back,
-        excludeSemantics: true,
-        child: FocusRing.outside(
-          radius: 22,
-          child: InkResponse(
-            onTap: back,
-            radius: 22,
-            child: SizedBox.square(
-              dimension: 44,
-              child: Icon(
-                CupertinoIcons.back,
-                size: 30,
-                color: color,
-                // Mirrors the chevron in a right-to-left layout.
-                textDirection: Directionality.of(context),
-                applyTextScaling: false,
-              ),
-            ),
-          ),
-        ),
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.centerStart,
+    child: NamedIconButton(
+      label: label,
+      icon: icon,
+      color: Theme.of(context).colorScheme.primary,
+      style: SettingsScaffold.appleBarButtonStyle.copyWith(
+        iconSize: WidgetStatePropertyAll(iconSize),
       ),
-    );
-  }
+      onPressed: onPressed,
+    ),
+  );
 }
 
 /// [base] widened with the text size, so a bar label such as "Cancel" or the

@@ -119,7 +119,7 @@ void main() {
       final back = find.bySemanticsLabel('Chat');
       final target = find.descendant(
         of: find.byType(AppBar),
-        matching: find.byType(InkResponse),
+        matching: find.byType(IconButton),
       );
       expect(target, findsOneWidget);
       final size = tester.getSize(target);

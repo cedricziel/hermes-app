@@ -415,7 +415,6 @@ class SettingsScaffold extends StatelessWidget {
         : back
         ? AdaptiveBackButton(
             previousTitle: previousTitle ?? context.l10n.widgetsChatBackTitle,
-            collapseLabel: ios && largeBarText(context),
           )
         : ShellMenu.button(context);
     return Scaffold(
@@ -475,31 +474,11 @@ class SettingsScaffold extends StatelessWidget {
   Widget _cancelButton(BuildContext context, bool ios) {
     if (!ios) return const CloseButton();
     if (largeBarText(context)) {
-      void cancel() => Navigator.maybePop(context);
-      return Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: Semantics(
-          button: true,
-          label: context.l10n.widgetsCancel,
-          onTap: cancel,
-          excludeSemantics: true,
-          child: FocusRing.outside(
-            radius: 22,
-            child: InkResponse(
-              onTap: cancel,
-              radius: 22,
-              child: SizedBox.square(
-                dimension: kAppleMinTapTarget,
-                child: Icon(
-                  Icons.close,
-                  size: 24,
-                  color: Theme.of(context).colorScheme.primary,
-                  applyTextScaling: false,
-                ),
-              ),
-            ),
-          ),
-        ),
+      return CollapsedBarIconButton(
+        label: context.l10n.widgetsCancel,
+        icon: AppIcons.close,
+        iconSize: 24,
+        onPressed: () => Navigator.maybePop(context),
       );
     }
     return TextButton(
