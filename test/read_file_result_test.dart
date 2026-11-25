@@ -61,9 +61,9 @@ void main() {
       'a row ending in a carriage return and a row holding U+2028 parse',
       () {
         final result = _parse(
-          readCall(readAnswer(content: '1|first\r\n2|has break\r')),
+          readCall(readAnswer(content: '1|first\r\n2|has\u2028break\r')),
         )!;
-        expect(result.rows.map((r) => r.text), ['first\r', 'has break\r']);
+        expect(result.rows.map((r) => r.text), ['first\r', 'has\u2028break\r']);
       },
     );
 

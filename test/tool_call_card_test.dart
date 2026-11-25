@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
+import 'package:hermes_app/src/chat/widgets/code_tool_bodies.dart';
 import 'package:hermes_app/src/chat/widgets/code_tool_body.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_bodies.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
@@ -491,19 +492,26 @@ void main() {
         expect(tester.takeException(), isNull);
       });
 
-      testWidgets('a call still being prepared builds no code body', (
-        tester,
-      ) async {
-        await _pump(
-          tester,
-          writeCall(
-            null,
-            args: null,
-            status: ToolCallStatus.running,
-            preparing: true,
+      test('a call still being prepared builds no code body', () {
+        // The arguments are there so only the preparing guard can say no.
+        expect(
+          WriteFileToolBody.of(
+            writeCall(null, status: ToolCallStatus.running, preparing: true),
           ),
+          isNull,
         );
-        expect(find.byType(CodeToolBody), findsNothing);
+        expect(
+          ReadFileToolBody.of(
+            const ToolCall(
+              name: 'read_file',
+              summary: '',
+              args: {'path': 'a.txt'},
+              status: ToolCallStatus.running,
+              preparing: true,
+            ),
+          ),
+          isNull,
+        );
       });
 
       testWidgets('the diff entry still wins for a call that has a diff', (

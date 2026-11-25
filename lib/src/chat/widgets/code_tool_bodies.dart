@@ -104,9 +104,10 @@ class ReadFileToolBody extends StatelessWidget {
           CodeNote(
             CodeNoteTone.info,
             l10n.chatWidgetsCodeNotText,
-            detail:
-                '${[result.error, size].where((part) => part.isNotEmpty).join(' · ')}'
-                '\n${l10n.chatWidgetsCodeNeverShown}',
+            detail: [
+              [result.error, size].where((part) => part.isNotEmpty).join(' · '),
+              l10n.chatWidgetsCodeNeverShown,
+            ].where((part) => part.isNotEmpty).join('\n'),
           ),
         ],
       ),

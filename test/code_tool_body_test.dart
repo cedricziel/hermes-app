@@ -100,7 +100,16 @@ void main() {
     );
     expect(find.textContaining('Cut short.'), findsOneWidget);
     expect(find.text('Some long lines were cut by Hermes.'), findsOneWidget);
-    expect(find.byType(AppIcon), findsWidgets);
+    for (final note in [
+      find.textContaining('Cut short.'),
+      find.text('Some long lines were cut by Hermes.'),
+    ]) {
+      final row = find.ancestor(of: note, matching: find.byType(Row)).first;
+      expect(
+        find.descendant(of: row, matching: find.byType(AppIcon)),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('a refused write says what was tried', (tester) async {
@@ -145,6 +154,13 @@ void main() {
     expect(find.textContaining('Binary file (ZIP)'), findsOneWidget);
     expect(find.textContaining('SECRET', findRichText: true), findsNothing);
     expect(find.byKey(const ValueKey('tool-value-copy')), findsNothing);
+  });
+
+  testWidgets('a binary file with no description or size has no blank line', (
+    tester,
+  ) async {
+    await _pump(tester, _read(readCall({'is_binary': true})));
+    expect(find.text('The content is never shown here.'), findsOneWidget);
   });
 
   testWidgets('an empty file says so instead of a blank box', (tester) async {
