@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:dio/dio.dart';
 
-import '../chat/gateway/gateway_replay.dart' show reconnectDelay;
+import '../network/retry_delay.dart';
 
 const _retriesKey = 'hermes.getRetries';
 

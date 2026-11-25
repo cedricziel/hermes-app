@@ -769,9 +769,7 @@ class AuthController extends ChangeNotifier {
       message: 'Session access changed',
     );
     if (!gated) {
-      final page = _pageToken = PageToken(
-        HermesApiClient(_plainDio(baseUrl, retryGets: true)),
-      );
+      final page = _pageToken = PageToken(HermesApiClient(_plainDio(baseUrl)));
       dio.interceptors.add(pageTokenInterceptor(dio, page));
     }
     dio.interceptors.insert(
