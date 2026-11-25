@@ -78,6 +78,7 @@ class NotificationSettings extends ChangeNotifier {
       muted = await _prefs.getStringList(_prefsMutedKey);
       liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
       agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
+      _mutedUnreadable = false;
     } on Object catch (error, stack) {
       // Whatever failed to read, every alert goes off rather than on, also the
       // ones read before it: a user who chose off, or muted a chat, would

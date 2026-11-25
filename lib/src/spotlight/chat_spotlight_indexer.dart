@@ -93,7 +93,7 @@ class ChatSpotlightIndexer {
   var _holding = false;
 
   /// The flag as last saved, so a save that failed is tried again.
-  bool? _persisted = false;
+  var _persisted = false;
 
   /// Whether the last read of the flag failed.
   var _flagUnreadable = false;
@@ -240,9 +240,9 @@ class ChatSpotlightIndexer {
   }
 
   /// Reads the saved flag. One that cannot be read counts as set, so the
-  /// removal that may be owed still happens, and as not saved, so the next
-  /// change writes the real value. A store that stays unreadable is reported
-  /// and acted on once, not at every change.
+  /// removal that may be owed still happens, while [_persisted] keeps what was
+  /// last saved, so the next change writes the real value. A store that stays
+  /// unreadable is reported and acted on once, not at every change.
   Future<void> _loadHolding() async {
     try {
       _holding = _persisted = await _prefs.getBool(_prefsHoldingKey) ?? false;
@@ -252,7 +252,6 @@ class ChatSpotlightIndexer {
       _flagUnreadable = true;
       reportUnreadablePrefs(error, stack, 'the saved Spotlight flag');
       _holding = true;
-      _persisted = null;
     }
   }
 

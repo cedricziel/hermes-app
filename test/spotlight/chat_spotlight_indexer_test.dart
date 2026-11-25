@@ -639,7 +639,8 @@ void main() {
             url: 'hermes://chat?profile=default&id=a',
           ),
         ];
-        SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+        final unreadable = UnreadablePrefs();
+        SharedPreferencesAsyncPlatform.instance = unreadable;
         prefs = SharedPreferencesAsync();
         indexer.dispose();
         indexer = newIndexer();
@@ -651,6 +652,8 @@ void main() {
 
         expect(index.calls, ['deleteAll']);
         expect(index.items, isEmpty);
+        unreadable.unreadable = false;
+        expect(await prefs.getBool(_flagKey), isFalse);
         expect(reported, isNotEmpty);
         expect(reported.first.exception, isA<PlatformException>());
       },

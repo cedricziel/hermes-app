@@ -104,6 +104,22 @@ void main() {
     expect((await relaunch()).isMuted('p/1'), isTrue);
   });
 
+  test(
+    'mutes are saved again once a later load reads the muted chats',
+    () async {
+      final store = _MutedUnreadable();
+      SharedPreferencesAsyncPlatform.instance = store;
+      final settings = NotificationSettings();
+      await reportedErrors(settings.load);
+      store.unreadable = false;
+      await settings.load();
+
+      await settings.setMuted('p/2', true);
+
+      expect((await relaunch()).isMuted('p/2'), isTrue);
+    },
+  );
+
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();
     expect(settings.loaded, isFalse);
