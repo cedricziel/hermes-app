@@ -28,6 +28,7 @@ import 'macos/menu_bar_extra/menu_bar_extra_host.dart';
 import 'macos/mac_window.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
+import 'screens/saved_cleartext_gate.dart';
 import 'settings/theme_controller.dart';
 import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
@@ -231,7 +232,9 @@ class _HermesAppState extends State<HermesApp> {
           ),
         ),
       ),
-      home: _RootRouter(updateChecker: widget.updateChecker),
+      home: SavedCleartextGate(
+        child: _RootRouter(updateChecker: widget.updateChecker),
+      ),
     );
   }
 }

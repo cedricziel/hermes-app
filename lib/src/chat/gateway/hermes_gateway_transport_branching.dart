@@ -164,7 +164,11 @@ extension _Branching on HermesGatewayTransport {
     if (storedId is! String || storedId.isEmpty || branchRuntime is! String) {
       throw const FormatException('session.branch answered without an id');
     }
-    final branch = BranchedThread(storedId);
+    final parent = result['parent'];
+    final branch = BranchedThread(
+      storedId,
+      parent: parent is String && parent.trim().isNotEmpty ? parent : null,
+    );
     // Hermes branches a whole conversation (its `count` counts rows the app
     // cannot tell apart); the branch is cut back a prompt at a time, by the
     // same rule that takes back a turn for Try again.

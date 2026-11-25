@@ -78,3 +78,12 @@ bool redirectsToUnacceptedCleartext(String from, String to) {
   final a = Uri.parse(from), b = Uri.parse(to);
   return a.host.toLowerCase() != b.host.toLowerCase() || a.port != b.port;
 }
+
+/// The `https://` form of the `http://` address [url], on the same port
+/// unless that is the `http://` default.
+String httpsAddressOf(String url) {
+  final uri = Uri.parse(url);
+  return uri
+      .replace(scheme: 'https', port: uri.port == 80 ? null : uri.port)
+      .toString();
+}
