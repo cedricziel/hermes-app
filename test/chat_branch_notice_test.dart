@@ -154,16 +154,16 @@ void main() {
       (TargetPlatform.linux, 48.0),
       (TargetPlatform.macOS, 32.0),
     ]) {
-      testWidgets('is at least $height high on $platform', (tester) async {
+      testWidgets('is $height high on $platform', (tester) async {
         await pumpOnPlatform(
           tester,
-          _notice(ChatBranchNoticeState.title, () {}),
+          Align(
+            alignment: Alignment.topCenter,
+            child: _notice(ChatBranchNoticeState.title, () {}, title: 'Plan'),
+          ),
           platform: platform,
         );
-        expect(
-          tester.getSize(find.byType(ChatBranchNotice)).height,
-          greaterThanOrEqualTo(height),
-        );
+        expect(tester.getSize(find.byType(ChatBranchNotice)).height, height);
       });
     }
 
