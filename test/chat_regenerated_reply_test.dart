@@ -207,4 +207,20 @@ void main() {
     expect(replies().single.status, MessageStatus.error);
     expect(lastReplyMeta()?[kMetaRegenerated], isNull);
   });
+
+  test('a Retry whose prompt Hermes took as a stop phrase hands the mark to '
+      'the next reply', () async {
+    await firstTurn();
+    await chat.retry(thread);
+    transport.sends.last.emit(
+      const PromptAccepted(PromptAccepted.voiceStopped),
+    );
+    await pumpEventQueue();
+    expect(replies(), isEmpty);
+
+    await chat.submit('Plan it differently', const []);
+    await answerLast('Second answer');
+
+    expect(replies().single.regenerated, isTrue);
+  });
 }
