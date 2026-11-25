@@ -18,6 +18,7 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'catch_all_scan.dart';
 import 'ratchet.dart';
 import 'source_scan.dart';
 
@@ -1386,6 +1387,24 @@ List<Hit> _flutterBarrelImports() => [
         ...flutterBarrelImportHitsIn(file),
 ];
 
+/// Catch-alls under `lib/src/chat/` that swallow on purpose, as
+/// `path#Class.member`, each with the reason. Exact: an entry that no longer
+/// matches a swallowing catch-all fails, so the list shrinks with the code.
+const _chatCatchAllSwallows = <String, String>{};
+
+List<CatchAllFinding>? _chatCatchAlls;
+
+List<CatchAllFinding> _allChatCatchAlls() => _chatCatchAlls ??= [
+  for (final file in dartFiles('lib/src/chat'))
+    if (!file.path.endsWith('.g.dart') && !file.path.endsWith('.freezed.dart'))
+      ...catchAllFindingsIn(file),
+];
+
+List<Hit> _chatCatchAllHits() => [
+  for (final f in _allChatCatchAlls())
+    if (!_chatCatchAllSwallows.containsKey(f.owner)) f.hit,
+];
+
 /// Every guard of this file.
 final guardRules = <Rule>[
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
@@ -1843,6 +1862,22 @@ final guardRules = <Rule>[
         'log only the type: \'\${error.runtimeType}\'. The crash reporter '
         '(reportBug) is the one place that keeps the full message.',
     hits: _errorInterpolation,
+  ),
+  // docs/architecture/telemetry.md, "A boundary that has to keep going keeps
+  // `on Object`": #1396 found `ToolBodyRegistry.bodyFor` swallowing a builder's
+  // bug.
+  _custom(
+    name: 'chat-catch-all-reports',
+    message:
+        'a catch that can catch an Error (no `on` type, `on Object`, '
+        '`on Error`) under lib/src/chat/ must call reportBug(error, stack, '
+        '\'a fixed name\') (lib/src/telemetry/report_bug.dart; a fixed place, '
+        'never text, ids or arguments), rethrow, or hand the error on '
+        '(completeError, a callback, an assignment, a return). Otherwise '
+        'narrow it (`on FormatException catch`). Best-effort cleanup that '
+        'must swallow goes on _chatCatchAllSwallows (path#Class.member) with '
+        'its reason.',
+    hits: _chatCatchAllHits,
   ),
   _custom(
     name: 'theme-platform-copy',
@@ -3035,6 +3070,106 @@ void main() {
         );
       }
     });
+  });
+
+  group('chat catch-all scan', () {
+    int count(String body) => catchAllFindingsIn(
+      SourceFile('lib/src/chat/x.dart', 'class A { void f() { $body } }'),
+    ).length;
+
+    test('a catch-all that swallows is a hit', () {
+      expect(count('try { g(); } catch (e) { return; }'), 1);
+      expect(count('try { g(); } catch (e, st) { x = 1; }'), 1);
+      expect(count('try { g(); } on Object catch (e) { x = 1; }'), 1);
+      expect(count('try { g(); } on Error catch (e) { x = 1; }'), 1);
+      expect(count('try { g(); } on Object catch (_) { x = 1; }'), 1);
+      expect(count('try { g(); } on dynamic catch (e) { x = 1; }'), 1);
+      expect(count('try { g(); } catch (_) {}'), 1);
+    });
+
+    test('reading the error is not handing it on', () {
+      expect(count(r"try { g(); } catch (e) { debugPrint('$e'); }"), 1);
+      expect(count('try { g(); } catch (e) { log(e.runtimeType); }'), 1);
+      expect(count('try { g(); } catch (e) { x = e.toString(); }'), 1);
+      expect(count('try { g(); } catch (e) { debugPrint(e); }'), 1);
+      expect(count('try { g(); } catch (e) { final m = e; }'), 1);
+    });
+
+    test('reportBug, rethrow and throw clear it', () {
+      expect(count("try { g(); } catch (e, s) { reportBug(e, s, 'x'); }"), 0);
+      expect(count('try { g(); } catch (e) { rethrow; }'), 0);
+      expect(count('try { g(); } catch (e) { cleanup(); rethrow; }'), 0);
+      expect(count('try { g(); } catch (e) { throw Other(); }'), 0);
+      expect(
+        count('try { g(); } catch (e, s) { Error.throwWithStackTrace(a, s); }'),
+        0,
+      );
+      expect(
+        count(
+          "try { g(); } catch (e, s) { if (e is! X) { reportUnreadablePrefs(e, s, 'x'); } }",
+        ),
+        0,
+      );
+    });
+
+    test('a typed catch that cannot be an Error is not read', () {
+      expect(count('try { g(); } on FormatException catch (e) { x = 1; }'), 0);
+      expect(count('try { g(); } on Exception catch (e) { x = 1; }'), 0);
+      expect(count('try { g(); } on DioException catch (_) { x = 1; }'), 0);
+      expect(count('try { g(); } on StateError catch (e) { x = 1; }'), 0);
+    });
+
+    test('forwarding the error clears it', () {
+      expect(count('try { g(); } catch (e, s) { c.completeError(e, s); }'), 0);
+      expect(count('try { g(); } catch (e) { onError(e); }'), 0);
+      expect(count('try { g(); } catch (e) { s = s.copyWith(error: e); }'), 0);
+      expect(count('try { g(); } catch (e) { _error = e; }'), 0);
+      expect(count('try { g(); } catch (e) { return e; }'), 0);
+      expect(count('try { g(); } catch (e) { errors.add(e as Object); }'), 0);
+    });
+
+    test('a nested catch is judged on its own', () {
+      expect(
+        count(
+          "try { g(); } catch (e, s) { try { h(); } catch (e2, s2) { reportBug(e2, s2, 'x'); } }",
+        ),
+        1,
+      );
+      expect(
+        count(
+          'try { g(); } catch (e) { try { h(); } catch (e2) { x = 1; } rethrow; }',
+        ),
+        1,
+      );
+    });
+
+    test('the finding names the enclosing member', () {
+      final found = catchAllFindingsIn(
+        SourceFile(
+          'lib/src/chat/x.dart',
+          'class A { void f() { try { g(); } catch (e) {} } }\n'
+              'void top() { try { g(); } catch (e) {} }',
+        ),
+      );
+      expect(found.map((f) => f.owner), [
+        'lib/src/chat/x.dart#A.f',
+        'lib/src/chat/x.dart#top',
+      ]);
+    });
+
+    test(
+      'an allowlist entry still matches a catch-all, so the list shrinks',
+      () {
+        final owners = {for (final f in _allChatCatchAlls()) f.owner};
+        for (final entry in _chatCatchAllSwallows.keys) {
+          expect(
+            owners,
+            contains(entry),
+            reason: '$entry no longer swallows a catch-all: remove it',
+          );
+        }
+      },
+    );
   });
 
   group('list tile, chip and popup menu guards', () {

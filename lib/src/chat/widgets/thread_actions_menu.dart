@@ -5,6 +5,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../../l10n/l10n.dart';
+import '../../telemetry/report_bug.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -353,7 +354,8 @@ Future<void> _copyTranscript(
   final String text;
   try {
     text = threadTranscript(await threadHistory(thread, housekeeping));
-  } on Object {
+  } on Object catch (e, stack) {
+    reportBug(e, stack, 'a transcript copy');
     messenger?.showSnackBar(
       SnackBar(content: Text(l10n.chatWidgetsThreadMenuCopyFailed)),
     );
