@@ -88,6 +88,13 @@ class _HermesWidgetbookState extends State<HermesWidgetbook> {
   late final _integration = _Picked(_onPicked);
   var _theme = themes.values.first;
   var _locale = const Locale('en');
+  final _heroes = MaterialApp.createMaterialHeroController();
+
+  @override
+  void dispose() {
+    _heroes.dispose();
+    super.dispose();
+  }
 
   // Widgetbook reports from inside its own build, so the change waits for
   // the frame to end.
@@ -128,21 +135,33 @@ class _HermesWidgetbookState extends State<HermesWidgetbook> {
     //
     // A bare `Navigator`, not a second app: an app's navigator reports its
     // routes to the browser and takes the address bar's, which are
-    // Widgetbook's to handle.
-    return Localizations(
-      locale: _locale,
-      delegates: _delegates,
-      child: Theme(
-        data: _theme,
+    // Widgetbook's to handle. Around it, in `MaterialApp`'s order, is what
+    // `MaterialApp` gives its navigator.
+    return ScrollConfiguration(
+      behavior: const MaterialScrollBehavior(),
+      child: HeroControllerScope(
+        controller: _heroes,
         child: Shortcuts(
           shortcuts: WidgetsApp.defaultShortcuts,
           child: DefaultTextEditingShortcuts(
             child: Actions(
               actions: WidgetsApp.defaultActions,
-              child: AppThemeScopes(
-                child: Navigator(
-                  onGenerateRoute: (_) =>
-                      PageRouteBuilder<void>(pageBuilder: (_, _, _) => catalog),
+              child: TapRegionSurface(
+                child: Localizations(
+                  locale: _locale,
+                  delegates: _delegates,
+                  child: ScaffoldMessenger(
+                    child: Theme(
+                      data: _theme,
+                      child: AppThemeScopes(
+                        child: Navigator(
+                          onGenerateRoute: (_) => PageRouteBuilder<void>(
+                            pageBuilder: (_, _, _) => catalog,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

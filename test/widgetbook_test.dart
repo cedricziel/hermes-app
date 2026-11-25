@@ -113,6 +113,17 @@ void main() {
     expect(Theme.of(root).brightness, Brightness.dark);
     expect(MaterialLocalizations.of(root).okButtonLabel, 'OK');
     expect(CupertinoLocalizations.of(root).pasteButtonLabel, 'Einsetzen');
+    // What `MaterialApp` gives the routes of its navigator.
+    expect(ScrollConfiguration.of(root), isA<MaterialScrollBehavior>());
+    expect(ScaffoldMessenger.maybeOf(root), isNotNull);
+    expect(HeroControllerScope.maybeOf(root), isNotNull);
+    expect(
+      find.ancestor(
+        of: find.byType(Navigator).first,
+        matching: find.byType(TapRegionSurface),
+      ),
+      findsOneWidget,
+    );
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 10));
