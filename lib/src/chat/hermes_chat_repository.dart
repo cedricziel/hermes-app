@@ -100,7 +100,11 @@ class HermesChatRepository {
 
   /// One page of the chats [profile]'s messenger deliveries created, newest
   /// first.
-  Future<DeliveryPage> loadDeliveries({String? profile, int offset = 0}) async {
+  Future<DeliveryPage> loadDeliveries({
+    String? profile,
+    int offset = 0,
+    CancelToken? cancelToken,
+  }) async {
     final response = await _api.getSessionsApiSessionsGet(
       limit: kDeliveryPageSize,
       offset: offset,
@@ -108,6 +112,7 @@ class HermesChatRepository {
       archived: 'exclude',
       source_: kDeliverySource,
       profile: profile,
+      cancelToken: cancelToken,
     );
     final rows = _rows(response.data, 'sessions');
     final total = switch (response.data) {
@@ -415,6 +420,7 @@ class HermesChatRepository {
     String? profile,
     int limit = 100,
     int offset = 0,
+    CancelToken? cancelToken,
   }) async {
     final reread = min(offset, _overlap);
     final response = await _api
@@ -424,6 +430,7 @@ class HermesChatRepository {
           limit: limit + reread,
           offset: offset - reread,
           order: 'latest',
+          cancelToken: cancelToken,
         );
     final rows = _rows(response.data, 'messages');
     return MessagePage(
