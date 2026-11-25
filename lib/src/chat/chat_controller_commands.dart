@@ -655,7 +655,8 @@ extension _ChatControllerBranchParent on ChatController {
       tip = await repository
           .latestDescendant(parent, profile: profile)
           .timeout(_answerWithin);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a branch parent open');
       failed = true;
     }
     if (disposed) return;
