@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart' as mui;
 import '../files/code_highlight.dart';
 import '../theme/focus_ring.dart';
 import '../theme/hermes_code_colors.dart';
+import '../../l10n/l10n.dart';
 
 /// A fenced code block of a markdown message: the language label, a copy
 /// button and the code, coloured by the shared code palette
@@ -136,9 +137,10 @@ class _HermesCodeBlockState extends State<HermesCodeBlock> {
   }
 
   Widget _copyButton(BuildContext context) {
+    final l10n = context.l10n;
     final label = _copied
-        ? (widget.style.copiedLabel ?? 'Copied!')
-        : (widget.style.copyLabel ?? 'Copy code');
+        ? (widget.style.copiedLabel ?? l10n.widgetsCodeBlockCopied)
+        : (widget.style.copyLabel ?? l10n.widgetsCodeBlockCopy);
     final icon = _copied
         ? mui.Icons.check_rounded
         : mui.Icons.content_copy_rounded;

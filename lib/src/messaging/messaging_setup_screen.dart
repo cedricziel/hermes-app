@@ -10,6 +10,7 @@ import 'telegram_pairing_screen.dart';
 import '../chat/gateway_connection_transport.dart';
 import '../widgets/route_dismissal.dart';
 import '../telemetry/report_bug.dart';
+import '../../l10n/l10n.dart';
 
 /// A form for the credentials and settings a platform reads from its
 /// environment. Values the dashboard already holds are never shown, only
@@ -173,12 +174,15 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
   }
 
   Widget _field(HermesMessagingEnvVar v) {
+    final l10n = context.l10n;
     final cleared = _cleared.contains(v.key);
     final helper = [
       if (cleared)
         'Will be cleared'
       else if (v.isSet)
-        'Set (${v.redactedValue ?? 'hidden'}). Leave blank to keep it.',
+        l10n.messagingSetupHelperSet(
+          v.redactedValue ?? l10n.messagingSetupValueHidden,
+        ),
       if (v.help.isNotEmpty)
         v.help
       else if (v.description.isNotEmpty)

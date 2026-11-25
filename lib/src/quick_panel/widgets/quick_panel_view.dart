@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../theme/app_icons.dart';
+import '../../../l10n/l10n.dart';
 
 /// The quick panel's content: a slim header with the chat's title and Open in
 /// Hermes, over [child]. Before the first send [child] is the composer alone
@@ -52,7 +53,7 @@ class QuickPanelView extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      title ?? 'Ask Hermes',
+                      title ?? context.l10n.quickPanelTitleFallback,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.labelLarge?.copyWith(color: muted),

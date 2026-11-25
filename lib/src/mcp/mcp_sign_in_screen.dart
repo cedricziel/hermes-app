@@ -11,6 +11,7 @@ import 'hermes_mcp_repository.dart';
 import 'mcp_servers_controller.dart';
 import '../widgets/route_dismissal.dart';
 import '../telemetry/report_bug.dart';
+import '../../l10n/l10n.dart';
 
 /// Waits while the user approves a sign-in to an OAuth server in the browser.
 ///
@@ -188,7 +189,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
         case McpSignInDeclined():
           _failure =
               widget.controller.signInNoteOf(widget.server.name) ??
-              'Could not start signing in to ${widget.server.name}';
+              context.l10n.mcpSignInStartFailed(widget.server.name);
           _phase = _Phase.failed;
         case McpSignInGone():
           dismissRoute(context, false);

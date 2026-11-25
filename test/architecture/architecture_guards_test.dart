@@ -1106,7 +1106,22 @@ const _englishNullFallbackNotVisibleText = <String, ExactAllow>{
   ),
   'lib/src/widgets/hermes_code_block.dart': ExactAllow(
     1,
-    "the font family 'JetBrainsMono'; the file's other two hits are labels",
+    "the font family 'JetBrainsMono'",
+  ),
+  'lib/src/chat/widgets/tool_value_view.dart': ExactAllow(
+    1,
+    "a code language's name built from the fence's own tag, capitalised: a "
+    'proper name, no English words',
+  ),
+  'lib/src/providers/providers_screen.dart': ExactAllow(
+    1,
+    "the profile id 'default', the name Hermes gives a server without "
+    'profiles',
+  ),
+  'lib/src/voice/voice_call_screen.dart': ExactAllow(
+    1,
+    'a line of the English setup prompt that is sent to the agent (setupPrompt), '
+    'never drawn',
   ),
 };
 

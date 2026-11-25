@@ -5,6 +5,7 @@ import '../widgets/adaptive_dialog.dart';
 import '../widgets/row_actions.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
+import '../../l10n/l10n.dart';
 
 void _say(ScaffoldMessengerState messenger, String message) => messenger
   ..hideCurrentSnackBar()
@@ -45,6 +46,7 @@ List<RowAction> scheduleRowActions(
   CronJob job,
 ) {
   final messenger = ScaffoldMessenger.of(context);
+  final l10n = context.l10n;
   return [
     RowAction(
       label: 'Run now',
@@ -54,7 +56,9 @@ List<RowAction> scheduleRowActions(
           final epoch = controller.captureActivity();
           final message = await controller.runNow(job);
           controller.requireActivity(epoch);
-          if (context.mounted) _say(messenger, message ?? 'Run requested');
+          if (context.mounted) {
+            _say(messenger, message ?? l10n.schedulesRunRequested);
+          }
         } on SchedulesActivitySuspended {
           return;
         }
