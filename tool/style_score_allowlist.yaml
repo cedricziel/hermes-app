@@ -45,3 +45,11 @@ allow:
     category: b.dialog
     match: "showModalBottomSheet<void>("
     reason: The phone sheet of the task panel opens below kKanbanColumnsBreakpoint (720 pt), not at showAdaptiveSheet's isWideLayout (900 pt), so converting would turn a 720 to 899 pt window from a dialog into a sheet, a product decision left to the owner. Its height is capped at 0.92 of the screen, which showAdaptiveSheet cannot set.
+  - path: lib/src/messaging/widgets/qr_code_card.dart
+    category: a.color
+    match: "Color(0xFFFFFFFF)"
+    reason: A scanner needs the code black on white whatever the theme, so the tile never takes a theme colour (design brief whatsapp-onboarding, QR tile).
+  - path: lib/src/messaging/widgets/qr_code_card.dart
+    category: a.color
+    match: "Color(0xFF000000)"
+    reason: The code's modules are always black on the white tile, in both themes, so a scanner can read it.
