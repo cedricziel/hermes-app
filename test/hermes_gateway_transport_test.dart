@@ -2569,6 +2569,65 @@ void main() {
       ]);
     });
 
+    test('a refusal that does not name the key is final, sent once', () async {
+      for (final failure in [
+        (4000, 'invalid params for session.branch_whole: name: too long'),
+        (5008, 'could not write idempotency_key'),
+      ]) {
+        gateway
+          ..requests.clear()
+          ..branchFailure = failure;
+
+        await expectLater(
+          transport.branchThread('stored-2', idempotencyKey: 'key-1'),
+          throwsA(
+            isA<GatewayRpcException>().having(
+              (e) => e.code,
+              'code',
+              failure.$1,
+            ),
+          ),
+        );
+
+        expect(gateway.methods.where((m) => m.startsWith('session.branch')), [
+          'session.branch_whole',
+        ], reason: '${failure.$1}');
+      }
+    });
+
+    test(
+      'a new connection forgets what the old one said of branching',
+      () async {
+        final gateways = <FakeGateway>[];
+        final reconnecting = HermesGatewayTransport(
+          connect: () async {
+            final next = FakeGateway();
+            gateways.add(next);
+            return next.channel;
+          },
+          requestTimeout: const Duration(milliseconds: 50),
+          probeTimeout: const Duration(milliseconds: 50),
+        );
+        addTearDown(reconnecting.close);
+        gateways.clear();
+        await reconnecting.slashCommands();
+        gateways.single.unknownMethods.addAll([
+          'session.branch_whole',
+          'session.branch',
+        ]);
+        expect(await reconnecting.branchThread('stored-2'), isNull);
+        expect(reconnecting.branchSupported, isFalse);
+
+        gateways.single.deaf = true;
+        await reconnecting.checkConnection();
+        await gateways.single.closedByClient;
+        await reconnecting.slashCommands();
+
+        expect(gateways, hasLength(2));
+        expect(reconnecting.branchSupported, isNull);
+      },
+    );
+
     test('a branch that gets no answer is sent once and not resent', () async {
       final quick = HermesGatewayTransport(
         connect: () async => gateway.channel,

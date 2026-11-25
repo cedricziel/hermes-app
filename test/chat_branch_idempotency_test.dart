@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -22,6 +24,7 @@ void main() {
   late FakeHermesServer server;
   late ChatController chat;
   late List<String> reported;
+  late ValueNotifier<bool> activity;
 
   Future<void> flush() async {
     for (var i = 0; i < 20; i++) {
@@ -37,7 +40,7 @@ void main() {
   setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
-    final activity = ValueNotifier(true);
+    activity = ValueNotifier(true);
     reported = [];
     transport = FakeChatTransport();
     server = FakeHermesServer()
@@ -165,6 +168,31 @@ void main() {
       await chat.branch(parent());
       await flush();
 
+      expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
+    });
+
+    test('a branch whose answer comes after the session changed keeps '
+        'nothing', () async {
+      final gate = transport.branchGate = Completer<void>();
+      transport.branchError = const GatewayCallTimedOut();
+      final branching = chat.branch(parent());
+      await flush();
+
+      activity.value = false;
+      await flush();
+      activity.value = true;
+      await flush();
+      gate.complete();
+      await branching;
+      transport
+        ..branchGate = null
+        ..branchError = null;
+      chat.select('s1');
+      await flush();
+      await chat.branch(parent());
+      await flush();
+
+      expect(transport.branchKeys, hasLength(2));
       expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
     });
 

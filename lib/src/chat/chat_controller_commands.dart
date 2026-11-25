@@ -474,8 +474,9 @@ extension _ChatControllerCommands on ChatController {
     } on Object catch (error, stack) {
       reportChatBug(error, stack, 'a chat branch');
       failure = error;
-      if (_turnProblemOf(TurnAction.branch, error).kind ==
-          TurnProblemKind.unreachable) {
+      if (_currentActivity(epoch) &&
+          _turnProblemOf(TurnAction.branch, error).kind ==
+              TurnProblemKind.unreachable) {
         _unconfirmedBranch = attempt;
       }
     } finally {

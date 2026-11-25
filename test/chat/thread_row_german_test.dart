@@ -221,22 +221,26 @@ void main() {
   });
 
   group('ThreadActionsButton on macOS', () {
-    ThreadHousekeeping housekeeping({bool historyFails = false}) =>
-        ThreadHousekeeping(
-          repository: HermesChatRepository(FakeHermesServer().client().raw),
-          threads: () => const [],
-          profile: () => null,
-          changed: () {},
-          report: (_) {},
-          removed: (_) {},
-          history: (thread, {cancelled}) async =>
-              historyFails ? throw StateError('offline') : const [],
-          branch: (_) async {},
-        );
+    ThreadHousekeeping housekeeping({
+      bool historyFails = false,
+      bool Function()? branchSupported,
+    }) => ThreadHousekeeping(
+      repository: HermesChatRepository(FakeHermesServer().client().raw),
+      threads: () => const [],
+      profile: () => null,
+      changed: () {},
+      report: (_) {},
+      removed: (_) {},
+      history: (thread, {cancelled}) async =>
+          historyFails ? throw StateError('offline') : const [],
+      branch: (_) async {},
+      branchSupported: branchSupported,
+    );
 
     Future<void> openMenu(
       WidgetTester tester, {
       bool historyFails = false,
+      bool Function()? branchSupported,
     }) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -252,7 +256,10 @@ void main() {
                 updatedAt: DateTime(2026),
                 remote: true,
               ),
-              housekeeping: housekeeping(historyFails: historyFails),
+              housekeeping: housekeeping(
+                historyFails: historyFails,
+                branchSupported: branchSupported,
+              ),
               onOpenInNewWindow: (_) {},
               exportJson: ExportJsonOffer(onSelected: () {}),
             ),
@@ -277,6 +284,15 @@ void main() {
       ]) {
         expect(find.text(label), findsOneWidget, reason: label);
       }
+    });
+
+    testWidgets('the menu has no Branch entry once the server cannot branch', (
+      tester,
+    ) async {
+      await openMenu(tester, branchSupported: () => false);
+
+      expect(find.text('Verlauf kopieren'), findsOneWidget);
+      expect(find.text('In neuem Chat verzweigen'), findsNothing);
     });
 
     testWidgets('copying says so in German', (tester) async {
