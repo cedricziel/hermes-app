@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/auth/native_login_flow.dart';
+import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/screens/saved_cleartext_gate.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,12 +34,14 @@ void main() {
     String saved, {
     bool httpsDown = false,
     Future<void>? httpsGate,
+    NativeLogin? login,
   }) async {
     await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
     final transport = server.dio();
     addTearDown(transport.close);
     final auth = AuthController(
       tokenStore: MemoryTokenStore(),
+      login: login ?? runNativeLogin,
       interceptors: [
         InterceptorsWrapper(
           onRequest: (options, handler) async {
@@ -258,5 +262,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Keep using http://?'), findsOneWidget);
+  });
+
+  testWidgets('a question closed before sign-in stays closed through it', (
+    tester,
+  ) async {
+    server
+      ..on('GET', '/api/status', {'auth_required': true})
+      ..on('GET', '/api/auth/me', {'user_id': 'u1', 'provider': 'oidc'})
+      ..on('GET', '/api/auth/providers', {
+        'providers': [
+          {'name': 'oidc', 'display_name': 'SSO'},
+        ],
+      });
+    final login = Completer<HermesSession>();
+    final auth = await pumpGate(
+      tester,
+      _publicHttp,
+      login: (url, {provider, httpClient, cancelled}) => login.future,
+    );
+    expect(auth.state, HermesConnectionState.needsLogin);
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pumpAndSettle();
+
+    unawaited(auth.signInWithProvider(auth.providers.single));
+    await waitUntil(
+      tester,
+      () => auth.state == HermesConnectionState.signingIn,
+      reason: 'the sign-in to start',
+    );
+    await tester.pump();
+    login.complete(
+      const HermesSession(
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        expiresAt: 4102444800,
+        provider: 'oidc',
+        userId: 'u1',
+      ),
+    );
+    await waitUntil(
+      tester,
+      () => auth.state == HermesConnectionState.ready,
+      reason: 'the sign-in',
+    );
+    await tester.pumpAndSettle();
+
+    expect(auth.state, HermesConnectionState.ready);
+    expect(find.text('Keep using http://?'), findsNothing);
   });
 }
