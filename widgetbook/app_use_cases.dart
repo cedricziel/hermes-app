@@ -429,6 +429,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
               onOpenMessaging: () {},
               onOpenSkills: () {},
               onOpenMemory: () {},
+              onOpenSoul: () {},
               onOpenPlugins: () {},
               onOpenMcp: () {},
             ),

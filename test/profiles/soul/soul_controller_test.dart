@@ -942,6 +942,108 @@ void main() {
     );
   });
 
+  group('paused connection', () {
+    test(
+      'a pause that lands during the read before a save sends no PUT',
+      () async {
+        final gate = Completer<void>();
+        await loaded('Mine');
+        server.onRequest('GET', soulPath, (_) async {
+          await gate.future;
+          return (status: 200, body: {'content': fileText, 'exists': true});
+        });
+        expect(controller.requestSave(), isNotNull);
+        final running = controller.confirmSave();
+        await pumpEventQueue();
+        expect(controller.status, SoulStatus.verifying);
+        controller.pause();
+        gate.complete();
+        await running;
+        expect(puts, isEmpty);
+        expect(controller.status, SoulStatus.saveCheckFailed);
+        expect(controller.text, 'Mine');
+        expect(controller.dirty, isTrue);
+        controller.resume();
+        expect(puts, isEmpty, reason: 'the resume sends nothing');
+        await controller.confirmSave();
+        expect(puts, ['Mine']);
+      },
+    );
+
+    test('an uncover while paused reads nothing until the resume', () async {
+      await loaded('Mine');
+      controller.cover();
+      controller.pause();
+      final reads = gets();
+      controller.uncover();
+      await pumpEventQueue();
+      expect(gets(), reads, reason: 'nothing is read while paused');
+      expect(controller.load, SoulLoad.loading);
+      controller.resume();
+      await pumpEventQueue();
+      expect(gets(), reads + 1);
+      expect(controller.load, SoulLoad.loaded);
+      expect(controller.showsEditor, isTrue);
+      expect(controller.text, 'You are Quill.');
+    });
+
+    test('a pause that lands while a reload waits reads nothing', () async {
+      final gate = Completer<void>();
+      await loaded('Mine');
+      server.onRequest('PUT', soulPath, (request) async {
+        puts.add('Mine');
+        await gate.future;
+        return (status: 200, body: soulSaved);
+      });
+      expect(controller.requestSave(), isNotNull);
+      final running = controller.confirmSave();
+      await pumpEventQueue();
+      controller.cover();
+      controller.uncover();
+      controller.pause();
+      final reads = gets();
+      gate.complete();
+      await running;
+      await pumpEventQueue();
+      expect(gets(), reads);
+      controller.resume();
+      await pumpEventQueue();
+      expect(gets(), reads + 1);
+      expect(controller.showsEditor, isTrue);
+    });
+
+    test('a stale flag from Discard does not drop a later edit', () async {
+      await loaded('Mine');
+      controller.pause();
+      controller.discardText();
+      controller.cover();
+      controller.resume();
+      controller.uncover();
+      await pumpEventQueue();
+      expect(controller.text, 'You are Quill.');
+      controller.setText('new unsaved edit');
+      final reads = gets();
+      controller.pause();
+      controller.resume();
+      await pumpEventQueue();
+      expect(controller.text, 'new unsaved edit');
+      expect(gets(), reads);
+    });
+
+    test('a discard while paused reads once at the resume', () async {
+      await loaded('Mine');
+      controller.pause();
+      final reads = gets();
+      controller.discardText();
+      await pumpEventQueue();
+      expect(gets(), reads);
+      controller.resume();
+      await pumpEventQueue();
+      expect(gets(), reads + 1);
+      expect(controller.text, 'You are Quill.');
+    });
+  });
+
   group('telemetry', () {
     const markerText = 'MARKER-TEXT-hunter2';
     const markerProfile = 'marker-profile';
