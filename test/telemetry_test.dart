@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:ui' show ErrorCallback;
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/telemetry/telemetry_config.dart';
@@ -279,6 +282,130 @@ void main() {
       expect(crash.attributes['exception.message'], contains('bad input'));
       expect(crash.attributes['exception.stacktrace'], stackTrace.toString());
       expect(crash.attributes['breadcrumbs'], [contains('auth.signed_in')]);
+    });
+  });
+
+  group('uncaught error records on the wire', () {
+    late FlutterExceptionHandler? previousFlutterHandler;
+    late ErrorCallback? previousPlatformHandler;
+
+    setUp(() {
+      previousFlutterHandler = FlutterError.onError;
+      previousPlatformHandler = PlatformDispatcher.instance.onError;
+    });
+
+    tearDown(() {
+      FlutterError.onError = previousFlutterHandler;
+      PlatformDispatcher.instance.onError = previousPlatformHandler;
+    });
+
+    Future<(Telemetry, List<Map<String, Object?>>)> telemetryOnTheWire() async {
+      final bodies = <Map<String, Object?>>[];
+      final exporter = OtlpHttpLogExporter(
+        endpoint: Uri.parse('https://collector.example.com/v1/logs'),
+        httpClient: MockClient((request) async {
+          bodies.add(jsonDecode(request.body) as Map<String, Object?>);
+          return http.Response('{}', 200);
+        }),
+      );
+      final telemetry = await Telemetry.initialize(
+        TelemetryConfig(
+          otlpEndpoint: 'https://collector.example.com',
+          otlpHeaders: const {},
+          serviceName: 'hermes-app',
+          serviceVersion: '',
+          deploymentEnvironment: 'test',
+        ),
+        logExporter: exporter,
+        spanExporter: const NoopSpanExporter(),
+      );
+      telemetry.logUncaughtErrors();
+      return (telemetry, bodies);
+    }
+
+    List<Map<String, Object?>> exportedRecords(
+      List<Map<String, Object?>> requests,
+    ) => [
+      for (final request in requests)
+        for (final resource in request['resourceLogs']! as List)
+          for (final scope in (resource as Map)['scopeLogs'] as List)
+            for (final record in (scope as Map)['logRecords'] as List)
+              record as Map<String, Object?>,
+    ];
+
+    Map<String, Object?> attributesOf(Map<String, Object?> record) => {
+      for (final a in record['attributes']! as List)
+        (a as Map)['key']! as String: (a['value']! as Map).values.single,
+    };
+
+    test('a Flutter and an async error are each one record with type, message and stack', () async {
+      final (telemetry, requests) = await telemetryOnTheWire();
+      final flutterStack = StackTrace.current;
+      final asyncStack = StackTrace.current;
+
+      FlutterError.onError!(
+        FlutterErrorDetails(exception: StateError('boom'), stack: flutterStack),
+      );
+      PlatformDispatcher.instance.onError!(
+        ArgumentError('bad input'),
+        asyncStack,
+      );
+      await telemetry.flush();
+
+      final records = exportedRecords(requests);
+      expect(records, hasLength(2));
+      final flutter = records.firstWhere(
+        (r) => (r['body']! as Map)['stringValue'] == 'Uncaught Flutter error',
+      );
+      final async = records.firstWhere(
+        (r) => (r['body']! as Map)['stringValue'] == 'Uncaught async error',
+      );
+      expect(flutter['severityText'], 'ERROR');
+      expect(async['severityText'], 'ERROR');
+      expect(
+        attributesOf(flutter),
+        containsPair('exception.type', 'StateError'),
+      );
+      expect(attributesOf(flutter)['exception.message'], contains('boom'));
+      expect(
+        attributesOf(flutter)['exception.stacktrace'],
+        flutterStack.toString(),
+      );
+      expect(
+        attributesOf(async),
+        containsPair('exception.type', 'ArgumentError'),
+      );
+      expect(attributesOf(async)['exception.message'], contains('bad input'));
+      expect(
+        attributesOf(async)['exception.stacktrace'],
+        asyncStack.toString(),
+      );
+    });
+
+    test('an error reported under an active span carries its ids', () async {
+      final (telemetry, requests) = await telemetryOnTheWire();
+      final tracer = telemetry.forConnection(const {}).tracer!;
+      late SpanContext context;
+
+      await tracer.startActiveSpan('chat.send', (span) async {
+        context = span.spanContext;
+        await Future<void>.delayed(Duration.zero);
+        FlutterError.onError!(
+          FlutterErrorDetails(exception: StateError('in span')),
+        );
+        PlatformDispatcher.instance.onError!(
+          ArgumentError('also in span'),
+          StackTrace.current,
+        );
+      });
+      await telemetry.flush();
+
+      final records = exportedRecords(requests);
+      expect(records, hasLength(2));
+      for (final record in records) {
+        expect(record['traceId'], context.traceId);
+        expect(record['spanId'], context.spanId);
+      }
     });
   });
 

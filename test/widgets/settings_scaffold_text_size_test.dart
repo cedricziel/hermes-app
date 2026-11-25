@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
@@ -119,7 +120,7 @@ void main() {
       final back = find.bySemanticsLabel('Chat');
       final target = find.descendant(
         of: find.byType(AppBar),
-        matching: find.byType(InkResponse),
+        matching: find.byType(IconButton),
       );
       expect(target, findsOneWidget);
       final size = tester.getSize(target);
@@ -164,6 +165,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Open'), findsOneWidget);
     semantics.dispose();
+  });
+
+  testWidgets('the collapsed iOS Cancel shows the Apple close glyph', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _app(
+        platform: TargetPlatform.iOS,
+        direction: TextDirection.ltr,
+        scale: 3,
+        label: 'Save',
+        onSave: () {},
+        cancel: true,
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final glyph = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byType(Icon),
+    );
+    expect(glyph, findsOneWidget);
+    expect(tester.widget<Icon>(glyph).icon, AppIcons.close.apple);
+    expect(tester.widget<Icon>(glyph).icon, isNot(AppIcons.close.material));
   });
 
   testWidgets('an empty previous title still names the collapsed back button', (
