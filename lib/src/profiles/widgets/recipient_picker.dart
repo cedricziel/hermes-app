@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/focus_ring.dart';
 
 import '../hermes_profiles_repository.dart';
@@ -31,75 +32,81 @@ class RecipientPicker extends StatelessWidget {
   final ProfileAvatarRepository? avatars;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    shrinkWrap: true,
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        child: Text(
-          'New message',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-      ),
-      if (loading)
-        const Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 12),
-              Text('Loading recipients'),
-            ],
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Text(
+            l10n.profilesRecipientTitle,
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-        )
-      else if (failed) ...[
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('Could not load recipients.'),
         ),
-        if (onRetry != null)
-          Align(
-            alignment: Alignment.center,
-            child: TextButton(onPressed: onRetry, child: const Text('Retry')),
-          ),
-      ] else if (profiles.isEmpty) ...[
-        const Padding(
-          padding: EdgeInsets.all(16),
-          child: Text('No profiles available'),
-        ),
-        if (onSetup != null)
-          Align(
-            alignment: Alignment.center,
-            child: TextButton(
-              onPressed: onSetup,
-              child: const Text('Set up profiles'),
+        if (loading)
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 12),
+                Text(l10n.profilesRecipientLoading),
+              ],
             ),
+          )
+        else if (failed) ...[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(l10n.profilesRecipientLoadFailedMessage),
           ),
-      ] else
-        for (final profile in profiles)
-          FocusRing(
-            child: ListTile(
-              leading: ExcludeSemantics(
-                child: ProfileAvatar(profile: profile, repository: avatars),
+          if (onRetry != null)
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: onRetry,
+                child: Text(l10n.commonRetry),
               ),
-              title: Text(
-                profile.label,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: profile.label != profile.name
-                  ? Text(profile.name)
-                  : null,
-              selected: selectedProfile == profile.name,
-              trailing: selectedProfile == profile.name
-                  ? const Icon(Icons.check)
-                  : null,
-              onTap: () => onSelected(profile),
             ),
+        ] else if (profiles.isEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(l10n.profilesRecipientNone),
           ),
-    ],
-  );
+          if (onSetup != null)
+            Align(
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: onSetup,
+                child: Text(l10n.profilesRecipientSetUp),
+              ),
+            ),
+        ] else
+          for (final profile in profiles)
+            FocusRing(
+              child: ListTile(
+                leading: ExcludeSemantics(
+                  child: ProfileAvatar(profile: profile, repository: avatars),
+                ),
+                title: Text(
+                  profile.label,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: profile.label != profile.name
+                    ? Text(profile.name)
+                    : null,
+                selected: selectedProfile == profile.name,
+                trailing: selectedProfile == profile.name
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => onSelected(profile),
+              ),
+            ),
+      ],
+    );
+  }
 }
 
 enum RecipientSelectorState {
@@ -132,18 +139,20 @@ class ProfileRecipientChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final profile = this.profile;
     final state = this.state == RecipientSelectorState.ready && profile == null
         ? RecipientSelectorState.choose
         : this.state;
     final label = switch (state) {
-      RecipientSelectorState.loading => 'Loading recipients',
-      RecipientSelectorState.choose => 'Choose a recipient',
-      RecipientSelectorState.empty => 'No profiles available',
-      RecipientSelectorState.unavailable =>
-        '${profile?.label ?? 'Recipient'} unavailable',
-      RecipientSelectorState.failed => 'Could not load recipients',
-      RecipientSelectorState.ready => 'To: ${profile!.label}',
+      RecipientSelectorState.loading => l10n.profilesRecipientLoading,
+      RecipientSelectorState.choose => l10n.profilesRecipientChoose,
+      RecipientSelectorState.empty => l10n.profilesRecipientNone,
+      RecipientSelectorState.unavailable => l10n.profilesRecipientUnavailable(
+        profile?.label ?? l10n.profilesRecipientFallbackName,
+      ),
+      RecipientSelectorState.failed => l10n.profilesRecipientLoadFailed,
+      RecipientSelectorState.ready => l10n.profilesRecipientTo(profile!.label),
     };
     final retry =
         state == RecipientSelectorState.failed ||
@@ -159,21 +168,21 @@ class ProfileRecipientChip extends StatelessWidget {
           profile != null &&
               (state == RecipientSelectorState.loading ||
                   state == RecipientSelectorState.failed)
-          ? '$label, selected recipient ${profile.label}'
+          ? l10n.profilesRecipientSelectedLabel(label, profile.label)
           : label,
       leading: profile == null
           ? null
           : ProfileAvatar(profile: profile, repository: avatars, size: 24),
       onPressed: interactive ? onTap : null,
       actionLabel: retry
-          ? 'Retry'
+          ? l10n.commonRetry
           : empty
-          ? 'Set up profiles'
+          ? l10n.profilesRecipientSetUp
           : null,
       actionSemanticLabel: retry
-          ? 'Retry recipients'
+          ? l10n.profilesRecipientRetryRecipients
           : empty
-          ? 'Set up profiles'
+          ? l10n.profilesRecipientSetUp
           : null,
       onAction: retry
           ? onRetry
