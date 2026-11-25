@@ -1,0 +1,55 @@
+# Tasks
+
+Design (done): canvas published, local render reviewed
+
+Canvas: https://claude.ai/artifact/8VcVpSes4wZroG9K1ejGFJ (private; ask its owner for access). 13 boards: `read_file`, `write_file`, link previews, gallery, table and sources row on iPhone, light; tool views and sources on Mac, light; sources on Mac, light; tool views and sources on Android; tool views on iPhone, dark; sources on iPhone, dark; tool views and sources on Mac, dark; the largest text size. Checked in a local render, not in the claude.ai viewer. The brief is `docs/design-briefs/tool-views-and-sources.md`.
+
+Five implementation PRs after a contract PR, each under about 500 changed lines, one Dart PR at a time. The catalog comes first in each (`component-catalog` skill): the widget is a plain model with use cases in both themes, phone and desktop, before the registry entry or any screen wiring.
+
+## 0. PR 0 - `test(chat): record the tool result shapes the views read`
+
+- [ ] 0.1 Record, against `scripts/dev-backend.sh` (never the real `~/.hermes`) on Hermes `d923a5eb`, the result bodies of `read_file` (a short file, an offset read, a missing file with `similar_files`), `write_file` (a new file, a lint error, a refusal), `search_files` (matches, none, truncated) with the scripted model of `test/real_backend_contract_test.dart`, and add them as fixtures with the revision noted. Browser, image and vision tools need a browser or a provider and are recorded only if the verify environment has them; otherwise the design.md "Server surface" rows stay marked as read from source. Update the "Unknown" list in design.md with what the recording settles (spill text, `write_file` diff, `search_files` densify, compaction of tool rows in history). Acceptance: the fixtures decode, and a test asserts each key the views read.
+
+## 1. PR 1 - `feat(chat): code view for read_file and write_file`
+
+Files: `lib/src/chat/widgets/code_tool_body.dart` (`CodeToolBody`, plain model: path, language, rows, meta line, notes, state), `lib/src/chat/read_file_result.dart` and `write_file_result.dart` (pure parsers from a `ToolCall`, no widget), two entries in `tool_call_bodies.dart`, strings in `app_en.arb` / `app_de.arb` under the chat area anchor.
+
+Catalog use cases (`widgetbook/code_tool_body_use_cases.dart`): read complete, read at an offset, read cut short, read missing with similar files, binary, image, running, write generating (plain), write complete verified, write with lint error, write refused, unexpected shape (the fallback), a long path, a wrapped long line, 2,000 lines, German, largest text; iPhone, Android, Mac, light and dark.
+
+Acceptance tests (written first): `test/read_file_result_test.dart` (a gutter per row, the offset's numbers, a row that fails the pattern returns null, `base64_content` never in the model), `test/code_tool_body_test.dart` (Copy copies the text without numbers, notes carry an icon and a word, the gutter is not selectable, a refused write shows what was tried), `test/tool_call_card_test.dart` (the registry serves `read_file` and `write_file`, a malformed result falls back and does not throw, the diff entry still wins for a call with a diff). Revert-the-fix: drop the gutter-pattern check and the malformed test fails.
+
+## 2. PR 2 - `feat(chat): link preview cards for pages the agent opened`
+
+Files: `lib/src/chat/widgets/link_preview_card.dart` (`LinkPreviewCard`, plain model: title, host and path, excerpt, state, `onOpen`), `lib/src/chat/page_link.dart` (pure: address checks, host and path split, monogram letter, scheme and credentials rules; shared with PR 5), `link_tool_bodies` entries for `browser_navigate` and `web_extract`, strings.
+
+Catalog use cases (`widgetbook/link_preview_use_cases.dart`): page, page with a warning note, failed, running, three pages one unreadable, long title, long address, no spaces in a title, another scheme, credentials in the address, snapshot disclosure open; Apple, Material, Mac; light, dark; largest text.
+
+Acceptance tests: `test/page_link_test.dart` (only `http` and `https` open, credentials make an address not open and never show, host and path split, an IDN host), `test/link_preview_card_test.dart` (a tap calls `onOpen` with the address, a failed page has no tap), and a test with a fake HTTP client or `HttpOverrides` that rendering the card makes no request. Add an `arch.*` guard in `test/architecture/` that fails on `Image.network` or `NetworkImage` under `lib/src/chat/` outside the gallery's loader, naming that loader as the replacement (the mechanical check for "no request without a tap"; the baseline starts empty).
+
+## 3. PR 3 - `feat(chat): image gallery for found and generated images`
+
+Files: `lib/src/chat/widgets/tool_image_gallery.dart` and `tool_image_tile.dart` (plain models: source (server path or address), alt, size, host, load state), `lib/src/chat/tool_image_loader.dart` (the one place a remote image is requested: `https` only, 10 MB and 15 s bounds, no credentials, decoded at tile size, outcome to a breadcrumb), entries for `browser_get_images`, `image_generate`, `browser_vision`, strings.
+
+Catalog use cases (`widgetbook/tool_image_gallery_use_cases.dart`): one image large, generating skeleton, failed, a grid of nine with loaded, unloaded, failed, not-secure and too-large tiles, "Show all", small images hidden, no alt text, long alt text, a screenshot with the analysis; phone, tablet and desktop widths; light and dark; largest text; reduced motion.
+
+Acceptance tests: `test/tool_image_gallery_test.dart` (the 32 px rule and a size of 0 kept, six tiles then "Show all", rendering makes no request, `http` never loads, a tap loads once, a failed load is offered again by a tap and not retried alone, a screenshot path goes through `MediaStore`), `test/tool_image_loader_test.dart` (size and time bounds with a fake adapter and a fake clock, no `Authorization` header sent). The new guard of PR 2 is the check that no other call site requests an image.
+
+## 4. PR 4 - `feat(chat): table for a result that is a list of rows`
+
+Files: `lib/src/chat/widgets/tool_rows_table.dart` (plain model: columns, rows, summary, notes), `lib/src/chat/rows_result.dart` (pure: the flat-rows predicate, the column order, `search_files` mapping), the last registry entry, strings.
+
+Catalog use cases (`widgetbook/tool_rows_table_use_cases.dart`): search matches, 50 rows and "Show 50 more", the 500 cap, eight columns and "+3 more columns", nulls and booleans, numbers, a long cell, wide enough to scroll on a phone, fits on a desktop, empty ("No matches"), truncated search with the lower-bound note, a nested value (the fallback), running; light and dark; largest text.
+
+Acceptance tests: `test/rows_result_test.dart` (a list of flat maps is a table, a nested value is not, an empty list is not, a map with one large list of maps is, `matches_text` is not, the first row orders the columns), `test/tool_rows_table_test.dart` (the header stays while rows scroll, numbers right-aligned, a screen reader gets row and column names, Copy row copies JSON), `test/tool_call_card_test.dart` (the table entry is last and a `terminal` call keeps the terminal view).
+
+## 5. PR 5 - `feat(chat): sources row under a reply`
+
+Files: `lib/src/chat/sources/turn_sources.dart` (pure: collect from a turn's calls, opened before search hits, normal form, de-duplication; reuses the `web_search` parse and `page_link.dart`), `lib/src/chat/widgets/sources_row.dart` (plain model: sources, expanded, callbacks), the wiring where the reply's text is drawn (`chat_message_mapper.dart` and the message builder in `chat_builders.dart`), strings, breadcrumbs `sources_expand` and `sources_open`.
+
+Catalog use cases (`widgetbook/sources_row_use_cases.dart`): one source, three, seven collapsed and expanded, long titles, a bare host, a title with a bidirectional override, a row under a stopped reply, Apple, Material, Mac, a narrow Mac window, light and dark, largest text, with the press menu open.
+
+Acceptance tests: `test/turn_sources_test.dart` (opened pages first, search hits after, de-duplication across `Example.com/a#x` and `example.com/a`, credentials excluded, other schemes excluded, `browser_snapshot` adds nothing, an errored `web_extract` page adds nothing, the first title wins), a history test with the repository mapping that a turn of three assistant rows shows one row with all their sources and that a reload equals the live turn, `test/sources_row_test.dart` (a tap opens the address and makes no other request, "+N more" expands in place, the host is never elided before the title, no row for no sources and none while streaming). Revert-the-fix: collect over one message only and the history test fails.
+
+## Not verified
+
+The slices are built from a canvas and source reading. Each needs `scripts/verify.sh app` or `verify-in-app` against a throwaway Hermes with a scripted model for the file and search tools; the browser, image and vision views are verified on a device with a real browser tool and an image provider, or are listed under "Not verified on a device" in their PRs.
