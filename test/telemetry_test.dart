@@ -317,6 +317,7 @@ void main() {
           deploymentEnvironment: 'test',
         ),
         logExporter: exporter,
+        spanExporter: const NoopSpanExporter(),
       );
       telemetry.logUncaughtErrors();
       return (telemetry, bodies);
