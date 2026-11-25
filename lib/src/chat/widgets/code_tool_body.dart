@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
@@ -97,6 +98,10 @@ class _CodeToolBodyState extends State<CodeToolBody> {
   /// when the chat's colouring budget is spent.
   String? _language;
 
+  /// Whether the chat's colouring budget refused this text: it draws plain,
+  /// untagged, and says so.
+  var _budgetSpent = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -107,19 +112,21 @@ class _CodeToolBodyState extends State<CodeToolBody> {
   @override
   void didUpdateWidget(CodeToolBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.rows, widget.rows) ||
+    if (!listEquals(oldWidget.rows, widget.rows) ||
         oldWidget.language != widget.language) {
       _decideColour();
     }
   }
 
   void _decideColour() {
-    _language = judgeToolValueColour(
+    final judged = judgeToolValueColour(
       ToolValueShape(language: widget.language, notice: ToolValueNotice.none),
       budget: _budget,
       owner: this,
       chars: widget.rows.fold(0, (sum, row) => sum + row.text.length),
-    ).shape.language;
+    );
+    _language = judged.shape.language;
+    _budgetSpent = judged.shape.notice == ToolValueNotice.colourBudgetSpent;
   }
 
   @override
@@ -210,6 +217,10 @@ class _CodeToolBodyState extends State<CodeToolBody> {
                 ),
             ],
           ),
+          if (_budgetSpent)
+            ToolValueNoticeLine(
+              text: l10n.chatWidgetsToolValueNoticeColourBudget,
+            ),
           if (widget.state == CodeToolState.running)
             _RunningLine(label: widget.statusLabel),
           for (final note in widget.leading) _CodeNoteView(note),

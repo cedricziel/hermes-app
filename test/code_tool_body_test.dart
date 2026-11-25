@@ -249,6 +249,7 @@ void main() {
     );
     expect(find.text('Dart'), findsOneWidget);
     expect(budget.holders, 1);
+    expect(find.byKey(const ValueKey('tool-value-notice')), findsOneWidget);
   });
 
   testWidgets('every note has an icon and a word', (tester) async {
