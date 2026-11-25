@@ -360,6 +360,29 @@ void main() {
       },
     );
 
+    testWidgets(
+      'a screen opened while App Lock is locked starts nothing until unlocked',
+      (tester) async {
+        final lock = await enabledLock(tester);
+        lock.didChangeAppLifecycleState(AppLifecycleState.hidden);
+        expect(lock.locked, isTrue);
+        await open(tester, size: computer, lock: lock);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.tap(find.widgetWithText(FilledButton, 'Start'));
+        await settle(tester);
+        expect(starts(), 0);
+        expect(polls(), 0);
+        expect(tile(tester), isNull);
+
+        unawaited(lock.unlock());
+        await tester.pump();
+        await tester.pump();
+        await begin(tester);
+        expect(starts(), 1);
+      },
+    );
+
     testWidgets('the code is in no semantics node', (tester) async {
       final handle = tester.ensureSemantics();
       await open(tester, size: computer);
