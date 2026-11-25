@@ -39,6 +39,11 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 - **WHEN** the result carries `truncated_by` `bytes` and `next_offset`
 - **THEN** the note also says the server stopped at its size limit
 
+#### Scenario: A document
+
+- **WHEN** the result carries `extracted_document`
+- **THEN** a note says the text was taken from the document, it draws plain, and Copy copies the extracted text
+
 #### Scenario: Masked secrets
 
 - **WHEN** the content holds a `«redacted:` marker
@@ -129,7 +134,7 @@ A gallery SHALL leave out images smaller than 32 px on either side and say how m
 
 ### Requirement: Table
 
-A result that is a list of flat rows, or a map whose one large value is such a list, SHALL show as a table of at most eight columns and 50 rows at first, with a header that stays, rows of one line, numbers right-aligned and a way to show 50 more up to 500. A row with a nested value or an empty list SHALL NOT make a table.
+A result that is a list of flat rows, or a map whose one large value is such a list, SHALL show as a table of at most eight columns and 50 rows at first, with a header that stays, rows of one line, numbers right-aligned and a way to show 50 more up to 500. A row with a nested value or an empty list SHALL NOT make a table; an empty list SHALL show the generic input and result, except a `search_files` answer with no match, which SHALL say "No matches".
 
 #### Scenario: Search matches
 

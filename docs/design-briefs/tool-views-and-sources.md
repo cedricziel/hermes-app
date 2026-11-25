@@ -38,7 +38,7 @@ Someone reading what their Hermes did: what it read, what it wrote, which pages 
 
 ## Shared kit (reuse, do not invent)
 
-`ToolBodyFrame` and `ToolBodyRegistry`, `ToolValueView` / `ToolValuePanel` (colour, hidden characters, Copy), `toolValueLanguage` and the Files palette, `BusyBar`, `NamedIconButton`, `StateMessage` for empty states, `AppBanner` for the warning notes where a note stands alone, `MediaStore` and `ImageViewerPage` (Quick Look on Apple, for server images only), `launchUrl` with `LaunchMode.externalApplication`, `wellFormedText` and `tool_hidden_chars.dart`, `AppIcons`, tokens only (`--h-warning`, `--h-error`, `--h-success`, `--h-surface-high`, `--h-code-*`). Status is an icon plus a word, never colour alone. Targets are 44 pt, 48 dp, 28 pt on a Mac.
+`ToolBodyFrame` and `ToolBodyRegistry`, `ToolValueView` / `ToolValuePanel` (colour, hidden characters, Copy), `toolValueLanguage` and the Files palette, `BusyBar`, `NamedIconButton`, `StateMessage` for empty states, `DisclosureTile` (the "Page snapshot" and "Raw result" disclosures), `RowActions` and `showRingMenu` (the long-press and right-click menu), `AppBanner` for the warning notes where a note stands alone, `MediaStore` and `ImageViewerPage` (Quick Look on Apple, for server images only), `launchUrl` with `LaunchMode.externalApplication`, `wellFormedText` and `tool_hidden_chars.dart`, `AppIcons`, tokens only (`--h-warning`, `--h-error`, `--h-success`, `--h-surface-high`, `--h-code-*`). Status is an icon plus a word, never colour alone. Targets are 44 pt, 48 dp, 28 pt on a Mac.
 
 ## Widgets for the catalog (plain models, no controller)
 
@@ -50,7 +50,7 @@ Someone reading what their Hermes did: what it read, what it wrote, which pages 
 | `ToolRowsTable`                     | columns, rows, summary, notes                                | search matches, 50 and "Show 50 more", 500 cap, eight columns, nulls, numbers, empty, truncated, nested value, running                                       | none (Tag, grouped rows are not tables) |
 | `SourcesRow`, `SourceChip`          | sources, expanded, callbacks                                 | one, three, seven collapsed and expanded, long titles, override character, stopped reply, narrow Mac window, press menu                                      | `Chip`-like attachment chips            |
 
-New components needed (from the canvas, all token markup): code body with a gutter and the outcome note line, link card with a monogram tile, image tile with its states, table with a sticky header, source chip and its row, the press menu. The design system has `Tag`, `Chip`, `Banner` and `StateMessage`, which the canvas used where they fit; it has no table, no gallery tile and no card with a tile and two text lines.
+New components needed (from the canvas, all token markup): code body with a gutter and the outcome note line, link card with a monogram tile, image tile with its states, table with a sticky header, source chip and its row. The press menu is not new: it is `showRingMenu` and `RowActions` (the canvas draws it by hand). The design system has `Tag`, `Chip`, `Banner` and `StateMessage`, which the canvas used where they fit; it has no table, no gallery tile and no card with a tile and two text lines.
 
 ## Differences by platform
 
