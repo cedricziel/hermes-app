@@ -182,6 +182,16 @@ void main() {
       expect(result.hint, 'The file has merge conflict markers.');
     });
 
+    test('keeps the path out of its text', () {
+      final result = _parse(
+        readCall(
+          readAnswer(content: numbered(['a'])),
+          args: const {'path': 'secret/place/main.dart'},
+        ),
+      )!;
+      expect(result.toString(), isNot(contains('secret')));
+    });
+
     test('a bare *** is not taken for masked text', () {
       final result = _parse(readCall(readAnswer(content: '1|key = ***')))!;
       expect(result.maskedText, isFalse);

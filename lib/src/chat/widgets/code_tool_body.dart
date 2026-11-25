@@ -11,6 +11,8 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/busy_bar.dart';
 import '../read_file_result.dart' show CodeRow;
+import '../tool_value_budget.dart';
+import '../tool_value_language.dart' show ToolValueNotice, ToolValueShape;
 import 'tool_value_view.dart';
 
 /// Where the call stands: Hermes is working ([running]) or it answered
@@ -89,9 +91,40 @@ class CodeToolBody extends StatefulWidget {
 class _CodeToolBodyState extends State<CodeToolBody> {
   Timer? _copiedTimer;
   var _copied = false;
+  ToolValueBudget? _budget;
+
+  /// The grammar the rows are coloured with: [CodeToolBody.language], or null
+  /// when the chat's colouring budget is spent.
+  String? _language;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _budget = ToolValueBudgetScope.maybeOf(context);
+    _decideColour();
+  }
+
+  @override
+  void didUpdateWidget(CodeToolBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.rows, widget.rows) ||
+        oldWidget.language != widget.language) {
+      _decideColour();
+    }
+  }
+
+  void _decideColour() {
+    _language = judgeToolValueColour(
+      ToolValueShape(language: widget.language, notice: ToolValueNotice.none),
+      budget: _budget,
+      owner: this,
+      chars: widget.rows.fold(0, (sum, row) => sum + row.text.length),
+    ).shape.language;
+  }
 
   @override
   void dispose() {
+    _budget?.release(this);
     _copiedTimer?.cancel();
     super.dispose();
   }
@@ -129,7 +162,7 @@ class _CodeToolBodyState extends State<CodeToolBody> {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final widget = this.widget;
-    final language = widget.language;
+    final language = _language;
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: scheme.outline)),
@@ -143,22 +176,29 @@ class _CodeToolBodyState extends State<CodeToolBody> {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Flexible(child: _StartElidedPath(path: widget.path)),
-                      if (language != null) ...[
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            toolValueTagName(context, language),
-                            key: const ValueKey('tool-value-tag'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _caption(context).copyWith(color: subtle),
+                  child: LayoutBuilder(
+                    builder: (context, box) => Row(
+                      children: [
+                        Flexible(child: _StartElidedPath(path: widget.path)),
+                        if (language != null) ...[
+                          const SizedBox(width: 8),
+                          // Laid out before the path, which takes what is
+                          // left; capped so a long tag cannot take it all.
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: box.maxWidth * 0.3,
+                            ),
+                            child: Text(
+                              toolValueTagName(context, language),
+                              key: const ValueKey('tool-value-tag'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _caption(context).copyWith(color: subtle),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),

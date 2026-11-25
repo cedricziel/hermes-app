@@ -1,7 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/tool_value_budget.dart';
 import 'package:hermes_app/src/chat/widgets/code_tool_bodies.dart';
+import 'package:hermes_app/src/chat/widgets/tool_hidden_chars.dart';
 import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -181,6 +183,72 @@ void main() {
     await _pump(tester, const ToolValueView(text: 'abc', lineNumbers: []));
     expect(tester.takeException(), isNull);
     expect(find.textContaining('abc', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('the last row of a CRLF file draws no hidden character', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _read(readCall(readAnswer(content: '1|first\r\n2|second\r'))),
+    );
+    expect(find.byType(HiddenCharBox), findsNothing);
+  });
+
+  testWidgets('a long path keeps the width a short tag leaves it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 700,
+            child: _read(
+              readCall(
+                readAnswer(content: numbered(['a'])),
+                args: const {
+                  'path': 'a/long/folder/path/to/some/file_sizes.dart',
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    // 43 characters of the test font's 12 px boxes take about 516 px; the
+    // tag and Copy take the rest, so the whole path shows.
+    expect(
+      find.text('a/long/folder/path/to/some/file_sizes.dart'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a second large card stays plain once the budget is spent', (
+    tester,
+  ) async {
+    final budget = ToolValueBudget(maxChars: 1500);
+    Widget card(String name) => _read(
+      readCall(
+        readAnswer(content: numbered(List.filled(60, 'final value = 1;'))),
+        args: {'path': '$name.dart'},
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: ToolValueBudgetScope(
+          budget: budget,
+          child: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(children: [card('a'), card('b')]),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Dart'), findsOneWidget);
+    expect(budget.holders, 1);
   });
 
   testWidgets('every note has an icon and a word', (tester) async {

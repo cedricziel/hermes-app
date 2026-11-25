@@ -105,7 +105,12 @@ class _ToolValueViewState extends State<ToolValueView> {
     final generation = ++_generation;
     _worker?.kill();
     _worker = null;
-    final display = withoutCrlfReturns(wellFormedText(widget.text));
+    var display = withoutCrlfReturns(wellFormedText(widget.text));
+    // The last row of a numbered text has no line feed after it, so its
+    // carriage return is dropped here; Copy still has it.
+    if (widget.lineNumbers != null && display.endsWith('\r')) {
+      display = display.substring(0, display.length - 1);
+    }
     _hasHidden = hasHiddenToolText(display);
     _runs = [(display, null)];
     final language = widget.language;
