@@ -15,8 +15,10 @@ extension _Reconnect on HermesGatewayTransport {
   ///
   /// Each attempt after the very first waits [reconnectDelay] before it. Up to
   /// [maxAttempts] failed attempts, or 60 s from the drop, give up (see
-  /// [_Resumed.giveUp]). [cancelled] is asked between attempts and after each
-  /// step of one: once it holds, nothing more is tried and nothing is merged.
+  /// [_Resumed.giveUp]), and so does an attempt whose ticket was refused or
+  /// cancelled ([isCredentialStop]). [cancelled] is asked between attempts and
+  /// after each step of one: once it holds, nothing more is tried and nothing
+  /// is merged.
   Future<_Resumed> _reattach(
     _ThreadOwner owner, {
     required String? runtimeId,
@@ -118,6 +120,10 @@ extension _Reconnect on HermesGatewayTransport {
         } else {
           unanswered++;
         }
+        // A refused credential, or a session that ended, stays so however
+        // often it is asked: the reply gives up now, and the next ticket is
+        // minted when the app asks the connection again.
+        if (isCredentialStop(attempt.error)) break;
       }
       final failed = _Resumed(
         runtimeId: runtimeId ?? owner.$2,

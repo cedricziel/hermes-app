@@ -7,6 +7,8 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../chat/gateway/gateway_connection.dart'
     show GatewayCredentialUnavailable;
+import '../../chat/gateway/ticket_mint_gate.dart'
+    show GatewayCredentialBackedOff;
 
 /// The kind of a voice call failure in fixed words, for telemetry: an HTTP
 /// or upgrade status, a platform error code or an error class. Never a
@@ -27,7 +29,8 @@ String callErrorKind(Object error) {
     MissingPluginException() => 'missing_plugin',
     PlatformException(:final code) => 'platform_${_slug(code)}',
     FormatException() => 'format',
-    GatewayCredentialUnavailable() => 'credential',
+    GatewayCredentialUnavailable() ||
+    GatewayCredentialBackedOff() => 'credential',
     StateError() => 'state',
     _ => 'other',
   };

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
+import 'package:hermes_app/src/chat/gateway/ticket_mint_gate.dart';
+import 'package:hermes_app/src/windows/window_api_client.dart';
 import 'package:hermes_app/src/windows/window_auth_interceptor.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -54,6 +56,60 @@ void main() {
 
     expect(sent, ['Bearer access-1']);
     expect(main.asked, [null]);
+  });
+
+  group('a window client\'s ticket gate', () {
+    late HermesApiClient window;
+    late TicketMintGate gate;
+
+    setUp(() {
+      window = windowApiClient(
+        'http://hermes.test',
+        main.headers,
+        adapter: server,
+      );
+      gate = TicketMintGate.of(window);
+      server.onRequest(
+        'POST',
+        '/api/auth/ws-ticket',
+        (_) => (status: 401, body: {'detail': 'no'}),
+      );
+    });
+
+    Future<void> mint() => gate
+        .run(() => window.raw.authWsTicketApiAuthWsTicketPost())
+        .then<void>((_) {}, onError: (Object _) {});
+
+    int ticketRequests() =>
+        server.requests.where((r) => r.path == '/api/auth/ws-ticket').length;
+
+    test('a 401 that outlasts the main window\'s refresh is sent once per '
+        'wait, not on every call', () async {
+      for (var i = 0; i < 5; i++) {
+        await mint();
+      }
+
+      // The request and its one retry with the refreshed header.
+      expect(ticketRequests(), 2);
+      expect(main.rotations, 1);
+    });
+
+    test(
+      'a credential the main window renews meanwhile ends the wait',
+      () async {
+        await mint();
+        await mint();
+        expect(ticketRequests(), 2, reason: 'waiting');
+
+        // The main window refreshed on its own; the next request carries it.
+        main.current = 'access-9';
+        validToken = 'access-9';
+        await window.raw.getSessionsApiSessionsGet();
+        await mint();
+
+        expect(ticketRequests(), greaterThan(2));
+      },
+    );
   });
 
   test('a 401 asks the main window again, naming the rejected headers, and '

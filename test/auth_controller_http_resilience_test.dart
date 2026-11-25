@@ -3,6 +3,7 @@ import 'package:flutter_otel/flutter_otel.dart'
     show LogRecord, Logger, StatusCode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/gateway/ticket_mint_gate.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -199,5 +200,48 @@ void main() {
     expect(events.named('auth.session.expired'), [
       {'cause': 'unauthorized_after_retry'},
     ]);
+  });
+
+  test('a ticket mint whose 401 ended the session leaves the gate open, so a '
+      'sign-in again is not met by a wait', () async {
+    await controller.bootstrap();
+    final gate = TicketMintGate.of(controller.api!);
+    Future<void> mint() =>
+        gate.run(() => controller.api!.raw.authWsTicketApiAuthWsTicketPost());
+
+    await expectLater(mint(), throwsA(isA<DioException>()));
+    await expectLater(mint(), throwsA(isA<DioException>()));
+    expect(controller.state, HermesConnectionState.needsLogin);
+
+    // The same client survives the expiry: the gate must not hold it back.
+    await expectLater(
+      mint(),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.type,
+          'type',
+          DioExceptionType.cancel,
+        ),
+      ),
+    );
+  });
+
+  test('a refresh renews the epoch the ticket gate reads, so a wait from a '
+      'lost refresh ends with the new token', () async {
+    server.onRequest(
+      'POST',
+      '/api/auth/ws-ticket',
+      (options) => options.headers['Authorization'] == 'Bearer access-2'
+          ? (status: 200, body: {'ticket': 'tkt'})
+          : (status: 401, body: {'detail': 'no'}),
+    );
+    await controller.bootstrap();
+    final before = controller.api!.sessionEpoch;
+
+    // The 401 refreshes the token and the retry is let through.
+    await controller.api!.raw.authWsTicketApiAuthWsTicketPost();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.api!.sessionEpoch, isNot(before));
   });
 }

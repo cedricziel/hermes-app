@@ -2178,6 +2178,26 @@ final guardRules = <Rule>[
         'under flutter test gets phone sizing.',
     hits: _themePlatformCopies,
   ),
+
+  // docs/architecture/gateway.md, "Tickets and a refused credential": every
+  // socket mints its single-use ticket through the gate, so a loop that
+  // retries cannot repeat a refused request for hours.
+  _guard(
+    name: 'ws-ticket-outside-gate',
+    message:
+        'mint a socket ticket through hermesSocketConnect / '
+        'hermesGatewayConnect / hermesMixedSocketConnect '
+        '(lib/src/chat/gateway/gateway_connection.dart), which run '
+        'authWsTicketApiAuthWsTicketPost inside TicketMintGate.run '
+        '(lib/src/chat/gateway/ticket_mint_gate.dart); a direct call has no '
+        'wait after a refusal and no stop on a refused or cancelled ticket.',
+    pattern: RegExp(r'\bauthWsTicketApiAuthWsTicketPost\b'),
+    view: _code,
+    allow: {
+      'lib/src/chat/gateway/gateway_connection.dart':
+          'the one place that mints a ticket, inside TicketMintGate.run',
+    },
+  ),
 ];
 
 void main() {

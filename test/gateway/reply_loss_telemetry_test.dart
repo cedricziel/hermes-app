@@ -10,6 +10,7 @@ import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/gateway/reconnect_diagnosis.dart';
+import 'package:hermes_app/src/chat/gateway/ticket_mint_gate.dart';
 import 'package:hermes_app/src/telemetry/diagnosis_buckets.dart';
 
 import '../support/fake_gateway.dart';
@@ -511,6 +512,13 @@ void main() {
         TimeoutException(_serverText): ('timeout', 'timeout'),
         const GatewayConnectionClosed(): ('closed', 'closed'),
         const GatewayCredentialUnavailable(): ('credential', 'credential'),
+        const GatewayCredentialBackedOff(
+          refused: false,
+          retryAfter: Duration(seconds: 1),
+        ): (
+          'credential',
+          'credential',
+        ),
         const GatewayRpcException(4009, _serverText): ('busy', 'rpc'),
         const GatewayRpcException(5000, _serverText): ('rejected', 'rpc'),
         SocketException(_serverText, osError: const OSError('x', 111)): (

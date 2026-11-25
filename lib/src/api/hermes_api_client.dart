@@ -32,9 +32,29 @@ import 'request_timeout.dart';
 /// spec, and prefer adding to [raw]'s call sites over hand-rolling another
 /// `_dio.get`/`.post` for new features.
 class HermesApiClient {
-  HermesApiClient(this._dio) : raw = DefaultApi(_dio);
+  HermesApiClient(
+    this._dio, {
+    Object? Function()? sessionEpoch,
+    bool Function()? sessionEnded,
+  }) : raw = DefaultApi(_dio),
+       // ignore: prefer_initializing_formals
+       _sessionEpoch = sessionEpoch,
+       // ignore: prefer_initializing_formals
+       _sessionEnded = sessionEnded;
 
   final Dio _dio;
+  final Object? Function()? _sessionEpoch;
+  final bool Function()? _sessionEnded;
+
+  /// Changes when the session this client acts for ends or its access token
+  /// is renewed (compare with `==`), so a wait that began under the earlier
+  /// session or token is over. Constant for a client that is told nothing.
+  Object? get sessionEpoch => _sessionEpoch?.call() ?? 0;
+
+  /// Whether the session this client acts for has ended (a 401 after the
+  /// refresh and retry ends it): its requests are cancelled until a sign-in.
+  /// False for a client that holds no session of its own.
+  bool get sessionEnded => _sessionEnded?.call() ?? false;
 
   /// The generated client, covering every endpoint the spec declares a
   /// response or request schema for.
