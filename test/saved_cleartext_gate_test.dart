@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +31,7 @@ void main() {
     WidgetTester tester,
     String saved, {
     bool httpsDown = false,
+    Future<void>? httpsGate,
   }) async {
     await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
     final transport = server.dio();
@@ -48,6 +51,7 @@ void main() {
               );
               return;
             }
+            if (options.uri.scheme == 'https') await httpsGate;
             try {
               handler.resolve(await transport.fetch<dynamic>(options), true);
             } on DioException catch (error) {
@@ -170,5 +174,25 @@ void main() {
     expect(find.textContaining("doesn't answer over https://"), findsOneWidget);
     expect(auth.baseUrl, _publicHttp);
     expect(auth.state, HermesConnectionState.ready);
+  });
+
+  testWidgets('shows that https:// is being checked, and stays quiet when the '
+      'server changed meanwhile', (tester) async {
+    final gate = Completer<void>();
+    final auth = await pumpGate(tester, _publicHttp, httpsGate: gate.future);
+
+    await tester.tap(find.text('Use https://'));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Checking hermes.example.com over https://'),
+      findsOneWidget,
+    );
+
+    await tester.runAsync(auth.changeServer);
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SnackBar), findsNothing);
+    expect(auth.baseUrl, isNull);
   });
 }

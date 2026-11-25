@@ -55,15 +55,31 @@ class _SavedCleartextGateState extends State<SavedCleartextGate> {
       }
       if (keep) {
         await auth.keepCleartextServer();
-      } else if (!await auth.useHttpsForCleartextServer() && mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.screensCleartextHttpsUnavailable(host)),
-          ),
-        );
+      } else {
+        await _useHttps(auth, host);
       }
     } finally {
       _asking = false;
+    }
+  }
+
+  /// Switches to https, with a note while it is checked and one when nothing
+  /// answers there.
+  Future<void> _useHttps(AuthController auth, String host) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final l10n = context.l10n;
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(l10n.screensCleartextCheckingHttps(host)),
+        duration: const Duration(minutes: 1),
+      ),
+    );
+    final outcome = await auth.useHttpsForCleartextServer();
+    messenger?.hideCurrentSnackBar();
+    if (outcome == HttpsSwitch.unavailable) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text(l10n.screensCleartextHttpsUnavailable(host))),
+      );
     }
   }
 }

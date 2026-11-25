@@ -51,6 +51,18 @@ const kSavedServerUrlKey = 'hermes.server_base_url';
 /// chose to keep, a list of normalized addresses. It holds no secret.
 const kAcceptedCleartextServersKey = 'hermes.cleartext_accepted_servers';
 
+/// How [AuthController.useHttpsForCleartextServer] ended.
+enum HttpsSwitch {
+  /// The https address answered and the app connected to it.
+  switched,
+
+  /// Nothing usable answered there; the saved connection stays.
+  unavailable,
+
+  /// The question was gone by then (another server, disposal): nothing done.
+  superseded,
+}
+
 const _unexpectedResponseMessage = 'Unexpected response from the server';
 
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
@@ -243,13 +255,12 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Reconnects to the `https://` form of the saved `http://` address, once
-  /// that answers there, and returns true. When it does not, the saved
-  /// connection stays as it is, the question is dropped until the next launch
-  /// and this returns false. The session the `http://` address issued is not
+  /// that answers there. When it does not, the saved connection stays as it
+  /// is and the question is dropped until the next launch. The session the `http://` address issued is not
   /// served to the https address (the sign-in is asked again).
-  Future<bool> useHttpsForCleartextServer() async {
+  Future<HttpsSwitch> useHttpsForCleartextServer() async {
     final address = _cleartextToConfirm;
-    if (address == null) return false;
+    if (address == null) return HttpsSwitch.superseded;
     final https = httpsAddressOf(address);
     var answers = true;
     try {
@@ -268,26 +279,34 @@ class AuthController extends ChangeNotifier {
     } on Object {
       answers = false;
     }
-    if (_disposed || _cleartextToConfirm != address) return false;
+    if (_disposed || _cleartextToConfirm != address) {
+      return HttpsSwitch.superseded;
+    }
     _cleartextToConfirm = null;
     if (!answers) {
       notifyListeners();
-      return false;
+      return HttpsSwitch.unavailable;
     }
     await connect(https);
-    return true;
+    return HttpsSwitch.switched;
   }
 
   Future<List<String>> _acceptedCleartext() async =>
       await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
 
+  /// Remembers [address] as accepted. A failed write only means the question
+  /// comes back next launch, so it never fails the caller.
   Future<void> _acceptCleartext(String address) async {
-    final accepted = await _acceptedCleartext();
-    if (!accepted.contains(address)) {
-      await _prefs.setStringList(kAcceptedCleartextServersKey, [
-        ...accepted,
-        address,
-      ]);
+    try {
+      final accepted = await _acceptedCleartext();
+      if (!accepted.contains(address)) {
+        await _prefs.setStringList(kAcceptedCleartextServersKey, [
+          ...accepted,
+          address,
+        ]);
+      }
+    } on Object {
+      // Asked again next launch.
     }
     if (_cleartextToConfirm == address) {
       _cleartextToConfirm = null;

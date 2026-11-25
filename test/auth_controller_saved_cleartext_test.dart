@@ -209,9 +209,9 @@ void main() {
       'and drops the question', () async {
     final controller = await bootstrapped(saved: _publicHttp, httpsDown: true);
 
-    final switched = await controller.useHttpsForCleartextServer();
+    final outcome = await controller.useHttpsForCleartextServer();
 
-    expect(switched, isFalse);
+    expect(outcome, HttpsSwitch.unavailable);
     expect(controller.state, HermesConnectionState.ready);
     expect(controller.baseUrl, _publicHttp);
     expect(controller.unconfirmedCleartextServer, isNull);
@@ -246,7 +246,7 @@ void main() {
     final controller = await bootstrapped(saved: _publicHttp, tokens: tokens);
     expect(controller.state, HermesConnectionState.ready);
 
-    expect(await controller.useHttpsForCleartextServer(), isTrue);
+    expect(await controller.useHttpsForCleartextServer(), HttpsSwitch.switched);
 
     expect(controller.baseUrl, 'https://hermes.example.com');
     expect(controller.state, HermesConnectionState.needsLogin);
@@ -288,7 +288,10 @@ void main() {
       httpsRedirectsBack: true,
     );
 
-    expect(await controller.useHttpsForCleartextServer(), isFalse);
+    expect(
+      await controller.useHttpsForCleartextServer(),
+      HttpsSwitch.unavailable,
+    );
 
     expect(controller.state, HermesConnectionState.ready);
     expect(controller.baseUrl, _publicHttp);
@@ -306,8 +309,35 @@ void main() {
     await controller.changeServer();
     gate.complete();
 
-    expect(await switching, isFalse);
+    expect(await switching, HttpsSwitch.superseded);
     expect(controller.baseUrl, isNull);
     expect(controller.state, HermesConnectionState.needsServerUrl);
   });
+
+  test(
+    'a failing preferences write does not fail the connect or the answer',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = _FailingListWrites();
+      final controller = await bootstrapped();
+
+      await controller.connect(_publicHttp, allowCleartext: true);
+
+      expect(controller.state, HermesConnectionState.ready);
+
+      final saved = await bootstrapped(saved: 'http://other.example.org');
+      await saved.keepCleartextServer();
+      expect(saved.unconfirmedCleartextServer, isNull);
+    },
+  );
+}
+
+base class _FailingListWrites extends InMemorySharedPreferencesAsync {
+  _FailingListWrites() : super.empty();
+
+  @override
+  Future<bool> setStringList(
+    String key,
+    List<String> value,
+    SharedPreferencesOptions options,
+  ) => throw StateError('disk full');
 }

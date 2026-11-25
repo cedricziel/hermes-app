@@ -6211,6 +6211,16 @@
   },
 
   "@@x-area-screens": "",
+  "screensCleartextCheckingHttps": "Checking {host} over https://…",
+  "@screensCleartextCheckingHttps": {
+    "description": "Snackbar while an already saved unencrypted server is tried over https:// after the user chose https://.",
+    "placeholders": {
+      "host": {
+        "type": "String",
+        "example": "hermes.example.com"
+      }
+    }
+  },
   "screensCleartextHttpsUnavailable": "{host} doesn't answer over https://. Hermes keeps using http:// for now and will ask again next time.",
   "@screensCleartextHttpsUnavailable": {
     "description": "Snackbar after choosing https:// for an already saved unencrypted server that does not answer over https://.",
