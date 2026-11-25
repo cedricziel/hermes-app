@@ -174,7 +174,13 @@ void main() {
 
     await expectLater(
       dio.get<Object?>('/api/status', cancelToken: token),
-      throwsA(isA<DioException>()),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.type,
+          'type',
+          DioExceptionType.cancel,
+        ),
+      ),
     );
 
     expect(adapter.requests, hasLength(1));

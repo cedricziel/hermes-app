@@ -6,8 +6,8 @@ import '../chat/gateway/gateway_replay.dart' show reconnectDelay;
 
 const _retriesKey = 'hermes.getRetries';
 
-/// Sends a GET again when it never reached the server: a connection that
-/// could not be opened or timed out opening.
+/// Sends a GET again when it got no answer because the connection could not
+/// be opened, timed out opening, or dropped before the headers came.
 ///
 /// Only GET, only `connectionError` and `connectionTimeout`, at most
 /// [maxRetries] more times. Each wait is drawn at random below a bound that
@@ -49,7 +49,6 @@ class GetRetryInterceptor extends Interceptor {
       return handler.next(err);
     }
     await _sleep(reconnectDelay(retries, _random, base: _base));
-    if (options.cancelToken?.isCancelled ?? false) return handler.next(err);
     options.extra[_retriesKey] = retries + 1;
     try {
       handler.resolve(await _dio.fetch<dynamic>(options));
