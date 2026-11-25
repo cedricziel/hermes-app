@@ -260,7 +260,7 @@ void main() {
   ) async {
     await pumpPanel(tester, locale: const Locale('de'));
 
-    await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Zuständig'));
     await tester.pumpAndSettle();
 
     final dialog = find.byType(KanbanTaskChoiceDialog<String>);
@@ -281,7 +281,7 @@ void main() {
   ) async {
     await pumpPanel(tester, locale: const Locale('de'));
 
-    await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Priorität'));
     await tester.pumpAndSettle();
 
     final dialog = find.byType(KanbanTaskChoiceDialog<int>);
@@ -380,6 +380,29 @@ void main() {
     expect(find.text('Decomposed into 2 tasks'), findsOneWidget);
     expect(changes, 1);
   });
+
+  for (final (action, endpoint, one, many) in [
+    (
+      'Decompose',
+      'decompose',
+      'Decomposed into 1 task',
+      'Decomposed into 2 tasks',
+    ),
+    ('Specify', 'specify', 'Specified into 1 task', 'Specified into 2 tasks'),
+  ]) {
+    testWidgets('$action says 1 task for one child task', (tester) async {
+      serveStatus('triage');
+      server.on('POST', '/api/plugins/kanban/tasks/t1/$endpoint', {
+        'ok': true,
+        'child_ids': ['t2'],
+      });
+      await pumpPanel(tester);
+      await tester.tap(find.text(action));
+      await tester.pumpAndSettle();
+      expect(find.text(one), findsOneWidget);
+      expect(find.text(many), findsNothing);
+    });
+  }
 
   testWidgets('shows why a triage helper declined and changes nothing', (
     tester,

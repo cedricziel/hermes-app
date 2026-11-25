@@ -216,7 +216,7 @@ void main() {
 
     testWidgets('the same dialog speaks German', (tester) async {
       await openBoards(tester, locale: const Locale('de'));
-      await tester.tap(find.tooltip('New board'));
+      await tester.tap(find.tooltip('Neues Board'));
       await tester.pumpAndSettle();
 
       expect(find.widgetWithText(AppDialogAction, 'Abbrechen'), findsOneWidget);
@@ -346,7 +346,9 @@ void main() {
       Locale locale = const Locale('en'),
     }) async {
       await openPanel(tester, locale: locale);
-      await tester.tap(find.tooltip('Edit'));
+      await tester.tap(
+        find.tooltip(locale.languageCode == 'de' ? 'Bearbeiten' : 'Edit'),
+      );
       await tester.pumpAndSettle();
     }
 

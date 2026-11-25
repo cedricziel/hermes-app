@@ -103,7 +103,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<RowAction>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Inspect process'));
+      await tester.tap(
+        find.text(
+          locale.languageCode == 'de'
+              ? 'Prozess untersuchen'
+              : 'Inspect process',
+        ),
+      );
       await tester.pumpAndSettle();
       return find.byType(AppAlertDialog);
     }

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../l10n/l10n.dart';
+
 import '../../../chat/widgets/quick_look_target.dart';
 import '../../../widgets/busy_bar.dart';
 import '../../../theme/app_icons.dart';
@@ -53,7 +55,7 @@ class KanbanTaskAttachments extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GroupedSection(
-    header: 'Attachments',
+    header: context.l10n.kanbanTaskAttachments,
     children: [
       if (transferring) const BusyBar(),
       for (final a in attachments)
@@ -75,7 +77,7 @@ class KanbanTaskAttachments extends StatelessWidget {
           ),
         ),
       GroupedRow(
-        title: 'Attach file',
+        title: context.l10n.kanbanTaskAttachFile,
         chevron: false,
         leading: const AppIcon(AppIcons.attach),
         enabled: !transferring,
@@ -102,30 +104,33 @@ class KanbanAttachmentRow extends StatelessWidget {
   final ValueChanged<KanbanAttachment> onRemove;
 
   @override
-  Widget build(BuildContext context) => GroupedRow(
-    leading: const AppIcon(AppIcons.attach),
-    title: attachment.filename,
-    titleMaxLines: null,
-    subtitle: kanbanFileSize(attachment.size),
-    separateTrailing: true,
-    trailing: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        NamedIconButton(
-          label: 'Save ${attachment.filename}',
-          tooltip: 'Save attachment',
-          icon: AppIcons.download,
-          onPressed: transferring ? null : () => onDownload(attachment),
-        ),
-        NamedIconButton(
-          label: 'Remove ${attachment.filename}',
-          tooltip: 'Remove attachment',
-          icon: AppIcons.close,
-          onPressed: transferring ? null : () => onRemove(attachment),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return GroupedRow(
+      leading: const AppIcon(AppIcons.attach),
+      title: attachment.filename,
+      titleMaxLines: null,
+      subtitle: kanbanFileSize(attachment.size),
+      separateTrailing: true,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NamedIconButton(
+            label: l10n.kanbanTaskSaveAttachmentLabel(attachment.filename),
+            tooltip: l10n.kanbanTaskSaveAttachment,
+            icon: AppIcons.download,
+            onPressed: transferring ? null : () => onDownload(attachment),
+          ),
+          NamedIconButton(
+            label: l10n.kanbanTaskRemoveAttachmentLabel(attachment.filename),
+            tooltip: l10n.kanbanTaskRemoveAttachment,
+            icon: AppIcons.close,
+            onPressed: transferring ? null : () => onRemove(attachment),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Makes the row of [attachment] a [QuickLookTarget]. Its actions are always

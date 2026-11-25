@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../l10n/l10n.dart';
+
 import '../../../widgets/grouped_list.dart';
 import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
@@ -33,33 +35,50 @@ class KanbanTaskActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final estimate = this.estimate;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (task.status != 'done')
           GroupedSection(
-            header: 'Actions',
+            header: l10n.kanbanTaskActions,
             children: [
               if (task.status == 'triage') ...[
                 GroupedRow(
-                  title: 'Decompose',
+                  title: l10n.kanbanTaskDecompose,
                   chevron: false,
                   onTap: onDecompose,
                 ),
-                GroupedRow(title: 'Specify', chevron: false, onTap: onSpecify),
+                GroupedRow(
+                  title: l10n.kanbanTaskSpecify,
+                  chevron: false,
+                  onTap: onSpecify,
+                ),
               ],
               if (task.status == 'running')
-                GroupedRow(title: 'Reclaim', chevron: false, onTap: onReclaim),
-              GroupedRow(title: 'Complete', chevron: false, onTap: onComplete),
+                GroupedRow(
+                  title: l10n.kanbanTaskReclaim,
+                  chevron: false,
+                  onTap: onReclaim,
+                ),
+              GroupedRow(
+                title: l10n.kanbanTaskComplete,
+                chevron: false,
+                onTap: onComplete,
+              ),
               if (task.status != 'blocked')
-                GroupedRow(title: 'Block', chevron: false, onTap: onBlock),
+                GroupedRow(
+                  title: l10n.kanbanTaskBlock,
+                  chevron: false,
+                  onTap: onBlock,
+                ),
             ],
           ),
         GroupedSection(
           footer: estimate?.ok == true ? estimate?.rationale : null,
           children: [
             GroupedRow(
-              title: 'Estimate',
+              title: l10n.kanbanTaskEstimate,
               chevron: false,
               leading: const AppIcon(AppIcons.speed),
               subtitle: estimating ? null : estimate?.summary,
@@ -93,16 +112,17 @@ class KanbanTaskFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return GroupedSection(
       children: [
         GroupedRow(
-          title: 'Archive',
+          title: l10n.kanbanArchive,
           leading: const AppIcon(AppIcons.archive),
           chevron: false,
           onTap: onArchive,
         ),
         GroupedRow(
-          title: 'Delete',
+          title: l10n.kanbanDelete,
           leading: AppIcon(
             AppIcons.delete,
             color: Theme.of(context).colorScheme.error,

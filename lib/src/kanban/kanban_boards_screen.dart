@@ -1,4 +1,6 @@
+import 'package:intl/intl.dart' show NumberFormat;
 import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -38,17 +40,15 @@ class KanbanBoardsScreen extends StatelessWidget {
   Future<void> _create(BuildContext context) async {
     final name = await askKanbanText(
       context,
-      title: 'New board',
-      hint: 'Name',
-      confirm: 'Create',
+      title: context.l10n.kanbanBoardsNew,
+      hint: context.l10n.kanbanBoardsNameHint,
+      confirm: context.l10n.kanbanBoardsCreate,
     );
     if (name == null || name.isEmpty || !context.mounted) return;
     final slug = slugFor(name);
     if (slug.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Use letters or numbers in the board name.'),
-        ),
+        SnackBar(content: Text(context.l10n.kanbanBoardsNameInvalid)),
       );
       return;
     }
@@ -66,9 +66,9 @@ class KanbanBoardsScreen extends StatelessWidget {
   ) async {
     final name = await askKanbanText(
       context,
-      title: 'Rename board',
+      title: context.l10n.kanbanBoardsRenameTitle,
       initial: current,
-      confirm: 'Rename',
+      confirm: context.l10n.kanbanBoardsRename,
     );
     if (name == null || name.isEmpty || name == current || !context.mounted) {
       return;
@@ -88,8 +88,10 @@ class KanbanBoardsScreen extends StatelessWidget {
   }) async {
     final confirmed = await confirmKanban(
       context,
-      title: hard ? 'Delete “$name” for good?' : 'Archive “$name”?',
-      confirm: hard ? 'Delete' : 'Archive',
+      title: hard
+          ? context.l10n.kanbanBoardsDeleteTitle(name)
+          : context.l10n.kanbanBoardsArchiveTitle(name),
+      confirm: hard ? context.l10n.kanbanDelete : context.l10n.kanbanArchive,
     );
     if (!confirmed || !context.mounted) return;
     final ok = await runKanbanAction(
@@ -117,7 +119,7 @@ class KanbanBoardsScreen extends StatelessWidget {
     await showAppDialog<void>(
       context: context,
       builder: (context) => AppAlertDialog(
-        title: const Text('Board exported'),
+        title: Text(context.l10n.kanbanBoardsExportedTitle),
         // A path is data: the whole block lines up at the start on every
         // platform, where an Apple alert would centre only the wrapped lines.
         content: DefaultTextStyle.merge(
@@ -126,18 +128,25 @@ class KanbanBoardsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('The archive is on the server, at:'),
+              Text(context.l10n.kanbanBoardsExportedLocation),
               const SizedBox(height: 8),
               SelectableText(exported.archive),
               const SizedBox(height: 8),
-              Text('${(exported.size / 1024).toStringAsFixed(1)} KB'),
+              Text(
+                context.l10n.kanbanBoardsExportedSize(
+                  NumberFormat(
+                    '0.0',
+                    context.l10n.localeName,
+                  ).format(exported.size / 1024),
+                ),
+              ),
             ],
           ),
         ),
         actions: [
           AppDialogAction(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(context.l10n.kanbanBoardsExportedClose),
           ),
         ],
       ),
@@ -160,9 +169,7 @@ class KanbanBoardsScreen extends StatelessWidget {
     if (context.mounted && result!.renamed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'That name was taken, so the board is ${result!.board}.',
-          ),
+          content: Text(context.l10n.kanbanBoardsImportRenamed(result!.board)),
         ),
       );
     }
@@ -182,17 +189,17 @@ class KanbanBoardsScreen extends StatelessWidget {
         final boards = controller.boards;
         final removable = boards.length > 1;
         return SettingsScaffold(
-          title: 'Boards',
-          subtitle: boards.length == 1 ? '1 board' : '${boards.length} boards',
-          previousTitle: 'Kanban',
+          title: context.l10n.kanbanBoardsTitle,
+          subtitle: context.l10n.kanbanBoardsCount(boards.length),
+          previousTitle: context.l10n.kanbanBoardsPreviousTitle,
           actions: [
             SettingsBarAction(
-              label: 'Import a board',
+              label: context.l10n.kanbanImportTitle,
               icon: AppIcons.openFile,
               onPressed: () => _import(context),
             ),
             SettingsBarAction(
-              label: 'New board',
+              label: context.l10n.kanbanBoardsNew,
               icon: AppIcons.add,
               onPressed: () => _create(context),
             ),
