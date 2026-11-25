@@ -12,9 +12,12 @@ import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
 import 'package:hermes_app/src/messaging/widgets/whatsapp_saved_banner.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/named_icon_button.dart';
+import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
 import '../../support/fake_hermes_server.dart';
+import '../../support/recorded_events.dart';
 import '../../support/test_localizations.dart';
 import 'whatsapp_fixtures.dart';
 
@@ -220,6 +223,53 @@ void main() {
       await tester.tap(find.byType(BackButton).last);
       await tester.pumpAndSettle();
       expect(find.text('Link WhatsApp'), findsNothing);
+    });
+  });
+
+  group('the old-server event', () {
+    testWidgets('is logged once per connection, not once per visit', (
+      tester,
+    ) async {
+      server.on('POST', waStartPath, waRouteMissing, status: 404);
+      final events = RecordedEvents();
+      HermesRepositories connect() => HermesRepositories(
+        server.client(),
+        telemetry: events.connection(const {}),
+      );
+
+      Future<void> visit(HermesRepositories connection) async {
+        // A new list, not the one left open.
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(
+          Provider<HermesRepositories?>.value(
+            value: connection,
+            child: app(MessagingScreen(repository: repository())),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(MessagingPlatformRow, 'WhatsApp'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Link WhatsApp'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, 'Start'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('This server cannot link WhatsApp from the app'),
+          findsOneWidget,
+        );
+      }
+
+      final first = connect();
+      await visit(first);
+      expect(events.named('whatsapp.pair.unavailable'), hasLength(1));
+
+      // The same connection, the list opened again: not logged again.
+      await visit(first);
+      expect(events.named('whatsapp.pair.unavailable'), hasLength(1));
+
+      // Another connection (a new sign-in or server): logged once more.
+      await visit(connect());
+      expect(events.named('whatsapp.pair.unavailable'), hasLength(2));
     });
   });
 

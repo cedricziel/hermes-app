@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/navigation/desktop_navigation_commands.dart';
+import 'package:hermes_app/src/navigation/desktop_navigation_history.dart';
 import 'package:hermes_app/src/messaging/whatsapp_pairing_screen.dart';
 import 'package:hermes_app/src/messaging/widgets/qr_code_card.dart';
 import 'package:hermes_app/src/messaging/widgets/whatsapp_saved_banner.dart';
@@ -488,6 +491,71 @@ void main() {
         expect(starts(), 1);
       },
     );
+  });
+
+  group('the Mac back chord', () {
+    /// The screen under the app's own back command: the chord is a
+    /// `MacCommand.back` that the menu owns and `DesktopNavigationCommands`
+    /// handles through the navigation history, which pops with `maybePop`.
+    /// The screen adds no key handler of its own for it.
+    Future<MacCommandRegistry> openUnderHistory(WidgetTester tester) async {
+      tester.view
+        ..physicalSize = computer
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final registry = MacCommandRegistry();
+      final history = DesktopNavigationHistory(
+        canNavigate: () => true,
+        resolve: (_) async => null,
+      );
+      addTearDown(history.dispose);
+      await tester.pumpWidget(
+        MacCommandScope.root(
+          registry: registry,
+          child: MaterialApp(
+            theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+            localizationsDelegates: kTestLocalizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            navigatorObservers: [history],
+            builder: (context, child) =>
+                DesktopNavigationCommands(history: history, child: child!),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.push<void>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WhatsAppPairingScreen(
+                        repository: HermesMessagingRepository(
+                          server.client().raw,
+                        ),
+                        profile: _profile,
+                      ),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      addTearDown(() => leaveScreen(tester));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      return registry;
+    }
+
+    testWidgets('leaves like Back, asking the server to drop the setup once', (
+      tester,
+    ) async {
+      final registry = await openUnderHistory(tester);
+      await waitForCode(tester);
+      expect(registry.invoke(MacCommand.back), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(WhatsAppPairingScreen), findsNothing);
+      expect(cancels(), 1);
+    });
   });
 
   group('leaving', () {

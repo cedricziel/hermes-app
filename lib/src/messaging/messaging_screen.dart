@@ -8,6 +8,7 @@ import '../chat/invalidation/change_invalidation_binding.dart';
 import '../chat/invalidation/change_signal.dart';
 
 import '../api/hermes_repositories.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
@@ -50,7 +51,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
   /// What Finish saved on the WhatsApp screen, until the banner is closed.
   WhatsAppSavedOutcome? _whatsAppSaved;
-  final _whatsAppTelemetry = WhatsAppPairingTelemetry();
+  WhatsAppPairingTelemetry? _standaloneTelemetry;
   bool get _refreshing =>
       _loading ||
       (_changes?.controller.loading(InvalidationResource.platforms) ?? false);
@@ -107,6 +108,27 @@ class _MessagingScreenState extends State<MessagingScreen> {
     _changes?.controller.removeListener(_invalidationsChanged);
     _changes?.dispose();
     super.dispose();
+  }
+
+  /// One telemetry per connection (the signed-in repositories), so the
+  /// old-server event is logged once per connection. Without a connection
+  /// (a screen built bare) it is one per screen.
+  WhatsAppPairingTelemetry _whatsAppTelemetry() {
+    final connection = HermesRepositories.maybeOf(context);
+    if (connection == null) {
+      return _standaloneTelemetry ??= WhatsAppPairingTelemetry();
+    }
+    Breadcrumbs crumbs;
+    try {
+      crumbs = context.read<Breadcrumbs>();
+    } on ProviderNotFoundException {
+      crumbs = Breadcrumbs.none;
+    }
+    return WhatsAppPairingTelemetry.forConnection(
+      connection,
+      connection.telemetry,
+      crumbs,
+    );
   }
 
   /// "Open Server" is offered where the Server screen's controllers exist.
@@ -185,7 +207,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
             platform: platform,
             repository: _repository,
             changeSource: widget.changeSource,
-            whatsAppTelemetry: _whatsAppTelemetry,
+            whatsAppTelemetry: _whatsAppTelemetry(),
           ),
         ),
       );
