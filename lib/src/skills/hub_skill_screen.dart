@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 
+import '../../l10n/l10n.dart';
+
 import '../widgets/settings_scaffold.dart';
 import '../widgets/grouped_list.dart';
 import 'widgets/skill_install_confirm_dialog.dart';
@@ -100,7 +102,7 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
       listenable: widget.hub,
       builder: (context, _) => SettingsScaffold(
         title: widget.skill.name,
-        previousTitle: 'Skills',
+        previousTitle: context.l10n.skillsScreenTitle,
         body: Column(
           children: [
             Expanded(child: GroupedListView(children: [_body(context)])),
@@ -125,20 +127,23 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
           children: [
             TrustBadge(skill.trustLevel),
             if (skill.source.isNotEmpty) Text(skill.source),
-            if (_preview != null) Text('${_preview!.files.length} files'),
+            if (_preview != null)
+              Text(
+                context.l10n.skillsHubSkillFileCount(_preview!.files.length),
+              ),
           ],
         ),
         const SizedBox(height: 16),
         SkillSecurityScan(scan: _scan, failed: _scanFailed, onRetry: _load),
         if (_previewFailed)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('Could not load the skill\'s contents.'),
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(context.l10n.skillsHubSkillContentsFailed),
           ),
         if (_preview != null) ...[
           if (_preview!.files.isNotEmpty)
             GroupedSection(
-              header: 'Files',
+              header: context.l10n.skillsHubSkillFiles,
               children: [
                 for (final file in _preview!.files)
                   Padding(
@@ -164,29 +169,39 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
   Widget _bottom(BuildContext context) {
     final hub = widget.hub;
     final scan = _scan;
+    final l10n = context.l10n;
     Widget button;
     String? caption;
     if (hub.isInstalled(widget.skill)) {
-      button = const FilledButton(onPressed: null, child: Text('Installed'));
+      button = FilledButton(
+        onPressed: null,
+        child: Text(l10n.skillsHubInstalled),
+      );
     } else if (scan == null) {
-      button = const FilledButton(onPressed: null, child: Text('Install'));
+      button = FilledButton(
+        onPressed: null,
+        child: Text(l10n.skillsHubSkillInstall),
+      );
     } else {
       final busy = hub.busy;
       switch (scan.policy) {
         case InstallPolicy.allow:
           button = FilledButton(
             onPressed: busy ? null : _install,
-            child: const Text('Install'),
+            child: Text(l10n.skillsHubSkillInstall),
           );
         case InstallPolicy.ask:
           button = OutlinedButton(
             onPressed: busy ? null : _confirmAndInstall,
-            child: const Text('Install anyway…'),
+            child: Text(l10n.skillsHubSkillInstallAnyway),
           );
-          caption = 'Server policy: ask. You will be asked to confirm.';
+          caption = l10n.skillsHubSkillPolicyAsk;
         case InstallPolicy.block:
-          button = const FilledButton(onPressed: null, child: Text('Install'));
-          caption = 'Blocked by the server\'s policy.';
+          button = FilledButton(
+            onPressed: null,
+            child: Text(l10n.skillsHubSkillInstall),
+          );
+          caption = l10n.skillsHubSkillPolicyBlock;
       }
     }
     final metrics = GroupedMetrics.of(context);

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
 import 'keyboard_shortcuts.dart';
 
 const _prefsEnabledKey = 'desktopMenuBar.enabled';
@@ -25,7 +26,10 @@ class DesktopMenuBarSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final editsBefore = _edits;
-    final saved = await _prefs.getBool(_prefsEnabledKey);
+    final saved = await readSaved(
+      () => _prefs.getBool(_prefsEnabledKey),
+      'the saved menu bar choice',
+    );
     if (_edits != editsBefore) return;
     final value = saved ?? false;
     if (value == _enabled) return;

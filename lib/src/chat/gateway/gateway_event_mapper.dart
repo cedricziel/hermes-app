@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../chat_models.dart';
 import '../chat_transport.dart';
+import '../report_chat_bug.dart';
 import '../tool_result.dart';
 import '../chat_warning_state.dart';
 import '../chat_session_state.dart';
@@ -464,7 +465,8 @@ String _toolResult(Object? result) {
   }
   try {
     return const JsonEncoder.withIndent('  ').convert(result);
-  } on Object {
+  } on Object catch (error, stack) {
+    reportChatBug(error, stack, 'a tool result encode');
     return result.toString();
   }
 }

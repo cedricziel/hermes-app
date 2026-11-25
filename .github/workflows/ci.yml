@@ -392,6 +392,97 @@ jobs:
       - name: Build debug app with share extension
         run: flutter build macos --debug
 
+      # Quits the debug build the way a user does and fails on a crash. The debug
+      # build alone has the HERMES_QUIT_AFTER_LAUNCH branch in AppDelegate.swift,
+      # which calls NSApp.terminate five seconds after launch, so
+      # FlutterEngineTerminationHandler and every NSApplicationWillTerminate
+      # observer of a plugin run. The step fails on a non-zero exit (139 is
+      # SIGSEGV) or a crash report newer than the launch. Main's macOS build
+      # compiled the app and never ran it, which is how a crash on every quit
+      # (flutter_soloud's quit handler) shipped.
+      - name: Launch the app and quit it normally
+        timeout-minutes: 5
+        run: |
+          set -o pipefail
+          name="$(sed -n 's/^PRODUCT_NAME *= *//p' macos/Runner/Configs/AppInfo.xcconfig)"
+          app="build/macos/Build/Products/Debug/$name.app"
+          bin="$app/Contents/MacOS/$name"
+          [ -x "$bin" ] || { echo "::error::No debug binary at $bin"; exit 1; }
+          bundle="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")"
+          marker="$(mktemp)"
+          trap 'rm -f quit.log "$marker"' EXIT
+          reports() { # crash reports of the app (named <product name>-<date>.ips; the runner's own
+          # Runner.Listener and Runner.Worker reports are not ours) newer than the launch
+            find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports \
+              "$HOME/Library/Containers/$bundle/Data/Library/Logs" \
+              -name "$name-*.ips" -newer "$marker" 2>/dev/null || true
+          }
+          # Diagnosis only: ReportCrash writes the report a few seconds after the crash.
+          crash_report() {
+            report=""
+            for _ in $(seq 1 15); do
+              report="$(reports | head -n 1)"
+              [ -n "$report" ] && break
+              sleep 1
+            done
+            if [ -z "$report" ]; then echo "No $name crash report within 15 s."; return 0; fi
+            echo "::group::Crash report $report"
+            python3 -I - "$report" <<'PY' || true
+          import json, sys
+          lines = open(sys.argv[1], errors="replace").read().split("\n", 1)
+          try:
+              body = json.loads(lines[1])
+              images = [i.get("name", "?") for i in body.get("usedImages", [])]
+              print("exception:", body.get("exception"), "termination:", body.get("termination"))
+              for t in body.get("threads", []):
+                  if t.get("triggered"):
+                      print("crashed thread:", t.get("name") or t.get("queue") or t.get("id"))
+                      for n, f in enumerate(t.get("frames", [])[:30]):
+                          img = images[f["imageIndex"]] if f.get("imageIndex", -1) >= 0 else "?"
+                          print(f"{n:2} {img} {f.get('symbol', '?')}")
+          except Exception as error:
+              print("could not parse the report:", error)
+          PY
+            echo "::endgroup::"
+          }
+          # Diagnosis only: the same launch once more under lldb, to get a backtrace
+          # when no crash report exists. Its result is ignored and it cannot hang.
+          lldb_rerun() { # <env assignment>
+            echo "::group::lldb rerun of the launch ($1)"
+            env "$1" perl -e 'alarm 60; exec @ARGV' \
+              lldb -b -o run -k "thread backtrace all" -k "register read pc" -k 'image lookup -a $pc' -k quit \
+              -- "$bin" -ApplePersistenceIgnoreState YES 2>&1 | head -n 300 || true
+            echo "::endgroup::"
+          }
+          fail() { echo "::error::$2"; head -n 40 quit.log; crash_report; lldb_rerun "$1"; exit 1; }
+          # One launch: <label> <env assignment> <line the app prints just before it quits>
+          quit_launch() {
+            start=$SECONDS
+            touch "$marker"
+            if env "$2" perl -e 'alarm 60; exec @ARGV' "$bin" \
+              -ApplePersistenceIgnoreState YES > quit.log 2>&1; then status=0; else status=$?; fi
+            echo "$1: launch took $(( SECONDS - start )) s, exit status $status"
+            head -n 40 quit.log
+            if [ "$status" -eq 142 ]; then fail "$2" "$1: the app did not quit within 60 s (SIGALRM); log follows."; fi
+            if [ "$status" -ne 0 ]; then fail "$2" "$1: the app exited with status $status on quit (139 is SIGSEGV); log follows."; fi
+            grep -q "^$3\$" quit.log || fail "$2" "$1: the app exited before its quit hook ran; log follows."
+            # A crash after the exit status was decided still leaves a report.
+            sleep 5
+            if [ -n "$(reports)" ]; then fail "$2" "$1: the app left a crash report: $(reports | head -n 1)"; fi
+            echo "$1: the app quit normally."
+          }
+          quit_launch "quit without SoLoud" HERMES_QUIT_AFTER_LAUNCH=1 "HERMES_QUIT terminating"
+          # SoLoud started the way a call starts it (lib/src/voice/calls/soloud_quit_probe.dart),
+          # then the app's own terminate. Only two outcomes pass: a stream played, or the one
+          # named no-playback-device error (a runner without an audio device still has the
+          # library loaded). Any other failure of the probe fails here.
+          quit_launch "quit after SoLoud" HERMES_SOLOUD_QUIT_PROBE=1 "HERMES_PROBE terminating"
+          grep -E "^HERMES_PROBE" quit.log || true
+          if ! grep -q "^HERMES_PROBE soloud played\$" quit.log && ! grep -q "^HERMES_PROBE soloud no audio device\$" quit.log; then
+            echo "::error::quit after SoLoud: SoLoud neither played nor reported 'no audio device', so the quit did not run with the library in use."
+            exit 1
+          fi
+
   # The only test of the real libmpv decoder path in lib/src/voice/. It runs
   # for every code pull request, not only when a platform build does.
   native-audio-test:

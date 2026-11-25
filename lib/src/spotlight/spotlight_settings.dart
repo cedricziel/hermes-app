@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../settings/report_unreadable_prefs.dart';
 import '../telemetry/breadcrumbs.dart';
 
 const _prefsEnabledKey = 'hermes.spotlight';
@@ -33,7 +34,13 @@ class SpotlightSettings extends ChangeNotifier {
 
   Future<void> load() async {
     final editsBefore = _edits;
-    final saved = await _prefs.getBool(_prefsEnabledKey);
+    // Chat titles go into the system index only when the user's choice is
+    // known: an unreadable store means off.
+    final saved = await readSaved(
+      () => _prefs.getBool(_prefsEnabledKey),
+      'the saved Spotlight choice',
+      ifUnreadable: false,
+    );
     if (_edits == editsBefore) _enabled = saved ?? true;
     _loaded = true;
     notifyListeners();

@@ -121,7 +121,8 @@ extension _ChatScreenComposer on _ChatScreenState {
     bool accepted;
     try {
       accepted = await _chat.submit(typed, files);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a prompt send');
       _showMessage('Could not send this prompt. Your draft was kept.');
       return;
     } finally {

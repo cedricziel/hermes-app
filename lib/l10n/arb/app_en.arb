@@ -4423,6 +4423,15 @@
       }
     }
   },
+  "memoryEntryWaiting": "Memory · {count} waiting",
+  "@memoryEntryWaiting": {
+    "description": "Label of the Memory entry of the sidebar and the Profiles page while changes wait for a decision. {count} is how many wait. Without a count the entry reads memoryTitle.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "memoryLearningAgentNotes": "Keep agent notes",
   "@memoryLearningAgentNotes": {
     "description": "Title of the Keep agent notes switch in the Learning section of the Memory settings: Hermes keeps its own notes about the setup. Keep it short."
@@ -4430,6 +4439,16 @@
   "memoryLearningAgentNotesDetail": "Facts about your setup, tools and conventions",
   "@memoryLearningAgentNotesDetail": {
     "description": "Subtitle of the Keep agent notes switch in the Memory settings: what the agent notes hold."
+  },
+  "memoryLearningChangeFailed": "Couldn't change {setting}. Try again.",
+  "@memoryLearningChangeFailed": {
+    "description": "Banner above the Learning section of the Memory settings after the server refused a change and the switch went back. {setting} is the title of that setting (memoryLearningUserProfile and its siblings).",
+    "placeholders": {
+      "setting": {
+        "type": "String",
+        "example": "Keep agent notes"
+      }
+    }
   },
   "memoryLearningFooter": "Ask before saving applies right away, the rest from the next chat.",
   "@memoryLearningFooter": {
@@ -4588,6 +4607,17 @@
     "description": "Helper under a messaging setup field that already has a value. The value is the server's redacted form or the word for hidden.",
     "placeholders": {
       "value": {"type": "String", "example": "sk-…1234"}
+    }
+  },
+  "messagingSetupNothingToSetUp": "Nothing to set up for this messaging platform.",
+  "@messagingSetupNothingToSetUp": {
+    "description": "Shown in a messaging platform's setup form when the server lists no settings for it."
+  },
+  "messagingSetupTitle": "Set up {platform}",
+  "@messagingSetupTitle": {
+    "description": "Title of a messaging platform's setup form, and the back label of the screen that opens from it. The platform is its product name, such as WhatsApp.",
+    "placeholders": {
+      "platform": {"type": "String", "example": "WhatsApp"}
     }
   },
   "messagingSetupValueHidden": "hidden",
@@ -4842,6 +4872,10 @@
   "messagingWhatsappOpenServer": "Open Server",
   "@messagingWhatsappOpenServer": {
       "description": "Banner button that opens the Server screen."
+  },
+  "messagingWhatsappOrEnterYourself": "Or enter the details yourself.",
+  "@messagingWhatsappOrEnterYourself": {
+      "description": "Line under the Link WhatsApp button in the WhatsApp setup form, before the fields the user can fill in by hand. Product name WhatsApp is not in it."
   },
   "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
   "@messagingWhatsappPausedDetail": {
@@ -9186,9 +9220,66 @@
   "@skillsHubInstalled": {
     "description": "Value on the right of a row in the Discover tab of Skills when the hub skill is already installed. Keep it short."
   },
+  "skillsHubSkillContentsFailed": "Could not load the skill's contents.",
+  "@skillsHubSkillContentsFailed": {
+    "description": "Line on the hub skill page when the skill's files and SKILL.md could not be fetched."
+  },
+  "skillsHubSkillFileCount": "{count, plural, =1{1 file} other{{count} files}}",
+  "@skillsHubSkillFileCount": {
+    "description": "Count of the files a hub skill contains, in the line under its description.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsHubSkillFiles": "Files",
+  "@skillsHubSkillFiles": {
+    "description": "Header of the list of the files a hub skill contains, on the hub skill page."
+  },
+  "skillsHubSkillInstall": "Install",
+  "@skillsHubSkillInstall": {
+    "description": "Button at the bottom of the hub skill page that installs the skill. Also shown dimmed while the scan runs or when the server blocks the skill."
+  },
+  "skillsHubSkillInstallAnyway": "Install anyway…",
+  "@skillsHubSkillInstallAnyway": {
+    "description": "Button at the bottom of the hub skill page when the server's policy asks for confirmation; opens the confirmation dialog."
+  },
+  "skillsHubSkillPolicyAsk": "Server policy: ask. You will be asked to confirm.",
+  "@skillsHubSkillPolicyAsk": {
+    "description": "Caption under the install button of the hub skill page when the security scan's policy is to ask."
+  },
+  "skillsHubSkillPolicyBlock": "Blocked by the server's policy.",
+  "@skillsHubSkillPolicyBlock": {
+    "description": "Caption under the dimmed install button of the hub skill page when the security scan's policy is to block."
+  },
   "skillsJobFailedFallback": "It failed.",
   "@skillsJobFailedFallback": {
     "description": "Outcome line of a finished skill job that failed and has no error text."
+  },
+  "skillsScanBlocked": "Blocked",
+  "@skillsScanBlocked": {
+    "description": "Verdict line of the security scan of a hub skill when the server blocks the install."
+  },
+  "skillsScanCaution": "Caution: confirmation required",
+  "@skillsScanCaution": {
+    "description": "Verdict line of the security scan of a hub skill when the server asks for a confirmation before the install."
+  },
+  "skillsScanFailed": "Could not run the security scan.",
+  "@skillsScanFailed": {
+    "description": "Row in the security scan section of a hub skill when the scan request failed. A Retry row follows."
+  },
+  "skillsScanHeader": "Security scan",
+  "@skillsScanHeader": {
+    "description": "Header of the section that shows what the server's security scan found in a hub skill."
+  },
+  "skillsScanPassed": "Passed",
+  "@skillsScanPassed": {
+    "description": "Verdict line of the security scan of a hub skill when the install is allowed."
+  },
+  "skillsScanRunning": "Running the security scan…",
+  "@skillsScanRunning": {
+    "description": "Row in the security scan section of a hub skill while the scan runs."
   },
   "skillsScreenAllSources": "All sources",
   "@skillsScreenAllSources": {

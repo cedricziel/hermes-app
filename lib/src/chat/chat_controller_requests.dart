@@ -218,7 +218,8 @@ extension _ChatControllerRequests on ChatController {
         default:
           break;
       }
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a reply stop');
       if (!_currentActivity(epoch)) return;
       // The stop of an earlier reply failing is of no use to say.
       if ((_generations[thread] ?? 0) != generation) return;

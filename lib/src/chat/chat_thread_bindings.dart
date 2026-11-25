@@ -130,7 +130,10 @@ Widget? protectedQueueView(ChatController chat, ChatThread? t) =>
 /// ([editable]), branches a chat into a new one ([branchable]) and offers
 /// [starterPrompts] (or a [welcomeCard] in their place), slash commands and a
 /// [header]. [onCheckProviders] is the failed reply's way to Model providers.
-/// A [screen] shows the Bot screen's preview under a running `computer_use`
+/// [branchNotice] is the row that names the chat a branch came from; only the
+/// main window passes one, so a window or the quick panel shows none and cannot
+/// navigate. A [screen] shows the Bot screen's preview under a running
+/// `computer_use`
 /// call, and a tap on it calls [onOpenScreen]. With a [needsYou] queue (the
 /// screen owns it) the requests that wait on the user dock above the
 /// composer. [onOpenActivity] draws the activity line under the header and
@@ -172,6 +175,7 @@ ChatThreadView boundChatThreadView({
   VoidCallback? onOpenActivity,
   Widget? workingDirectoryRow,
   Widget? workspaceNotice,
+  Widget? branchNotice,
   ToolCallExpansionStore? toolCallExpansion,
   ToolValueBudget? toolValueBudget,
 }) {
@@ -179,6 +183,7 @@ ChatThreadView boundChatThreadView({
   return ChatThreadView(
     workingDirectoryRow: workingDirectoryRow,
     workspaceNotice: workspaceNotice,
+    branchNotice: branchNotice,
     thread: t,
     historyStatus: t == null ? null : chat.historyStatusOf(t),
     onRetryHistory: t == null ? null : () => chat.retryHistory(t),

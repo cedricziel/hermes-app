@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../telemetry/report_bug.dart';
 import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'approval_card.dart' show kAnswerFailedMessage;
@@ -72,7 +73,8 @@ class _VaultRequestCardState extends State<VaultRequestCard> {
         _password.clear();
         _code.clear();
       }
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a vault answer');
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -87,7 +89,8 @@ class _VaultRequestCardState extends State<VaultRequestCard> {
     });
     try {
       await widget.onSkip!();
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'a vault skip');
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -258,7 +258,7 @@ class ThreadSidebar extends StatelessWidget {
                             : ThreadSearchResults(
                                 query: search.query,
                                 status: search.status,
-                                hits: search.hits,
+                                hits: _markBranches(search.hits),
                                 selectedId: selectedId,
                                 onOpen: onOpenHit ?? (_) {},
                                 bottomPadding: contentBottomPadding,
@@ -277,7 +277,7 @@ class ThreadSidebar extends StatelessWidget {
                   if (onOpenMemory != null)
                     (
                       AppIcons.memory,
-                      memoryEntryLabel(memoryWaiting),
+                      memoryEntryLabel(context.l10n, memoryWaiting),
                       onOpenMemory!,
                     ),
                   if (onOpenSoul != null)
@@ -361,7 +361,7 @@ class ThreadSidebar extends StatelessWidget {
           : MacSearchResults(
               query: search.query,
               status: search.status,
-              hits: search.hits,
+              hits: _markBranches(search.hits),
               scope: search.scope,
               recent: search.recent,
               currentProfile: searchProfile,
@@ -373,6 +373,24 @@ class ThreadSidebar extends StatelessWidget {
                   : null,
             ),
     );
+  }
+
+  /// [hits] with the branches among the loaded [threads] marked. The search
+  /// route does not say which chat is a branch, so a hit of a chat that is not
+  /// loaded, or of another profile, shows no glyph.
+  List<ThreadSearchHit> _markBranches(List<ThreadSearchHit> hits) {
+    final branches = {
+      for (final thread in threads)
+        if (thread.isBranch) thread.id,
+    };
+    if (branches.isEmpty) return hits;
+    return [
+      for (final hit in hits)
+        branches.contains(hit.id) &&
+                (hit.profile == null || hit.profile == searchProfile)
+            ? hit.asBranch()
+            : hit,
+    ];
   }
 
   Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
@@ -472,6 +490,7 @@ class ThreadSidebar extends StatelessWidget {
                 busy: busy.contains(thread.id) || thread.isReplying,
                 onTap: () => onSelect(thread.id),
                 housekeeping: thread.remote ? housekeeping : null,
+                branch: thread.isBranch,
               );
             },
           ),
@@ -832,6 +851,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         busy: widget.busy.contains(thread.id) || thread.isReplying,
         onTap: () => widget.onSelect(thread.id),
         housekeeping: thread.remote ? widget.housekeeping : null,
+        branch: thread.isBranch,
       );
     }
     final housekeeping = thread.remote ? widget.housekeeping : null;
@@ -854,6 +874,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       selected: thread.id == widget.selectedId,
       busy: widget.busy.contains(thread.id) || thread.isReplying,
       relativeTime: relativeTime(thread.updatedAt),
+      branch: thread.isBranch,
       onTap: () => widget.onSelect(thread.id),
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
       menuItems: (context) => macThreadMenuItems(
@@ -862,7 +883,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         canonical: thread.isCanonicalBotChat,
         manageable: housekeeping != null,
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
-        canBranch: housekeeping?.branch != null && thread.remote,
+        canBranch: (housekeeping?.canBranch ?? false) && thread.remote,
         changeFolder: changeFolder,
         exportJson: exportJson,
       ),

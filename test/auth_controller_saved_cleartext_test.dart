@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/native_login_flow.dart';
@@ -11,6 +12,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/fake_hermes_server.dart';
 import 'support/memory_token_store.dart';
+import 'support/unreadable_prefs.dart';
 
 const _publicHttp = 'http://hermes.example.com';
 
@@ -397,10 +399,14 @@ void main() {
 
   test('an unreadable accepted list asks, and still connects', () async {
     SharedPreferencesAsyncPlatform.instance = _FailingListReads();
-    final controller = await bootstrapped(saved: _publicHttp);
+    late AuthController controller;
+    final reported = await reportedErrors(() async {
+      controller = await bootstrapped(saved: _publicHttp);
+    });
 
     expect(controller.state, HermesConnectionState.ready);
     expect(controller.unconfirmedCleartextServer, _publicHttp);
+    expect(reported.single.exception, isA<PlatformException>());
   });
 }
 
@@ -422,5 +428,5 @@ base class _FailingListReads extends InMemorySharedPreferencesAsync {
   Future<List<String>?> getStringList(
     String key,
     SharedPreferencesOptions options,
-  ) => throw StateError('unreadable');
+  ) => throw PlatformException(code: 'channel-error');
 }

@@ -18,7 +18,8 @@ extension _ChatScreenReadAloud on _ChatScreenState {
     final VoiceSupport support;
     try {
       support = await repository.voiceConfiguration(profile: profile);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the read-aloud support');
       // Unknown, not unsupported: keep what is shown until the next check.
       return;
     }

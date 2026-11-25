@@ -29,6 +29,22 @@ void main() {
     },
   );
 
+  test(
+    'branchSupported is the delegate\'s, and unknown once suspended',
+    () async {
+      final delegate = _Delegate()..branchSupportedAnswer = false;
+      final transport = SessionChatTransport(() => delegate);
+
+      expect(transport.branchSupported, isFalse);
+      delegate.branchSupportedAnswer = true;
+      expect(transport.branchSupported, isTrue);
+
+      await transport.suspend();
+      expect(transport.branchSupported, isNull);
+      await transport.close();
+    },
+  );
+
   test('requestKeepingConnection reaches the delegate with its timeout and '
       'is refused once suspended', () async {
     final delegate = _Delegate();
@@ -259,6 +275,10 @@ class _Delegate
   var followCancelled = false;
   var closed = false;
   Stream<ChatEvent>? sendStream;
+  bool? branchSupportedAnswer;
+
+  @override
+  bool? get branchSupported => branchSupportedAnswer;
 
   late final sendController = StreamController<ChatEvent>(
     onListen: () => sendListened = true,

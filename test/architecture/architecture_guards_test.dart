@@ -18,6 +18,7 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'catch_all_scan.dart';
 import 'ratchet.dart';
 import 'source_scan.dart';
 
@@ -94,18 +95,30 @@ List<String> exactShortfalls(
           '${(actual[e.key] ?? 0) == 0 ? ' (remove the entry)' : ''}.',
 ];
 
-/// A guard with its own scan.
+/// A guard with its own scan. With [exact], a file within its allowance is
+/// clean, one above it reports all its hits and one below it fails the exact
+/// allowlist check, as in [_guard].
 Rule _custom({
   required String name,
   required String message,
   required List<Hit> Function() hits,
+  Map<String, ExactAllow> exact = const {},
 }) {
   List<Hit>? cached;
   List<Hit> run() => cached ??= hits();
+  if (exact.isNotEmpty) {
+    _exactChecks['arch.$name'] = (
+      allowed: {for (final e in exact.entries) e.key: e.value.count},
+      counts: () => countByPath(run()),
+    );
+  }
   return Rule(
     id: 'arch.$name',
     message: message,
-    scan: () => countByPath(run()),
+    scan: () => {
+      for (final e in countByPath(run()).entries)
+        if (e.value > (exact[e.key]?.count ?? 0)) e.key: e.value,
+    },
     locate: (path) => hitLines(run(), path),
   );
 }
@@ -530,6 +543,101 @@ List<Hit> _themePlatformCopies() => [
     for (final file in dartFiles(root))
       if (!isAllowed(file.path, _themePlatformCopyAllow.keys))
         ...themePlatformCopyHitsIn(file),
+];
+
+/// The reads a preferences store answers; each can throw where the store
+/// cannot be read (a `PlatformException`, or the `NoSuchMethodError` of the
+/// 0.1.75 Android build).
+const _prefsReadMethods = {
+  'getString',
+  'getBool',
+  'getInt',
+  'getDouble',
+  'getStringList',
+  'getKeys',
+};
+
+bool _catchesEverything(TryStatement statement) => statement.catchClauses.any(
+  (c) => c.exceptionType == null || c.exceptionType!.toSource() == 'Object',
+);
+
+/// Whether [function] is the read callback of `readSaved(...)`.
+bool _isReadSavedCallback(FunctionExpression function) {
+  final list = function.parent;
+  final call = list?.parent;
+  return list is ArgumentList &&
+      call is MethodInvocation &&
+      call.methodName.name == 'readSaved';
+}
+
+/// Whether the failure of [read] is handled: it sits in the body of a `try`
+/// with a handler for `Object`, or in the callback of `readSaved`. A closure
+/// that is only defined inside a `try` runs elsewhere, so it does not count.
+bool _prefsReadHandled(MethodInvocation read) {
+  AstNode child = read;
+  for (var p = read.parent; p != null; child = p, p = p.parent) {
+    if (p is TryStatement &&
+        identical(child, p.body) &&
+        _catchesEverything(p)) {
+      return true;
+    }
+    if (p is FunctionExpression) return _isReadSavedCallback(p);
+    if (p is FunctionDeclaration || p is MethodDeclaration) return false;
+  }
+  return false;
+}
+
+/// The preferences reads of [file] whose failure nothing handles. Read from
+/// the analyzer's unresolved syntax tree, so any call named like a read counts,
+/// whatever it is called on (no `lib/` code has such a call on anything else).
+List<Hit> prefsReadHitsIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  return [
+    for (final call in _AllCalls.of(unit).whereType<MethodInvocation>())
+      if (call.target != null &&
+          _prefsReadMethods.contains(call.methodName.name) &&
+          !_prefsReadHandled(call))
+        Hit(
+          file.path,
+          file.lineOf(call.offset),
+          file.lineText(file.lineOf(call.offset)),
+        ),
+  ];
+}
+
+/// Files with unhandled reads that throw on purpose, how many, and who
+/// catches. Exact: a file above its count reports all its reads, so a new
+/// unchecked read there fails.
+const _prefsReadThrows = {
+  'lib/src/agent_messages/agent_message_record.dart': ExactAllow(
+    1,
+    'writeIfCurrent throws when the record cannot be read, so a look '
+    'announces nothing rather than the same message again',
+  ),
+  'lib/src/background/background_check_status.dart': ExactAllow(
+    1,
+    '_identity is read by methods that catch everything: status '
+    'persistence never affects authentication or refresh work',
+  ),
+  'lib/src/background/background_refresh.dart': ExactAllow(
+    1,
+    'persist throws when it cannot read, so a write never replaces marks '
+    'it could not see; its callers catch',
+  ),
+  'lib/src/background/headless_hermes.dart': ExactAllow(
+    1,
+    'the saved server address is read inside withHeadlessHermes, which '
+    'ends an unreadable store as a failed run and signs nobody out',
+  ),
+};
+
+List<Hit> _prefsReadsUnhandled() => [
+  for (final file in dartFiles('lib')) ...prefsReadHitsIn(file),
 ];
 
 List<Hit> _errorInterpolation() => [
@@ -1132,8 +1240,7 @@ List<Hit> _englishDefaultHits() => [
 ];
 
 /// A function named `*Label`, `*Title` or `*Summary`, with the literal it
-/// returns, and `path#name` as the owner (`path#Class.name` for a static
-/// method).
+/// returns, and `path#name` as the owner (`path#Class.name` for a method).
 typedef LabelHelper = ({Hit hit, String owner, String literal});
 
 final _labelHelperName = RegExp(
@@ -1151,7 +1258,8 @@ const _labelReturnTypes = {
 };
 final _l10nParameterType = RegExp(r'\b(?:AppLocalizations|BuildContext)\b');
 
-/// The top-level functions and static methods of [file] named `*Label`,
+/// The top-level functions and getters, and the methods and getters (static
+/// or not) of types, of [file] named `*Label`,
 /// `*Title` or `*Summary` that return `String`, `String?`, `Future<String>`,
 /// `Future<String?>`, `FutureOr<String>`, `FutureOr<String?>`,
 /// `Stream<String>` or `Stream<String?>` (or declare no type), return or
@@ -1196,7 +1304,7 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
   }
 
   for (final member in unit.declarations) {
-    if (member is FunctionDeclaration && !member.isGetter) {
+    if (member is FunctionDeclaration && !member.isSetter) {
       check(
         null,
         member.name,
@@ -1207,23 +1315,22 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
     }
   }
   unit.accept(
-    _StaticMethods((owner, m) {
-      if (m.isGetter || m.isSetter) return;
+    _Methods((owner, m) {
+      if (m.isSetter) return;
       check(owner, m.name, m.returnType, m.parameters, m.body);
     }),
   );
   return found;
 }
 
-/// The static methods of classes, enums, mixins, extensions and extension
-/// types, with the name of the one that holds each.
-class _StaticMethods extends RecursiveAstVisitor<void> {
-  _StaticMethods(this.onMethod);
+/// The methods and getters, static or not, of classes, enums, mixins,
+/// extensions and extension types, with the name of the one that holds each.
+class _Methods extends RecursiveAstVisitor<void> {
+  _Methods(this.onMethod);
   final void Function(String owner, MethodDeclaration) onMethod;
 
   @override
   void visitMethodDeclaration(MethodDeclaration node) {
-    if (!node.isStatic) return;
     final holder = node.parent?.parent;
     final name = switch (holder) {
       ClassDeclaration() => holder.namePart.typeName.lexeme,
@@ -1323,13 +1430,16 @@ class _LiteralFinder extends RecursiveAstVisitor<void> {
 
 /// Label helpers that return text nobody reads, as `path#name` with the
 /// reason. Exact: an entry that no longer matches fails.
-const _labelHelperNotVisibleText = <String, String>{};
+const _labelHelperNotVisibleText = <String, String>{
+  'lib/src/providers/providers_screen.dart#_ProvidersScreenState._profileLabel':
+      "the profile id 'default', the name Hermes gives a server without "
+      'profiles, as the English-default allowlist above explains',
+};
 
 List<LabelHelper>? _labelHelpers;
 
 List<LabelHelper> _allLabelHelpers() => _labelHelpers ??= [
-  for (final file in dartFiles('lib'))
-    if (_importsWidgetLayer(file)) ...labelHelpersIn(file),
+  for (final file in dartFiles('lib')) ...labelHelpersIn(file),
 ];
 
 List<Hit> _labelHelperHits() => [
@@ -1385,6 +1495,188 @@ List<Hit> _flutterBarrelImports() => [
       if (!file.path.startsWith('packages/hermes_api/'))
         ...flutterBarrelImportHitsIn(file),
 ];
+
+/// Catch-alls under `lib/src/chat/` that swallow on purpose, as
+/// `path#Class.member`, each with the reason. Exact: an entry that no longer
+/// matches a swallowing catch-all fails, so the list shrinks with the code.
+const _chatCatchAllSwallows = <String, ExactAllow>{
+  'lib/src/chat/billing_verification_controller.dart#BillingVerificationController._log':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/chat_controller_progress.dart#_ChatControllerProgress._moaOutcome':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/chat_controller_queues.dart#_ChatControllerQueues._readProtectedQueue':
+      ExactAllow(
+        2,
+        'telemetry must not alter the protected queue review barrier',
+      ),
+  'lib/src/chat/chat_controller_session_binding.dart#_ChatControllerSessionBinding._onProcessOutput':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/chat_controller_session_state.dart#_ChatControllerSessionState._onSessionEvent':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/chat_controller_session_state.dart#_ChatControllerSessionState._onWarning':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/chat_controller_session_state.dart#_ChatControllerSessionState._warningAction':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/checkpoints/action_telemetry.dart#ActionTelemetry._quiet':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/connector_operation_controller.dart#ConnectorOperationController._log':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/gateway/gateway_rpc_client.dart#GatewayRpcClient._reportClosed':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/gateway/hermes_gateway_transport_turns.dart#_Turns._record':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/invalidation/change_invalidation_controller.dart#ChangeInvalidationController._log':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/media/quick_look_telemetry.dart#QuickLookTelemetry.failed':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/queue_storage/durable_queue_store.dart#DurableQueueStore._run':
+      ExactAllow(4, 'optional telemetry must never affect persistence'),
+  'lib/src/chat/queue_storage/durable_queue_store.dart#DurableQueueStore._failure':
+      ExactAllow(1, 'optional telemetry must never affect persistence'),
+  'lib/src/chat/reactions/reaction_state.dart#ReactionState.received':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/reply_diagnostics.dart#ReplyDiagnostics._log': ExactAllow(
+    1,
+    'telemetry must never break the app it measures',
+  ),
+  'lib/src/chat/reply_diagnostics.dart#ReplyDiagnostics.ended': ExactAllow(
+    1,
+    'telemetry must never break the app it measures',
+  ),
+  'lib/src/chat/reply_diagnostics.dart#ReplyDiagnostics.follow': ExactAllow(
+    1,
+    'telemetry must never break the app it measures',
+  ),
+  'lib/src/chat/reply_diagnostics.dart#ReplyDiagnostics.lifecycle': ExactAllow(
+    1,
+    'telemetry must never break the app it measures',
+  ),
+  'lib/src/chat/session_export_telemetry.dart#SessionExportTelemetry._quiet':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/session_export_telemetry.dart#SessionExportTelemetry.startFetch':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/session_usage/session_usage_controller.dart#SessionUsageController._quiet':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/side_results/side_result_state.dart#SideResultState.received':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/subagents/process_stop_controller.dart#ProcessStopController._log':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/subagents/subagent_detail_controller.dart#SubagentDetailController._log':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/subagents/subagent_repository.dart#SubagentRepository._finish':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/subagents/subagent_repository.dart#SubagentRepository._start':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/subagents/subagent_roster.dart#SubagentRoster._log': ExactAllow(
+    1,
+    'telemetry must never break the app it measures',
+  ),
+  'lib/src/chat/todo_plan/todo_plan_state.dart#TodoPlanState._outcome':
+      ExactAllow(1, 'telemetry must never break the app it measures'),
+  'lib/src/chat/chat_controller_queues.dart#_ChatControllerQueues._enqueueProtected':
+      ExactAllow(
+        1,
+        'cleanup of a revoked scope; the identity refusal is thrown right after',
+      ),
+  'lib/src/chat/gateway/hermes_gateway_transport_commands.dart#_Commands._detach':
+      ExactAllow(1, 'best-effort detach after the send already failed'),
+  'lib/src/chat/gateway/hermes_gateway_transport_sending.dart#_Sending._sendReply':
+      ExactAllow(
+        3,
+        'fail closed: a failed check is a no, and failed restoration cannot erase proof that nothing was sent',
+      ),
+  'lib/src/chat/media/file_export.dart#FileExport.saveCopy': ExactAllow(
+    1,
+    'best-effort delete of a partial file, then the copy error is rethrown',
+  ),
+  'lib/src/chat/media/media_store.dart#MediaStore._deleteOrRemember':
+      ExactAllow(1, 'cleanup: an undeleted folder is remembered and retried'),
+  'lib/src/chat/media/media_store.dart#_quietly': ExactAllow(
+    1,
+    'deleting is best effort',
+  ),
+  'lib/src/chat/media/media_store.dart#_quietlyExists': ExactAllow(
+    1,
+    'cleanup probe: unknown is not there',
+  ),
+  'lib/src/chat/queue_storage/queue_persistence.dart#QueuePersistence._clean':
+      ExactAllow(
+        1,
+        'storage tombstones and the next unlock keep the cleanup responsibility',
+      ),
+  'lib/src/chat/session_export_controller.dart#SessionExportController._clearTemporary':
+      ExactAllow(1, 'cleanup of temporary files with a timeout'),
+  'lib/src/chat/queue_storage/durable_queue_store.dart#DurableQueueStore._load':
+      ExactAllow(
+        2,
+        'a record or index that cannot be read is counted and recorded by _failure; storage keeps going',
+      ),
+  'lib/src/chat/queue_storage/durable_queue_store.dart#DurableQueueStore.commit':
+      ExactAllow(
+        1,
+        'an index write is recorded by _failure; the record itself is committed',
+      ),
+  'lib/src/chat/queue_storage/durable_queue_store.dart#DurableQueueStore._retryCleanup':
+      ExactAllow(
+        1,
+        'a cleanup retry is recorded by _failure and tried again later',
+      ),
+  'lib/src/chat/queue_storage/queue_broker.dart#QueueOperationBroker.handle':
+      ExactAllow(
+        1,
+        'privacy: IPC failures must never expose payloads, paths or key errors',
+      ),
+  'lib/src/chat/session_export.dart#_messageCount': ExactAllow(
+    1,
+    'privacy: a decode error message holds file content, so it is dropped',
+  ),
+  'lib/src/chat/subagents/chat_roster_environment.dart#ChatRosterEnvironment.new':
+      ExactAllow(
+        1,
+        'no widgets binding (a unit test): the app counts as in front',
+      ),
+  'lib/src/chat/subagents/chat_roster_environment.dart#ChatRosterEnvironment.dispose':
+      ExactAllow(1, 'no widgets binding'),
+  'lib/src/chat/subagents/lenient_read.dart#readSeconds': ExactAllow(
+    1,
+    'a server number out of the date range (NaN, infinity, huge) is data, not a bug',
+  ),
+  'lib/src/chat/thread_housekeeping.dart#ThreadHousekeeping._remove':
+      ExactAllow(
+        1,
+        'cleanup of the protected queue after a delete; the user is told',
+      ),
+  'lib/src/chat/thread_list_preferences.dart#ThreadListPreferences._save':
+      ExactAllow(1, 'preferences are optional; chats work without storage'),
+  'lib/src/chat/widgets/relative_time.dart#_format': ExactAllow(
+    1,
+    'an unloaded locale falls back to en_US',
+  ),
+};
+
+List<CatchAllFinding>? _chatCatchAlls;
+
+List<CatchAllFinding> _allChatCatchAlls() => _chatCatchAlls ??= [
+  for (final file in dartFiles('lib/src/chat'))
+    if (!file.path.endsWith('.g.dart') && !file.path.endsWith('.freezed.dart'))
+      ...catchAllFindingsIn(file),
+];
+
+Map<String, int> _chatCatchAllCounts() => {
+  for (final f in _allChatCatchAlls())
+    f.owner: _allChatCatchAlls().where((g) => g.owner == f.owner).length,
+};
+
+/// The catch-alls that are not within their allowance: an owner with no entry,
+/// or above its count, reports every one of its hits.
+List<Hit> _chatCatchAllHits() {
+  final counts = _chatCatchAllCounts();
+  return [
+    for (final f in _allChatCatchAlls())
+      if (counts[f.owner]! > (_chatCatchAllSwallows[f.owner]?.count ?? 0))
+        f.hit,
+  ];
+}
 
 /// Every guard of this file.
 final guardRules = <Rule>[
@@ -1695,14 +1987,14 @@ final guardRules = <Rule>[
   _custom(
     name: 'label-helper-takes-l10n',
     message:
-        'a top-level function or static method named *Label, *Title or '
+        'a function, method or getter named *Label, *Title or '
         '*Summary that returns an English literal shows English in a German '
         'UI: pass AppLocalizations and return l10n.<key>, like '
         'kanbanStatusLabel(l10n, status) and effortLabel(l10n, effort) (keys '
         'in lib/l10n/arb/app_en.arb and app_de.arb). A helper whose text is '
         'not visible (an id, a semantic identifier, a debug label, a server '
         'value passed through) goes on _labelHelperNotVisibleText '
-        '(path#name) with its reason.',
+        '(path#name, path#Type.name for a method) with its reason.',
     hits: _labelHelperHits,
   ),
 
@@ -1844,6 +2136,37 @@ final guardRules = <Rule>[
         '(reportBug) is the one place that keeps the full message.',
     hits: _errorInterpolation,
   ),
+  // docs/architecture/telemetry.md, "A boundary that has to keep going keeps
+  // `on Object`": #1396 found `ToolBodyRegistry.bodyFor` swallowing a builder's
+  // bug.
+  _custom(
+    name: 'chat-catch-all-reports',
+    message:
+        'a catch that can catch an Error (no `on` type, `on Object`, '
+        '`on Error`) under lib/src/chat/ must call reportChatBug(error, stack, '
+        '\'a fixed name\') (lib/src/chat/report_chat_bug.dart; a fixed place, '
+        'never text, ids or arguments), rethrow, or hand the error on '
+        '(completeError, a callback, an assignment, a return). Otherwise '
+        'narrow it (`on FormatException catch`). Best-effort cleanup that '
+        'must swallow goes on _chatCatchAllSwallows (path#Class.member) with '
+        'its reason.',
+    hits: _chatCatchAllHits,
+  ),
+  // docs/architecture/telemetry.md: a loader that falls back to its default
+  // when the preferences store cannot be read reports it.
+  _custom(
+    name: 'prefs-read-unhandled',
+    message:
+        'a preferences read must not let a failure through: read with '
+        'readSaved(() => prefs.getBool(key), \'the saved …\') '
+        '(lib/src/settings/report_unreadable_prefs.dart), or in a try with '
+        'an `on Object catch (error, stack)` that calls '
+        'reportUnreadablePrefs(error, stack, \'the saved …\') and keeps the '
+        'default. A choice that guards something (App Lock, an index of chat '
+        'titles) falls back to the safe side, not just the default.',
+    hits: _prefsReadsUnhandled,
+    exact: _prefsReadThrows,
+  ),
   _custom(
     name: 'theme-platform-copy',
     message:
@@ -1859,6 +2182,79 @@ final guardRules = <Rule>[
 
 void main() {
   ratchetTests(guardRules, namespace: 'arch');
+
+  group('prefs-read-unhandled scan', () {
+    int hits(String source) =>
+        prefsReadHitsIn(SourceFile('lib/x.dart', source)).length;
+
+    test('catches a read nothing handles', () {
+      for (final bad in [
+        'Future<void> f() async { await prefs.getBool(k); }',
+        'Future<void> f() async { final a = await _prefs.getStringList(k); }',
+        'Future<void> f() async { await (p.getString(a), p.getInt(b)).wait; }',
+        'Future<void> f() async { await p.getKeys(); }',
+      ]) {
+        expect(hits(bad), greaterThan(0), reason: bad);
+      }
+    });
+
+    test('catches a read whose handler cannot catch a PlatformException', () {
+      expect(
+        hits(
+          'Future<void> f() async { try { await p.getBool(k); } '
+          'on FormatException { } }',
+        ),
+        1,
+      );
+    });
+
+    test('catches a read in the handler, the finally or a closure', () {
+      for (final bad in [
+        'Future<void> f() async { try { } on Object { await p.getBool(k); } }',
+        'Future<void> f() async { try { } finally { await p.getBool(k); } }',
+        'Future<void> f() async { try { g(() => p.getBool(k)); } '
+            'on Object { } }',
+        'Future<void> f() async { try { } finally { } await p.getBool(k); }',
+      ]) {
+        expect(hits(bad), 1, reason: bad);
+      }
+    });
+
+    test('accepts a read in a try with a handler for Object', () {
+      for (final fine in [
+        'Future<void> f() async { try { await p.getBool(k); } '
+            'on Object catch (e, s) { } }',
+        'Future<void> f() async { try { await p.getBool(k); } '
+            'catch (e) { } }',
+        'Future<void> f() async { try { try { await p.getBool(k); } '
+            'on FormatException { } } on Object { } }',
+        'Future<void> f() async { try { (a, b) = await (p.getBool(k), '
+            'p.getInt(j)).wait; } on Object { } }',
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test('accepts a read in the callback of readSaved', () {
+      for (final fine in [
+        'Future<void> f() async { await readSaved(() => p.getBool(k), "x"); }',
+        'Future<void> f() async { await readSaved<bool>(() async => '
+            'await p.getBool(k), "x", ifUnreadable: true); }',
+      ]) {
+        expect(hits(fine), 0, reason: fine);
+      }
+    });
+
+    test('ignores comments, strings and reads of other names', () {
+      expect(
+        hits(
+          "// await p.getBool(k);\nfinal s = 'p.getBool(k)';\n"
+          'final t = p.get(k);\n',
+        ),
+        0,
+      );
+    });
+  });
 
   group('theme-platform-copy scan', () {
     int hits(String source) =>
@@ -2860,6 +3256,38 @@ void main() {
       }
     });
 
+    test('instance methods and getters hit', () {
+      expect(owners("class K { String statusLabel(int x) => 'Done'; }"), [
+        'lib/src/y.dart#K.statusLabel',
+      ]);
+      expect(owners("class K { String get title => 'Settings'; }"), [
+        'lib/src/y.dart#K.title',
+      ]);
+      expect(owners("String get pageTitle => 'Settings';"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(
+        owners("class K { String statusLabel(AppLocalizations l) => 'a'; }"),
+        isEmpty,
+      );
+      expect(owners("class K { String get title => l10n.title; }"), isEmpty);
+      expect(
+        owners("class K { set title(String v) { _t = 'Done'; } }"),
+        isEmpty,
+      );
+    });
+
+    test('a file that does not import the widget layer is read too', () {
+      // The file selection itself: _allLabelHelpers takes every file under
+      // lib/, so a helper of a file with no widget-layer import is found.
+      final file = dartFiles('lib')
+          .firstWhere((f) => f.path == 'lib/src/mcp/mcp_presentation.dart');
+      expect(_importsWidgetLayer(file), isFalse);
+      expect({
+        for (final f in _allLabelHelpers()) f.owner,
+      }, contains('lib/src/mcp/mcp_presentation.dart#mcpTransportLabel'));
+    });
+
     test('static methods of an enum, a mixin and an extension hit', () {
       expect(owners("enum E { a; static String modeLabel(E e) => 'Auto'; }"), [
         'lib/src/y.dart#E.modeLabel',
@@ -2937,11 +3365,9 @@ void main() {
       ]);
     });
 
-    test('other names, return types, getters and instance methods pass', () {
+    test('other names and return types pass', () {
       expect(owners("String statusName(S s) => 'Done';"), isEmpty);
       expect(owners("int countLabel(S s) => 3;"), isEmpty);
-      expect(owners("String get pageTitle => 'Settings';"), isEmpty);
-      expect(owners("class K { String tagLabel(int x) => 'Tag'; }"), isEmpty);
       expect(
         owners("String f(S s) { String inner() => 'Done'; return s.id; }"),
         isEmpty,
@@ -3035,6 +3461,206 @@ void main() {
         );
       }
     });
+  });
+
+  group('chat catch-all scan', () {
+    int count(String body) => catchAllFindingsIn(
+      SourceFile('lib/src/chat/x.dart', 'class A { void f() { $body } }'),
+    ).length;
+
+    test('a catch-all that swallows is a hit', () {
+      expect(count('try { g(); } catch (e) { return; }'), 1);
+      expect(count('try { g(); } catch (e, st) { x = 1; }'), 1);
+      expect(count('try { g(); } on Object catch (e) { x = 1; }'), 1);
+      expect(count('try { g(); } on Error catch (e) { x = 1; }'), 1);
+      expect(count('try { g(); } on Object catch (_) { x = 1; }'), 1);
+      expect(count('try { g(); } on dynamic catch (e) { x = 1; }'), 1);
+      expect(count('try { g(); } catch (_) {}'), 1);
+    });
+
+    test('reading the error is not handing it on', () {
+      expect(count(r"try { g(); } catch (e) { debugPrint('$e'); }"), 1);
+      expect(count('try { g(); } catch (e) { log(e.runtimeType); }'), 1);
+      expect(count('try { g(); } catch (e) { x = e.toString(); }'), 1);
+      expect(count('try { g(); } catch (e) { debugPrint(e); }'), 1);
+      expect(count('try { g(); } catch (e) { final m = e; }'), 1);
+    });
+
+    test('reportBug, rethrow and throw clear it', () {
+      expect(count("try { g(); } catch (e, s) { reportBug(e, s, 'x'); }"), 0);
+      expect(count('try { g(); } catch (e) { rethrow; }'), 0);
+      expect(count('try { g(); } catch (e) { cleanup(); rethrow; }'), 0);
+      expect(count('try { g(); } catch (e) { throw Other(); }'), 0);
+      expect(
+        count('try { g(); } catch (e, s) { Error.throwWithStackTrace(a, s); }'),
+        0,
+      );
+      expect(
+        count(
+          "try { g(); } catch (e, s) { if (e is! X) { reportUnreadablePrefs(e, s, 'x'); } }",
+        ),
+        0,
+      );
+    });
+
+    test('a typed catch that cannot be an Error is not read', () {
+      expect(count('try { g(); } on FormatException catch (e) { x = 1; }'), 0);
+      expect(count('try { g(); } on Exception catch (e) { x = 1; }'), 0);
+      expect(count('try { g(); } on DioException catch (_) { x = 1; }'), 0);
+      expect(count('try { g(); } on StateError catch (e) { x = 1; }'), 0);
+    });
+
+    test('forwarding the error clears it', () {
+      expect(count('try { g(); } catch (e, s) { c.completeError(e, s); }'), 0);
+      expect(count('try { g(); } catch (e) { onError(e); }'), 0);
+      expect(count('try { g(); } catch (e) { s = s.copyWith(error: e); }'), 0);
+      expect(count('try { g(); } catch (e) { _error = e; }'), 0);
+      expect(count('try { g(); } catch (e) { return e; }'), 0);
+      expect(count('try { g(); } catch (e) { x(error: e as Object); }'), 0);
+      expect(count('try { g(); } catch (e) { return Future.error(e); }'), 0);
+      expect(count('try { g(); } catch (e) { sink.addError(e); }'), 0);
+      expect(
+        count('try { g(); } catch (e, s) { c.addError(k ? e : other, s); }'),
+        0,
+      );
+      expect(count('try { g(); } catch (e) { reader.failure?.call(e); }'), 0);
+      expect(
+        count("try { g(); } catch (e, s) { reportChatBug(e, s, 'x'); }"),
+        0,
+      );
+      expect(count('try { g(); } catch (e) { widget.onFailure(e); }'), 0);
+      expect(
+        count(
+          'try { g(); } catch (e, s) { FlutterError.reportError(FlutterErrorDetails(exception: e, stack: s)); }',
+        ),
+        0,
+      );
+    });
+
+    test('a classifier or a predicate is not a sink', () {
+      expect(count('try { g(); } catch (e) { x = kindOf(e); }'), 1);
+      expect(count('try { g(); } catch (e) { return Failed(kind(e)); }'), 1);
+      expect(count('try { g(); } catch (e) { s = Failed(e); }'), 1);
+      expect(count('try { g(); } catch (e) { if (isCancel(e)) return; }'), 1);
+      expect(count('try { g(); } catch (e) { errors.add(e); }'), 1);
+      expect(count('try { g(); } catch (e) { name = e; }'), 1);
+    });
+
+    test('a reporter needs the bare error as its first argument', () {
+      expect(
+        count("try { g(); } catch (e, s) { reportBug(kindOf(e), s, 'x'); }"),
+        1,
+      );
+      expect(
+        count(
+          "try { g(); } catch (e, s) { reportBug(Object(), s, kindOf(e)); }",
+        ),
+        1,
+      );
+      expect(count("try { g(); } catch (e, s) { reportBug(e, s, 'x'); }"), 0);
+      expect(
+        count(
+          "try { g(); } catch (e, s) { reportChatBug(e as Object, s, 'x'); }",
+        ),
+        0,
+      );
+      expect(
+        count(
+          'try { g(); } catch (e, s) { FlutterError.reportError(FlutterErrorDetails(exception: other)); }',
+        ),
+        1,
+      );
+    });
+
+    test('error: on a logger is not a hand-off, on a state object is', () {
+      expect(count("try { g(); } catch (e) { log('x', error: e); }"), 1);
+      expect(
+        count("try { g(); } catch (e) { developer.log('x', error: e); }"),
+        1,
+      );
+      expect(count("try { g(); } catch (e) { debugPrint('x', error: e); }"), 1);
+      expect(count('try { g(); } catch (e) { s = s.copyWith(error: e); }'), 0);
+      expect(count('try { g(); } catch (e) { s = Failed(error: e); }'), 0);
+    });
+
+    test('a call that is not the reporter does not count', () {
+      expect(
+        count('try { g(); } catch (e, s) { other.reportError(e, s); }'),
+        1,
+      );
+      expect(count('try { g(); } catch (e, s) { x.reportBug(e, s, "a"); }'), 1);
+      expect(
+        count("try { g(); } catch (e, s) { reportBug(other, s, 'x'); }"),
+        1,
+      );
+      expect(
+        count(
+          "try { g(); } catch (e, s) { reportBug(e.runtimeType, s, 'x'); }",
+        ),
+        1,
+      );
+    });
+
+    test('a closure may never run and may shadow the error', () {
+      expect(count('try { g(); } catch (e) { run((e) => use(e)); }'), 1);
+      expect(
+        count(
+          "try { g(); } catch (e, s) { later(() { reportBug(e, s, 'x'); }); }",
+        ),
+        1,
+      );
+      expect(count('try { g(); } catch (e) { later(() => onError(e)); }'), 1);
+      expect(
+        count('try { g(); } catch (e) { later(() { throw Other(); }); }'),
+        1,
+      );
+    });
+
+    test('a nested catch is judged on its own', () {
+      expect(
+        count(
+          "try { g(); } catch (e, s) { try { h(); } catch (e2, s2) { reportBug(e2, s2, 'x'); } }",
+        ),
+        1,
+      );
+      expect(
+        count(
+          'try { g(); } catch (e) { try { h(); } catch (e2) { x = 1; } rethrow; }',
+        ),
+        1,
+      );
+    });
+
+    test('the finding names the enclosing member', () {
+      final found = catchAllFindingsIn(
+        SourceFile(
+          'lib/src/chat/x.dart',
+          'class A { void f() { try { g(); } catch (e) {} } }\n'
+              'void top() { try { g(); } catch (e) {} }',
+        ),
+      );
+      expect(found.map((f) => f.owner), [
+        'lib/src/chat/x.dart#A.f',
+        'lib/src/chat/x.dart#top',
+      ]);
+    });
+
+    test(
+      'an allowlist entry still matches a catch-all, so the list shrinks',
+      () {
+        final counts = _chatCatchAllCounts();
+        for (final entry in _chatCatchAllSwallows.entries) {
+          expect(
+            counts[entry.key] ?? 0,
+            entry.value.count,
+            reason:
+                '${entry.key} has ${counts[entry.key] ?? 0} swallowing '
+                'catch-alls, its allowance is ${entry.value.count}: shrink or '
+                'remove the entry',
+          );
+        }
+      },
+    );
   });
 
   group('list tile, chip and popup menu guards', () {

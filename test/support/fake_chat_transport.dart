@@ -353,6 +353,14 @@ class FakeChatTransport
   /// Every [branchThread], as the thread, its profile and the turns dropped.
   final branches = <(String, String?, int)>[];
 
+  /// The idempotency key of every [branchThread], in order.
+  final branchKeys = <String?>[];
+
+  /// What [branchSupported] says; a null [branchResult] turns it false, as the
+  /// gateway transport does once the server has said it cannot branch.
+  @override
+  bool? branchSupported;
+
   /// What [branchThread] answers; null is a server that cannot branch.
   BranchedThread? branchResult = const BranchedThread('branch-1');
 
@@ -367,10 +375,13 @@ class FakeChatTransport
     String threadId, {
     String? profile,
     int dropTurns = 0,
+    String? idempotencyKey,
   }) async {
     branches.add((threadId, profile, dropTurns));
+    branchKeys.add(idempotencyKey);
     await branchGate?.future;
     if (branchError case final error?) throw error; // ignore: only_throw_errors
+    branchSupported = branchResult != null;
     return branchResult;
   }
 

@@ -5,12 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/get_retry_interceptor.dart';
 import '../api/hermes_api_client.dart';
 import '../api/request_timeout.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
 import '../network/network_signals.dart';
+import '../settings/report_unreadable_prefs.dart';
 import '../telemetry/telemetry.dart';
 import 'account_key.dart';
 import 'connect_failure.dart';
@@ -82,6 +84,7 @@ class AuthController extends ChangeNotifier {
     this._login = runNativeLogin,
     NetworkSignals networkSignals = const NoNetworkSignals(),
     this._rejectionRecheck = const Duration(seconds: 1),
+    this._getRetryDelay,
   }) : _telemetry = telemetry,
        _connection = telemetry(const {}),
        _tokenStore =
@@ -97,6 +100,9 @@ class AuthController extends ChangeNotifier {
   /// How long a rejected refresh waits for another isolate's write to land
   /// in the store before it gives up on the session.
   final Duration _rejectionRecheck;
+
+  /// Waits out the pause before a GET is sent again; tests inject a recorder.
+  final Future<void> Function(Duration delay)? _getRetryDelay;
   final SharedPreferencesAsync _prefs;
 
   /// Set only in dev/test runs. Wins over the saved address and is never
@@ -299,14 +305,12 @@ class AuthController extends ChangeNotifier {
     return HttpsSwitch.switched;
   }
 
-  Future<List<String>> _acceptedCleartext() async =>
-      await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
-
   /// Remembers [address] as accepted. A failed write only means the question
   /// comes back next launch, so it never fails the caller.
   Future<void> _acceptCleartext(String address) async {
     try {
-      final accepted = await _acceptedCleartext();
+      final accepted =
+          await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
       if (!accepted.contains(address)) {
         await _prefs.setStringList(kAcceptedCleartextServersKey, [
           ...accepted,
@@ -327,7 +331,12 @@ class AuthController extends ChangeNotifier {
       await connect(_devServerUrl, remember: false, restoring: true);
       return;
     }
-    final savedUrl = await _prefs.getString(kSavedServerUrlKey);
+    // An unreadable store asks for the address again; the stored session is
+    // left alone.
+    final savedUrl = await readSaved(
+      () => _prefs.getString(kSavedServerUrlKey),
+      'the saved server address',
+    );
     if (savedUrl == null || savedUrl.isEmpty) {
       _setState(HermesConnectionState.needsServerUrl);
       return;
@@ -336,9 +345,12 @@ class AuthController extends ChangeNotifier {
     final saved = normalizeServerUrl(savedUrl);
     if (saved != null && isCleartextToPublicHost(saved)) {
       // An unreadable list counts as "not accepted": ask, and connect anyway.
-      final accepted = await _acceptedCleartext().catchError(
-        (Object _) => const <String>[],
-      );
+      final accepted =
+          await readSaved(
+            () => _prefs.getStringList(kAcceptedCleartextServersKey),
+            'the accepted http servers',
+          ) ??
+          const <String>[];
       if (!accepted.contains(saved)) _cleartextToConfirm = saved;
     }
     await connect(savedUrl, restoring: true);
@@ -858,7 +870,7 @@ class AuthController extends ChangeNotifier {
 
   Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
     _pageToken = null;
-    final dio = _plainDio(baseUrl);
+    final dio = _plainDio(baseUrl, retryGets: true);
     final ownerEpoch = _ownerEpoch;
     bool allowed(RequestOptions options) =>
         !_disposed &&
@@ -1306,8 +1318,13 @@ class AuthController extends ChangeNotifier {
   /// current connection's telemetry. Also serves
   /// the token endpoints, which the authenticated client must not use (it
   /// would try to attach and refresh the very token being minted).
+  ///
+  /// With [retryGets] a GET that could not connect is sent again, twice at
+  /// most ([GetRetryInterceptor]). The connect probe leaves it off: it
+  /// reports an unreachable server at once.
   Dio _plainDio(
     String baseUrl, {
+    bool retryGets = false,
     Duration connectTimeout = const Duration(seconds: 15),
     Duration receiveTimeout = const Duration(seconds: 30),
   }) {
@@ -1324,6 +1341,7 @@ class AuthController extends ChangeNotifier {
         RequestTimeoutInterceptor(),
         ..._interceptors,
         ?_connection.interceptor,
+        if (retryGets) GetRetryInterceptor(dio, sleep: _getRetryDelay),
       ]);
   }
 

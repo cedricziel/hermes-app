@@ -11,6 +11,7 @@ import '../api/hermes_api_client.dart';
 import '../widgets/dialog_presentation.dart';
 import 'media/media_actions.dart';
 import 'media/media_store.dart';
+import 'report_chat_bug.dart';
 import 'session_export_controller.dart';
 import 'session_export_telemetry.dart';
 import 'thread_export.dart';
@@ -170,7 +171,8 @@ EdgeInsets _aboveComposer(BuildContext context) {
     final bottom = contentBottom - composerTop + _snackBarInset;
     if (!bottom.isFinite) return inset;
     return inset.copyWith(bottom: max(_snackBarInset, bottom));
-  } on Object {
+  } on Object catch (error, stack) {
+    reportChatBug(error, stack, 'a snack bar inset measure');
     return inset;
   }
 }

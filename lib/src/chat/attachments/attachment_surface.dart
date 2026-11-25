@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
 import '../../widgets/adaptive_sheet.dart';
+import '../report_chat_bug.dart';
 import 'attachment_paste.dart';
 import 'attachment_source.dart';
 import 'widgets/attach_menu.dart';
@@ -70,7 +71,8 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
       if (mounted) widget.onAdd(files);
     } on AttachmentUnavailable catch (e) {
       _say(e.message);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'an attachment pick');
       _say(_couldNotAttach);
     }
   }
@@ -101,7 +103,8 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
     try {
       final files = await widget.source.inserted(content);
       if (mounted && files.isNotEmpty) widget.onAdd(files);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'an inserted attachment');
       _say(_couldNotAttach);
     }
   }

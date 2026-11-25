@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../telemetry/report_bug.dart';
 import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'input_card_frame.dart';
@@ -70,7 +71,8 @@ class _ApprovalCardState extends State<ApprovalCard> {
       if (choice == 'always' && !await confirmAlwaysAllow(context)) return;
       if (!mounted) return;
       await widget.onAnswer!(choice);
-    } on Object catch (_) {
+    } on Object catch (e, stack) {
+      reportBug(e, stack, 'an approval answer');
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
