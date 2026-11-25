@@ -105,8 +105,14 @@ final class PhotoPreview: NSObject {
     let controller = preview
     preview = nil
     // Hide immediately, including if a sign-out races the presentation.
+    // Dismiss from the presenter, so an open Share sheet goes with the
+    // viewer instead of being the only thing dismissed.
     controller?.view.isHidden = true
-    controller?.dismiss(animated: false)
+    if let presenter = controller?.presentingViewController {
+      presenter.dismiss(animated: false)
+    } else {
+      controller?.dismiss(animated: false)
+    }
   }
 
   deinit {
@@ -140,8 +146,21 @@ private final class PhotoViewerNavigation: UINavigationController {
   override var childForStatusBarHidden: UIViewController? { viewer }
   override var childForStatusBarStyle: UIViewController? { viewer }
 
+  // The chat stays in the window behind an over-full-screen viewer; keep
+  // VoiceOver out of it while the viewer is up.
+  private weak var coveredView: UIView?
+
+  override func viewWillAppear(_ animated: Bool) {
+    super.viewWillAppear(animated)
+    guard isBeingPresented, let covered = presentingViewController?.view else { return }
+    covered.accessibilityElementsHidden = true
+    coveredView = covered
+  }
+
   override func viewDidDisappear(_ animated: Bool) {
     super.viewDidDisappear(animated)
+    coveredView?.accessibilityElementsHidden = false
+    coveredView = nil
     if isBeingDismissed { onDismiss?() }
   }
 }
