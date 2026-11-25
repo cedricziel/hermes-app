@@ -339,7 +339,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
     _suspendedQueues.addAll(_queues.keys);
     _undoing.clear();
-    _unconfirmedBranch = null;
+    _unconfirmedBranches.clear();
     _retrying.clear();
     _interrupts.clear();
     _holds.clear();
@@ -2198,11 +2198,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// tap does not drop the turn before it too.
   final _undoing = <ChatThread, TurnAction>{};
 
-  /// The branch whose answer was lost, so that asking for the same branch
-  /// again names it to the server with the same key. Only the last one is
-  /// kept, and it goes with any answer, any other branch and a change of
-  /// session.
-  _BranchAttempt? _unconfirmedBranch;
+  /// The branches whose answer was lost, by profile and chat, so that asking
+  /// for the same branch again names it to the server with the same key. One
+  /// per chat: it goes with the next request for that chat, whatever it
+  /// answers, and with a change of session.
+  final _unconfirmedBranches = <(String?, String), _BranchAttempt>{};
 
   /// Threads where a Retry runs from taking the turn back to sending the
   /// prompt again. A full restore waits for it: between the two the chat is

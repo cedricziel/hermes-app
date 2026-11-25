@@ -32,7 +32,8 @@ void main() {
     }
   }
 
-  ChatThread parent() => chat.threads.firstWhere((t) => t.id == 's1');
+  ChatThread parent([String id = 's1']) =>
+      chat.threads.firstWhere((t) => t.id == id);
 
   /// The id of the nth message of the open chat, for "branch from here".
   String messageId(int index) => parent().messages[index].id;
@@ -47,7 +48,10 @@ void main() {
       ..on(
         'GET',
         '/api/sessions',
-        sessionListBody([sessionRow(id: 's1', title: 'Run failure')]),
+        sessionListBody([
+          sessionRow(id: 's1', title: 'Run failure'),
+          sessionRow(id: 's2', title: 'Other chat'),
+        ]),
       )
       ..on(
         'GET',
@@ -57,6 +61,14 @@ void main() {
           messageRow(id: 2, role: 'assistant', content: 'A connection reset.'),
           messageRow(id: 3, role: 'user', content: 'Can you retry it?'),
           messageRow(id: 4, role: 'assistant', content: 'It passed this time.'),
+        ]),
+      )
+      ..on(
+        'GET',
+        '/api/sessions/s2/messages',
+        messageListBody('s2', [
+          messageRow(id: 1, role: 'user', content: 'Another question'),
+          messageRow(id: 2, role: 'assistant', content: 'Another answer'),
         ]),
       )
       ..on(
@@ -193,6 +205,30 @@ void main() {
       await flush();
 
       expect(transport.branchKeys, hasLength(2));
+      expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
+    });
+
+    test('a lost answer in another chat does not take the key of this '
+        'one', () async {
+      transport.branchError = const GatewayCallTimedOut();
+      await chat.branch(parent());
+      await flush();
+      chat.select('s2');
+      await flush();
+      await chat.branch(parent('s2'));
+      await flush();
+      chat.select('s1');
+      await flush();
+      await chat.branch(parent());
+      await flush();
+      chat.select('s2');
+      await flush();
+      await chat.branch(parent('s2'));
+      await flush();
+
+      expect(transport.branches.map((b) => b.$1), ['s1', 's2', 's1', 's2']);
+      expect(transport.branchKeys[2], transport.branchKeys[0]);
+      expect(transport.branchKeys[3], transport.branchKeys[1]);
       expect(transport.branchKeys[1], isNot(transport.branchKeys[0]));
     });
 

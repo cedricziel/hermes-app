@@ -446,11 +446,11 @@ extension _ChatControllerCommands on ChatController {
     final profile = _profile;
     final from = fromMessageId == null || dropTurns == 0 ? 'end' : 'message';
     // A tap on a branch whose answer was lost asks for that branch again.
-    final attempt = switch (_unconfirmedBranch) {
+    final attemptKey = (profile, thread.id);
+    final attempt = switch (_unconfirmedBranches.remove(attemptKey)) {
       final lost? when lost.isFor(profile, thread, dropTurns) => lost,
       _ => _BranchAttempt(const Uuid().v4(), profile, thread, dropTurns),
     };
-    _unconfirmedBranch = null;
     _undoing[thread] = TurnAction.branch;
     _turnProblems.remove(thread);
     notifyListeners();
@@ -477,7 +477,7 @@ extension _ChatControllerCommands on ChatController {
       if (_currentActivity(epoch) &&
           _turnProblemOf(TurnAction.branch, error).kind ==
               TurnProblemKind.unreachable) {
-        _unconfirmedBranch = attempt;
+        _unconfirmedBranches[attemptKey] = attempt;
       }
     } finally {
       if (_currentActivity(epoch) &&
