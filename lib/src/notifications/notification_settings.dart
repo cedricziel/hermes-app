@@ -24,8 +24,9 @@ class NotificationSettings extends ChangeNotifier {
   bool _denied = false;
   bool _loaded = false;
 
-  /// Whether the saved muted chats could not be read. The set is then not
-  /// written, so a mute made meanwhile never replaces the saved ones.
+  /// Whether the saved muted chats could not be read. The set is then written
+  /// only after they were read again and merged in, so a mute made meanwhile
+  /// never replaces the saved ones.
   bool _mutedUnreadable = false;
   bool _scheduleAlerts = true;
   bool _liveActivities = true;
@@ -155,6 +156,22 @@ class NotificationSettings extends ChangeNotifier {
     _denied = !granted;
   }, {_prefsAskedKey: true, _prefsDeniedKey: !granted});
 
+  /// Reads the saved muted chats again after a failed load and adds them to
+  /// the set, so saving it never replaces them. False while they still cannot
+  /// be read: the set then stays in memory only. The failure was reported by
+  /// the load.
+  Future<bool> _mergeSavedMutes() async {
+    try {
+      final saved = await _prefs.getStringList(_prefsMutedKey);
+      _muted = {...?saved, ..._muted};
+      _mutedUnreadable = false;
+      notifyListeners();
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
   /// Applies [apply], tells listeners, and saves [values] after the earlier
   /// writes. A `null` value stands for the muted set, saved as it is now.
   Future<void> _change(void Function() apply, Map<String, Object?> values) {
@@ -166,7 +183,7 @@ class NotificationSettings extends ChangeNotifier {
         if (value is bool) {
           await _prefs.setBool(entry.key, value);
         } else {
-          if (_mutedUnreadable) continue;
+          if (_mutedUnreadable && !await _mergeSavedMutes()) continue;
           await _prefs.setStringList(entry.key, _muted.toList()..sort());
         }
       }

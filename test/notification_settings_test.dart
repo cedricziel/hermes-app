@@ -151,7 +151,7 @@ void main() {
   });
 
   test('a mute made while a later load reads the muted chats keeps the saved '
-      'mutes', () async {
+      'mutes and is saved too', () async {
     final store = _MutedUnreadable();
     SharedPreferencesAsyncPlatform.instance = store;
     final settings = NotificationSettings();
@@ -165,7 +165,27 @@ void main() {
 
     final next = await relaunch();
     expect(next.isMuted('p/1'), isTrue);
+    expect(next.isMuted('p/2'), isTrue);
+    expect(next.isMuted('p/3'), isTrue);
   });
+
+  test(
+    'a mute made after the store reads again is saved with the old ones',
+    () async {
+      final store = _MutedUnreadable();
+      SharedPreferencesAsyncPlatform.instance = store;
+      final settings = NotificationSettings();
+      await reportedErrors(settings.load);
+      store.unreadable = false;
+
+      await settings.setMuted('p/2', true);
+
+      expect(settings.isMuted('p/1'), isTrue);
+      final next = await relaunch();
+      expect(next.isMuted('p/1'), isTrue);
+      expect(next.isMuted('p/2'), isTrue);
+    },
+  );
 
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();
