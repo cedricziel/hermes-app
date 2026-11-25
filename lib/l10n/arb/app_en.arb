@@ -4,7 +4,7 @@
   "@@x-area-common": "",
   "commonOff": "Off",
   "@commonOff": {
-    "description": "A setting or slot that is switched off."
+    "description": "A setting or slot that is switched off; also a choice that turns a feature off, such as the review interval of the Memory settings."
   },
   "commonOn": "On",
   "@commonOn": {
@@ -4199,6 +4199,21 @@
       }
     }
   },
+  "memoryLearningIntervalEvery": "{turns, plural, =1{After every message} other{After every {turns} messages}}",
+  "@memoryLearningIntervalEvery": {
+    "description": "Value of the Review chats row of the Memory settings, and one of its choices: Hermes reviews the chat for things to remember after this many messages. 0 is shown as Off.",
+    "placeholders": {
+      "turns": {"type": "int", "example": "10"}
+    }
+  },
+  "memoryLearningReportDetailed": "With details",
+  "@memoryLearningReportDetailed": {
+    "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in a longer note. Keep it short."
+  },
+  "memoryLearningReportShort": "Short note",
+  "@memoryLearningReportShort": {
+    "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in one short line. Keep it short."
+  },
   "memoryLeaveDiscard": "Discard and leave",
   "@memoryLeaveDiscard": {
     "description": "Button of the leave confirmation: throws away the unsaved draft and goes on. Keep it short."
@@ -6178,6 +6193,14 @@
   },
 
   "@@x-area-schedules": "",
+  "schedulesDeliveryLocal": "Local",
+  "@schedulesDeliveryLocal": {
+    "description": "Where a schedule's result goes: it stays on the machine the agent runs on, with no message sent. Shown in a schedule's row and in its Deliver to fact."
+  },
+  "schedulesDeliveryOrigin": "Origin chat",
+  "@schedulesDeliveryOrigin": {
+    "description": "Where a schedule's result goes: back to the chat the schedule was created in. Shown in a schedule's row and in its Deliver to fact."
+  },
   "schedulesFormAdvanced": "Advanced",
   "@schedulesFormAdvanced": {
     "description": "Title of the row of the schedule form that shows or hides the advanced fields."
@@ -8446,7 +8469,7 @@
   },
   "skillsScreenFilterAgent": "Agent",
   "@skillsScreenFilterAgent": {
-    "description": "Filter chip: skills the agent wrote itself."
+    "description": "Filter chip, and the source badge or subtitle word of a skill: skills the agent wrote itself."
   },
   "skillsScreenFilterAll": "All",
   "@skillsScreenFilterAll": {
@@ -8454,7 +8477,7 @@
   },
   "skillsScreenFilterBundled": "Bundled",
   "@skillsScreenFilterBundled": {
-    "description": "Filter chip: skills that ship with Hermes."
+    "description": "Filter chip, and the source badge or subtitle word of a skill: skills that ship with Hermes."
   },
   "skillsScreenFilterEnabled": "Enabled",
   "@skillsScreenFilterEnabled": {
@@ -8462,7 +8485,7 @@
   },
   "skillsScreenFilterHub": "Hub",
   "@skillsScreenFilterHub": {
-    "description": "Filter chip: skills installed from the skills hub."
+    "description": "Filter chip, and the source badge or subtitle word of a skill: skills installed from the skills hub."
   },
   "skillsScreenHubSearchHint": "Search the skills hub",
   "@skillsScreenHubSearchHint": {
@@ -8535,6 +8558,18 @@
   "skillsScreenUnsupported": "The connected Hermes does not support skills.",
   "@skillsScreenUnsupported": {
     "description": "Message on the Skills page when the server has no skills routes."
+  },
+  "skillsTrustCommunity": "Community",
+  "@skillsTrustCommunity": {
+    "description": "Trust badge of a hub skill that anyone published and nobody vetted; also the word before a hub skill's description. Keep it short."
+  },
+  "skillsTrustOfficial": "Official",
+  "@skillsTrustOfficial": {
+    "description": "Trust badge of a hub skill that ships with Hermes; also the word before a hub skill's description. Keep it short."
+  },
+  "skillsTrustTrusted": "Trusted",
+  "@skillsTrustTrusted": {
+    "description": "Trust badge of a hub skill from a publisher Hermes trusts; also the word before a hub skill's description. Keep it short."
   },
 
   "@@x-area-spotlight": "",

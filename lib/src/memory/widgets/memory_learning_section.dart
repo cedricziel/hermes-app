@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/app_banner.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/grouped_list.dart';
@@ -30,33 +31,38 @@ class MemoryLearningSection extends StatelessWidget {
 
   static const _intervals = [0, 5, 10, 20];
 
-  static String intervalLabel(int turns) =>
-      turns == 0 ? 'Off' : 'After every $turns messages';
+  static String intervalLabel(AppLocalizations l10n, int turns) =>
+      turns == 0 ? l10n.commonOff : l10n.memoryLearningIntervalEvery(turns);
 
-  static String reportLabel(String value) => switch (value) {
-    'off' => 'Off',
-    'on' => 'Short note',
-    'verbose' => 'With details',
-    _ => value,
-  };
+  static String reportLabel(AppLocalizations l10n, String value) =>
+      switch (value) {
+        'off' => l10n.commonOff,
+        'on' => l10n.memoryLearningReportShort,
+        'verbose' => l10n.memoryLearningReportDetailed,
+        _ => value,
+      };
 
   Future<void> _pickInterval(BuildContext context, int current) async {
+    final l10n = context.l10n;
     final offered = {..._intervals, current}.toList()..sort();
     final picked = await showMemoryChoice<int>(
       context,
       title: MemorySetting.reviewInterval.label,
-      options: [for (final turns in offered) (turns, intervalLabel(turns))],
+      options: [
+        for (final turns in offered) (turns, intervalLabel(l10n, turns)),
+      ],
       current: current,
     );
     if (picked != null) onChanged(MemorySetting.reviewInterval, picked);
   }
 
   Future<void> _pickReport(BuildContext context, String current) async {
+    final l10n = context.l10n;
     final values = ['off', 'on', 'verbose', if (!_known(current)) current];
     final picked = await showMemoryChoice<String>(
       context,
       title: MemorySetting.updatesInChat.label,
-      options: [for (final value in values) (value, reportLabel(value))],
+      options: [for (final value in values) (value, reportLabel(l10n, value))],
       current: current,
     );
     if (picked != null) onChanged(MemorySetting.updatesInChat, picked);
@@ -68,6 +74,7 @@ class MemoryLearningSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = settings;
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -115,13 +122,13 @@ class MemoryLearningSection extends StatelessWidget {
               GroupedRow(
                 wrapWhenStacked: true,
                 title: MemorySetting.reviewInterval.label,
-                value: intervalLabel(current.reviewInterval),
+                value: intervalLabel(l10n, current.reviewInterval),
                 onTap: () => _pickInterval(context, current.reviewInterval),
               ),
               GroupedRow(
                 wrapWhenStacked: true,
                 title: MemorySetting.updatesInChat.label,
-                value: reportLabel(current.updatesInChat),
+                value: reportLabel(l10n, current.updatesInChat),
                 onTap: () => _pickReport(context, current.updatesInChat),
               ),
             ],

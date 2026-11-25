@@ -14,6 +14,7 @@ import 'dart:io';
 import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1130,6 +1131,202 @@ List<Hit> _englishDefaultHits() => [
     if (!_englishDefaultNotVisibleText.containsKey(f.owner)) f.hit,
 ];
 
+/// A function named `*Label`, `*Title` or `*Summary`, with the literal it
+/// returns, and `path#name` as the owner (`path#Class.name` for a static
+/// method).
+typedef LabelHelper = ({Hit hit, String owner, String literal});
+
+final _labelHelperName = RegExp(
+  r'^(?:label|title|summary)$|(?:Label|Title|Summary)$',
+);
+const _labelReturnTypes = {
+  'String',
+  'String?',
+  'Future<String>',
+  'Future<String?>',
+};
+final _l10nParameterType = RegExp(r'\b(?:AppLocalizations|BuildContext)\b');
+
+/// The top-level functions and static methods of [file] named `*Label`,
+/// `*Title` or `*Summary` that return `String`, `String?`, `Future<String>`
+/// or `Future<String?>` (or declare no type), return at
+/// least one string literal that holds a letter, and take neither an
+/// `AppLocalizations` nor a `BuildContext`. Read from the analyzer's
+/// unresolved syntax tree. A literal counts when it sits in a returned
+/// expression outside call arguments, index expressions and function
+/// literals, so `return table['key']` and `return s.replaceAll('a', 'b')`
+/// are not hits; a returned variable or call is none either.
+List<LabelHelper> labelHelpersIn(SourceFile file) {
+  final unit = parseString(
+    content: file.raw,
+    path: file.path,
+    featureSet: FeatureSet.latestLanguageVersion(),
+    throwIfDiagnostics: false,
+  ).unit;
+  final found = <LabelHelper>[];
+  void check(
+    String? prefix,
+    Token name,
+    TypeAnnotation? returnType,
+    FormalParameterList? parameters,
+    FunctionBody body,
+  ) {
+    if (!_labelHelperName.hasMatch(name.lexeme)) return;
+    final type = returnType?.toSource();
+    if (type != null && !_labelReturnTypes.contains(type)) return;
+    for (final p in parameters?.parameters ?? const <FormalParameter>[]) {
+      if (_l10nParameterType.hasMatch(p.toSource())) return;
+    }
+    final finder = _ReturnedLiteral();
+    body.accept(finder);
+    final literal = finder.literal;
+    if (literal == null) return;
+    final line = file.lineOf(name.offset);
+    found.add((
+      hit: Hit(file.path, line, file.lineText(line)),
+      owner: '${file.path}#${prefix == null ? '' : '$prefix.'}${name.lexeme}',
+      literal: literal,
+    ));
+  }
+
+  for (final member in unit.declarations) {
+    if (member is FunctionDeclaration && !member.isGetter) {
+      check(
+        null,
+        member.name,
+        member.returnType,
+        member.functionExpression.parameters,
+        member.functionExpression.body,
+      );
+    }
+  }
+  unit.accept(
+    _StaticMethods((owner, m) {
+      if (m.isGetter || m.isSetter) return;
+      check(owner, m.name, m.returnType, m.parameters, m.body);
+    }),
+  );
+  return found;
+}
+
+/// The static methods of classes, enums, mixins, extensions and extension
+/// types, with the name of the one that holds each.
+class _StaticMethods extends RecursiveAstVisitor<void> {
+  _StaticMethods(this.onMethod);
+  final void Function(String owner, MethodDeclaration) onMethod;
+
+  @override
+  void visitMethodDeclaration(MethodDeclaration node) {
+    if (!node.isStatic) return;
+    final holder = node.parent?.parent;
+    final name = switch (holder) {
+      ClassDeclaration() => holder.namePart.typeName.lexeme,
+      EnumDeclaration() => holder.namePart.typeName.lexeme,
+      MixinDeclaration() => holder.name.lexeme,
+      ExtensionDeclaration() => holder.name?.lexeme ?? 'extension',
+      ExtensionTypeDeclaration() => holder.namePart.typeName.lexeme,
+      _ => null,
+    };
+    if (name != null) onMethod(name, node);
+  }
+}
+
+/// The first string literal with a letter in an expression a body returns.
+class _ReturnedLiteral extends RecursiveAstVisitor<void> {
+  String? literal;
+
+  @override
+  void visitExpressionFunctionBody(ExpressionFunctionBody node) {
+    _scan(node.expression);
+  }
+
+  @override
+  void visitReturnStatement(ReturnStatement node) {
+    final e = node.expression;
+    if (e != null) _scan(e);
+  }
+
+  // A nested function's returns are not this function's.
+  @override
+  void visitFunctionExpression(FunctionExpression node) {}
+
+  void _scan(Expression e) {
+    if (literal != null) return;
+    final finder = _LiteralFinder();
+    e.accept(finder);
+    literal = finder.literal;
+  }
+}
+
+class _LiteralFinder extends RecursiveAstVisitor<void> {
+  String? literal;
+  // Latin letters; the multiplication and division signs (U+00D7, U+00F7)
+  // sit inside the accented range and are not letters.
+  static final _letter = RegExp(
+    r'[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u024F]',
+  );
+
+  @override
+  void visitSimpleStringLiteral(SimpleStringLiteral node) {
+    if (literal == null && _letter.hasMatch(node.value)) literal = node.value;
+  }
+
+  @override
+  void visitStringInterpolation(StringInterpolation node) {
+    for (final part in node.elements) {
+      if (part is InterpolationString && _letter.hasMatch(part.value)) {
+        literal ??= part.value;
+      } else if (part is InterpolationExpression) {
+        part.expression.accept(this);
+      }
+    }
+  }
+
+  @override
+  void visitArgumentList(ArgumentList node) {}
+
+  // `s == 'done' ? a : b` tests a value; the literal is never shown.
+  @override
+  void visitBinaryExpression(BinaryExpression node) {
+    final op = node.operator.type;
+    if (op == TokenType.EQ_EQ || op == TokenType.BANG_EQ) return;
+    super.visitBinaryExpression(node);
+  }
+
+  // `'a' => ...` is a pattern that matches; only the arm's value is shown.
+  @override
+  void visitSwitchExpressionCase(SwitchExpressionCase node) {
+    node.expression.accept(this);
+  }
+
+  @override
+  void visitThrowExpression(ThrowExpression node) {}
+
+  @override
+  void visitIndexExpression(IndexExpression node) {
+    node.target?.accept(this);
+  }
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {}
+}
+
+/// Label helpers that return text nobody reads, as `path#name` with the
+/// reason. Exact: an entry that no longer matches fails.
+const _labelHelperNotVisibleText = <String, String>{};
+
+List<LabelHelper>? _labelHelpers;
+
+List<LabelHelper> _allLabelHelpers() => _labelHelpers ??= [
+  for (final file in dartFiles('lib'))
+    if (_importsWidgetLayer(file)) ...labelHelpersIn(file),
+];
+
+List<Hit> _labelHelperHits() => [
+  for (final f in _allLabelHelpers())
+    if (!_labelHelperNotVisibleText.containsKey(f.owner)) f.hit,
+];
+
 /// An `import` or `export` of a Flutter barrel, or of a file under
 /// `package:flutter/src/material` or `src/cupertino`, that starts a line. The
 /// URI may be a raw string (`r'...'`).
@@ -1484,6 +1681,19 @@ final guardRules = <Rule>[
     pattern: _englishNullFallback,
     where: _importsWidgetLayer,
     exact: _englishNullFallbackNotVisibleText,
+  ),
+  _custom(
+    name: 'label-helper-takes-l10n',
+    message:
+        'a top-level function or static method named *Label, *Title or '
+        '*Summary that returns an English literal shows English in a German '
+        'UI: pass AppLocalizations and return l10n.<key>, like '
+        'kanbanStatusLabel(l10n, status) and effortLabel(l10n, effort) (keys '
+        'in lib/l10n/arb/app_en.arb and app_de.arb). A helper whose text is '
+        'not visible (an id, a semantic identifier, a debug label, a server '
+        'value passed through) goes on _labelHelperNotVisibleText '
+        '(path#name) with its reason.',
+    hits: _labelHelperHits,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take
@@ -2463,6 +2673,234 @@ void main() {
           reason: '${e.key}: ${e.value}',
         );
       }
+    });
+  });
+
+  group('label helper scan', () {
+    List<String> owners(String source) => [
+      for (final f in labelHelpersIn(SourceFile('lib/src/y.dart', source)))
+        f.owner,
+    ];
+
+    test('a helper without AppLocalizations that returns a literal hits', () {
+      expect(
+        owners("String statusLabel(Status s) => s.isOk ? 'Done' : 'Open';"),
+        ['lib/src/y.dart#statusLabel'],
+      );
+      expect(owners("String pageTitle() { return 'Settings'; }"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(
+        owners(
+          "String runSummary(int n) => switch (n) { 0 => 'None', _ => '\$n runs' };",
+        ),
+        ['lib/src/y.dart#runSummary'],
+      );
+      expect(
+        owners(
+          "String effortLabel(E e) { switch (e) { case E.a: return 'Low'; "
+          "case E.b: return 'High'; } }",
+        ),
+        ['lib/src/y.dart#effortLabel'],
+      );
+      expect(
+        owners("class K { static String tagLabel(int x) => 'Tag \$x'; }"),
+        ['lib/src/y.dart#K.tagLabel'],
+      );
+    });
+
+    test('a literal inside an interpolated expression hits', () {
+      expect(
+        owners(
+          "String statusLabel(bool done) => '\${done ? 'Done' : 'Open'}';",
+        ),
+        ['lib/src/y.dart#statusLabel'],
+      );
+      expect(
+        owners(
+          "String runSummary(int n) { return 'x\${n == 1 ? 'run' : 'runs'}'; }",
+        ),
+        ['lib/src/y.dart#runSummary'],
+      );
+      // The exclusions hold inside the braces too: an argument and a
+      // compared value are not shown.
+      expect(
+        owners("String nameLabel(Item i) => '\${i.pick('Done')}';"),
+        isEmpty,
+      );
+      expect(
+        owners("String nameLabel(Item i) => '\${i.s == 'done' ? 1 : 2}';"),
+        isEmpty,
+      );
+    });
+
+    test('a helper that returns a Future of text hits', () {
+      expect(
+        owners("Future<String> pageTitle() async { return 'Settings'; }"),
+        ['lib/src/y.dart#pageTitle'],
+      );
+      expect(owners("Future<String?> pageTitle() async => 'Settings';"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(
+        owners("Future<String> pageTitle(AppLocalizations l) async => 'a';"),
+        isEmpty,
+      );
+      expect(
+        owners("Future<int> pageTitle() async => 'Settings'.length;"),
+        isEmpty,
+      );
+    });
+
+    test('a private helper is flagged too', () {
+      expect(owners("String _modeLabel(M m) => 'Auto';"), [
+        'lib/src/y.dart#_modeLabel',
+      ]);
+    });
+
+    test('a helper that takes AppLocalizations or BuildContext is fine', () {
+      expect(
+        owners(
+          "String kanbanStatusLabel(AppLocalizations l10n, S s) => 'Done';",
+        ),
+        isEmpty,
+      );
+      expect(
+        owners("String effortLabel(AppLocalizations l10n, E e) => 'Low';"),
+        isEmpty,
+      );
+      expect(
+        owners("String pageTitle(BuildContext context) => 'Settings';"),
+        isEmpty,
+      );
+      expect(
+        owners(
+          "String pageTitle(int n, {required AppLocalizations t}) => 'a';",
+        ),
+        isEmpty,
+      );
+    });
+
+    test('returning only a variable, a call or a lookup is fine', () {
+      expect(owners('String nameLabel(Item i) => i.name;'), isEmpty);
+      expect(owners('String nameLabel(Item i) { return i.name; }'), isEmpty);
+      expect(
+        owners("String nameLabel(Item i) => names['a'] ?? i.id;"),
+        isEmpty,
+      );
+      expect(
+        owners("String nameLabel(Item i) => i.id.replaceAll('-', ' ');"),
+        isEmpty,
+      );
+      expect(owners("String nameLabel(Item i) => '';"), isEmpty);
+      expect(owners("String nameLabel(Item i) => '\${i.n}';"), isEmpty);
+      expect(owners("String nameLabel(Item i) => '12:30';"), isEmpty);
+    });
+
+    test('an allowlist entry still matches a helper, so the list shrinks', () {
+      final owners = {for (final f in _allLabelHelpers()) f.owner};
+      for (final entry in _labelHelperNotVisibleText.keys) {
+        expect(
+          owners,
+          contains(entry),
+          reason: '$entry no longer is a label helper: remove it',
+        );
+      }
+    });
+
+    test('static methods of an enum, a mixin and an extension hit', () {
+      expect(owners("enum E { a; static String modeLabel(E e) => 'Auto'; }"), [
+        'lib/src/y.dart#E.modeLabel',
+      ]);
+      expect(owners("mixin M { static String pageTitle() => 'Home'; }"), [
+        'lib/src/y.dart#M.pageTitle',
+      ]);
+      expect(
+        owners("extension X on int { static String runSummary() => 'Runs'; }"),
+        ['lib/src/y.dart#X.runSummary'],
+      );
+      expect(
+        owners(
+          "extension type T(int v) { static String tagLabel() => 'Tag'; }",
+        ),
+        ['lib/src/y.dart#T.tagLabel'],
+      );
+    });
+
+    test('helpers named exactly label, title or summary hit', () {
+      expect(owners("String label(S s) => 'Done';"), ['lib/src/y.dart#label']);
+      expect(owners("String title() => 'Home';"), ['lib/src/y.dart#title']);
+      expect(owners("class K { static String summary() => 'Runs'; }"), [
+        'lib/src/y.dart#K.summary',
+      ]);
+    });
+
+    test('a helper with no declared return type hits when it returns text', () {
+      expect(owners("statusLabel(S s) => 'Done';"), [
+        'lib/src/y.dart#statusLabel',
+      ]);
+      expect(owners("pageTitle() { return 'Home'; }"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(owners('statusLabel(S s) => s.id;'), isEmpty);
+    });
+
+    test('a literal that is compared, matched or thrown is not shown text', () {
+      expect(
+        owners("String statusLabel(S s) => s.id == 'done' ? s.a : s.b;"),
+        isEmpty,
+      );
+      expect(
+        owners("String statusLabel(S s) => s.id != 'done' ? s.a : s.b;"),
+        isEmpty,
+      );
+      expect(
+        owners(
+          "String statusLabel(S s) => switch (s.id) { 'a' => s.a, _ => s.b };",
+        ),
+        isEmpty,
+      );
+      expect(
+        owners("String statusLabel(S s) => s.a ?? (throw StateError('no'));"),
+        isEmpty,
+      );
+      // The value of an arm, a fallback and a ternary branch still count.
+      expect(
+        owners(
+          "String statusLabel(S s) => switch (s.id) { 'a' => 'Done', _ => s.b };",
+        ),
+        ['lib/src/y.dart#statusLabel'],
+      );
+      expect(owners("String statusLabel(S s) => s.a ?? 'None';"), [
+        'lib/src/y.dart#statusLabel',
+      ]);
+    });
+
+    test('a multiplication or division sign is not a letter', () {
+      expect(owners("String sizeLabel(S s) => '×';"), isEmpty);
+      expect(owners("String sizeLabel(S s) => '÷ 2';"), isEmpty);
+      expect(owners("String sizeLabel(S s) => '3 × 4';"), isEmpty);
+      expect(owners("String sizeLabel(S s) => 'ä';"), [
+        'lib/src/y.dart#sizeLabel',
+      ]);
+    });
+
+    test('other names, return types, getters and instance methods pass', () {
+      expect(owners("String statusName(S s) => 'Done';"), isEmpty);
+      expect(owners("int countLabel(S s) => 3;"), isEmpty);
+      expect(owners("String get pageTitle => 'Settings';"), isEmpty);
+      expect(owners("class K { String tagLabel(int x) => 'Tag'; }"), isEmpty);
+      expect(
+        owners("String f(S s) { String inner() => 'Done'; return s.id; }"),
+        isEmpty,
+      );
+      expect(
+        owners(
+          "String statusLabel(S s) { final f = () => 'Done'; return s.id; }",
+        ),
+        isEmpty,
+      );
+      expect(owners("// String statusLabel(S s) => 'Done';"), isEmpty);
     });
   });
 
