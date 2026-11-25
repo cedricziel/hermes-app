@@ -569,11 +569,11 @@ N_SEL=${#TEST_FILES[@]}
 # The catalog file moves to the end and out of the batches (see CATALOG_PARTS).
 HAS_CATALOG=0
 BATCHABLE=()
-for f in "${TEST_FILES[@]}"; do
+for f in ${TEST_FILES[@]+"${TEST_FILES[@]}"}; do
   if [ "$f" = "$CATALOG_TEST" ]; then HAS_CATALOG=1; else BATCHABLE+=("$f"); fi
 done
 if [ "$HAS_CATALOG" = 1 ]; then
-  TEST_FILES=("${BATCHABLE[@]}" "$CATALOG_TEST")
+  TEST_FILES=(${BATCHABLE[@]+"${BATCHABLE[@]}"} "$CATALOG_TEST")
 fi
 N_BATCH=${#BATCHABLE[@]}
 step_done "selection ($N_SEL files)"

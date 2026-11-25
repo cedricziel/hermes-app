@@ -1420,6 +1420,25 @@ class PremergeTest(unittest.TestCase):
         self.assertEqual(self.ran()[-1], self.CATALOG)
         self.assertEqual(self.ran().count(self.CATALOG), 6)
 
+    def test_only_the_catalog_selected_runs_it_in_parts_and_passes(self):
+        # BATCHABLE is empty here; an unguarded expansion aborts bash 3.2.
+        self.fixture()
+        self.pr(10, {self.CATALOG: "void main() {}\n"})
+        r = self.run_check(10, CATALOG_PARTS="2")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.ran(), [self.CATALOG] * 2)
+        self.assertEqual(len(self.catalog_calls()), 2)
+        self.assertIn("affected tests: 1 files run", r.stdout)
+
+    def test_no_empty_array_is_expanded_bare_under_set_u(self):
+        # bash 3.2 (macOS) treats "${A[@]}" of an empty array as unbound under
+        # set -u. TEST_FILES and BATCHABLE are empty when nothing, or only the
+        # catalog test, is selected; use ${A[@]+"${A[@]}"} or a length guard.
+        import re
+        text = SCRIPT.read_text()
+        bare = re.findall(r'(?<!\+)"\$\{(?:TEST_FILES|BATCHABLE)\[@\]\}"', text)
+        self.assertEqual(bare, [], "bare expansion of an array that can be empty")
+
     def test_a_bad_catalog_parts_value_exits_1(self):
         self.catalog_pr()
         for bad in ("abc", "0", "-1", "100"):
