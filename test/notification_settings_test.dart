@@ -136,6 +136,10 @@ void main() {
     final settings = NotificationSettings();
     await reportedErrors(settings.load);
 
+    expect(settings.enabled, isFalse);
+    expect(settings.scheduleAlerts, isFalse);
+    expect(settings.agentMessages, isFalse);
+    expect(settings.liveActivities, isFalse);
     await settings.setMuted('p/2', true);
 
     expect(
