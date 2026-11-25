@@ -261,12 +261,15 @@ void main() {
       final t = line.trim();
       if (t.startsWith('#')) continue;
       final touchesApp = RegExp(r'\$\{?(bin|app)\b').hasMatch(line);
-      final setup =
-          t.startsWith('bin=') ||
-          t.startsWith('app=') ||
-          t.startsWith('name=') ||
-          t.startsWith('[ -x "\$bin" ]') ||
-          t.startsWith('bundle=');
+      // Only these exact lines of the step may name the app outside the two
+      // functions; a line that adds anything to one of them is not exempt.
+      final setup = const {
+        'app="build/macos/Build/Products/Debug/\$name.app"',
+        'bin="\$app/Contents/MacOS/\$name"',
+        '[ -x "\$bin" ] || { echo "::error::No debug binary at \$bin"; exit 1; }',
+        'bundle="\$(/usr/libexec/PlistBuddy -c \'Print :CFBundleIdentifier\' '
+            '"\$app/Contents/Info.plist")"',
+      }.contains(t);
       final opens = RegExp(r'(^|[\s;&|(])open\s').hasMatch(line);
       if ((touchesApp && !setup) || opens) uses.add('$function: $t');
     }
