@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -26,6 +28,8 @@ void main() {
     String? devServerUrl,
     bool httpsDown = false,
     bool redirectsToHttps = false,
+    bool httpsRedirectsBack = false,
+    Future<void>? httpsGate,
     MemoryTokenStore? tokens,
   }) async {
     if (saved != null) {
@@ -49,8 +53,20 @@ void main() {
               );
               return;
             }
+            if (options.uri.scheme == 'https') await httpsGate;
             try {
               final response = await transport.fetch<dynamic>(options);
+              if (httpsRedirectsBack && options.uri.scheme == 'https') {
+                response
+                  ..isRedirect = true
+                  ..redirects = [
+                    RedirectRecord(
+                      301,
+                      'GET',
+                      options.uri.replace(scheme: 'http'),
+                    ),
+                  ];
+              }
               if (redirectsToHttps && options.uri.scheme == 'http') {
                 response
                   ..isRedirect = true
@@ -180,6 +196,15 @@ void main() {
     expect(controller.unconfirmedCleartextServer, isNull);
   });
 
+  test('connecting to another public http:// server drops the question '
+      'about the saved one', () async {
+    final controller = await bootstrapped(saved: _publicHttp);
+
+    await controller.connect('http://other.example.org', allowCleartext: true);
+
+    expect(controller.unconfirmedCleartextServer, isNull);
+  });
+
   test('using https:// when nothing answers there keeps the saved connection '
       'and drops the question', () async {
     final controller = await bootstrapped(saved: _publicHttp, httpsDown: true);
@@ -254,5 +279,35 @@ void main() {
 
     expect(controller.baseUrl, 'https://hermes.example.com');
     expect(controller.unconfirmedCleartextServer, isNull);
+  });
+
+  test('an https:// address that sends the app back to http:// is no answer, '
+      'and the saved connection stays', () async {
+    final controller = await bootstrapped(
+      saved: _publicHttp,
+      httpsRedirectsBack: true,
+    );
+
+    expect(await controller.useHttpsForCleartextServer(), isFalse);
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.baseUrl, _publicHttp);
+  });
+
+  test('changing the server while https:// is probed does not connect to the '
+      'old server', () async {
+    final gate = Completer<void>();
+    final controller = await bootstrapped(
+      saved: _publicHttp,
+      httpsGate: gate.future,
+    );
+
+    final switching = controller.useHttpsForCleartextServer();
+    await controller.changeServer();
+    gate.complete();
+
+    expect(await switching, isFalse);
+    expect(controller.baseUrl, isNull);
+    expect(controller.state, HermesConnectionState.needsServerUrl);
   });
 }

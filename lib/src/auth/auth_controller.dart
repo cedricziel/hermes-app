@@ -253,13 +253,18 @@ class AuthController extends ChangeNotifier {
     final https = httpsAddressOf(address);
     var answers = true;
     try {
-      await HermesApiClient(
+      final probe = await HermesApiClient(
         _plainDio(
           https,
           connectTimeout: const Duration(seconds: 8),
           receiveTimeout: const Duration(seconds: 8),
         ),
       ).probeStatus();
+      final redirected = probe.redirectedTo;
+      // An https address that sends the app back to cleartext is no answer.
+      answers =
+          redirected == null ||
+          !redirectsToUnacceptedCleartext(https, redirected);
     } on Object {
       answers = false;
     }
