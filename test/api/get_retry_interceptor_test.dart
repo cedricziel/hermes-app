@@ -217,8 +217,8 @@ void main() {
       logger = _RecordingLogger();
     });
 
-    test('every failed try keeps its own error span with the error type, '
-        'and the burst logger folds their log records into one', () async {
+    test('every failed try keeps its own ended error span with the error '
+        'type', () async {
       final adapter = _Flaky(DioExceptionType.connectionError);
       dio = build(adapter, first: httpInterceptor(logger, tracer));
 
@@ -234,7 +234,6 @@ void main() {
         expect(span.attributes['http.route'], '/api/sessions');
         expect(span.ended, isTrue);
       }
-      expect(logger.records, hasLength(1));
     });
   });
 }

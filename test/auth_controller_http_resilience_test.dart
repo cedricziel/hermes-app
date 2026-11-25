@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show LogRecord, Logger, StatusCode;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/src/api/get_retry_interceptor.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
@@ -9,9 +10,11 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/fake_hermes_server.dart';
 import 'support/memory_token_store.dart';
+import 'support/recording_tracer.dart';
 import 'support/recorded_events.dart';
 
-const _baseUrl = 'http://hermes.test';
+// Nothing listens on port 1, so a request that reaches the socket is refused.
+const _baseUrl = 'http://127.0.0.1:1';
 const _identity = {'user_id': 'u1', 'provider': 'oidc'};
 const _storedSession = HermesSession(
   accessToken: 'access-1',
@@ -22,13 +25,19 @@ const _storedSession = HermesSession(
   serverUrl: _baseUrl,
 );
 
+class _NoLogs extends Logger {
+  @override
+  void emit(LogRecord record) {}
+}
+
 void main() {
   late FakeHermesServer server;
   late RecordedEvents events;
   late AuthController controller;
   late List<Duration> slept;
   late int unreachable;
-  late Interceptor telemetryInterceptor;
+  late RecordingTracer tracer;
+  late bool refuseAtSocket;
   Future<void> Function()? onRetryWait;
 
   setUp(() {
@@ -36,7 +45,8 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
     slept = [];
     unreachable = 0;
-    telemetryInterceptor = InterceptorsWrapper();
+    tracer = RecordingTracer();
+    refuseAtSocket = false;
     onRetryWait = null;
     server = FakeHermesServer()
       ..on('GET', '/api/status', {'auth_required': true})
@@ -56,7 +66,7 @@ void main() {
       tokenStore: MemoryTokenStore(_storedSession),
       devServerUrl: _baseUrl,
       telemetry: (attributes) => ConnectionTelemetry(
-        interceptor: telemetryInterceptor,
+        interceptor: httpInterceptor(_NoLogs(), tracer),
         events: events.connection(attributes).events,
       ),
       rejectionRecheck: Duration.zero,
@@ -68,6 +78,10 @@ void main() {
         InterceptorsWrapper(
           onRequest: (options, handler) async {
             // The network is down for the first `unreachable` requests.
+            if (refuseAtSocket && options.path == '/api/auth/me') {
+              // Goes on to the telemetry interceptor and the real socket.
+              return handler.next(options);
+            }
             if (unreachable > 0 && options.path != '/auth/native/refresh') {
               unreachable--;
               return handler.reject(
@@ -134,19 +148,20 @@ void main() {
     expect(slept, hasLength(1));
   });
 
-  test('a failed try reaches the telemetry interceptor before the retry '
-      'resends it, so every try keeps its span', () async {
+  test('every try of a GET that never connects has its own ended error '
+      'span, so the retry runs behind the telemetry interceptor', () async {
     await controller.bootstrap();
+    refuseAtSocket = true;
 
-    final order = controller.clientInterceptors;
+    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
 
-    expect(
-      order.indexOf(telemetryInterceptor),
-      allOf(
-        isNonNegative,
-        lessThan(order.indexWhere((i) => i is GetRetryInterceptor)),
-      ),
-    );
+    expect(tracer.spans, hasLength(3));
+    for (final span in tracer.spans) {
+      expect(span.ended, isTrue);
+      expect(span.status, StatusCode.error);
+      expect(span.attributes['error.type'], 'connectionError');
+    }
+    expect(slept, hasLength(2));
   });
 
   test('a POST that cannot connect is not sent again', () async {
