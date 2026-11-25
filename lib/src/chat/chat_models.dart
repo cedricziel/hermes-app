@@ -842,6 +842,7 @@ class ThreadSearchHit {
     required this.snippet,
     required this.updatedAt,
     this.profile,
+    this.branch = false,
   });
 
   final String id;
@@ -851,4 +852,8 @@ class ThreadSearchHit {
 
   /// The profile the chat belongs to, when the search said.
   final String? profile;
+
+  /// Whether the chat was branched from another: the result row shows a glyph
+  /// before the title.
+  final bool branch;
 }
