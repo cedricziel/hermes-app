@@ -242,14 +242,35 @@ class AuthController extends ChangeNotifier {
     if (address != null) await _acceptCleartext(address);
   }
 
-  /// Reconnects to the `https://` form of the saved `http://` address. The
-  /// saved address changes only once that connection works.
-  Future<void> useHttpsForCleartextServer() async {
+  /// Reconnects to the `https://` form of the saved `http://` address, once
+  /// that answers there, and returns true. When it does not, the saved
+  /// connection stays as it is, the question is dropped until the next launch
+  /// and this returns false. The session the `http://` address issued is not
+  /// served to the https address (the sign-in is asked again).
+  Future<bool> useHttpsForCleartextServer() async {
     final address = _cleartextToConfirm;
-    if (address == null) return;
+    if (address == null) return false;
+    final https = httpsAddressOf(address);
+    var answers = true;
+    try {
+      await HermesApiClient(
+        _plainDio(
+          https,
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+        ),
+      ).probeStatus();
+    } on Object {
+      answers = false;
+    }
+    if (_disposed || _cleartextToConfirm != address) return false;
     _cleartextToConfirm = null;
-    notifyListeners();
-    await connect(httpsAddressOf(address));
+    if (!answers) {
+      notifyListeners();
+      return false;
+    }
+    await connect(https);
+    return true;
   }
 
   Future<List<String>> _acceptedCleartext() async =>
@@ -325,10 +346,6 @@ class AuthController extends ChangeNotifier {
       return;
     }
     if (_cleartextToConfirm != typed) _cleartextToConfirm = null;
-    if (allowCleartext && remember && isCleartextToPublicHost(typed)) {
-      await _acceptCleartext(typed);
-      if (stale()) return;
-    }
     var normalized = typed;
 
     _errorMessage = null;
@@ -358,6 +375,11 @@ class AuthController extends ChangeNotifier {
         return;
       }
       normalized = redirected ?? normalized;
+      if (allowCleartext && remember && isCleartextToPublicHost(typed)) {
+        // Recorded once the address answered, not for a refused or failed one.
+        await _acceptCleartext(typed);
+      }
+      if (!isCleartextToPublicHost(normalized)) _cleartextToConfirm = null;
     } on DioException catch (e) {
       if (stale()) return;
       _failConnect(

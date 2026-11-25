@@ -63,14 +63,11 @@ WidgetbookNode adaptiveNode() => WidgetbookFolder(
       ),
     ),
     WidgetbookComponent(
-      name: 'confirmCleartextServer (saved)',
+      name: 'confirmSavedCleartextServer',
       useCases: _everywhere(
         (_) => openOnShow(
-          (context) => confirmCleartextServer(
-            context,
-            host: 'hermes.example.com',
-            saved: true,
-          ),
+          (context) =>
+              confirmSavedCleartextServer(context, host: 'hermes.example.com'),
         ),
       ),
     ),

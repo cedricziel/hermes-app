@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -23,6 +24,9 @@ void main() {
   Future<AuthController> bootstrapped({
     String? saved,
     String? devServerUrl,
+    bool httpsDown = false,
+    bool redirectsToHttps = false,
+    MemoryTokenStore? tokens,
   }) async {
     if (saved != null) {
       await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
@@ -30,13 +34,35 @@ void main() {
     final transport = server.dio();
     addTearDown(transport.close);
     final controller = AuthController(
-      tokenStore: MemoryTokenStore(),
+      tokenStore: tokens ?? MemoryTokenStore(),
       devServerUrl: devServerUrl,
       interceptors: [
         InterceptorsWrapper(
           onRequest: (options, handler) async {
+            if (httpsDown && options.uri.scheme == 'https') {
+              handler.reject(
+                DioException.connectionError(
+                  requestOptions: options,
+                  reason: 'no https listener',
+                ),
+                true,
+              );
+              return;
+            }
             try {
-              handler.resolve(await transport.fetch<dynamic>(options), true);
+              final response = await transport.fetch<dynamic>(options);
+              if (redirectsToHttps && options.uri.scheme == 'http') {
+                response
+                  ..isRedirect = true
+                  ..redirects = [
+                    RedirectRecord(
+                      301,
+                      'GET',
+                      options.uri.replace(scheme: 'https'),
+                    ),
+                  ];
+              }
+              handler.resolve(response, true);
             } on DioException catch (error) {
               handler.reject(error, true);
             }
@@ -151,6 +177,82 @@ void main() {
 
     await controller.connect('https://hermes.example.org');
 
+    expect(controller.unconfirmedCleartextServer, isNull);
+  });
+
+  test('using https:// when nothing answers there keeps the saved connection '
+      'and drops the question', () async {
+    final controller = await bootstrapped(saved: _publicHttp, httpsDown: true);
+
+    final switched = await controller.useHttpsForCleartextServer();
+
+    expect(switched, isFalse);
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.baseUrl, _publicHttp);
+    expect(controller.unconfirmedCleartextServer, isNull);
+    expect(
+      await SharedPreferencesAsync().getString(kSavedServerUrlKey),
+      _publicHttp,
+    );
+    expect(
+      await SharedPreferencesAsync().getStringList(
+        kAcceptedCleartextServersKey,
+      ),
+      isNull,
+    );
+  });
+
+  test('using https:// on a server that needs sign-in asks for the sign-in '
+      'again, since the http:// address issued the session', () async {
+    server
+      ..on('GET', '/api/status', {'auth_required': true})
+      ..on('GET', '/api/auth/providers', {'providers': []})
+      ..on('GET', '/api/auth/me', {'user_id': 'u1', 'provider': 'oidc'});
+    final tokens = MemoryTokenStore(
+      const HermesSession(
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        expiresAt: 4102444800,
+        provider: 'oidc',
+        userId: 'u1',
+        serverUrl: _publicHttp,
+      ),
+    );
+    final controller = await bootstrapped(saved: _publicHttp, tokens: tokens);
+    expect(controller.state, HermesConnectionState.ready);
+
+    expect(await controller.useHttpsForCleartextServer(), isTrue);
+
+    expect(controller.baseUrl, 'https://hermes.example.com');
+    expect(controller.state, HermesConnectionState.needsLogin);
+  });
+
+  test(
+    'a refused or failed Connect Anyway is not recorded as accepted',
+    () async {
+      final controller = await bootstrapped(httpsDown: true);
+      server.on('GET', '/api/status', {'detail': 'down'}, status: 503);
+
+      await controller.connect(_publicHttp, allowCleartext: true);
+
+      expect(controller.state, HermesConnectionState.connectionError);
+      expect(
+        await SharedPreferencesAsync().getStringList(
+          kAcceptedCleartextServersKey,
+        ),
+        isNull,
+      );
+    },
+  );
+
+  test('a saved http:// address that now redirects to https is not asked '
+      'about', () async {
+    final controller = await bootstrapped(
+      saved: _publicHttp,
+      redirectsToHttps: true,
+    );
+
+    expect(controller.baseUrl, 'https://hermes.example.com');
     expect(controller.unconfirmedCleartextServer, isNull);
   });
 }

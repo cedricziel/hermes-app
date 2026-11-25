@@ -1,6 +1,7 @@
-import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/l10n.dart';
 import '../auth/auth_controller.dart';
 import 'widgets/cleartext_server_alert.dart';
 
@@ -9,8 +10,9 @@ import 'widgets/cleartext_server_alert.dart';
 ///
 /// It asks only on the home screen or the sign-in screen, never while a
 /// sign-in or a connect is running, so the question cannot leave either
-/// waiting. A question that gets closed by the connection ending, or left
-/// unanswered, comes back with the next connection.
+/// waiting. A question closed without a choice (a tap outside, the back
+/// button, the connection ending) is no answer and comes back with the next
+/// connection.
 class SavedCleartextGate extends StatefulWidget {
   const SavedCleartextGate({super.key, required this.child});
 
@@ -42,16 +44,24 @@ class _SavedCleartextGateState extends State<SavedCleartextGate> {
     try {
       final address = auth.unconfirmedCleartextServer;
       if (!mounted || address == null || !_canAsk(auth)) return;
-      final keep = await confirmCleartextServer(
-        context,
-        host: Uri.parse(address).host,
-        saved: true,
-      );
-      // A dialog the connection ending closed is no answer.
-      if (auth.unconfirmedCleartextServer != address || !_canAsk(auth)) return;
-      await (keep
-          ? auth.keepCleartextServer()
-          : auth.useHttpsForCleartextServer());
+      final host = Uri.parse(address).host;
+      final keep = await confirmSavedCleartextServer(context, host: host);
+      // A dialog closed without a choice, or by the connection ending, is no
+      // answer: the question comes back with the next connection.
+      if (keep == null ||
+          auth.unconfirmedCleartextServer != address ||
+          !_canAsk(auth)) {
+        return;
+      }
+      if (keep) {
+        await auth.keepCleartextServer();
+      } else if (!await auth.useHttpsForCleartextServer() && mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.screensCleartextHttpsUnavailable(host)),
+          ),
+        );
+      }
     } finally {
       _asking = false;
     }
