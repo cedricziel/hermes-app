@@ -150,6 +150,7 @@ extension _Connection on HermesGatewayTransport {
       },
     );
     _billingUnavailable.clear();
+    _branchSupported = null;
     return _open = client;
   }
 

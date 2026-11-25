@@ -11,6 +11,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, Message;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../l10n/l10n.dart' show l10nForPlatformLocale;
 import '../background/running_replies.dart';
@@ -249,6 +250,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         history: _history,
         canWork: () => active,
         branch: transport == null ? null : branch,
+        branchSupported: () => transport?.branchSupported != false,
       );
       search = ThreadSearch(
         (query) => repository.searchThreads(query, profile: _profile),
@@ -337,6 +339,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
     _suspendedQueues.addAll(_queues.keys);
     _undoing.clear();
+    _unconfirmedBranch = null;
     _retrying.clear();
     _interrupts.clear();
     _holds.clear();
@@ -2194,6 +2197,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The threads whose last turn is being dropped, and for what, so a second
   /// tap does not drop the turn before it too.
   final _undoing = <ChatThread, TurnAction>{};
+
+  /// The branch whose answer was lost, so that asking for the same branch
+  /// again names it to the server with the same key. Only the last one is
+  /// kept, and it goes with any answer, any other branch and a change of
+  /// session.
+  _BranchAttempt? _unconfirmedBranch;
 
   /// Threads where a Retry runs from taking the turn back to sending the
   /// prompt again. A full restore waits for it: between the two the chat is
