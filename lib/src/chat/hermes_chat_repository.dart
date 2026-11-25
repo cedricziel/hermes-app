@@ -326,6 +326,11 @@ class HermesChatRepository {
       folderPath: sessionFolderPath(row),
       workingDirectory: _stored(row['cwd']),
       branch: _stored(row['git_branch']),
+      // Only `_branched_from` marks a branch: `parent_session_id` is also a
+      // compression continuation or a sub-agent, and a reset is no branch.
+      branchParentId: _stored(row['_reset_from']) == null
+          ? _stored(row['_branched_from'])
+          : null,
       remote: true,
       named:
           row['title'] is String && (row['title'] as String).trim().isNotEmpty,

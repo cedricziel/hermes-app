@@ -723,9 +723,13 @@ final class QuestionAnswer extends OpenRequestAnswer {
 
 /// The chat a [ChatTransport.branchThread] made, by its stored id.
 class BranchedThread {
-  const BranchedThread(this.id);
+  const BranchedThread(this.id, {this.parent});
 
   final String id;
+
+  /// The stored id of the chat it was branched from, as the gateway named it;
+  /// null when the gateway did not.
+  final String? parent;
 }
 
 /// A branch was made, but taking its last turns back failed, so it holds more
