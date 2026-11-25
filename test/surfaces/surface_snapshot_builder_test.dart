@@ -570,6 +570,7 @@ void main() {
       expect(result.failures.attributes, {
         'outcome': 'error',
         'sources_errored': 'profiles',
+        'sources_error_types': 'profiles:badResponse',
       });
     });
 

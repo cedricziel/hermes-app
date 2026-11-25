@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+
 import '../api/hermes_repositories.dart';
 import '../schedules/schedule_models.dart';
 import 'chat_hints.dart';
@@ -19,12 +21,19 @@ typedef SnapshotBuild = ({
 /// [timedOut] was still running when the build's budget ran out. A budget
 /// cut short is expected when the app goes to the background (the pause
 /// build has 800 ms before iOS suspends it), so only [errored] makes a build
-/// fail; a timed-out source just keeps its previous section.
+/// fail; a timed-out source just keeps its previous section. [errorTypes]
+/// holds `source:type` pairs for the errored ones, the type being a
+/// `DioExceptionType` name or an exception's runtime type, never a message.
 class SourceFailures {
-  const SourceFailures({this.errored = const {}, this.timedOut = const {}});
+  const SourceFailures({
+    this.errored = const {},
+    this.timedOut = const {},
+    this.errorTypes = const {},
+  });
 
   final Set<String> errored;
   final Set<String> timedOut;
+  final Set<String> errorTypes;
 
   bool get isEmpty => errored.isEmpty && timedOut.isEmpty;
 
@@ -41,6 +50,7 @@ class SourceFailures {
     'outcome': outcome,
     if (errored.isNotEmpty) 'sources_errored': _join(errored),
     if (timedOut.isNotEmpty) 'sources_timed_out': _join(timedOut),
+    if (errorTypes.isNotEmpty) 'sources_error_types': _join(errorTypes),
   };
 
   static String _join(Set<String> slugs) => (slugs.toList()..sort()).join(',');
@@ -50,16 +60,24 @@ class SourceFailures {
 /// since the snapshot must not carry what the user asked for.
 const kUnnamedJobLabel = 'Scheduled task';
 
-/// How one source answered: [value] when [ok], nothing when it failed or
-/// [timedOut].
+/// How one source answered: [value] when [ok], nothing when it failed (with
+/// the [errorType] of what it threw) or [timedOut].
 class _Read<T> {
-  const _Read.ok(this.value) : ok = true, timedOut = false;
-  const _Read.failed() : ok = false, timedOut = false, value = null;
-  const _Read.timedOut() : ok = false, timedOut = true, value = null;
+  const _Read.ok(this.value) : ok = true, timedOut = false, errorType = null;
+  const _Read.failed(this.errorType)
+    : ok = false,
+      timedOut = false,
+      value = null;
+  const _Read.timedOut()
+    : ok = false,
+      timedOut = true,
+      value = null,
+      errorType = null;
 
   final bool ok;
   final bool timedOut;
   final T? value;
+  final String? errorType;
 }
 
 /// Reads what the [SurfaceSnapshot] holds. Each source on its own: one that
@@ -114,9 +132,15 @@ class SurfaceSnapshotBuilder {
     var failed = 0;
     final errored = <String>{};
     final timedOut = <String>{};
+    final errorTypes = <String>{};
     void fail(String source, _Read<Object?> read) {
       failed++;
-      (read.timedOut ? timedOut : errored).add(source);
+      if (read.timedOut) {
+        timedOut.add(source);
+      } else {
+        errored.add(source);
+        errorTypes.add('$source:${read.errorType}');
+      }
     }
 
     if (refreshRemote) {
@@ -249,15 +273,21 @@ class SurfaceSnapshotBuilder {
     return (
       snapshot: redact ? snapshot.redacted() : snapshot,
       sourcesFailed: failed,
-      failures: SourceFailures(errored: errored, timedOut: timedOut),
+      failures: SourceFailures(
+        errored: errored,
+        timedOut: timedOut,
+        errorTypes: errorTypes,
+      ),
     );
   }
 
   Future<_Read<T>> _read<T>(Future<T> Function() source) async {
     try {
       return _Read.ok(await source());
-    } on Object {
-      return const _Read.failed();
+    } on Object catch (error) {
+      return _Read.failed(
+        error is DioException ? error.type.name : '${error.runtimeType}',
+      );
     }
   }
 
