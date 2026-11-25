@@ -47,6 +47,7 @@ import 'connection_use_cases.dart';
 import 'thread_grouping_use_cases.dart';
 import 'new_chat_fab_use_cases.dart';
 import 'session_export_use_cases.dart';
+import 'chat_branch_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
@@ -192,6 +193,7 @@ final List<WidgetbookNode> directories = [
   subagentCardNode(),
   billingVerificationNode(),
   chatSuggestionsNode(),
+  chatBranchNode(),
   chatThreadNode(),
   quickLookNode(),
   voiceNode(),
