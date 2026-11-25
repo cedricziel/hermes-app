@@ -167,7 +167,9 @@ void main() {
 
     await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
-    await tester.tap(find.text('Ops (24)'));
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<String>, 'Ops (24)'),
+    );
     await settle(tester);
     expect(lastBoardQuery()['board'], 'ops');
     await showChip(tester, 'Running 12');
@@ -273,14 +275,18 @@ void main() {
 
     await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
-    await tester.tap(find.text('Ops (24)'));
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<String>, 'Ops (24)'),
+    );
     await settle(tester);
     expect(lastBoardQuery()['board'], 'ops');
     expect(find.text('Running job 0'), findsNothing);
 
     await tester.tap(find.tooltip('Switch board'));
     await settle(tester);
-    await tester.tap(find.text('Default (24)'));
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<String>, 'Default (24)'),
+    );
     await settle(tester);
     await showChip(tester, 'Running 12');
 
