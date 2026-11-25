@@ -445,6 +445,36 @@ void main() {
       expect(outcome(), 'dropped');
     });
 
+    test('while another profile\'s list is being read opens nothing', () async {
+      final list = Completer<FakeResponse>();
+      server.onRequest(
+        'GET',
+        '/api/sessions',
+        (_) => list.future,
+        query: {'profile': 'work'},
+      );
+      final tap = chat.openBranchParent(branch());
+      await flush();
+      final switching = chat.loadThreads('work');
+      await flush();
+
+      await land();
+      await tap;
+      expect(outcome(), 'dropped');
+
+      list.complete((
+        status: 200,
+        body: sessionListBody([
+          sessionRow(id: 'elsewhere', title: 'Elsewhere'),
+        ]),
+      ));
+      await switching;
+      await flush();
+
+      expect(chat.profile, 'work');
+      expect(crumbs.named('chat.open.requested'), isEmpty);
+    });
+
     test('after sign-out opens nothing', () async {
       final tap = chat.openBranchParent(branch());
       await flush();
