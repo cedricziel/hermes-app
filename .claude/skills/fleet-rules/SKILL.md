@@ -121,12 +121,23 @@ Sections in this order:
 
 A review reported only in a session message does not count. It must be in the
 PR, where a check can read it. A push after the review needs a new review of
-the new commits, with the new head SHA.
+the new commits, with the new head SHA. The exception is a clean automatic
+merge of the base branch into a commit with a clean recorded review: `Review recorded`
+proves it from git (the merge's tree equals `git merge-tree` of its parents)
+and needs no new block. A merge with a conflict fix or an extra change needs a
+merge-only review whose block starts with `Merge-review: <files>`, naming every
+file that differs from the automatic merge; a merge of anything but the base
+branch needs it listing everything the merge brings in. A new non-merge commit
+after the reviewed head always needs a review of its own. A review's `Range:`
+may start at the base branch or at a commit with a clean recorded review (so
+each push is reviewed for its new commits); a review that asked for changes
+is never a Range base (a commit with any rejected block, even beside a clean one, is none either), so after a rejected round the next review reads, and
+names as its Range, everything since the last clean review or the base.
 
 Authors may add fix notes to `## Review`, but never write or change a
-`Reviewer: ... Head: ... Verdict:` line or its `Range:` line (once the
-reviewer emits one): those are pasted from the isolated reviewer's output,
-unchanged. Paste the block as plain lines,
+`Reviewer: ... Head: ... Verdict:` line, its `Range:` line or the
+`Merge-review:` line of a merge-only review: those are pasted from the isolated
+reviewer's output, unchanged. Paste the block as plain lines,
 not inside a code fence (`pr-policy` ignores review lines inside fences). Order:
 push, review the pushed head, paste.
 
@@ -151,8 +162,10 @@ or a finding. It is a reviewer finding, not a `PR policy` failure, for now.
 A session reports READY to the orchestrator when all of these hold:
 
 - The isolated review is clean and recorded in the PR body as the
-  `Reviewer: ... Head: <full sha> Verdict: clean` line for the PR's current
-  head. The reviewer gets the diff (or PR number) and the rules, never the
+  `Reviewer: ... Head: <full sha> Verdict: clean` line (with its `Range:` line)
+  for the PR's current head, or the head is a clean automatic merge of main
+  into a reviewed commit (see above). The reviewer gets the diff (or PR
+  number) and the rules, never the
   author's conclusions (`isolated-reviewer` agent).
 - For a UI PR, the design canvas is linked.
 - Main is merged in wherever main changed the PR's files. Exception: after one
