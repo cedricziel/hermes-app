@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -12,6 +13,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_device_authenticator.dart';
+import 'support/unreadable_prefs.dart';
 
 void main() {
   setUp(() {
@@ -54,6 +56,19 @@ void main() {
 
     expect(controller.mode, ThemeMode.system);
   });
+
+  test(
+    'falls back to the system mode when the saved one is unreadable',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+
+      final controller = ThemeController();
+      final reported = await reportedErrors(controller.load);
+
+      expect(controller.mode, ThemeMode.system);
+      expect(reported.single.exception, isA<PlatformException>());
+    },
+  );
 
   test('notifies listeners only when the mode changes', () async {
     final controller = ThemeController();

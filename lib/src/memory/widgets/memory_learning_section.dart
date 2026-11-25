@@ -7,6 +7,16 @@ import '../../widgets/grouped_list.dart';
 import '../memory_settings.dart';
 import 'memory_choice_dialog.dart';
 
+/// The title of a setting's row, and of the choice list it opens.
+String memorySettingLabel(AppLocalizations l10n, MemorySetting setting) =>
+    switch (setting) {
+      MemorySetting.userProfile => l10n.memoryLearningUserProfile,
+      MemorySetting.agentNotes => l10n.memoryLearningAgentNotes,
+      MemorySetting.writeApproval => l10n.memoryLearningWriteApproval,
+      MemorySetting.reviewInterval => l10n.memoryLearningReviewInterval,
+      MemorySetting.updatesInChat => l10n.memoryLearningUpdatesInChat,
+    };
+
 /// What Hermes learns about the user, and how it reports it: three switches
 /// and two choices for one profile. [settings] is null while they are not
 /// read; [onChanged] gets the setting and its new value (a `bool`, the review
@@ -47,7 +57,7 @@ class MemoryLearningSection extends StatelessWidget {
     final offered = {..._intervals, current}.toList()..sort();
     final picked = await showMemoryChoice<int>(
       context,
-      title: MemorySetting.reviewInterval.label,
+      title: memorySettingLabel(l10n, MemorySetting.reviewInterval),
       options: [
         for (final turns in offered) (turns, intervalLabel(l10n, turns)),
       ],
@@ -61,7 +71,7 @@ class MemoryLearningSection extends StatelessWidget {
     final values = ['off', 'on', 'verbose', if (!_known(current)) current];
     final picked = await showMemoryChoice<String>(
       context,
-      title: MemorySetting.updatesInChat.label,
+      title: memorySettingLabel(l10n, MemorySetting.updatesInChat),
       options: [for (final value in values) (value, reportLabel(l10n, value))],
       current: current,
     );
@@ -88,46 +98,46 @@ class MemoryLearningSection extends StatelessWidget {
             ),
           ),
         GroupedSection(
-          header: 'Learning',
-          footer: current == null
-              ? null
-              : 'Ask before saving applies right away, the rest from the next '
-                    'chat.',
+          header: l10n.memoryLearningHeader,
+          footer: current == null ? null : l10n.memoryLearningFooter,
           children: [
             if (current == null)
               GroupedRow(
                 wrapWhenStacked: true,
                 title: unreadable
-                    ? "Couldn't read the memory settings"
-                    : 'Reading the memory settings',
-                value: unreadable ? 'Retry' : null,
+                    ? l10n.memoryLearningUnreadable
+                    : l10n.memoryLearningReadingSettings,
+                value: unreadable ? l10n.commonRetry : null,
                 onTap: unreadable ? onRetry : null,
               )
             else ...[
               _switch(
+                l10n,
                 MemorySetting.userProfile,
-                'Your preferences, name and habits',
+                l10n.memoryLearningUserProfileDetail,
                 current.userProfile,
               ),
               _switch(
+                l10n,
                 MemorySetting.agentNotes,
-                'Facts about your setup, tools and conventions',
+                l10n.memoryLearningAgentNotesDetail,
                 current.agentNotes,
               ),
               _switch(
+                l10n,
                 MemorySetting.writeApproval,
-                'Hermes asks you before it changes memory',
+                l10n.memoryLearningWriteApprovalDetail,
                 current.writeApproval,
               ),
               GroupedRow(
                 wrapWhenStacked: true,
-                title: MemorySetting.reviewInterval.label,
+                title: memorySettingLabel(l10n, MemorySetting.reviewInterval),
                 value: intervalLabel(l10n, current.reviewInterval),
                 onTap: () => _pickInterval(context, current.reviewInterval),
               ),
               GroupedRow(
                 wrapWhenStacked: true,
-                title: MemorySetting.updatesInChat.label,
+                title: memorySettingLabel(l10n, MemorySetting.updatesInChat),
                 value: reportLabel(l10n, current.updatesInChat),
                 onTap: () => _pickReport(context, current.updatesInChat),
               ),
@@ -138,12 +148,16 @@ class MemoryLearningSection extends StatelessWidget {
     );
   }
 
-  Widget _switch(MemorySetting setting, String subtitle, bool value) =>
-      GroupedSwitchRow(
-        title: setting.label,
-        subtitle: subtitle,
-        subtitleMaxLines: 2,
-        value: value,
-        onChanged: (next) => onChanged(setting, next),
-      );
+  Widget _switch(
+    AppLocalizations l10n,
+    MemorySetting setting,
+    String subtitle,
+    bool value,
+  ) => GroupedSwitchRow(
+    title: memorySettingLabel(l10n, setting),
+    subtitle: subtitle,
+    subtitleMaxLines: 2,
+    value: value,
+    onChanged: (next) => onChanged(setting, next),
+  );
 }

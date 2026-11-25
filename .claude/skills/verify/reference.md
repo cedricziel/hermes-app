@@ -13,7 +13,8 @@ Ubuntu 24.04, as root (prefix `sudo` otherwise):
 apt-get update
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev libmpv-dev \
-  xvfb xdotool imagemagick gnome-keyring dbus-x11 libsecret-tools lsof iproute2 procps
+  xvfb xdotool imagemagick gnome-keyring dbus-x11 libsecret-tools lsof iproute2 procps \
+  make g++
 ```
 
 The first line of the second command is what CI's "Build Linux (release)"
@@ -22,7 +23,13 @@ installs; the rest runs the app headless (`xvfb`, `imagemagick` for `import`,
 window by hand), and `lsof` is what `dev-backend.sh` finds the dashboard's PID
 with. `libsecret-tools` gives `secret-tool` for looking into the throwaway
 keyring while debugging. Also needed: Flutter at `.fvmrc` (`flutter` on PATH),
-`uv`, `git`, Node/npm (the Hermes web UI build), `curl`, Python 3.
+`uv`, `git`, `curl`, Python 3, and Node 22 with npm (the Hermes web UI build).
+Ubuntu 24.04's own `nodejs` is version 18, and the web UI build fails on it:
+install Node 22 from NodeSource or another source. `make` and `g++` are for
+mimalloc's nested CMake build in the app tier, which fails without them.
+
+Memory: the contract tier needs about 8 GB. A 4 GB VM killed it (OOM); with a
+6 GB swapfile added it passed.
 
 ## Layout of one run
 
