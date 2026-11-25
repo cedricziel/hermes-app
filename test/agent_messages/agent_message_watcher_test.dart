@@ -910,7 +910,7 @@ void main() {
           asked.complete(request);
           return held.future;
         });
-        await setUpWatcher();
+        await setUpWatcher(lookup: const Duration(minutes: 1));
         final look = watcher!.check();
         final request = await asked.future.timeout(const Duration(seconds: 5));
 
@@ -929,7 +929,7 @@ void main() {
     testWidgets('leaving the front closes a held message text', (tester) async {
       restoreLifecycle(tester);
       await tester.runAsync(() async {
-        await setUpWatcher();
+        await setUpWatcher(lookup: const Duration(minutes: 1));
         await watcher!.check();
         deliveries('work', [delivery('hermes-app-new', at: 200)]);
         final asked = Completer<RequestOptions>();
