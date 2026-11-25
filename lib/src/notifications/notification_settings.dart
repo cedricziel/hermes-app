@@ -80,13 +80,11 @@ class NotificationSettings extends ChangeNotifier {
       mutedRead = true;
       liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
       agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
-      _mutedUnreadable = false;
     } on Object catch (error, stack) {
       // Whatever failed to read, every alert goes off rather than on, also the
       // ones read before it: a user who chose off, or muted a chat, would
       // otherwise get message text.
       enabled = schedules = liveActivities = agentMessages = false;
-      _mutedUnreadable = !mutedRead;
       reportUnreadablePrefs(error, stack, 'the saved notification settings');
     }
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
@@ -96,6 +94,11 @@ class NotificationSettings extends ChangeNotifier {
     }
     if (_scheduleEdits == scheduleEditsBefore) {
       _scheduleAlerts = schedules ?? true;
+    }
+    if (!mutedRead) {
+      _mutedUnreadable = true;
+    } else if (_mutedEdits == mutedEditsBefore) {
+      _mutedUnreadable = false;
     }
     if (_mutedEdits == mutedEditsBefore) _muted = {...?muted};
     if (_liveActivityEdits == liveActivityEditsBefore) {

@@ -146,6 +146,23 @@ void main() {
     );
   });
 
+  test('a mute made while a later load reads the muted chats keeps the saved '
+      'mutes', () async {
+    final store = _MutedUnreadable();
+    SharedPreferencesAsyncPlatform.instance = store;
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+    store.unreadable = false;
+
+    final loading = settings.load();
+    await settings.setMuted('p/2', true);
+    await loading;
+    await settings.setMuted('p/3', true);
+
+    final next = await relaunch();
+    expect(next.isMuted('p/1'), isTrue);
+  });
+
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();
     expect(settings.loaded, isFalse);
