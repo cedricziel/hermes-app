@@ -174,6 +174,9 @@ const _noPlural = <String, _Reason>{
   ),
   'kanbanWorkersTerminateTitle': _Reason('a run id'),
   'memoryEntryPlace': _Reason('a position "Entry 1 of 4", no noun after it'),
+  'memoryEntryWaiting': _Reason(
+    '"n waiting", "n wartend": the word after the count does not change',
+  ),
   'providersConnectedCount': _Reason('"n connected": a participle'),
   'providersDetailShowAll': _Reason('"Show all n": no noun after the number'),
   'serverCareChannelsConnected': _Reason('"n of m connected": participles'),

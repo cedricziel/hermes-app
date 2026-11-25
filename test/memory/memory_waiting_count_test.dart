@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/memory/memory_proposal_session.dart';
@@ -179,9 +181,17 @@ void main() {
 
   group('memoryEntryLabel', () {
     test('adds the count only when something waits', () {
-      expect(memoryEntryLabel(2), 'Memory · 2 waiting');
-      expect(memoryEntryLabel(0), 'Memory');
-      expect(memoryEntryLabel(null), 'Memory');
+      final en = lookupAppLocalizations(const Locale('en'));
+      expect(memoryEntryLabel(en, 2), 'Memory · 2 waiting');
+      expect(memoryEntryLabel(en, 0), 'Memory');
+      expect(memoryEntryLabel(en, null), 'Memory');
+    });
+
+    test('is German in German', () {
+      final de = lookupAppLocalizations(const Locale('de'));
+      expect(memoryEntryLabel(de, 2), 'Gedächtnis · 2 wartend');
+      expect(memoryEntryLabel(de, 0), 'Gedächtnis');
+      expect(memoryEntryLabel(de, null), 'Gedächtnis');
     });
   });
 }

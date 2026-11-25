@@ -12,6 +12,7 @@ import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
 import '../network/network_signals.dart';
+import '../settings/report_unreadable_prefs.dart';
 import '../telemetry/telemetry.dart';
 import 'account_key.dart';
 import 'connect_failure.dart';
@@ -304,14 +305,12 @@ class AuthController extends ChangeNotifier {
     return HttpsSwitch.switched;
   }
 
-  Future<List<String>> _acceptedCleartext() async =>
-      await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
-
   /// Remembers [address] as accepted. A failed write only means the question
   /// comes back next launch, so it never fails the caller.
   Future<void> _acceptCleartext(String address) async {
     try {
-      final accepted = await _acceptedCleartext();
+      final accepted =
+          await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
       if (!accepted.contains(address)) {
         await _prefs.setStringList(kAcceptedCleartextServersKey, [
           ...accepted,
@@ -332,7 +331,12 @@ class AuthController extends ChangeNotifier {
       await connect(_devServerUrl, remember: false, restoring: true);
       return;
     }
-    final savedUrl = await _prefs.getString(kSavedServerUrlKey);
+    // An unreadable store asks for the address again; the stored session is
+    // left alone.
+    final savedUrl = await readSaved(
+      () => _prefs.getString(kSavedServerUrlKey),
+      'the saved server address',
+    );
     if (savedUrl == null || savedUrl.isEmpty) {
       _setState(HermesConnectionState.needsServerUrl);
       return;
@@ -341,9 +345,12 @@ class AuthController extends ChangeNotifier {
     final saved = normalizeServerUrl(savedUrl);
     if (saved != null && isCleartextToPublicHost(saved)) {
       // An unreadable list counts as "not accepted": ask, and connect anyway.
-      final accepted = await _acceptedCleartext().catchError(
-        (Object _) => const <String>[],
-      );
+      final accepted =
+          await readSaved(
+            () => _prefs.getStringList(kAcceptedCleartextServersKey),
+            'the accepted http servers',
+          ) ??
+          const <String>[];
       if (!accepted.contains(saved)) _cleartextToConfirm = saved;
     }
     await connect(savedUrl, restoring: true);

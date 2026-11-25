@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
@@ -6,6 +7,8 @@ import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import '../support/unreadable_prefs.dart';
 
 void main() {
   late SharedPreferencesAsync prefs;
@@ -25,6 +28,17 @@ void main() {
 
     expect(settings.enabled, isTrue);
     expect(settings.loaded, isTrue);
+  });
+
+  test('stays off when the saved choice is unreadable', () async {
+    SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
+    final settings = SpotlightSettings(prefs: SharedPreferencesAsync());
+
+    final reported = await reportedErrors(settings.load);
+
+    expect(settings.loaded, isTrue);
+    expect(settings.enabled, isFalse);
+    expect(reported.single.exception, isA<PlatformException>());
   });
 
   test('keeps the choice across launches', () async {
