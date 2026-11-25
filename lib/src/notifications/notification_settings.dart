@@ -23,6 +23,10 @@ class NotificationSettings extends ChangeNotifier {
   bool _asked = false;
   bool _denied = false;
   bool _loaded = false;
+
+  /// Whether the saved muted chats could not be read. The set is then not
+  /// written, so a mute made meanwhile never replaces the saved ones.
+  bool _mutedUnreadable = false;
   bool _scheduleAlerts = true;
   bool _liveActivities = true;
   bool _agentMessages = true;
@@ -79,6 +83,7 @@ class NotificationSettings extends ChangeNotifier {
       // ones read before it: a user who chose off, or muted a chat, would
       // otherwise get message text.
       enabled = schedules = liveActivities = agentMessages = false;
+      _mutedUnreadable = muted == null;
       reportUnreadablePrefs(error, stack, 'the saved notification settings');
     }
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
@@ -155,6 +160,7 @@ class NotificationSettings extends ChangeNotifier {
         if (value is bool) {
           await _prefs.setBool(entry.key, value);
         } else {
+          if (_mutedUnreadable) continue;
           await _prefs.setStringList(entry.key, _muted.toList()..sort());
         }
       }

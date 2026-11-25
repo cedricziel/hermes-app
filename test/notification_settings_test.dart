@@ -26,19 +26,25 @@ class _HookedPrefs extends SharedPreferencesAsync {
   Future<List<String>?> getStringList(String key) async => null;
 }
 
-/// Saved with the alerts on, but the muted chats cannot be read.
+/// Saved with the alerts on and a muted chat, but the muted chats cannot be
+/// read while [unreadable] is true.
 base class _MutedUnreadable extends InMemorySharedPreferencesAsync {
   _MutedUnreadable()
     : super.withData({
         'hermes.notifications_enabled': true,
         'hermes.notifications_schedules': true,
+        'hermes.notifications_muted_jobs': ['p/1'],
       });
+
+  var unreadable = true;
 
   @override
   Future<List<String>?> getStringList(
     String key,
     SharedPreferencesOptions options,
-  ) => Future.error(PlatformException(code: 'channel-error'));
+  ) => unreadable
+      ? Future.error(PlatformException(code: 'channel-error'))
+      : super.getStringList(key, options);
 }
 
 NotificationSettings? hooked;
@@ -84,6 +90,19 @@ void main() {
       expect(reported.single.exception, isA<PlatformException>());
     },
   );
+
+  test('a chat muted after the muted chats could not be read keeps the saved '
+      'mutes', () async {
+    final store = _MutedUnreadable();
+    SharedPreferencesAsyncPlatform.instance = store;
+    final settings = NotificationSettings();
+    await reportedErrors(settings.load);
+
+    await settings.setMuted('p/2', true);
+    store.unreadable = false;
+
+    expect((await relaunch()).isMuted('p/1'), isTrue);
+  });
 
   test('is not loaded until load completes', () async {
     final settings = NotificationSettings();
