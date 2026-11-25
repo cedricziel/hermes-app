@@ -10,6 +10,7 @@ void main() {
   late ChatThread thread;
   late List<String> reported;
   late int busy;
+  late List<ChatThread> forgotten;
 
   ThreadHousekeeping housekeeping({required bool withBusy}) =>
       ThreadHousekeeping(
@@ -19,7 +20,7 @@ void main() {
         changed: () {},
         report: reported.add,
         reportBusy: withBusy ? () => busy++ : null,
-        removed: (_) {},
+        removed: forgotten.add,
         history: (_, {cancelled}) async => const [],
       );
 
@@ -35,6 +36,7 @@ void main() {
     );
     reported = [];
     busy = 0;
+    forgotten = [];
   });
 
   group('a 409 from Hermes', () {
@@ -43,6 +45,7 @@ void main() {
 
       expect(busy, 1);
       expect(reported, isEmpty);
+      expect(forgotten, isEmpty);
       expect(server.requestsTo('DELETE', '/api/sessions/s1'), hasLength(1));
     });
 
@@ -63,10 +66,22 @@ void main() {
     });
 
     test('says Hermes is busy for an archive, which keeps the chat', () async {
-      await housekeeping(withBusy: true).archive(thread);
+      final chats = [thread];
+      await ThreadHousekeeping(
+        repository: HermesChatRepository(server.client().raw),
+        threads: () => chats,
+        profile: () => null,
+        changed: () {},
+        report: reported.add,
+        reportBusy: () => busy++,
+        removed: forgotten.add,
+        history: (_, {cancelled}) async => const [],
+      ).archive(thread);
 
       expect(busy, 1);
       expect(reported, isEmpty);
+      expect(forgotten, isEmpty);
+      expect(chats, [thread]);
     });
 
     test('reports the plain failure where no screen words the busy '
