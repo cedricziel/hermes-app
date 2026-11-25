@@ -8,6 +8,9 @@ import 'package:shared_preferences_platform_interface/types.dart';
 base class UnreadablePrefs extends InMemorySharedPreferencesAsync {
   UnreadablePrefs() : super.empty();
 
+  /// Reads fail while true; set it false to read what was written meanwhile.
+  var unreadable = true;
+
   static PlatformException get _failure => PlatformException(
     code: 'channel-error',
     message:
@@ -17,25 +20,25 @@ base class UnreadablePrefs extends InMemorySharedPreferencesAsync {
 
   @override
   Future<String?> getString(String key, SharedPreferencesOptions options) =>
-      Future.error(_failure);
+      unreadable ? Future.error(_failure) : super.getString(key, options);
 
   @override
   Future<bool?> getBool(String key, SharedPreferencesOptions options) =>
-      Future.error(_failure);
+      unreadable ? Future.error(_failure) : super.getBool(key, options);
 
   @override
   Future<int?> getInt(String key, SharedPreferencesOptions options) =>
-      Future.error(_failure);
+      unreadable ? Future.error(_failure) : super.getInt(key, options);
 
   @override
   Future<double?> getDouble(String key, SharedPreferencesOptions options) =>
-      Future.error(_failure);
+      unreadable ? Future.error(_failure) : super.getDouble(key, options);
 
   @override
   Future<List<String>?> getStringList(
     String key,
     SharedPreferencesOptions options,
-  ) => Future.error(_failure);
+  ) => unreadable ? Future.error(_failure) : super.getStringList(key, options);
 }
 
 /// Runs [body] and returns the errors it handed to `FlutterError.reportError`.

@@ -93,7 +93,7 @@ class ChatSpotlightIndexer {
   var _holding = false;
 
   /// The flag as last saved, so a save that failed is tried again.
-  var _persisted = false;
+  bool? _persisted = false;
 
   /// Bumped by every change of [_latest], so a stored snapshot that was read
   /// while the user signed out is not taken for the current one.
@@ -107,7 +107,7 @@ class ChatSpotlightIndexer {
   /// Reads what the last run left behind, then starts following changes.
   Future<void> start() async {
     final generation = _generation;
-    _holding = _persisted = await _savedHolding();
+    await _loadHolding();
     final stored = await store.read();
     if (generation == _generation) {
       _latest = stored;
@@ -197,7 +197,7 @@ class ChatSpotlightIndexer {
       // A background run may have indexed since this one last looked; only the
       // saved flag knows.
       if (!_holding) {
-        _holding = _persisted = await _savedHolding();
+        await _loadHolding();
       }
       if (!_holding || !await index.isAvailable()) return;
       _indexed = null;
@@ -236,15 +236,18 @@ class ChatSpotlightIndexer {
     return index.update(kChatSpotlightDomain, upsert: changed, remove: dropped);
   }
 
-  /// The saved flag. One that cannot be read counts as set, so the removal that
-  /// may be owed still happens.
-  Future<bool> _savedHolding() async =>
-      await readSaved(
-        () => _prefs.getBool(_prefsHoldingKey),
-        'the saved Spotlight flag',
-        ifUnreadable: true,
-      ) ??
-      false;
+  /// Reads the saved flag. One that cannot be read counts as set, so the
+  /// removal that may be owed still happens, and as not saved, so the next
+  /// change writes the real value.
+  Future<void> _loadHolding() async {
+    try {
+      _holding = _persisted = await _prefs.getBool(_prefsHoldingKey) ?? false;
+    } on Object catch (error, stack) {
+      reportUnreadablePrefs(error, stack, 'the saved Spotlight flag');
+      _holding = true;
+      _persisted = null;
+    }
+  }
 
   /// Saves [_holding] unless it is saved already. A save that fails is logged
   /// and tried again with the next change; the flag is in memory meanwhile.

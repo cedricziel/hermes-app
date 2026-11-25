@@ -40,18 +40,19 @@ void main() {
     return settings;
   }
 
-  test('keeps the defaults when the saved settings are unreadable', () async {
+  test('turns the alerts off when the saved settings are unreadable', () async {
     SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
     final settings = NotificationSettings();
 
     final reported = await reportedErrors(settings.load);
 
     expect(settings.loaded, isTrue);
-    expect(settings.enabled, isTrue);
+    expect(settings.enabled, isFalse);
+    expect(settings.scheduleAlerts, isFalse);
+    expect(settings.agentMessages, isFalse);
+    expect(settings.liveActivities, isFalse);
     expect(settings.permissionAsked, isFalse);
     expect(settings.permissionDenied, isFalse);
-    expect(settings.scheduleAlerts, isTrue);
-    expect(settings.agentMessages, isTrue);
     expect(reported.single.exception, isA<PlatformException>());
   });
 

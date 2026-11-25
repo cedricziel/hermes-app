@@ -656,6 +656,28 @@ void main() {
       },
     );
 
+    test(
+      'is saved after chats are indexed when it could not be read',
+      () async {
+        final unreadable = UnreadablePrefs();
+        SharedPreferencesAsyncPlatform.instance = unreadable;
+        prefs = SharedPreferencesAsync();
+        indexer.dispose();
+        indexer = newIndexer();
+        await settings.setEnabled(true);
+        await store.write(snapshot([chat('a', 'Trip plan')]));
+
+        await reportedErrors(() async {
+          await indexer.start();
+          await settle();
+        });
+
+        unreadable.unreadable = false;
+        expect(index.items['chat'], isNotNull);
+        expect(await prefs.getBool(_flagKey), isTrue);
+      },
+    );
+
     test('survives a failed write and is saved by a later change', () async {
       final flaky = _FlakyPrefs();
       SharedPreferencesAsyncPlatform.instance = flaky;
