@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/platform_hint/widgets/platform_hint_prompt.dart';
 import 'package:widgetbook/widgetbook.dart';

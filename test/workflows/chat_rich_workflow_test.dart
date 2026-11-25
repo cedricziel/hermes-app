@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -30,6 +30,7 @@ import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 import '../support/pump_chat.dart';
 import '../support/wait_until.dart';
+import '../support/tooltip_finder.dart';
 
 const _unbrokenWord =
     'Supercalifragilisticexpialidocious_Supercalifragilisticexpialidocious_'
@@ -395,7 +396,7 @@ void main() {
       await tester.pumpAndSettle();
       await shots.capture(tester, 'completed-actions');
 
-      await tester.tap(find.byTooltip('Copy').last);
+      await tester.tap(find.tooltip('Copy').last);
       await tester.pump();
       await shots.capture(tester, 'copied');
       expect(copied, [answer]);
@@ -495,7 +496,7 @@ void main() {
       await _settleIo(tester);
       await tester.pumpAndSettle();
       await shots.capture(tester, 'image-full-screen');
-      await tester.tap(find.byTooltip('Close'));
+      await tester.tap(find.tooltip('Close'));
       await tester.pumpAndSettle();
 
       await tester.runAsync(() async {
@@ -514,7 +515,7 @@ void main() {
       expect(actions.opened, hasLength(1));
 
       await tester.runAsync(() async {
-        await tester.tap(find.byTooltip('Save').first);
+        await tester.tap(find.tooltip('Save').first);
         await Future<void>.delayed(const Duration(milliseconds: 250));
       });
       await tester.pump(const Duration(milliseconds: 800));
@@ -603,12 +604,14 @@ void main() {
       await openThread(tester, 's4');
       await shots.capture(tester, 'empty-thread');
 
-      await tester.tap(find.byTooltip('Add attachment'));
+      await tester.tap(find.tooltip('Add attachment'));
       await tester.pumpAndSettle();
-      await shots.capture(tester, 'attach-menu');
-
-      await tester.tap(find.text('Choose files'));
-      await tester.pumpAndSettle();
+      // A single origin (desktop) picks without a menu.
+      if (!desktop) {
+        await shots.capture(tester, 'attach-menu');
+        await tester.tap(find.text('Choose files'));
+        await tester.pumpAndSettle();
+      }
       await shots.capture(tester, 'files-attached');
 
       if (desktop) {
@@ -618,7 +621,7 @@ void main() {
         source.dragOver(false);
         source.drop([photo, long]);
       } else {
-        await tester.tap(find.byTooltip('Add attachment'));
+        await tester.tap(find.tooltip('Add attachment'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Photo library'));
         await tester.pumpAndSettle();
@@ -631,7 +634,7 @@ void main() {
       await tester.pump();
       await shots.capture(tester, 'ready-to-send');
 
-      await tester.tap(find.byTooltip('Remove notes.txt'));
+      await tester.tap(find.tooltip('Remove notes.txt'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'one-removed');
 
@@ -824,59 +827,65 @@ void main() {
     await shots.capture(tester, 'not-available');
   });
 
-  for (final v in _light) {
-    richTest('${v.name}: an opened tool call stays open as the next starts', (
-      tester,
-    ) async {
-      final shots = ScreenshotRecorder('chat-rich-${v.name}-tool-regroup');
-      await pumpChat(tester, shots, v);
-      await openThread(tester, 's4');
-      await runFrames(tester);
+  for (final v in _withDark) {
+    for (final (label, thread, suffix) in [
+      ('', 's4', ''),
+      (' in a long thread', 's3', '-long'),
+    ]) {
+      richTest('${v.name}: an opened tool call stays open as the next '
+          'starts$label', (tester) async {
+        final shots = ScreenshotRecorder(
+          'chat-rich-${v.name}-tool-regroup$suffix',
+        );
+        await pumpChat(tester, shots, v);
+        await openThread(tester, thread);
+        await runFrames(tester);
 
-      await send(tester, 'Check the logs');
-      final reply = transport.sends.single;
-      await emit(tester, reply, const ReplyStarted(), settle: false);
-      await emit(
-        tester,
-        reply,
-        const ToolStarted(
-          id: 'call-1',
-          name: 'list_logs',
-          summary: 'ls -la /var/log',
-          args: {'command': 'ls -la /var/log'},
-        ),
-      );
-      await emit(
-        tester,
-        reply,
-        const ToolFinished(
-          id: 'call-1',
-          name: 'list_logs',
-          result: 'syslog\nauth.log\nkern.log',
-        ),
-      );
-      await runFrames(tester);
-      await tester.tap(find.byType(ToolCallCard));
-      await runFrames(tester);
-      await shots.capture(tester, 'one-call-open');
+        await send(tester, 'Check the logs');
+        final reply = transport.sends.single;
+        await emit(tester, reply, const ReplyStarted(), settle: false);
+        await emit(
+          tester,
+          reply,
+          const ToolStarted(
+            id: 'call-1',
+            name: 'list_logs',
+            summary: 'ls -la /var/log',
+            args: {'command': 'ls -la /var/log'},
+          ),
+        );
+        await emit(
+          tester,
+          reply,
+          const ToolFinished(
+            id: 'call-1',
+            name: 'list_logs',
+            result: 'syslog\nauth.log\nkern.log',
+          ),
+        );
+        await runFrames(tester);
+        await tester.tap(find.byType(ToolCallCard));
+        await runFrames(tester);
+        await shots.capture(tester, 'one-call-open');
 
-      await emit(
-        tester,
-        reply,
-        const ToolStarted(
-          id: 'call-2',
-          name: 'read_file',
-          summary: '/var/log/syslog',
-          args: {'path': '/var/log/syslog'},
-        ),
-      );
-      await runFrames(tester);
-      expect(find.textContaining('auth.log'), findsOneWidget);
-      await shots.capture(tester, 'second-call-running-card-still-open');
+        await emit(
+          tester,
+          reply,
+          const ToolStarted(
+            id: 'call-2',
+            name: 'read_file',
+            summary: '/var/log/syslog',
+            args: {'path': '/var/log/syslog'},
+          ),
+        );
+        await runFrames(tester);
+        expect(find.textContaining('auth.log'), findsOneWidget);
+        await shots.capture(tester, 'second-call-running-card-still-open');
 
-      await emit(tester, reply, const ReplyCompleted('Done.'));
-      await tester.pumpAndSettle();
-    });
+        await emit(tester, reply, const ReplyCompleted('Done.'));
+        await tester.pumpAndSettle();
+      });
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -907,7 +916,7 @@ void main() {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -6000));
       await tester.pump(const Duration(milliseconds: 500));
 
-      await tester.tap(find.byTooltip('Add attachment'));
+      await tester.tap(find.tooltip('Add attachment'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Choose files'));
       await tester.pumpAndSettle();

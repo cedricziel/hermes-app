@@ -1,13 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart' show CupertinoMenuItem;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoMenuItem;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/thread_list_preferences.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/workspaces/hermes_workspaces_repository.dart';
 import 'package:hermes_app/src/workspaces/widgets/working_directory_line.dart';
@@ -19,6 +20,7 @@ import '../support/find_app_icon.dart';
 import '../support/pump_chat.dart' show composerField;
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 const _notes = '/srv/field-notes';
 const _soil = '/srv/soil-survey';
@@ -134,6 +136,7 @@ void main() {
     tester,
     shots,
     ChatScreen(
+      profileResolver: ProfileResolver.known('default'),
       repository: HermesChatRepository(server.client().raw),
       transport: transport,
       workspaces: HermesWorkspacesRepository(server.client().raw, (
@@ -236,7 +239,7 @@ void main() {
       await tester.pumpAndSettle();
     }
     await openSidebar(tester);
-    final group = find.byTooltip('Group chats');
+    final group = find.tooltip('Group chats');
     if (group.evaluate().isNotEmpty) {
       await tester.tap(group.first);
       await tester.pumpAndSettle();

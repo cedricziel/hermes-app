@@ -1,13 +1,15 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_filter_menu.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'platform_theme.dart';
+
 /// Shown on macOS in either viewport, as these only appear in a Mac window.
 Widget _mac(Widget child) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: Material(child: child),
   ),
 );

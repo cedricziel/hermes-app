@@ -71,6 +71,10 @@ extension _ChatControllerRequests on ChatController {
     bool idleOnly = false,
   }) {
     final ready = _finishTurnHold(thread, halted: halted, idleOnly: idleOnly);
+    final waiting = _queues[thread]?.length ?? 0;
+    if (!ready && waiting > 0 && !_diag.isHeld(thread)) {
+      _diag.queue(thread, 'paused', waiting);
+    }
     ready ? _queueTurnReady.add(thread) : _queueTurnReady.remove(thread);
     _ChatControllerCheckpoints(this)._actionsTurnEnded(thread);
     return ready;
@@ -145,10 +149,33 @@ extension _ChatControllerRequests on ChatController {
           _Hold.paused => others ? _Hold.paused : _Hold.none,
           _ => hold,
         });
+        // The server was reached and ends the turn: a reply that lost its
+        // connection hears how it ended now, not at the next try.
+        if (_reconnectingReply(thread) != null) _pickUp(thread);
         return;
       }
       if (stopped != false) {
         _setHold(thread, others ? hold : _Hold.none);
+        return;
+      }
+      final waiting = [
+        for (final reply in pending)
+          if (reply.reconnecting &&
+              reply.isPending &&
+              thread.messages.contains(reply))
+            reply,
+      ];
+      if (waiting.isNotEmpty) {
+        // The server has no turn to interrupt, but this reply never heard how
+        // its turn ended: it is read back into the same bubble, not closed as
+        // stopped with the text it had.
+        _setHold(
+          thread,
+          others || hold == _Hold.stopping || hold == _Hold.paused
+              ? _Hold.paused
+              : _Hold.none,
+        );
+        _pickUp(thread);
         return;
       }
       final stale = [
@@ -191,11 +218,21 @@ extension _ChatControllerRequests on ChatController {
         default:
           break;
       }
-    } on Object {
+    } on Object catch (error) {
       if (!_currentActivity(epoch)) return;
       // The stop of an earlier reply failing is of no use to say.
       if ((_generations[thread] ?? 0) != generation) return;
       final others = _endInterrupt(thread);
+      // The server answered that it does not have the turn (4001 after a
+      // restart or a reap, a final refusal to resume): nothing is left to stop
+      // and nothing will end the reply, so it is settled with what is true. A
+      // stop that merely failed to get through (a timeout, a closed socket)
+      // says nothing of the turn and settles nothing.
+      final loss = error is GatewaySessionGone ? replyLossOf(error) : null;
+      if (loss != null) {
+        _settleLostReplies(thread, pending, error, loss);
+        return;
+      }
       if (!others) {
         // The interrupt did not get through, so it decides nothing: the queue
         // goes on with the turn's own end.
@@ -214,6 +251,57 @@ extension _ChatControllerRequests on ChatController {
       }
       report(_couldNotStop);
     }
+  }
+
+  /// Settles the [replies] of [thread] that are still pending because the
+  /// server no longer has their turn ([loss], from [error]), after a stop found
+  /// that out. A send still attached to the thread is ended first, with the
+  /// same error and by its own end, and the follow-up stream is cancelled, so
+  /// nothing that arrives later reaches a reply that is over and nothing is
+  /// sent by itself. The queue follows the rule after any failed reply (paused,
+  /// nothing sent without the user), and the reply is picked up and read again
+  /// in case the turn goes on or finished (see [_afterLossSettle]).
+  void _settleLostReplies(
+    ChatThread thread,
+    List<ChatMessage> replies,
+    Object error,
+    ReplyLoss loss,
+  ) {
+    _reconnectTimers.remove(thread)?.cancel();
+    _reconnectTries.remove(thread);
+    if (_followByThread.remove(thread.id) case final follow?) {
+      unawaited(follow.cancel());
+      _following.remove(follow);
+      _followingIds.remove(thread.id);
+    }
+    for (final end in [...?_sendEnds[thread]]) {
+      end(error);
+      if (!_currentActivity(_activityEpoch)) return;
+    }
+    final settling = [
+      for (final reply in replies)
+        if (reply.isPending && thread.messages.contains(reply)) reply,
+    ];
+    if (settling.isEmpty) return;
+    // A reply held for a reconnect ends here for good, once: the follow-ups
+    // that would have ended it were cancelled above. Before the queue is
+    // paused, so the pause is logged as one.
+    _diag.endedHeld(
+      thread,
+      outcome: 'failed',
+      error: error,
+      queued: _queues[thread]?.length ?? 0,
+    );
+    // The hold goes: paused while another stop is still in flight, else none.
+    _turnEnded(thread, halted: true);
+    breadcrumbs('chat.reply.settled', {'reason': loss.name});
+    for (final reply in settling) {
+      _finishMoaTurn(thread, reply);
+      _updateReply(thread, reply, () => settleLost(reply, loss));
+    }
+    _discardWarnings(thread);
+    _announce(thread, const ReplyCompleted('', failed: true), _profile);
+    _afterLossSettle(thread, transport, _profile);
   }
 
   Future<void> _skipUnsupportedImpl(

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -18,6 +18,7 @@ import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/find_app_icon.dart';
 import 'fake_provider_backend.dart';
+import '../support/test_localizations.dart';
 
 /// "Model providers" in the chat drawer, the sidebar and the Mac Profiles
 /// page, each opening the screen for the right profile.
@@ -65,7 +66,7 @@ void main() {
         Provider<Breadcrumbs>.value(
           value: Breadcrumbs.of(trail),
           child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: platform),
             home: const AppShell(),

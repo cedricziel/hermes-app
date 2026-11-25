@@ -1,5 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart'
+    show MaterialApp, Material, TextField;
+import 'package:hermes_app/src/macos/edit_menu_state.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:hermes_app/src/windows/conversation_windows_menu.dart';
@@ -9,6 +12,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_conversation_window_host.dart';
+import 'support/test_localizations.dart';
 
 /// The menu bar while conversation windows are open: their list in the
 /// Window menu, and the window commands going to the key one.
@@ -18,7 +22,7 @@ void main() {
   late ConversationWindows windows;
   late List<String> mainCommands;
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Locale? locale}) async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     registry = MacCommandRegistry();
@@ -36,35 +40,45 @@ void main() {
       host.dispose();
       registry.dispose();
     });
+    Widget app(Widget child) => locale == null
+        ? child
+        : Localizations(
+            locale: locale,
+            delegates: kTestLocalizationsDelegates,
+            child: child,
+          );
     await tester.pumpWidget(
-      ChangeNotifierProvider<ConversationWindows?>.value(
-        value: windows,
-        child: MacCommandScope.root(
-          registry: registry,
-          child: MacCommandScope(
-            priority: 1,
-            commands: {
-              MacCommand.back: MacCommandHandler(
-                () => mainCommands.add('back'),
-              ),
-              MacCommand.forward: MacCommandHandler(
-                () => mainCommands.add('forward'),
-              ),
-              MacCommand.closeWindow: MacCommandHandler(
-                () => mainCommands.add('close'),
-              ),
-              MacCommand.pinThread: MacCommandHandler(
-                () => mainCommands.add('pin'),
-              ),
-              MacCommand.showMainWindow: MacCommandHandler(
-                () => mainCommands.add('main'),
-              ),
-            },
-            child: const ConversationWindowsMenu(child: SizedBox()),
+      app(
+        ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: MacCommandScope(
+              priority: 1,
+              commands: {
+                MacCommand.back: MacCommandHandler(
+                  () => mainCommands.add('back'),
+                ),
+                MacCommand.forward: MacCommandHandler(
+                  () => mainCommands.add('forward'),
+                ),
+                MacCommand.closeWindow: MacCommandHandler(
+                  () => mainCommands.add('close'),
+                ),
+                MacCommand.pinThread: MacCommandHandler(
+                  () => mainCommands.add('pin'),
+                ),
+                MacCommand.showMainWindow: MacCommandHandler(
+                  () => mainCommands.add('main'),
+                ),
+              },
+              child: const ConversationWindowsMenu(child: SizedBox()),
+            ),
           ),
         ),
       ),
     );
+    await tester.pump();
   }
 
   Future<void> focus(WidgetTester tester, String id) async {
@@ -144,6 +158,27 @@ void main() {
     expect(host.commands, isEmpty);
   });
 
+  testWidgets('Reload, Enclosing Folder and the change steps are disabled '
+      'while a conversation window is key', (tester) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+
+    for (final command in [
+      MacCommand.reload,
+      MacCommand.enclosingFolder,
+      MacCommand.previousChange,
+      MacCommand.nextChange,
+    ]) {
+      expect(
+        registry.handlerFor(command)?.enabled,
+        isFalse,
+        reason: '$command',
+      );
+      expect(registry.invoke(command), isFalse);
+    }
+  });
+
   testWidgets('Pin reads Unpin for a pinned chat in the key window', (
     tester,
   ) async {
@@ -156,6 +191,24 @@ void main() {
     await tester.pump();
 
     expect(registry.handlerFor(MacCommand.pinThread)!.title, 'Unpin');
+  });
+
+  testWidgets('the key window\'s Pin and Show Inspector titles are German', (
+    tester,
+  ) async {
+    await pump(tester, locale: const Locale('de'));
+    await windows.open('s1', profile: null, title: 'A');
+    await focus(tester, 'w0');
+    expect(registry.handlerFor(MacCommand.pinThread)!.title, 'Anheften');
+    expect(
+      registry.handlerFor(MacCommand.toggleInspector)!.title,
+      'Informationen einblenden',
+    );
+
+    await host.call('title', {'window_id': 'w0', 'title': 'A', 'pinned': true});
+    await tester.pump();
+
+    expect(registry.handlerFor(MacCommand.pinThread)!.title, 'Lösen');
   });
 
   testWidgets('Open in New Window is off while a conversation window is key', (
@@ -189,5 +242,163 @@ void main() {
     expect(registry.invoke(MacCommand.back), isFalse);
     expect(registry.invoke(MacCommand.forward), isFalse);
     expect(mainCommands, isEmpty);
+  });
+
+  testWidgets('the Edit items go off while a conversation window is key', (
+    tester,
+  ) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+
+    await windows.open('s1', profile: null, title: 'A');
+    await tester.pump();
+    await focus(tester, 'w0');
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await host.call('focused', {'window_id': 'w0', 'focused': false});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
+
+  testWidgets('the Edit items go off while the quick panel is shown', (
+    tester,
+  ) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await host.call('panel', {
+      'window_id': 'p0',
+      'event': 'hidden',
+      'reason': 'focus_lost',
+    });
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
+
+  testWidgets('signing out while the quick panel is shown turns the Edit '
+      'items back on', (tester) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    await windows.closeAll();
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
+  });
+
+  testWidgets('the quick panel going away while shown turns the '
+      'Edit items back on', (tester) async {
+    final edit = EditMenuState();
+    addTearDown(edit.dispose);
+    await pump(tester);
+    await tester.pumpWidget(
+      InheritedProvider<EditMenuState>.value(
+        value: edit,
+        child: ChangeNotifierProvider<ConversationWindows?>.value(
+          value: windows,
+          child: MacCommandScope.root(
+            registry: registry,
+            child: const MaterialApp(
+              home: Material(
+                child: ConversationWindowsMenu(
+                  child: TextField(autofocus: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await windows.togglePanel();
+    await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value, EditAvailability.none);
+
+    host.closed('p0');
+    await tester.pump();
+    await tester.pump();
+    expect(edit.value.selectAll, isTrue);
   });
 }

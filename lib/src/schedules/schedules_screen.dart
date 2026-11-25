@@ -1,4 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
+
+import '../../l10n/l10n.dart';
 
 import '../theme/app_icons.dart';
 
@@ -10,6 +14,7 @@ import 'schedule_detail.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
 import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../shell/shell_navigation.dart';
 import 'schedules_list.dart';
 
@@ -170,13 +175,31 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
+  bool _reloading = false;
+
+  /// A reload the user asked for, from the toolbar or View > Reload. The
+  /// minute timer and the change feed read without it.
+  Future<void> _reload() async {
+    setState(() => _reloading = true);
+    try {
+      await _controller.refresh();
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => MacCommandScope(
     commands: {
       MacCommand.newChat: MacCommandHandler(
         () => _new(wide: _split),
-        title: 'New Schedule',
+        title: context.l10n.macosMenuNewSchedule,
       ),
+      if (platformChromeOf(context) == PlatformChrome.macos ||
+          bindsDesktopChords(Theme.of(context).platform))
+        MacCommand.reload: MacCommandHandler(
+          _reloading ? null : () => unawaited(_reload()),
+        ),
     },
     child: _page(context),
   );
@@ -217,6 +240,8 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 detail: detail,
                 filterMenu: _filterMenu(),
                 onNew: () => _new(wide: true),
+                onRefresh: () => unawaited(_reload()),
+                refreshing: _reloading,
               );
             }
             final ios = platformChromeOf(context) == PlatformChrome.ios;
@@ -238,7 +263,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 actions: [
                   _filterMenu(),
                   NamedIconButton(
-                    label: 'Refresh',
+                    label: context.l10n.schedulesRefreshAction,
                     icon: AppIcons.refresh,
                     style: barButton,
                     onPressed: _controller.refresh,
@@ -281,6 +306,8 @@ class _MacLayout extends StatelessWidget {
     required this.detail,
     required this.filterMenu,
     required this.onNew,
+    required this.onRefresh,
+    required this.refreshing,
   });
 
   final SchedulesController controller;
@@ -290,6 +317,8 @@ class _MacLayout extends StatelessWidget {
   final Widget detail;
   final Widget filterMenu;
   final VoidCallback onNew;
+  final VoidCallback onRefresh;
+  final bool refreshing;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -300,7 +329,8 @@ class _MacLayout extends StatelessWidget {
           allProfiles: controller.allProfiles,
           onScopeChanged: (all) => controller.allProfiles = all,
           filterMenu: filterMenu,
-          onRefresh: controller.refresh,
+          refreshing: refreshing,
+          onRefresh: onRefresh,
           onNew: onNew,
         ),
         Expanded(

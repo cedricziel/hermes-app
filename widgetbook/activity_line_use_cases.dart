@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line.dart';
 import 'package:hermes_app/src/chat/activity/widgets/activity_line_model.dart';
@@ -9,6 +9,7 @@ import 'package:hermes_app/src/windows/widgets/conversation_window_toolbar.dart'
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _goal = 'Ship the weekly digest by Friday';
 const _longSentence =
@@ -270,10 +271,9 @@ WidgetbookNode activityLineNode() => WidgetbookComponent(
       WidgetbookUseCase(
         name: 'Wide, $name',
         builder: (context) => Theme(
-          data: Theme.of(context).copyWith(
-            platform: width == 820
-                ? TargetPlatform.iOS
-                : TargetPlatform.windows,
+          data: platformTheme(
+            context,
+            width == 820 ? TargetPlatform.iOS : TargetPlatform.windows,
           ),
           child: Builder(
             builder: (context) => _at(
@@ -373,7 +373,7 @@ Widget _subtitle(
   String profile = 'default',
 }) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: frame(
       SizedBox(
         width: width,
@@ -391,7 +391,7 @@ Widget _subtitle(
 
 Widget _macToolbar(double windowWidth, {String? status}) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: MediaQuery(
       data: MediaQuery.of(context).copyWith(size: Size(windowWidth, 760)),
       child: Align(
@@ -426,7 +426,7 @@ Widget _macToolbar(double windowWidth, {String? status}) => Builder(
 
 Widget _windowToolbar(double width, {String? status}) => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: Align(
       alignment: Alignment.topLeft,
       child: SizedBox(

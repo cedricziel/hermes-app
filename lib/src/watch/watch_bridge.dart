@@ -21,6 +21,7 @@ import '../voice/on_device_speech.dart';
 import 'watch_complication.dart';
 import 'watch_context.dart';
 import 'watch_send_journal.dart';
+import 'watch_status_source.dart';
 import 'watch_request_handler.dart';
 import 'watch_request_actions.dart';
 import '../telemetry/report_bug.dart';
@@ -35,7 +36,6 @@ class WatchBridge {
     this._events = noopAppEventLogger,
     this._authState = _unknownAuthState,
     this._auth,
-    this._appLock,
     this._requestActions,
     this._requestsEnabled = false,
     WatchContextStore? contextStore,
@@ -48,7 +48,6 @@ class WatchBridge {
   final AppEventLogger _events;
   final String Function() _authState;
   final AuthController? _auth;
-  final AppLockController? _appLock;
   final WatchRequestActions? _requestActions;
   final bool _requestsEnabled;
   Future<void> _requestPublication = Future.value();
@@ -61,8 +60,6 @@ class WatchBridge {
   bool get requestsAvailable => _requestPublicationSecured && _requestsWanted;
   bool get _requestsWanted =>
       _requestsEnabled &&
-      _appLock?.loaded == true &&
-      _appLock?.enabled == false &&
       _publicationSecured &&
       _contextStore.current != null &&
       _auth?.state == HermesConnectionState.ready &&
@@ -76,8 +73,6 @@ class WatchBridge {
       scope?.id,
       scope?.revision,
       _auth?.ownerGeneration,
-      _appLock?.loaded,
-      _appLock?.enabled,
     );
     if (!force &&
         state == _requestRequestedState &&
@@ -295,7 +290,6 @@ class WatchBridge {
       contextStore: contextStore,
       events: events,
       auth: auth,
-      appLock: appLock,
       requestActions: actions,
       requestsEnabled: requestsEnabled,
       authState: () => auth.state.name,
@@ -411,7 +405,9 @@ class WatchBridge {
         return api == null ? null : HermesChatRepository(api.raw);
       },
       transport: () => gatewayTransportFor(auth, events: events),
-      statusTransport: () => gatewayTransportFor(auth, events: events),
+      statusSource: WatchStatusSource(
+        () => gatewayTransportFor(auth, events: events),
+      ),
       serverUrl: () {
         final url = auth.baseUrl;
         return url == null ? null : HandoffActivity.server(url);
@@ -422,7 +418,7 @@ class WatchBridge {
           return null;
         }
         try {
-          return (await HermesProfilesRepository(api.raw).loadActive()).active;
+          return await watchProfile(api);
         } on Object catch (e, stack) {
           reportBug(e, stack, 'the watch active profile');
           return null;
@@ -485,16 +481,15 @@ class WatchBridge {
   void start() {
     _channel.setMethodCallHandler(_onCall);
     _auth?.addListener(_sessionChanged);
-    _appLock?.addListener(_requestAccessChanged);
     _departure = _auth?.signedOut.listen((_) => _sessionChanged());
     _sessionChanged();
   }
 
   void dispose() {
     _auth?.removeListener(_sessionChanged);
-    _appLock?.removeListener(_requestAccessChanged);
     _requestActions?.clear();
     unawaited(_departure?.cancel());
+    unawaited(_handler.statusSource?.dispose());
     _channel.setMethodCallHandler(null);
   }
 
@@ -558,3 +553,9 @@ class WatchBridge {
     return {...reply}..remove('engine');
   }
 }
+
+/// The profile the watch's chats belong to: the one the dashboard was
+/// launched with (`current`), the same the phone's chat resolves; null when
+/// the server has none or it cannot be read.
+Future<String?> watchProfile(HermesApiClient api) =>
+    HermesProfilesRepository(api.raw).resolver.load();

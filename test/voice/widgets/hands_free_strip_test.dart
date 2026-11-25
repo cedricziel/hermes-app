@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -6,6 +6,7 @@ import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/voice/widgets/hands_free_strip.dart';
 
 import 'voice_call_widgets_support.dart';
+import '../../support/test_localizations.dart';
 
 void main() {
   const words = {
@@ -143,7 +144,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           locale: const Locale('de'),
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
             body: Align(

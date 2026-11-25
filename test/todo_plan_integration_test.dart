@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/activity/bound_activity_panel.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/session_chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -110,6 +111,7 @@ void main() {
     final methods = gateway.methods.length;
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: Row(
             children: [
@@ -181,7 +183,7 @@ void main() {
       });
       addTearDown(subscription.cancel);
       chat.newThread();
-      chat.submit('Create a synthetic session', const []);
+      await chat.submit('Create a synthetic session', const []);
       await pumpEventQueue();
       final thread = chat.selectedThread!;
       expect(thread.id, 'stored-1');
@@ -203,7 +205,7 @@ void main() {
     () async {
       await open();
       final thread = chat.selectedThread!;
-      chat.submit('Inspect the plan', const []);
+      await chat.submit('Inspect the plan', const []);
       await pumpEventQueue();
       gateway.event('todo.updated', 'foreign-runtime', plan(99, 'Foreign'));
       gateway.event('todo.updated', 'rt-1', plan(1, 'Active task'));
@@ -243,7 +245,7 @@ void main() {
         final state = chat.todoPlanIn(thread)!;
         gateway.handlers['session.resume'] = (_) =>
             resume(snapshot: missing ? null : plan(5, 'Old task'));
-        chat.submit('Continue on same connection', const []);
+        await chat.submit('Continue on same connection', const []);
         await pumpEventQueue();
 
         expect(chat.todoPlanIn(thread), same(state));
@@ -273,9 +275,9 @@ void main() {
           gateway.drop();
           await pumpEventQueue();
           expect(chat.todoPlanIn(thread), isNull);
-          chat.submit('Attach on new connection', const []);
+          await chat.submit('Attach on new connection', const []);
         } else {
-          chat.submit('Attach new runtime', const []);
+          await chat.submit('Attach new runtime', const []);
         }
         await pumpEventQueue();
 

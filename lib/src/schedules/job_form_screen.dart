@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
-import '../theme/app_icons.dart';
 import '../widgets/grouped_form.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
@@ -12,6 +10,7 @@ import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'schedule_picker.dart';
 import 'widgets/job_model_field.dart';
+import 'widgets/schedule_advanced_row.dart';
 import '../widgets/route_dismissal.dart';
 
 /// Asks whether to throw away what was entered. True to discard.
@@ -252,7 +251,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                             'folder; its output is added to the prompt.'
                       : null,
                   children: [
-                    _AdvancedRow(
+                    ScheduleAdvancedRow(
                       key: const Key('job-advanced'),
                       open: _advancedOpen,
                       onTap: () =>
@@ -324,36 +323,5 @@ class _JobFormScreenState extends State<JobFormScreen> {
       onChanged(v);
       _form.changed();
     },
-  );
-}
-
-/// The row that shows or hides the advanced fields under it.
-class _AdvancedRow extends StatelessWidget {
-  const _AdvancedRow({super.key, required this.open, required this.onTap});
-
-  final bool open;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => MergeSemantics(
-    child: Semantics(
-      button: true,
-      expanded: open,
-      child: InkWell(
-        onTap: onTap,
-        child: GroupedRow(
-          title: 'Advanced',
-          trailing: AnimatedRotation(
-            turns: open ? 0.25 : 0,
-            duration: const Duration(milliseconds: 150),
-            child: AppIcon(
-              AppIcons.chevronRight,
-              size: 18,
-              color: context.hermesColors.subtleText,
-            ),
-          ),
-        ),
-      ),
-    ),
   );
 }

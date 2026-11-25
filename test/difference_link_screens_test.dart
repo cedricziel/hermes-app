@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
@@ -12,6 +12,7 @@ import 'package:hermes_app/src/settings/helper_models_screen.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
 import 'package:hermes_app/src/tools/widgets/tools_difference_sheet.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'hermes_plugin_manager_repository_test.dart' show hubBody, hubRow;
 import 'support/fake_hermes_server.dart';
@@ -27,7 +28,12 @@ void main() {
       ..physicalSize = const Size(420, 1000)
       ..devicePixelRatio = 1;
     addTearDown(t.view.reset);
-    await t.pumpWidget(MaterialApp(home: screen));
+    await t.pumpWidget(
+      MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
+        home: screen,
+      ),
+    );
     await t.pumpAndSettle();
   }
 
@@ -166,7 +172,12 @@ void main() {
         ..physicalSize = const Size(420, 1000)
         ..devicePixelRatio = 1;
       addTearDown(t.view.reset);
-      await t.pumpWidget(MaterialApp(home: screen));
+      await t.pumpWidget(
+        MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
+          home: screen,
+        ),
+      );
       if (settle) {
         await t.pumpAndSettle();
       } else {

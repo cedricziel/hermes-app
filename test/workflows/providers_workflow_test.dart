@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart' show DioException;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -18,6 +18,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/find_app_icon.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart' show letSocketsIdle;
+import '../support/test_localizations.dart';
 
 const _fakeKey = 'sk-or-v1-test-aaaa-4f2a';
 
@@ -68,7 +69,7 @@ void main() {
           MaterialApp(
             debugShowCheckedModeBanner: false,
             locale: locale,
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: withScreenshotFont(theme),
             home: const AppShell(),

@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/providers/provider_detail_pane.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_frame.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_view.dart';
@@ -8,6 +9,7 @@ import 'package:hermes_app/src/providers/widgets/provider_list_view.dart';
 
 import 'fake_provider_backend.dart';
 import 'providers_screen_rig.dart';
+import '../support/tooltip_finder.dart';
 
 const _fakeKey = 'sk-or-v1-test-aaaa-4f2a';
 
@@ -161,7 +163,7 @@ void main() {
       final heading = find.text('Add a provider');
       expect(tester.getTopLeft(heading).dy, greaterThan(360 - 100));
 
-      await tester.tap(find.byTooltip('Add Provider'));
+      await tester.tap(find.tooltip('Add Provider'));
       await _settle(tester);
 
       expect(tester.getTopLeft(heading).dy, lessThan(200));
@@ -415,7 +417,33 @@ void main() {
       expect(find.byType(RefreshIndicator), findsNothing);
     });
 
-    testWidgets('Command R reads again on a Mac', (tester) async {
+    testWidgets('View > Reload reads again on a Mac', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      final rig = ProvidersRig(backend: _connected());
+      await rig.pump(
+        tester,
+        size: const Size(1000, 800),
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      final before = rig.backend.server
+          .requestsTo('GET', '/api/model/options')
+          .length;
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+
+      expect(commands.invoke(MacCommand.reload), isTrue);
+      await _settle(tester);
+
+      expect(
+        rig.backend.server.requestsTo('GET', '/api/model/options').length,
+        before + 1,
+      );
+    });
+
+    testWidgets('the screen binds no key of its own for Reload', (
+      tester,
+    ) async {
       final rig = ProvidersRig(backend: _connected());
       await rig.pump(
         tester,
@@ -433,7 +461,7 @@ void main() {
 
       expect(
         rig.backend.server.requestsTo('GET', '/api/model/options').length,
-        before + 1,
+        before,
       );
     });
   });

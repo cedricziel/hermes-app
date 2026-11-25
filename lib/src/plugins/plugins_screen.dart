@@ -1,7 +1,12 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
+
+import '../../l10n/l10n.dart';
+import '../macos/mac_commands.dart';
+import '../navigation/keyboard_shortcuts.dart';
 
 import '../api/hermes_repositories.dart';
 import '../theme/app_icons.dart';
@@ -19,6 +24,7 @@ import 'installed_plugin.dart';
 import 'installed_tab.dart';
 import 'plugin_install_result.dart';
 import 'plugins_controller.dart';
+import 'plugins_refresh.dart';
 import 'providers_controller.dart';
 import 'providers_tab.dart';
 
@@ -56,6 +62,7 @@ class _PluginsScreenState extends State<PluginsScreen>
   late final PluginsController _installed;
   late final CatalogController _catalog;
   final _catalogQuery = ValueNotifier<String>('');
+  bool _reloading = false;
   late final ProvidersController _providers;
   late final _tabs = TabController(
     length: PluginsTab.values.length,
@@ -101,6 +108,40 @@ class _PluginsScreenState extends State<PluginsScreen>
     await reportInstall(context, result);
   }
 
+  /// Reloads the tab in front, as pull to refresh does on a phone.
+  Future<void> _refreshCurrent() async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _reloading = true);
+    try {
+      await _reloadTab(messenger);
+    } finally {
+      if (mounted) setState(() => _reloading = false);
+    }
+  }
+
+  Future<void> _reloadTab(ScaffoldMessengerState messenger) async {
+    switch (PluginsTab.values[_tabs.index]) {
+      case PluginsTab.installed:
+        await refreshReporting(
+          messenger,
+          _installed.refresh,
+          kInstalledRefreshFailed,
+        );
+      case PluginsTab.catalog:
+        await refreshReporting(
+          messenger,
+          _catalog.refresh,
+          kCatalogRefreshFailed,
+        );
+      case PluginsTab.providers:
+        await refreshReporting(
+          messenger,
+          _providers.refresh,
+          kProvidersRefreshFailed,
+        );
+    }
+  }
+
   /// Filters the catalog from the Mac toolbar. The catalog's other changes
   /// (it loads when its tab first builds) must not rebuild the toolbar, so
   /// only the query does, through [_catalogQuery].
@@ -135,28 +176,51 @@ class _PluginsScreenState extends State<PluginsScreen>
           ProvidersTab(controller: _providers),
         ],
       ),
-      builder: (context, body) => SettingsScaffold(
-        title: 'Plugins',
-        subtitle: _subtitle(mac),
-        tabs: const ['Installed', 'Catalog', 'Providers'],
-        tabController: _tabs,
-        search: mac && _tabs.index == PluginsTab.catalog.index
-            ? SettingsSearch(
-                query: _catalog.query,
-                hint: 'Search catalog',
-                onChanged: _search,
-              )
-            : null,
-        actions: [
-          SettingsBarAction(
-            key: const Key('catalog-git-install'),
-            label: 'Install from Git',
-            icon: AppIcons.add,
-            onPressed: _installFromGit,
-          ),
-        ],
-        body: body!,
-      ),
+      builder: (context, body) {
+        final scaffold = SettingsScaffold(
+          title: 'Plugins',
+          subtitle: _subtitle(mac),
+          tabs: const ['Installed', 'Catalog', 'Providers'],
+          tabController: _tabs,
+          search: mac && _tabs.index == PluginsTab.catalog.index
+              ? SettingsSearch(
+                  query: _catalog.query,
+                  hint: 'Search catalog',
+                  onChanged: _search,
+                )
+              : null,
+          actions: [
+            if (mac)
+              SettingsBarAction(
+                key: const Key('plugins-refresh'),
+                label: context.l10n.pluginsRefreshAction,
+                icon: AppIcons.refresh,
+                shortcut: '⌘R',
+                busy: _reloading,
+                onPressed: () => unawaited(_refreshCurrent()),
+              ),
+            SettingsBarAction(
+              key: const Key('catalog-git-install'),
+              label: 'Install from Git',
+              icon: AppIcons.add,
+              onPressed: _installFromGit,
+            ),
+          ],
+          body: body!,
+        );
+        if (!mac && !bindsDesktopChords(Theme.of(context).platform)) {
+          return scaffold;
+        }
+        // View > Reload owns ⌘R, and Ctrl+R and F5 on Windows and Linux.
+        return MacCommandScope(
+          commands: {
+            MacCommand.reload: MacCommandHandler(
+              _reloading ? null : () => unawaited(_refreshCurrent()),
+            ),
+          },
+          child: scaffold,
+        );
+      },
     );
   }
 }

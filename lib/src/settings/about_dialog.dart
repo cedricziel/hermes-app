@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../l10n/l10n.dart';
+import '../widgets/dialog_presentation.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'report_bug_link.dart';
@@ -13,7 +14,7 @@ Future<void> showAppAboutDialog(BuildContext context) async {
   );
   if (!context.mounted) return;
   final shown = version ?? context.l10n.settingsAboutVersionUnavailable;
-  await showDialog<void>(
+  await showAppDialog<void>(
     context: context,
     builder: (_) => AppAboutDialog(version: shown),
   );
@@ -21,10 +22,18 @@ Future<void> showAppAboutDialog(BuildContext context) async {
 
 /// Shows the app's version and a way to report a bug.
 class AppAboutDialog extends StatelessWidget {
-  const AppAboutDialog({super.key, required this.version, this.openLink});
+  const AppAboutDialog({
+    super.key,
+    required this.version,
+    this.openLink,
+    this.onLicenses,
+  });
 
   final String version;
   final LinkOpener? openLink;
+
+  /// Opens the licenses page; Flutter's own unless a test supplies one.
+  final VoidCallback? onLicenses;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +47,17 @@ class AppAboutDialog extends StatelessWidget {
               wrapWhenStacked: true,
               title: l10n.settingsAboutVersion,
               value: version,
+            ),
+            GroupedRow(
+              key: const Key('about-licenses'),
+              title: l10n.settingsAboutLicenses,
+              onTap:
+                  onLicenses ??
+                  () => showLicensePage(
+                    context: context,
+                    applicationName: 'Hermes',
+                    applicationVersion: version,
+                  ),
             ),
             GroupedRow(
               key: const Key('report-bug'),

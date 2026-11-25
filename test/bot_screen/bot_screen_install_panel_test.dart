@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_controller.dart';
 import 'package:hermes_app/src/bot_screen/bot_screen_repository.dart';
@@ -9,6 +10,7 @@ import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -136,12 +138,13 @@ void main() {
     final screen = BotScreenController(
       BotScreenRepository(transport.requestKeepingConnection),
       transport.connectionEvents,
-      profile: 'work',
+      profile: resolvedProfile('work'),
       installs: installs,
     );
     controllers.add(screen);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: open
               ? ListenableBuilder(

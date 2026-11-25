@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -12,8 +12,10 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/markdown_contrast.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/tooltip_finder.dart';
 
 /// The skills hub: the Discover tab, a hub skill's page and its security
 /// scan, the install / uninstall / update job sheet, the editor for a new
@@ -135,6 +137,19 @@ void main() {
             identifier: 'clawhub/page-fetcher',
             source: 'clawhub',
             description: 'Fetch pages',
+          ),
+          hubSkillRow(
+            name: 'page-outline',
+            identifier: 'official/web/page-outline',
+            source: 'official',
+            trustLevel: 'builtin',
+            description: 'Outline a page before reading it',
+          ),
+          hubSkillRow(
+            name: 'tide-tables',
+            identifier: 'github/tide-tables',
+            trustLevel: 'trusted',
+            description: 'Look up tide times for a harbour',
           ),
         ],
         'timed_out': ['skills-sh', 'clawhub'],
@@ -423,6 +438,18 @@ void main() {
       await tester.pumpAndSettle();
       await back(tester);
 
+      // The trust badge on the skill's page: Official and Trusted (the
+      // scraper above is Community).
+      for (final (identifier, shot) in [
+        ('official/web/page-outline', 'trust-official'),
+        ('github/tide-tables', 'trust-trusted'),
+      ]) {
+        await tester.tap(find.byKey(ValueKey('hub-$identifier')));
+        await tester.pumpAndSettle();
+        await shots.capture(tester, shot);
+        await back(tester);
+      }
+
       // Already installed: the result opens the installed skill instead.
       await tester.tap(find.byKey(const ValueKey('hub-github/compose')));
       await tester.pumpAndSettle();
@@ -602,7 +629,7 @@ void main() {
     testWidgets('$name: writing a new skill', (tester) async {
       final shots = ScreenshotRecorder('skills-hub-editor-$name');
       await pumpSkills(tester, shots, size: size, brightness: brightness);
-      await tester.tap(find.byTooltip('New skill'));
+      await tester.tap(find.tooltip('New skill'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'template');
 
@@ -644,7 +671,8 @@ void main() {
         find.byType(TextField).last,
         '---\nname: ship-a-release\ndescription: Cut and publish a release\n'
         '---\n\n# Ship a release\n\nWhen the user asks to cut a release.\n\n'
-        '- Bump the version\n- Tag it\n- Publish the notes\n',
+        '- Bump the version\n- Tag it\n- Publish the notes\n\n'
+        'See [the release notes](https://example.com/notes).\n',
       );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'filled');
@@ -652,6 +680,7 @@ void main() {
       await tester.tap(find.text('Preview'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'preview');
+      expectReadableOnSurface(tester, ['the release notes']);
       await tester.tap(find.text('Edit'));
       await tester.pumpAndSettle();
 

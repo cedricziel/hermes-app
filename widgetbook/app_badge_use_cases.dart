@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/app_badge.dart';
@@ -65,20 +65,21 @@ WidgetbookFolder appBadgeNode() => WidgetbookFolder(
             ),
           ),
         ),
-        _case('Filled, surface colours', (context) {
+        _case('Filled, scheme role pairs', (context) {
           final scheme = Theme.of(context).colorScheme;
           return Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              AppBadge.filled(label: 'Official', fill: scheme.primaryContainer),
               AppBadge.filled(
-                label: 'Trusted',
-                fill: scheme.secondaryContainer,
+                label: 'Primary',
+                fill: scheme.primary,
+                labelColor: scheme.onPrimary,
               ),
               AppBadge.filled(
-                label: 'Community',
+                label: 'Surface',
                 fill: scheme.surfaceContainerHighest,
+                labelColor: scheme.onSurface,
               ),
             ],
           );

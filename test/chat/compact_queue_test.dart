@@ -1,10 +1,12 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/composer_stop_button.dart';
+
+import '../support/tooltip_finder.dart';
 
 void main() {
   testWidgets('thirty ordinary entries occupy one row until expanded', (
@@ -39,7 +41,7 @@ void main() {
       tester.getSize(find.byType(QueuedPrompts)).height,
       lessThanOrEqualTo(260),
     );
-    await tester.tap(find.byTooltip('Remove from queue').first);
+    await tester.tap(find.tooltip('Remove from queue').first);
     expect(removed, same(prompts.first));
   });
 

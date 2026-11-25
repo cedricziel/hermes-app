@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/providers/widgets/model_provider_row.dart';
 import 'package:hermes_app/src/providers/widgets/provider_detail_frame.dart';

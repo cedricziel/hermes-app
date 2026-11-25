@@ -3,7 +3,7 @@
 # throwaway Hermes backend seeded with invented demo chats.
 #
 #   scripts/store-screenshots.sh ios [iphone|ipad]   # simulators, light and dark
-#   scripts/store-screenshots.sh mac [compact]  # the Mac window, wide (or at its default size)
+#   scripts/store-screenshots.sh mac [compact]  # the Mac window, wide (compact: an explicit 800x600 window)
 #   scripts/store-screenshots.sh watch     # the watch app, through its paired phone (~3 min)
 #   scripts/store-screenshots.sh finish    # flatten, tidy and size what was taken
 #
@@ -21,6 +21,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RAW_DIR="$ROOT_DIR/build/screenshots"
+# shellcheck source=profile-names.sh
+source "$ROOT_DIR/scripts/profile-names.sh"
 PORT="${SHOT_PORT:-45777}"
 IPHONE="${SHOT_IPHONE:-iPhone 17 Pro Max}"
 IPAD="${SHOT_IPAD:-iPad Pro 13-inch (M5)}"
@@ -53,13 +55,30 @@ sys.exit(f"no simulator named {name} for {runtime}")
 }
 
 start_backend() {
-  local home="$ROOT_DIR/.dart_tool/hermes-dev/home"
+  local state where
+  # The state directory is the one dev-backend.sh uses (HERMES_DEV_STATE_DIR,
+  # else .dart_tool/hermes-dev). Its home is checked here, before the delete
+  # below and before the seeding gets it as HERMES_HOME: Hermes expands `$` and
+  # `~` in it, and a symlinked home could lead into the real ~/.hermes.
+  state="${HERMES_DEV_STATE_DIR:-$ROOT_DIR/.dart_tool/hermes-dev}"
+  if [[ -L "$state/home" ]]; then
+    echo "refusing: $state/home is a symlink" >&2
+    exit 3
+  fi
+  SCREENSHOT_HOME_CANON="$(canonical_resolved_path "$state/home")" || {
+    echo "refusing: $state/home is not a canonical absolute path once resolved (no //, ., .., ~, \$ or backtick)" >&2
+    exit 3
+  }
+  if where="$(inside_real_hermes_home "$SCREENSHOT_HOME_CANON")"; then
+    echo "refusing: $SCREENSHOT_HOME_CANON is at or under $where, a real Hermes home" >&2
+    exit 3
+  fi
   "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
-  rm -f "$home"/state.db*
+  rm -f "$SCREENSHOT_HOME_CANON"/state.db*
   "$ROOT_DIR/scripts/dev-backend.sh" start >&2 || exit 1
   # Runs inside $(...), where a failure would not stop the script.
   DEMO_SERVER_URL="$("$ROOT_DIR/scripts/dev-backend.sh" url)" \
-    HERMES_HOME="$home" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
+    HERMES_HOME="$SCREENSHOT_HOME_CANON" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
   "$ROOT_DIR/scripts/dev-backend.sh" url
 }
 
@@ -108,13 +127,13 @@ cmd_ios() { # [iphone|ipad]
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }
 
-# The Mac window opens at 800x600, below the 900 point breakpoint of the wide
-# layout, so the test resizes it to SHOT_MAC_WINDOW first (points; the
-# finished image is 2880x1800 pixels). `mac compact` keeps the default size,
-# into mac-compact-*.
+# The test always resizes the Mac window first, to SHOT_MAC_WINDOW (points; the
+# finished image is 2880x1800 pixels), whatever the window's default size is.
+# `mac compact` uses SHOT_MAC_COMPACT_WINDOW (800x600, below the 900 point
+# breakpoint of the wide layout) into mac-compact-*.
 cmd_mac() { # [compact]
   local url process label=mac size="${SHOT_MAC_WINDOW:-1440x900}"
-  if [[ "${1:-}" == compact ]]; then label=mac-compact size=""; fi
+  if [[ "${1:-}" == compact ]]; then label=mac-compact size="${SHOT_MAC_COMPACT_WINDOW:-800x600}"; fi
   process="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
   url="$(start_backend)"
   for appearance in dark light; do

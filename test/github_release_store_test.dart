@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:cupertino_ui/cupertino_ui.dart' as cui;
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter_localizations/flutter_localizations.dart' as fl;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -168,45 +168,38 @@ void main() {
       }, variant: TargetPlatformVariant.all());
     }
 
-    for (final bridged in [true, false]) {
-      testWidgets('material_ui and cupertino_ui localizations are '
-          '${bridged ? 'provided' : 'absent without the bridge'}', (
-        tester,
-      ) async {
-        late BuildContext inside;
-        await tester.pumpWidget(
-          MaterialApp(
-            localizationsDelegates: [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-              if (bridged) ...kMaterialUiLocalizationsDelegates,
-            ],
-            home: Builder(
-              builder: (context) {
-                inside = context;
-                return const SizedBox();
-              },
-            ),
+    // material_ui's MaterialApp brings English defaults of its own; German
+    // comes only from the bridge's delegates.
+    testWidgets('material_ui and cupertino_ui localizations are German', (
+      tester,
+    ) async {
+      late BuildContext inside;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('de'),
+          supportedLocales: const [Locale('de')],
+          localizationsDelegates: const [
+            fl.GlobalWidgetsLocalizations.delegate,
+            ...kMaterialUiLocalizationsDelegates,
+          ],
+          home: Builder(
+            builder: (context) {
+              inside = context;
+              return const SizedBox();
+            },
           ),
-        );
+        ),
+      );
 
-        expect(
-          Localizations.of<mui.MaterialLocalizations>(
-            inside,
-            mui.MaterialLocalizations,
-          ),
-          bridged ? isNotNull : isNull,
-        );
-        expect(
-          Localizations.of<cui.CupertinoLocalizations>(
-            inside,
-            cui.CupertinoLocalizations,
-          ),
-          bridged ? isNotNull : isNull,
-        );
-      });
-    }
+      expect(
+        mui.MaterialLocalizations.of(inside).cancelButtonLabel,
+        'Abbrechen',
+      );
+      expect(
+        cui.CupertinoLocalizations.of(inside).cancelButtonLabel,
+        'Abbrechen',
+      );
+    });
 
     testWidgets('stays quiet when the app is current', (tester) async {
       await pump(tester, 'v0.1.13');

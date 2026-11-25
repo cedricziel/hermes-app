@@ -157,6 +157,19 @@ class KanbanBoardController extends ChangeNotifier {
   String get query => _query;
   bool get includeArchived => _includeArchived;
 
+  /// Counts every change of board or filter (never a status chip switch), so
+  /// a view can tell that something changed even when the change was undone
+  /// while the board was still loading.
+  int get filterGeneration => _filterGeneration;
+  int _filterGeneration = 0;
+
+  /// Every change of the board or of a filter goes through here, so none can
+  /// forget to count.
+  void _scopeChanged(void Function() change) {
+    change();
+    _filterGeneration++;
+  }
+
   /// The last refetch failed while a board is held, so what is shown may be
   /// stale. Without a board the full-page error covers the failure instead.
   bool get refreshFailed => _board != null && _error != null;
@@ -314,16 +327,20 @@ class KanbanBoardController extends ChangeNotifier {
         final saved = await prefs?.getString(prefsKey);
         // A board picked while the preference was loading wins over it.
         if (!_current(generation) || _boardSlug != null) return;
-        _boardSlug =
-            boards.where((b) => b.slug == saved).firstOrNull?.slug ??
-            boards.where((b) => b.isCurrent).firstOrNull?.slug;
+        _scopeChanged(
+          () => _boardSlug =
+              boards.where((b) => b.slug == saved).firstOrNull?.slug ??
+              boards.where((b) => b.isCurrent).firstOrNull?.slug,
+        );
         // The board on screen came from the server's default while no slug
         // was known; follow the slug now chosen so writes hit what is shown.
         if (_board != null) await _restart();
       } else if (!boards.any((b) => b.slug == _boardSlug)) {
-        _boardSlug = boards.where((b) => b.isCurrent).firstOrNull?.slug;
-        _tenant = null;
-        _assignee = null;
+        _scopeChanged(() {
+          _boardSlug = boards.where((b) => b.isCurrent).firstOrNull?.slug;
+          _tenant = null;
+          _assignee = null;
+        });
         await _restart();
       }
       if (_current(generation)) notifyListeners();
@@ -577,11 +594,13 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> selectBoard(String slug) async {
     if (!_canWork) return;
-    _boardSlug = slug;
     // Filters belong to the board they were set on; a tenant the new board
     // lacks would hide its tasks with no way to clear it.
-    _tenant = null;
-    _assignee = null;
+    _scopeChanged(() {
+      _boardSlug = slug;
+      _tenant = null;
+      _assignee = null;
+    });
     await Future.wait([_restart(), _rememberBoard(slug)]);
   }
 
@@ -595,23 +614,23 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> setTenant(String? tenant) {
     if (!_canWork) return Future<void>.value();
-    _tenant = tenant;
+    _scopeChanged(() => _tenant = tenant);
     return _restart();
   }
 
   Future<void> setIncludeArchived(bool value) {
     if (!_canWork) return Future<void>.value();
-    _includeArchived = value;
+    _scopeChanged(() => _includeArchived = value);
     return _restart();
   }
 
   void setAssignee(String? assignee) {
-    _assignee = assignee;
+    _scopeChanged(() => _assignee = assignee);
     notifyListeners();
   }
 
   void setQuery(String query) {
-    _query = query;
+    _scopeChanged(() => _query = query);
     notifyListeners();
   }
 

@@ -1,10 +1,15 @@
-import 'package:flutter/material.dart';
+import 'dart:math' as math;
 
+import 'package:material_ui/material_ui.dart';
+
+import '../../l10n/l10n.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_toolbar_search_field.dart';
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
+import 'focusable_tap.dart';
 import 'named_popup_menu_button.dart';
 
 /// One choice of a search's filter menu, such as "Enabled".
@@ -26,13 +31,15 @@ class SettingsSearch {
   const SettingsSearch({
     required this.query,
     required this.onChanged,
-    this.hint = 'Search',
+    this.hint,
     this.filters = const [],
   });
 
   final String query;
   final ValueChanged<String> onChanged;
-  final String hint;
+
+  /// The placeholder and field name; null reads the localized "Search".
+  final String? hint;
 
   /// The filter menu's choices, the first being the one that shows
   /// everything ("All").
@@ -43,14 +50,38 @@ class SettingsSearch {
 }
 
 /// The search field of a settings page: 36 points with a 10 point radius on
-/// iOS, a 44 point pill on Material, and the toolbar search field on macOS.
+/// iOS, a 44 point pill on Material (both taller at large text), and the
+/// toolbar search field on macOS.
 class SettingsSearchField extends StatefulWidget {
-  const SettingsSearchField({super.key, required this.search});
+  const SettingsSearchField({
+    super.key,
+    required this.search,
+    this.fullWidth = false,
+  });
 
   final SettingsSearch search;
 
-  /// The field's height on iOS or Material.
-  static double heightFor({required bool ios}) => ios ? 36 : 44;
+  /// On a Mac, fills the width it is given instead of the toolbar's size.
+  final bool fullWidth;
+
+  /// The field's height on iOS or Material: 36 or 44 points, or taller when
+  /// the text at [textScaler] needs more room for one line and its padding.
+  static double heightFor({
+    required bool ios,
+    TextScaler textScaler = TextScaler.noScaling,
+  }) {
+    final needed = textScaler.scale(_fontSize(ios)) * _lineHeight + _padding;
+    return math.max(ios ? 36.0 : 44.0, needed);
+  }
+
+  static double _fontSize(bool ios) => ios ? 17 : 16;
+
+  /// The body line height of the theme's text styles, as a multiple of the
+  /// font size.
+  static const _lineHeight = 1.5;
+
+  /// Room above and below the line at its tallest.
+  static const _padding = 8.0;
 
   @override
   State<SettingsSearchField> createState() => _SettingsSearchFieldState();
@@ -58,6 +89,7 @@ class SettingsSearchField extends StatefulWidget {
 
 class _SettingsSearchFieldState extends State<SettingsSearchField> {
   late final _text = TextEditingController(text: widget.search.query);
+  final _fieldFocus = FocusNode();
 
   @override
   void didUpdateWidget(SettingsSearchField oldWidget) {
@@ -68,25 +100,29 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
   @override
   void dispose() {
     _text.dispose();
+    _fieldFocus.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final search = widget.search;
+    final hint = search.hint ?? context.l10n.widgetsSearch;
     final chrome = platformChromeOf(context);
     if (chrome == PlatformChrome.macos) {
+      final field = MacToolbarSearchField(
+        fullWidth: widget.fullWidth,
+        query: search.query,
+        active: search.query.isNotEmpty,
+        hint: hint,
+        onChanged: search.onChanged,
+        onEnd: () => search.onChanged(''),
+      );
       return Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: widget.fullWidth ? MainAxisSize.max : MainAxisSize.min,
         spacing: 4,
         children: [
-          MacToolbarSearchField(
-            query: search.query,
-            active: search.query.isNotEmpty,
-            hint: search.hint,
-            onChanged: search.onChanged,
-            onEnd: () => search.onChanged(''),
-          ),
+          if (widget.fullWidth) Expanded(child: field) else field,
           if (search.filters.isNotEmpty)
             MacToolbarMenu<VoidCallback>(
               key: const Key('settings-search-filter'),
@@ -102,8 +138,13 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
     final ios = chrome == PlatformChrome.ios;
     final scheme = Theme.of(context).colorScheme;
     final muted = context.hermesColors.subtleText;
-    final height = SettingsSearchField.heightFor(ios: ios);
-    final fontSize = ios ? 17.0 : 16.0;
+    final height = SettingsSearchField.heightFor(
+      ios: ios,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    final fontSize = SettingsSearchField._fontSize(ios);
+    // The filter button keeps its platform size however tall the field gets.
+    final buttonSize = SettingsSearchField.heightFor(ios: ios);
     return Container(
       height: height,
       clipBehavior: Clip.antiAlias,
@@ -122,10 +163,11 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
             // The placeholder is gone once there is text, so the field is
             // named explicitly.
             child: Semantics(
-              label: search.hint,
+              label: hint,
               child: TextField(
                 key: const Key('settings-search-field'),
                 controller: _text,
+                focusNode: _fieldFocus,
                 onChanged: search.onChanged,
                 textInputAction: TextInputAction.search,
                 textAlignVertical: TextAlignVertical.center,
@@ -137,7 +179,7 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: search.hint,
+                  hintText: hint,
                   hintStyle: TextStyle(fontSize: fontSize, color: muted),
                 ),
               ),
@@ -147,16 +189,31 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
             Semantics(
               button: true,
               label: 'Clear search',
-              child: GestureDetector(
-                key: const Key('settings-search-clear'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => search.onChanged(''),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: AppIcon(
-                    AppIcons.clearFilled,
-                    size: ios ? 16 : 20,
-                    color: muted,
+              // The field clips, so the ring sits inside the icon's box: round
+              // and 2 px in from it. The box keeps the platform's button size,
+              // centred, however tall the field gets, so at large text the
+              // ring stays inside the stadium's end cap.
+              child: FocusRing(
+                radius: (ios ? 32 : 36) / 2 - kFocusRingOffset,
+                child: FocusableTap(
+                  onActivate: _clear,
+                  child: GestureDetector(
+                    key: const Key('settings-search-clear'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _clear,
+                    child: SizedBox(
+                      height: buttonSize,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Center(
+                          child: AppIcon(
+                            AppIcons.clearFilled,
+                            size: ios ? 16 : 20,
+                            color: muted,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -170,8 +227,8 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
               iconSize: ios ? 18 : 22,
               padding: EdgeInsets.zero,
               style: IconButton.styleFrom(
-                fixedSize: Size.square(height),
-                minimumSize: Size.square(height),
+                fixedSize: Size.square(buttonSize),
+                minimumSize: Size.square(buttonSize),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 backgroundColor: search.filterActive
                     ? scheme.onSurface.withValues(alpha: 0.08)
@@ -185,6 +242,13 @@ class _SettingsSearchFieldState extends State<SettingsSearchField> {
         ],
       ),
     );
+  }
+
+  /// Empties the search and puts the focus in the field: the clear button
+  /// goes with the query, and the focus it held must not be lost with it.
+  void _clear() {
+    widget.search.onChanged('');
+    _fieldFocus.requestFocus();
   }
 
   List<PopupMenuEntry<VoidCallback>> _filterItems(BuildContext context) => [

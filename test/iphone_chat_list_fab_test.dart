@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/new_chat_fab.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/profiles/widgets/recipient_picker.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 void main() {
   testWidgets('iPhone shortcut opens and focuses an unsent new chat', (
@@ -28,7 +29,7 @@ void main() {
     final fab = find.byType(NewChatFab);
     expect(fab, findsOneWidget);
     expect(tester.getBottomRight(fab), const Offset(384, 750));
-    expect(find.byTooltip('New message'), findsOneWidget);
+    expect(find.tooltip('New message'), findsOneWidget);
     await tester.tap(fab);
     await tester.pumpAndSettle();
 

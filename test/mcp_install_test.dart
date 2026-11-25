@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/grouped_form.dart';
 
@@ -14,6 +14,7 @@ import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/tooltip_finder.dart';
 
 /// Installing a catalog entry from the sheet or the right-hand pane, against a
 /// fake dashboard through the real generated client.
@@ -117,7 +118,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Add server'));
+    await tester.tap(find.tooltip('Add server'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Browse the catalog'));
     await tester.pumpAndSettle();

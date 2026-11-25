@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart' show RequestOptions;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/thread_list_preferences.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
+import 'support/tooltip_finder.dart';
 
 /// The sidebar loading the session list a page at a time. The dashboard adds
 /// every pinned session it did not reach to each page, so the fake does too.
@@ -114,7 +115,7 @@ void main() {
         server: server,
         platform: TargetPlatform.macOS,
       );
-      await tester.tap(find.byTooltip('Group chats'));
+      await tester.tap(find.tooltip('Group chats'));
       await tester.pumpAndSettle();
       await tester.tap(
         find
@@ -134,7 +135,7 @@ void main() {
       expect(find.text('59'), findsOneWidget);
       expect(find.text('Pinned chat'), findsOneWidget);
       expect(find.text('Chat 58'), findsNothing);
-      expect(find.byTooltip('Group chats'), findsOneWidget);
+      expect(find.tooltip('Group chats'), findsOneWidget);
     },
   );
 
@@ -191,7 +192,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('thread-r0')),
-        matching: find.byTooltip('Chat actions'),
+        matching: find.tooltip('Chat actions'),
       ),
     );
     await tester.pumpAndSettle();

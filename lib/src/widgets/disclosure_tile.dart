@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../theme/focus_ring.dart';
 import 'disclosure_toggled.dart';
 
 /// An [ExpansionTile] whose header screen readers announce as a button that
@@ -7,6 +8,10 @@ import 'disclosure_toggled.dart';
 ///
 /// The tile alone only gives a hint, which the macOS accessibility bridge
 /// drops, so VoiceOver there would read the header as plain text.
+///
+/// The header takes the keyboard focus ring, 2 px inside the header row
+/// ([HostFocusRing] on the tile's own `ListTile`), so the one place that
+/// builds the tile gives all its uses the ring.
 class DisclosureTile extends StatefulWidget {
   const DisclosureTile({
     super.key,
@@ -92,7 +97,7 @@ class _DisclosureTileState extends State<DisclosureTile> {
               expanded: _controller.isExpanded,
               child: title,
             ),
-            child: widget.title,
+            child: HostFocusRing<ListTile>(child: widget.title),
           )
         : widget.title,
     children: widget.children,

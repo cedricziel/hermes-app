@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +25,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_rfb_server.dart';
 import '../support/pump_chat.dart';
 import 'bot_screen_repository_test.dart' show jpeg;
+import '../support/tooltip_finder.dart';
 
 /// The chat screen's viewer while this device holds the screen's control
 /// lease: handing back, closing, leaving, and what each way of not being seen
@@ -156,7 +157,7 @@ void main() {
   /// viewer was given, as a take over would.
   Future<void> openInControl(WidgetTester tester) async {
     await pumpScreen(tester);
-    await tester.tap(find.byTooltip('Enlarge screen'));
+    await tester.tap(find.tooltip('Enlarge screen'));
     await settle(tester);
     await serve(tester);
     display.takeBy(display.mintedIds.single);
@@ -225,7 +226,7 @@ void main() {
       return release(params);
     };
 
-    await tester.tap(find.byTooltip('Close (Esc)'));
+    await tester.tap(find.tooltip('Close (Esc)'));
     await settle(tester);
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -349,7 +350,7 @@ void main() {
     Future<void> openHeldBySomeone(WidgetTester tester) async {
       await pumpScreen(tester);
       display.takeBy('somebody-before-the-restart');
-      await tester.tap(find.byTooltip('Enlarge screen'));
+      await tester.tap(find.tooltip('Enlarge screen'));
       await settle(tester);
       await serve(tester);
     }

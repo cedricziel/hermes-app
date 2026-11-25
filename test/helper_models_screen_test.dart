@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
@@ -63,7 +63,7 @@ void main() {
   }) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme().copyWith(platform: platform),
+        theme: buildHermesLightTheme(platform: platform),
         home: HelperModelsScreen(
           repository: HermesModelsRepository(server.client().raw),
           profile: 'work',

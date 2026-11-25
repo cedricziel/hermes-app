@@ -1,15 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../l10n/l10n.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_window.dart';
+import '../navigation/desktop_navigation_history.dart';
+import '../navigation/keyboard_shortcuts.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
+import '../theme/focus_ring.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_back_button.dart';
-import '../navigation/desktop_navigation_history.dart';
 import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'named_icon_button.dart';
@@ -25,6 +27,8 @@ class SettingsBarAction {
     required this.icon,
     required this.onPressed,
     this.shortcut,
+    this.command,
+    this.busy = false,
     this.key,
   }) : menu = null;
 
@@ -34,7 +38,9 @@ class SettingsBarAction {
     required PopupMenuItemBuilder<void> this.menu,
     this.key,
   }) : onPressed = null,
-       shortcut = null;
+       shortcut = null,
+       command = null,
+       busy = false;
 
   /// The accessible name and tooltip.
   final String label;
@@ -44,6 +50,13 @@ class SettingsBarAction {
 
   /// The key equivalent a Mac tooltip shows, such as "⌘N".
   final String? shortcut;
+
+  /// The menu command this button also runs; Windows and Linux show its chord
+  /// after the label in the tooltip.
+  final MacCommand? command;
+
+  /// Shows a spinner in place of the glyph in a Mac toolbar while it runs.
+  final bool busy;
   final Key? key;
 }
 
@@ -75,15 +88,20 @@ class SettingsFormAction {
   Widget _mac(BuildContext context) => FilledButton(
     key: key,
     onPressed: _onPressed,
-    style: FilledButton.styleFrom(
-      minimumSize: Size.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      textStyle: Theme.of(context).textTheme.labelLarge
-          ?.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
-    ),
+    style:
+        FilledButton.styleFrom(
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.standard,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          textStyle: Theme.of(context).textTheme.labelLarge
+              ?.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
+        ).copyWith(
+          shape: focusRingShapeOf(
+            context,
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
     child: busy ? _progress(12) : Text(label),
   );
 
@@ -139,20 +157,28 @@ class SettingsSubtitleMenu<T> {
         child: Semantics(
           button: true,
           label: label,
-          child: AdaptivePopupMenuButton<T>(
-            key: const Key('settings-subtitle-menu'),
-            tooltip: '',
-            padding: EdgeInsets.zero,
-            position: PopupMenuPosition.under,
-            onSelected: onSelected,
-            itemBuilder: itemBuilder,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: 2,
-              children: [
-                Flexible(child: subtitle),
-                AppIcon(AppIcons.expandMore, size: 12, color: muted),
-              ],
+          child: Padding(
+            // Room for the iOS focus ring, which sits 2 to 4 px outside the
+            // text and would run through the title above without it.
+            padding: EdgeInsets.all(
+              platformChromeOf(context) == PlatformChrome.ios ? 4 : 0,
+            ),
+            child: AdaptivePopupMenuButton<T>(
+              key: const Key('settings-subtitle-menu'),
+              tooltip: '',
+              focusRadius: 4,
+              padding: EdgeInsets.zero,
+              position: PopupMenuPosition.under,
+              onSelected: onSelected,
+              itemBuilder: itemBuilder,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 2,
+                children: [
+                  Flexible(child: subtitle),
+                  AppIcon(AppIcons.expandMore, size: 12, color: muted),
+                ],
+              ),
             ),
           ),
         ),
@@ -181,7 +207,7 @@ class SettingsScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.subtitleMenu,
-    this.previousTitle = 'Chat',
+    this.previousTitle,
     this.actions = const [],
     this.tabs,
     this.tabController,
@@ -201,7 +227,9 @@ class SettingsScaffold extends StatelessWidget {
   /// Makes the [subtitle] a button that opens this menu.
   final SettingsSubtitleMenu<Object?>? subtitleMenu;
 
-  /// The title of the page underneath, which the iOS back button shows.
+  /// The title of the page underneath, which the iOS back button shows. Null
+  /// reads the localized "Chat" (`widgetsChatBackTitle`); a page that is not
+  /// opened from the chat passes its own title or `widgetsBack`.
   final String? previousTitle;
   final List<SettingsBarAction> actions;
   final List<String>? tabs;
@@ -339,6 +367,7 @@ class SettingsScaffold extends StatelessWidget {
         label: action.label,
         icon: action.icon,
         shortcut: action.shortcut,
+        busy: action.busy,
         onPressed: action.onPressed,
       );
     }
@@ -358,14 +387,20 @@ class SettingsScaffold extends StatelessWidget {
         (tabs == null ? 0 : kTextTabBarHeight) +
         (search == null
             ? 0
-            : SettingsSearchField.heightFor(ios: ios) + _searchBottomGap);
+            : SettingsSearchField.heightFor(
+                    ios: ios,
+                    textScaler: MediaQuery.textScalerOf(context),
+                  ) +
+                  _searchBottomGap);
     // A page the shell shows at the top level opens the shell's drawer.
     final pane = inSettingsPane(context);
     final back = Navigator.canPop(context) && !pane;
     final leading = pane
         ? null
         : back
-        ? AdaptiveBackButton(previousTitle: previousTitle)
+        ? AdaptiveBackButton(
+            previousTitle: previousTitle ?? context.l10n.widgetsChatBackTitle,
+          )
         : ShellMenu.button(context);
     return Scaffold(
       appBar: AppBar(
@@ -447,9 +482,13 @@ class SettingsScaffold extends StatelessWidget {
     final style = ios ? appleBarButtonStyle : null;
     final menu = action.menu;
     if (menu == null) {
+      final command = action.command;
       return NamedIconButton(
         key: action.key,
         label: action.label,
+        tooltip: command == null
+            ? null
+            : withChordHint(context, action.label, command),
         icon: action.icon,
         style: style,
         onPressed: action.onPressed,

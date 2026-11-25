@@ -1,6 +1,6 @@
 import 'dart:ui' show Tristate;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/files_failure.dart';
@@ -482,7 +482,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final first = tester.widget<PopupMenuItem<FilesMenuChoice>>(
-        find.byType(PopupMenuItem<FilesMenuChoice>).first,
+        find.bySubtype<PopupMenuItem<FilesMenuChoice>>().first,
       );
       expect(first.enabled, isFalse);
       expect(find.byIcon(Icons.done), findsNothing);

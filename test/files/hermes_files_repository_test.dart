@@ -11,6 +11,7 @@ import 'package:hermes_app/src/files/files_failure.dart';
 import 'package:hermes_app/src/files/files_models.dart';
 import 'package:hermes_app/src/files/hermes_files_repository.dart';
 import 'package:hermes_app/src/files/server_path.dart';
+import 'package:hermes_app/src/profiles/profile_resolver.dart';
 
 import '../support/fake_hermes_server.dart';
 import '../support/fs_download_adapter.dart';
@@ -40,7 +41,10 @@ void main() {
 
   setUp(() {
     server = FakeHermesServer();
-    repository = HermesFilesRepository(server.client(), profile: 'work');
+    repository = HermesFilesRepository(
+      server.client(),
+      profile: resolvedProfile('work'),
+    );
     temp = Directory.systemTemp.createTempSync('files_repo_test');
   });
   tearDown(() => temp.deleteSync(recursive: true));
@@ -101,7 +105,10 @@ void main() {
         (r'C:\', r'C:\.env'),
         (r'\\host\share', r'\\host\share\.env'),
       ]) {
-        final repo = HermesFilesRepository(server.client(), profile: 'work');
+        final repo = HermesFilesRepository(
+          server.client(),
+          profile: resolvedProfile('work'),
+        );
         server.on('GET', '/api/fs/list', {'entries': []});
         ok(await repo.list(p(folder)));
         server.on('GET', '/api/fs/read-text', boundary, status: 403);
@@ -548,7 +555,10 @@ void main() {
     });
 
     test('without a profile it asks for default', () async {
-      final plain = HermesFilesRepository(server.client());
+      final plain = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        server.client(),
+      );
       server.on('GET', '/api/fs/list', {'entries': []});
       ok(await plain.list(p('/srv/p')));
       expect(server.requests.single.queryParameters['profile'], 'default');
@@ -682,7 +692,7 @@ void main() {
       final adapter = FsDownloadAdapter(length: 6);
       final repository = HermesFilesRepository(
         adapter.client(),
-        profile: 'work',
+        profile: resolvedProfile('work'),
       );
       final progress = <(int, int?)>[];
 
@@ -706,7 +716,10 @@ void main() {
 
     test('a body shorter than its length is a failure', () async {
       final adapter = FsDownloadAdapter(length: 6);
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
       final future = run(repository);
       await pumpEventQueue();
       adapter.chunks.add(Uint8List.fromList([1, 2]));
@@ -717,7 +730,10 @@ void main() {
 
     test('from 50 MB it stops after the headers and asks', () async {
       final adapter = FsDownloadAdapter(length: 212 * 1024 * 1024);
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
 
       final (result, written) = await run(repository);
 
@@ -729,7 +745,10 @@ void main() {
 
     test('allowLarge goes ahead', () async {
       final adapter = FsDownloadAdapter(length: 60 * 1024 * 1024);
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
       final future = run(repository, allowLarge: true);
       await pumpEventQueue();
       adapter.chunks.add(Uint8List.fromList([9]));
@@ -747,7 +766,10 @@ void main() {
 
     test('no length means no question', () async {
       final adapter = FsDownloadAdapter();
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
       final future = run(repository);
       await pumpEventQueue();
       adapter.chunks.add(Uint8List.fromList([1]));
@@ -758,7 +780,10 @@ void main() {
 
     test('a cancel ends it as cancelled', () async {
       final adapter = FsDownloadAdapter(length: 100);
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
       final token = CancelToken();
       final future = run(repository, cancel: token);
       await pumpEventQueue();
@@ -772,6 +797,7 @@ void main() {
     test('a stalled body fails on the idle timeout', () async {
       final adapter = FsDownloadAdapter();
       final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
         adapter.client(),
         idleTimeout: const Duration(milliseconds: 50),
       );
@@ -784,7 +810,10 @@ void main() {
 
     test('a dropped connection fails', () async {
       final adapter = FsDownloadAdapter();
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
       final future = run(repository);
       await pumpEventQueue();
       adapter.chunks
@@ -849,7 +878,10 @@ void main() {
       dio.interceptors.add(
         pageTokenInterceptor(dio, PageToken(server.client())),
       );
-      final repository = HermesFilesRepository(HermesApiClient(dio));
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        HermesApiClient(dio),
+      );
 
       final (result, written) = await run(repository);
 
@@ -867,7 +899,10 @@ void main() {
 
     test('the sink is given one chunk at a time and the body waits', () async {
       final adapter = FsDownloadAdapter(length: 4);
-      final repository = HermesFilesRepository(adapter.client());
+      final repository = HermesFilesRepository(
+        profile: resolvedProfile('default'),
+        adapter.client(),
+      );
       // A test double with nothing to close.
       // ignore: close_sinks
       final sink = _SlowSink();
@@ -904,7 +939,10 @@ void main() {
 
       setUp(() {
         adapter = FsDownloadAdapter(length: 100);
-        repository = HermesFilesRepository(adapter.client());
+        repository = HermesFilesRepository(
+          profile: resolvedProfile('default'),
+          adapter.client(),
+        );
         sink = _BoundSink();
       });
 
@@ -946,7 +984,10 @@ void main() {
 
       test('a cancel with no announced length is cancelled too', () async {
         adapter = FsDownloadAdapter();
-        repository = HermesFilesRepository(adapter.client());
+        repository = HermesFilesRepository(
+          profile: resolvedProfile('default'),
+          adapter.client(),
+        );
         final token = CancelToken();
         await start(token);
         token.cancel();

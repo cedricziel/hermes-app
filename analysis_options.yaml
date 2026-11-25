@@ -12,6 +12,9 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - build/**
+    # gen-l10n output: Flutter 3.50.1 still writes flutter_localizations'
+    # deprecated GlobalMaterialLocalizations and GlobalCupertinoLocalizations.
+    - lib/l10n/generated/**
     - android/**
     - ios/**
     - windows/**

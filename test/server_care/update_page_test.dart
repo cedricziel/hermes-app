@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/api/hermes_repositories.dart';
@@ -21,6 +21,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_hermes_server.dart';
 import 'server_care_fixtures.dart';
+import '../support/test_localizations.dart';
 
 const _old = 'old1111';
 const _fresh = 'new2222';
@@ -119,7 +120,7 @@ void main() {
           ChangeNotifierProvider<HermesUpdateRun>.value(value: run),
         ],
         child: MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(platform: platform),
           home: const ServerScreen(source: 'test'),
@@ -422,7 +423,7 @@ void main() {
           ],
           child: MaterialApp(
             navigatorObservers: [pushedRoutes],
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: MultiProvider(

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show CustomMessage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -30,6 +30,7 @@ import 'package:hermes_app/src/voice/widgets/voice_recording_controls.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/conversation_window_screen.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -39,6 +40,7 @@ import '../../support/fake_chat_transport.dart';
 import '../../support/fake_checkpoints_transport.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/pump_chat.dart';
+import '../../support/test_localizations.dart';
 
 /// Invented content only.
 const _prompt = 'Split the token refresh out';
@@ -369,7 +371,8 @@ void main() {
     Future<void> pumpView(WidgetTester tester, TextEditingController text) =>
         tester.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            builder: (_, child) => AppThemeScopes(child: child!),
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(),
             home: Scaffold(
@@ -554,7 +557,7 @@ void main() {
       expect(compressOn(), isTrue);
 
       final chat = await chatOf(tester);
-      chat.submit('One more thing', const []);
+      await chat.submit('One more thing', const []);
       await tester.pump();
       expect(compressOn(), isFalse);
       source.sends.last
@@ -691,6 +694,7 @@ void main() {
       source.own('s1');
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: ConversationWindowScreen(
             args: const ConversationWindowArgs(

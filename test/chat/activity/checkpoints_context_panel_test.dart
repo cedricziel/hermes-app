@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/chat/widgets/composer_status_line.dart';
@@ -22,7 +23,10 @@ import 'package:hermes_app/src/chat/context/context_controller.dart';
 import 'package:hermes_app/src/chat/context/context_models.dart';
 import 'package:hermes_app/src/chat/context/widgets/context_row.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/navigation/desktop_command_shortcuts.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -30,6 +34,7 @@ import '../../support/actions_chat_transport.dart';
 import '../../support/fake_attachment_source.dart';
 import '../../support/fake_hermes_server.dart';
 import '../../support/fake_notification_service.dart';
+import '../../support/tooltip_finder.dart';
 
 /// Invented content only.
 const _prompt = 'Split the token refresh out';
@@ -162,27 +167,39 @@ void main() {
     return chat.selectedThread!;
   }
 
-  Future<void> pumpPanel(WidgetTester tester, {bool rows = true}) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topRight,
-            child: SizedBox(
-              width: 380,
-              child: ListenableBuilder(
-                listenable: chat,
-                builder: (_, _) => BoundActivityPanel(
-                  chat: chat,
-                  thread: chat.selectedThread,
-                  checkpointsAndContext: rows,
-                ),
+  Future<void> pumpPanel(
+    WidgetTester tester, {
+    bool rows = true,
+    TargetPlatform? platform,
+    MacCommandRegistry? commands,
+    bool desktopKeys = false,
+  }) async {
+    Widget app = MaterialApp(
+      theme: ThemeData(platform: platform),
+      builder: (_, child) => AppThemeScopes(
+        child: desktopKeys ? DesktopCommandShortcuts(child: child!) : child!,
+      ),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topRight,
+          child: SizedBox(
+            width: 380,
+            child: ListenableBuilder(
+              listenable: chat,
+              builder: (_, _) => BoundActivityPanel(
+                chat: chat,
+                thread: chat.selectedThread,
+                checkpointsAndContext: rows,
               ),
             ),
           ),
         ),
       ),
     );
+    if (commands != null) {
+      app = MacCommandScope.root(registry: commands, child: app);
+    }
+    await tester.pumpWidget(app);
     await settle(tester);
   }
 
@@ -222,6 +239,7 @@ void main() {
       });
       final controller = checkpointsOf();
       Widget presence(Key key) => MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: CheckpointsPanelPresence(
           key: key,
           controller: controller,
@@ -256,6 +274,7 @@ void main() {
       addTearDown(showPresence.dispose);
       await tester.pumpWidget(
         MaterialApp(
+          builder: (_, child) => AppThemeScopes(child: child!),
           navigatorKey: navigator,
           home: ValueListenableBuilder<bool>(
             valueListenable: showPresence,
@@ -464,7 +483,7 @@ void main() {
       expect(find.text('Compress this conversation?'), findsOneWidget);
       expect(find.text("What's in it"), findsOneWidget);
 
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await settle(tester);
       expect(find.text('Wait for the reply to finish.'), findsWidgets);
       final compress = tester.widget<TextButton>(
@@ -474,6 +493,155 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await settle(tester);
       expect(source.fake.compressRequests, isEmpty);
+    });
+  });
+
+  group('file page keys', () {
+    Future<void> openFirstFile(WidgetTester tester) async {
+      await openCheckpoints(tester);
+      await tester.tap(find.text('Before editing a file'));
+      await settle(tester);
+      await tester.tap(find.text(breakableFileName('token_refresh.dart')));
+      await settle(tester);
+      expect(find.text('Restore this file…'), findsOneWidget);
+    }
+
+    Future<void> optionArrow(
+      WidgetTester tester,
+      LogicalKeyboardKey key,
+    ) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(key);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await settle(tester);
+    }
+
+    testWidgets('a Mac steps through the files from the menu, not a key', (
+      tester,
+    ) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await tester.runAsync(open);
+      await pumpPanel(
+        tester,
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      await openFirstFile(tester);
+
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isFalse);
+      expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isTrue);
+      // The page binds no key of its own on a Mac.
+      await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isFalse);
+
+      expect(commands.invoke(MacCommand.nextChange), isTrue);
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isTrue);
+      expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isFalse);
+      expect(commands.invoke(MacCommand.previousChange), isTrue);
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.previousChange)?.enabled, isFalse);
+      expect(commands.handlerFor(MacCommand.nextChange)?.enabled, isTrue);
+    });
+
+    testWidgets('a Mac reloads the list from the menu', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await tester.runAsync(open);
+      await pumpPanel(
+        tester,
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      expect(commands.handlerFor(MacCommand.reload), isNull);
+      await openCheckpoints(tester);
+      expect(find.tooltip('Refresh ⌘R'), findsOneWidget);
+      expect(commands.handlerFor(MacCommand.reload)?.enabled, isTrue);
+
+      final before = source.fake.count('list');
+      await tester.runAsync(() async {
+        expect(commands.invoke(MacCommand.reload), isTrue);
+        await pumpEventQueue();
+      });
+      await settle(tester);
+      expect(source.fake.count('list'), greaterThan(before));
+    });
+
+    testWidgets('the commands go with the page', (tester) async {
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await tester.runAsync(open);
+      await pumpPanel(
+        tester,
+        platform: TargetPlatform.macOS,
+        commands: commands,
+      );
+      expect(commands.handlerFor(MacCommand.nextChange), isNull);
+      await openFirstFile(tester);
+      expect(commands.handlerFor(MacCommand.nextChange), isNotNull);
+      await tester.tap(find.byKey(const Key('activity-page-back')));
+      await settle(tester);
+      expect(commands.handlerFor(MacCommand.nextChange), isNull);
+    });
+
+    for (final platform in [TargetPlatform.windows, TargetPlatform.linux]) {
+      testWidgets('$platform steps with F8 and Shift+F8, not Alt+arrows', (
+        tester,
+      ) async {
+        final commands = MacCommandRegistry();
+        addTearDown(commands.dispose);
+        await tester.runAsync(open);
+        await pumpPanel(
+          tester,
+          platform: platform,
+          commands: commands,
+          desktopKeys: true,
+        );
+        await openFirstFile(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+        );
+
+        // The old Alt+arrow binding is Mac and touch only.
+        await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+          reason: '$platform',
+        );
+
+        // Next change is Shift+F8, previous is F8.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await settle(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsNothing,
+          reason: '$platform',
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.f8);
+        await settle(tester);
+        expect(
+          find.text(breakableFileName('token_refresh.dart')),
+          findsWidgets,
+          reason: '$platform',
+        );
+      });
+    }
+
+    testWidgets('Android keeps the Alt+arrow keys', (tester) async {
+      await tester.runAsync(open);
+      await pumpPanel(tester, platform: TargetPlatform.android);
+      await openFirstFile(tester);
+      expect(find.text(breakableFileName('token_refresh.dart')), findsWidgets);
+
+      await optionArrow(tester, LogicalKeyboardKey.arrowDown);
+      expect(find.text(breakableFileName('token_refresh.dart')), findsNothing);
+      await optionArrow(tester, LogicalKeyboardKey.arrowUp);
+      expect(find.text(breakableFileName('token_refresh.dart')), findsWidgets);
     });
   });
 
@@ -575,7 +743,7 @@ void main() {
       await openCheckpoints(tester);
       await tester.tap(find.text('Before editing a file'));
       await settle(tester);
-      chat.submit('Another question', const []);
+      await chat.submit('Another question', const []);
       await settle(tester);
       expect(find.text('Wait for the reply to finish.'), findsOneWidget);
       final bar = tester.widget<OutlinedButton>(
@@ -645,6 +813,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: ListenableBuilder(
             listenable: chat,

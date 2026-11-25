@@ -1,0 +1,238 @@
+{
+  "subject": "inline_reply",
+  "tests": [
+    "test/intents/request_intents_test.dart",
+    "test/notifications/inline_reply_test.dart",
+    "test/notifications/reply_handoff_test.dart",
+    "test/request_answers_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_reply_lost_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/code_blocks_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/model_popover_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/session_export_workflow_test.dart",
+    "test/workflows/skills_curator_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "i01",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "(input?.trim().isNotEmpty ?? false) &&",
+      "new": "(input?.isNotEmpty ?? false) &&",
+      "note": "blank reply accepted by response check"
+    },
+    {
+      "id": "i02",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (!_parse() || text == null || text.trim().isEmpty) {",
+      "new": "if (!_parse() || text == null || text.isEmpty) {",
+      "note": "blank text sent"
+    },
+    {
+      "id": "i03",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (await _lockedAtArrival()) return _refuseForAppLock();",
+      "new": "if (false) return _refuseForAppLock();",
+      "note": "App Lock ignored at arrival"
+    },
+    {
+      "id": "i04",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "      return await appLockAtArrival();\n    } on Object {\n      return true;",
+      "new": "      return await appLockAtArrival();\n    } on Object {\n      return false;",
+      "note": "unreadable App Lock fails open at arrival"
+    },
+    {
+      "id": "i05",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "    return await appLockOn();\n  } on Object {\n    return true;",
+      "new": "    return await appLockOn();\n  } on Object {\n    return false;",
+      "note": "unreadable App Lock fails open before posting"
+    },
+    {
+      "id": "i06",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (account == null || accountHashFor(hermes.accountKey) != account) {",
+      "new": "if (account == null) {",
+      "note": "reply sent under another account"
+    },
+    {
+      "id": "i07",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "queued: true,",
+      "new": "queued: false,",
+      "note": "not queued behind running turn"
+    },
+    {
+      "id": "i08",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "onSubmitting: _mark.markWritten,",
+      "new": "onSubmitting: () {},",
+      "note": "written mark never set"
+    },
+    {
+      "id": "i09",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (!_frozen) _written = true;",
+      "new": "_written = true;",
+      "note": "late callback changes the mark after freeze"
+    },
+    {
+      "id": "i10",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "void freeze() => _frozen = true;",
+      "new": "void freeze() {}",
+      "note": "mark never frozen"
+    },
+    {
+      "id": "i11",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (error.beforeSubmit && !_mark.written) {",
+      "new": "if (error.beforeSubmit) {",
+      "note": "written prompt reported as not sent"
+    },
+    {
+      "id": "i12",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (error.step == SendStep.reply || _mark.acknowledged) {",
+      "new": "if (error.step == SendStep.reply) {",
+      "note": "acknowledged failure not recognised"
+    },
+    {
+      "id": "i13",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (acknowledged || _mark.acknowledged) {",
+      "new": "if (acknowledged) {",
+      "note": "acknowledgement ignored in verdict"
+    },
+    {
+      "id": "i14",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (_mark.written) {",
+      "new": "if (false) {",
+      "note": "written-not-acked reported 'not sent' not 'couldn't confirm'"
+    },
+    {
+      "id": "i15",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (!route.postsAfterDue && !now().isBefore(due)) return false;",
+      "new": "if (false) return false;",
+      "note": "app route posts after due"
+    },
+    {
+      "id": "i16",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "text.characters.length <= kPreviewLength &&",
+      "new": "true &&",
+      "note": "long draft kept in payload"
+    },
+    {
+      "id": "i17",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "      !locked &&\n",
+      "new": "      true &&\n",
+      "note": "draft kept under App Lock"
+    },
+    {
+      "id": "i18",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "title: locked || ending == ReplyEnding.appLocked ? _hermes : title,",
+      "new": "title: ending == ReplyEnding.appLocked ? _hermes : title,",
+      "note": "chat title shown under App Lock"
+    },
+    {
+      "id": "i19",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (front || _muted) return;",
+      "new": "if (_muted) return;",
+      "note": "answer announced while app is in front"
+    },
+    {
+      "id": "i20",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "title: locked ? _hermes : _title,",
+      "new": "title: _title,",
+      "note": "answer title leaks under App Lock"
+    },
+    {
+      "id": "i21",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (platform != TargetPlatform.iOS) return;",
+      "new": "if (false) return;",
+      "note": "running reply recorded on non-iOS"
+    },
+    {
+      "id": "i22",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "    // Whatever the body still does must not announce: the window is over.\n    _muted = true;\n",
+      "new": "",
+      "note": "announcing continues after cutoff"
+    },
+    {
+      "id": "i23",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (cutoff <= Duration.zero) return _cut();",
+      "new": "if (false) return _cut();",
+      "note": "send proceeds with no time left"
+    },
+    {
+      "id": "i24",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (decoded is! Map || decoded['y'] == null) return null;",
+      "new": "if (decoded is! Map) return null;",
+      "note": "non-reply payloads accepted"
+    },
+    {
+      "id": "i25",
+      "file": "lib/src/notifications/inline_reply.dart",
+      "old": "if (!settings.enabled) return false;",
+      "new": "",
+      "note": "posts while notifications off"
+    }
+  ]
+}

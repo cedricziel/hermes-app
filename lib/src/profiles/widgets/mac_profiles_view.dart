@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
 import '../../macos/mac_source_list.dart';
@@ -7,6 +7,7 @@ import '../../theme/hermes_theme.dart';
 import '../../widgets/grouped_list.dart';
 import '../hermes_profiles_repository.dart';
 import 'profile_avatar.dart';
+import '../../macos/menu_selection_area.dart';
 
 /// What a profile's home holds, by the screen that manages it.
 enum ProfileSection {
@@ -220,7 +221,7 @@ class MacProfileDetail extends StatelessWidget {
                       metrics.rowVerticalPadding + 4,
                     ),
                     // Selectable to copy, but read as text, not a field.
-                    child: SelectionArea(
+                    child: MenuSelectionArea(
                       child: Text(
                         path,
                         style: TextStyle(

@@ -1,12 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:hermes_app/l10n/l10n.dart';
+import 'package:hermes_app/src/widgets/dialog_presentation.dart';
 import 'package:provider/provider.dart';
 
 import '../../chat/media/media_store.dart';
 import '../../chat/media/quick_look_telemetry.dart';
 import '../../theme/breakpoints.dart';
-import '../../widgets/grouped_dialog.dart';
 import '../../theme/platform_chrome.dart';
 
 import '../../models/model_provider_option.dart';
@@ -18,7 +19,7 @@ import '../kanban_repository.dart';
 import '../kanban_task_controller.dart';
 import 'kanban_task_log_dialog.dart';
 import 'kanban_task_choice_dialog.dart';
-import 'kanban_task_edit_fields.dart';
+import 'kanban_task_edit_dialog.dart';
 import 'task_panel/kanban_task_actions.dart';
 import 'task_panel/kanban_task_attachments.dart';
 import 'task_panel/kanban_task_channels.dart';
@@ -31,7 +32,7 @@ import '../../widgets/route_dismissal.dart';
 
 /// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
 /// On Apple platforms the sheet has medium and large detents and the dialog is
-/// a form sheet.
+/// a form sheet; the Mac always gets the form sheet, never the phone sheet.
 Future<void> showKanbanTask(
   BuildContext context, {
   required KanbanRepository repository,
@@ -53,7 +54,8 @@ Future<void> showKanbanTask(
   final apple = platformChromeOf(context).isApple;
   final wide = MediaQuery.sizeOf(context).width >= kKanbanColumnsBreakpoint;
   if (apple) {
-    return wide
+    // The Mac has no phone detent sheet at any window width.
+    return wide || platformChromeOf(context) == PlatformChrome.macos
         ? showKanbanFormSheet(context, panel())
         : showKanbanDetentSheet(
             context,
@@ -157,17 +159,17 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     if (status == 'blocked') {
       reason = await askKanbanText(
         context,
-        title: 'Why is it blocked?',
-        hint: 'Optional',
-        confirm: 'Block',
+        title: context.l10n.kanbanTaskBlockedTitle,
+        hint: context.l10n.kanbanTaskOptional,
+        confirm: context.l10n.kanbanTaskBlock,
       );
       if (reason == null) return;
     } else if (status == 'done') {
       result = await askKanbanText(
         context,
-        title: 'Result',
-        hint: 'Optional — what came out of it',
-        confirm: 'Complete',
+        title: context.l10n.kanbanTaskResult,
+        hint: context.l10n.kanbanTaskResultHint,
+        confirm: context.l10n.kanbanTaskComplete,
         multiline: true,
       );
       if (result == null) return;
@@ -177,10 +179,12 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _triage(
-    Future<KanbanTriageOutcome> Function() run,
-    String done,
-  ) async {
+    Future<KanbanTriageOutcome> Function() run, {
+    required String done,
+    required String Function(int count) doneInto,
+  }) async {
     final messenger = ScaffoldMessenger.of(context);
+    final failed = context.l10n.kanbanTaskTriageFailed;
     KanbanTriageOutcome? outcome;
     final ok = await _run(() async => outcome = await run());
     if (!ok) return;
@@ -191,8 +195,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
           result.ok
               ? (result.childIds.isEmpty
                     ? done
-                    : '$done into ${result.childIds.length} tasks')
-              : result.reason ?? 'That did not work out.',
+                    : doneInto(result.childIds.length))
+              : result.reason ?? failed,
         ),
       ),
     );
@@ -215,10 +219,13 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
 
   Future<void> _download(KanbanAttachment a) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
     var saved = false;
     final ok = await _run(() async => saved = await _task.download(a));
     if (ok && saved) {
-      messenger.showSnackBar(SnackBar(content: Text('Saved ${a.filename}')));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.kanbanTaskSaved(a.filename))),
+      );
     }
   }
 
@@ -230,7 +237,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     bool toggle = false,
   }) => _run(() => _task.preview(a, trigger: trigger, toggle: toggle));
 
-  void _showLog() => showAdaptiveDialog<void>(
+  void _showLog() => showAppDialog<void>(
     context: context,
     builder: (_) => KanbanTaskLogDialog(
       repository: widget.repository,
@@ -240,10 +247,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   );
 
   Future<void> _edit(KanbanTask task) async {
-    final edited = await showDialog<(String, String)>(
-      context: context,
-      builder: (_) => _EditTaskDialog(task: task),
-    );
+    final edited = await showKanbanTaskEditDialog(context, task);
     if (edited == null || edited.$1.isEmpty || !mounted) return;
     await _run(() => _task.update(title: edited.$1, body: edited.$2));
   }
@@ -251,13 +255,13 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   Future<void> _assign(KanbanTask task) async {
     final names = await _task.loadAssignees();
     if (!mounted) return;
-    final picked = await showAdaptiveDialog<String>(
+    final picked = await showAppDialog<String>(
       context: context,
       builder: (context) => KanbanTaskChoiceDialog<String>(
-        title: 'Assign to',
+        title: context.l10n.kanbanBulkAssignTitle,
         options: ['', ...names],
         selected: task.assignee ?? '',
-        labelOf: (name) => name.isEmpty ? 'Nobody' : name,
+        labelOf: (name) => name.isEmpty ? context.l10n.kanbanBulkNobody : name,
         onPicked: (value) => Navigator.pop(context, value),
       ),
     );
@@ -266,13 +270,15 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _prioritise(KanbanTask task) async {
-    final picked = await showAdaptiveDialog<int>(
+    final picked = await showAppDialog<int>(
       context: context,
       builder: (context) => KanbanTaskChoiceDialog<int>(
-        title: 'Priority',
+        title: context.l10n.kanbanBulkPriorityTitle,
         options: const [0, 1, 2, 3],
         selected: task.priority,
-        labelOf: (priority) => priority == 0 ? 'Normal' : 'P$priority',
+        labelOf: (priority) => priority == 0
+            ? context.l10n.kanbanBulkPriorityNormal
+            : context.l10n.kanbanTaskPriorityLevel(priority),
         onPicked: (value) => Navigator.pop(context, value),
       ),
     );
@@ -288,10 +294,10 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     if (options.providers.isEmpty) {
       final name = await askKanbanText(
         context,
-        title: 'Model',
-        hint: 'Empty to clear the model',
+        title: context.l10n.kanbanTaskModel,
+        hint: context.l10n.kanbanTaskModelHint,
         initial: task.modelOverride,
-        confirm: 'Save',
+        confirm: context.l10n.kanbanSaveAction,
       );
       if (name != null && mounted) await _run(() => _task.setModelName(name));
       return;
@@ -324,9 +330,9 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   Future<void> _addParent() async {
     final id = await askKanbanText(
       context,
-      title: 'Depends on',
-      hint: 'Task id, e.g. t_1a2b',
-      confirm: 'Add',
+      title: context.l10n.kanbanTaskDependsOn,
+      hint: context.l10n.kanbanTaskDependsOnHint,
+      confirm: context.l10n.kanbanTaskAdd,
     );
     if (id == null || id.isEmpty || !mounted) return;
     await _run(() => _task.addParent(id));
@@ -349,11 +355,11 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
                     ? Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('Could not load the task'),
+                          Text(context.l10n.kanbanTaskLoadFailed),
                           const SizedBox(height: 8),
                           FilledButton(
                             onPressed: _task.retry,
-                            child: const Text('Retry'),
+                            child: Text(context.l10n.commonRetry),
                           ),
                         ],
                       )
@@ -379,11 +385,19 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             task: task,
             estimate: _task.estimate,
             estimating: _task.estimating,
-            onDecompose: () => _triage(_task.decompose, 'Decomposed'),
-            onSpecify: () => _triage(_task.specify, 'Specified'),
+            onDecompose: () => _triage(
+              _task.decompose,
+              done: context.l10n.kanbanTaskDecomposed,
+              doneInto: context.l10n.kanbanTaskDecomposedInto,
+            ),
+            onSpecify: () => _triage(
+              _task.specify,
+              done: context.l10n.kanbanTaskSpecified,
+              doneInto: context.l10n.kanbanTaskSpecifiedInto,
+            ),
             onReclaim: () => _confirmThen(
-              'Release the worker’s claim on this task?',
-              'Reclaim',
+              context.l10n.kanbanTaskReclaimTitle,
+              context.l10n.kanbanTaskReclaim,
               _task.reclaim,
             ),
             onComplete: () => _moveTo('done'),
@@ -420,8 +434,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
                 ? (a) => _quickLook(a, QuickLookTrigger.key, toggle: true)
                 : null,
             onRemove: (a) => _confirmThen(
-              'Remove ${a.filename}?',
-              'Remove',
+              context.l10n.kanbanTaskRemoveAttachmentTitle(a.filename),
+              context.l10n.kanbanTaskRemove,
               () => _task.removeAttachment(a),
             ),
           ),
@@ -430,8 +444,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             events: detail.events,
             taskRunning: task.status == 'running',
             onTerminate: (run) => _confirmThen(
-              'Terminate this run?',
-              'Terminate',
+              context.l10n.kanbanTaskTerminateTitle,
+              context.l10n.kanbanWorkersTerminate,
               () => _task.terminateRun(run),
             ),
             onShowLog: _showLog,
@@ -439,14 +453,14 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
           const Divider(),
           KanbanTaskFooter(
             onArchive: () => _confirmThen(
-              'Archive this task?',
-              'Archive',
+              context.l10n.kanbanTaskArchiveTitle,
+              context.l10n.kanbanArchive,
               _task.archive,
               close: true,
             ),
             onDelete: () => _confirmThen(
-              'Delete this task for good?',
-              'Delete',
+              context.l10n.kanbanTaskDeleteTitle,
+              context.l10n.kanbanDelete,
               _task.delete,
               close: true,
             ),
@@ -457,40 +471,12 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   );
 }
 
-class _EditTaskDialog extends StatefulWidget {
-  const _EditTaskDialog({required this.task});
-
-  final KanbanTask task;
-
-  @override
-  State<_EditTaskDialog> createState() => _EditTaskDialogState();
-}
-
-class _EditTaskDialogState extends State<_EditTaskDialog> {
-  late final _title = TextEditingController(text: widget.task.title);
-  late final _body = TextEditingController(text: widget.task.body ?? '');
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _body.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Edit task',
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () =>
-            Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
-        child: const Text('Save'),
-      ),
-    ],
-    children: [KanbanTaskEditFields(title: _title, body: _body)],
-  );
-}
+/// Edits [task]'s title and description; answers the trimmed pair, or null.
+Future<(String, String)?> showKanbanTaskEditDialog(
+  BuildContext context,
+  KanbanTask task,
+) => showKanbanDialog<(String, String)>(
+  context,
+  textEntry: true,
+  builder: (_) => KanbanTaskEditDialog(task: task),
+);

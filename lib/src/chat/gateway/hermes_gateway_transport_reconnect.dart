@@ -25,38 +25,98 @@ extension _Reconnect on HermesGatewayTransport {
     required bool Function() cancelled,
     int maxAttempts = _maxReconnectAttempts,
   }) async {
-    final budget = Completer<void>();
-    final timer = Timer(_reconnectBudget, () {
-      if (!budget.isCompleted) budget.complete();
-    });
-    bool stop() => budget.isCompleted || _closed || cancelled();
-    // Attempts that got as far as opening a socket, for telemetry.
+    // Only a reconnect that may keep trying (a reply on screen) waits for the
+    // network; one made when a thread opens makes its single attempt and goes.
+    final patient = maxAttempts > 1;
+    final expired = Completer<void>();
+    Timer? timer;
+    // Runs out the budget once the server has answered, or the window while
+    // it has not.
+    void startTimer(Duration after) {
+      timer?.cancel();
+      timer = Timer(after, () {
+        if (!expired.isCompleted) expired.complete();
+      });
+    }
+
+    var answeredYet = !patient;
+    startTimer(patient ? reconnectWindow : _reconnectBudget);
+    bool stop() => expired.isCompleted || _closed || cancelled();
+    // Attempts the server answered, for telemetry and the attempt limit.
     var tried = 0;
+    var unanswered = 0;
+    var finished = false;
+    // The app asking the connection again (coming to the front) gives the
+    // wait a new window at once, whatever the loop is doing.
+    void watchNudge() {
+      unawaited(
+        _nudge.future.then((_) {
+          if (finished || answeredYet || expired.isCompleted) return;
+          startTimer(reconnectWindow);
+          watchNudge();
+        }),
+      );
+    }
+
+    if (patient) watchNudge();
+    var nudge = _nudge;
     try {
-      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      while (tried < maxAttempts && unanswered < _maxUnansweredAttempts) {
         if (stop()) break;
-        final index = attempt + drops;
+        nudge = _nudge;
+        final index = tried + unanswered + drops;
         if (index > 0) {
+          final delay = reconnectDelay(
+            index,
+            _random,
+            cap: answeredYet
+                ? const Duration(seconds: 15)
+                : _unansweredBackoffCap,
+          );
           await _within(
-            _sleep(reconnectDelay(index, _random)),
-            budget.future,
+            Future.any([_sleep(delay), if (!answeredYet) nudge.future]),
+            expired.future,
             (_) {},
           );
         }
         if (stop()) break;
-        tried = attempt + 1;
+        final attempt = _Attempt();
+        final startedAt = clock.now();
         final resumed = await _within(
-          _resumeOnce(owner, runtimeId, shown, stop),
-          budget.future,
+          _resumeOnce(owner, runtimeId, shown, stop, attempt),
+          expired.future,
           (resumed) => resumed?.discard(),
         );
+        if (attempt.answered && !answeredYet) {
+          // From here the server is reachable: the usual budget runs.
+          answeredYet = true;
+          startTimer(_reconnectBudget);
+        }
+        if (runtimeId != null && !cancelled()) {
+          _reportAttempt(
+            tried + unanswered + 1,
+            attempt,
+            resumed,
+            took: clock.now().difference(startedAt),
+            drops: drops,
+            patient: patient,
+            windowExpired: expired.isCompleted,
+          );
+        }
         if (resumed != null) {
           if (!cancelled()) {
-            if (runtimeId != null) _reportReconnect(tried, resumed);
+            if (runtimeId != null) {
+              _reportReconnect(tried + unanswered + 1, resumed);
+            }
             return resumed;
           }
           resumed.discard();
           break;
+        }
+        if (attempt.answered || !patient) {
+          tried++;
+        } else {
+          unanswered++;
         }
       }
       final failed = _Resumed(
@@ -64,11 +124,63 @@ extension _Reconnect on HermesGatewayTransport {
         giveUp: true,
         outcome: 'failed',
       );
-      if (runtimeId != null && !cancelled()) _reportReconnect(tried, failed);
+      if (runtimeId != null && !cancelled()) {
+        _reportReconnect(tried + unanswered, failed);
+      }
       return failed;
     } finally {
-      timer.cancel();
+      finished = true;
+      timer?.cancel();
     }
+  }
+
+  /// Logs one reconnect attempt of a reply: how it ended, with fixed names
+  /// only (see [diagnoseReconnectError]). [resumed] is null when the attempt
+  /// failed and may be retried.
+  void _reportAttempt(
+    int number,
+    _Attempt attempt,
+    _Resumed? resumed, {
+    required Duration took,
+    required int drops,
+    required bool patient,
+    required bool windowExpired,
+  }) {
+    final ReconnectDiagnosis diagnosis;
+    if (resumed != null) {
+      diagnosis = (
+        result: resumed.gone != null ? 'resume_gone' : 'connected',
+        errorType: resumed.gone != null ? 'rpc' : 'none',
+      );
+    } else if (attempt.error == null && windowExpired) {
+      diagnosis = (result: 'window_expired', errorType: 'none');
+    } else {
+      diagnosis = diagnoseReconnectError(attempt.error);
+    }
+    _record('gateway.reconnect_attempt', {
+      'attempt': number,
+      'drops': drops,
+      'pick_up': !patient,
+      'stage': resumed != null ? 'done' : attempt.stage,
+      'result': diagnosis.result,
+      'error_type': diagnosis.errorType,
+      'close_code': closeCodeBucket(attempt.client?.closeCode),
+      'duration': durationBucket(took),
+      'answered': attempt.answered,
+      'final': resumed != null,
+    });
+  }
+
+  /// Whether the server [client] talks to is another process than the one that
+  /// numbered what the reply saw on [runtimeId]: its replay epoch, announced
+  /// when the socket opened, differs from the one recorded with the reply's
+  /// last seq. A reply that saw no seq cannot say, and is not taken for a
+  /// restart.
+  bool _restartedSince(GatewayRpcClient client, String? runtimeId) {
+    if (runtimeId == null) return false;
+    final recorded = _ledger.epochOf(runtimeId);
+    final now = client.epoch;
+    return recorded != null && now != null && recorded != now;
   }
 
   /// Logs how a reconnect of a reply on screen went, after [attempt] tries.
@@ -88,13 +200,17 @@ extension _Reconnect on HermesGatewayTransport {
     String? previous,
     Set<String> shown,
     bool Function() stop,
+    _Attempt attempt,
   ) async {
     final GatewayRpcClient client;
     try {
       client = await _client();
-    } on Object {
+    } on Object catch (error) {
+      attempt.error = error;
       return null;
     }
+    attempt.client = client;
+    attempt.stage = 'resume';
     if (stop()) return null;
     // Listening starts before the resume is sent, so the frames the gateway
     // pushes ahead of its answer are kept rather than dropped.
@@ -107,9 +223,29 @@ extension _Reconnect on HermesGatewayTransport {
         'session_id': owner.$2,
         'profile': ?owner.$1,
         'source': gatewaySessionSource,
-      });
-    } on Object {
+      }, timeout: reattachTimeout);
+    } on GatewayRpcException catch (error) {
       tap.close();
+      attempt.answered = true;
+      attempt.error = error;
+      // A refusal that says the session is gone is final: asking again
+      // cannot change it, and the reply says so instead of waiting it out.
+      if (isFinalResumeRefusal(error)) {
+        final restarted = _restartedSince(client, previous);
+        return _Resumed(
+          runtimeId: previous ?? owner.$2,
+          giveUp: true,
+          gone: GatewaySessionGone(error.code, restarted: restarted),
+          outcome: 'gone',
+          epochChanged: restarted,
+        );
+      }
+      return null;
+    } on Object catch (error) {
+      // No answer in time (the socket is dropped by the call) or a closed
+      // socket: nothing was heard from the server.
+      tap.close();
+      attempt.error = error;
       return null;
     }
     if (stop()) {
@@ -127,23 +263,31 @@ extension _Reconnect on HermesGatewayTransport {
         runtimeId == previous &&
         _ledger.hasWatermark(runtimeId);
     Map<String, Object?>? since;
+    attempt.stage = 'replay';
     if (replay) {
       try {
         since = await _call(client, 'session.events.since', {
           'session_id': runtimeId,
           'last_seen': _ledger.lastSeen(runtimeId),
-        });
+        }, timeout: reattachTimeout);
+        attempt.answered = true;
       } on GatewayRpcException catch (error) {
+        attempt.answered = true;
         // A gateway that predates the replay cannot fill the gap, so the
         // reply is rebuilt from the resume answer instead.
         if (error.code != kGatewayMethodNotFound) {
           tap.close();
+          attempt.error = error;
           return null;
         }
-      } on Object {
+      } on Object catch (error) {
         tap.close();
+        attempt.error = error;
         return null;
       }
+    } else {
+      // Nothing more to ask: the resume answer is the server's.
+      attempt.answered = true;
     }
     // An attempt the budget or the consumer gave up on must not move the
     // watermark or park a watch.
@@ -155,10 +299,21 @@ extension _Reconnect on HermesGatewayTransport {
     final truncated = since?['truncated'] == true;
     final replayEpoch = since?['epoch'];
     final recordedEpoch = _ledger.epochOf(runtimeId);
+    // A restarted server mints a new runtime session, so the replay above is
+    // not even asked for: the socket's own epoch says the process changed.
     final epochChanged =
         recordedEpoch != null &&
-        replayEpoch is String &&
-        replayEpoch != recordedEpoch;
+            replayEpoch is String &&
+            replayEpoch != recordedEpoch ||
+        _restartedSince(client, previous);
+    // Hermes re-runs a turn the restart interrupted, on the new runtime
+    // session the resume minted and streamed to this socket after the answer.
+    // The same runtime session answering again says nothing of a re-run.
+    final continued =
+        previous != null &&
+        runtimeId != previous &&
+        resumed['auto_continue'] != null &&
+        resumed['auto_continue'] != false;
     // Nothing below awaits before the watch, so no frame is lost between the
     // release and the subscription.
     final frames = tap.release();
@@ -183,7 +338,7 @@ extension _Reconnect on HermesGatewayTransport {
     final discardWarnings =
         previous != null &&
         (since == null || truncated || epochChanged || runtimeId != previous);
-    if (resumed['running'] != true) {
+    if (resumed['running'] != true && !continued) {
       final ended = <_Incoming>[
         if (discardWarnings) (const WarningScopeDiscarded(), false),
       ];
@@ -238,10 +393,12 @@ extension _Reconnect on HermesGatewayTransport {
             runtimeId: runtimeId,
             ended: ended,
             giveUp: true,
+            turnEnded: true,
             outcome: 'failed',
             replayedCount: replayedCount,
             truncated: truncated,
             epochChanged: epochChanged,
+            refetch: ended.any((e) => e.$1 is ThreadNeedsRefetch),
           );
         }
         // Frames the replay did not cover (the merge counts them itself).
@@ -267,6 +424,7 @@ extension _Reconnect on HermesGatewayTransport {
         ),
         outcome: outcome,
         replayedCount: replayedCount,
+        refetch: ended.any((e) => e.$1 is ThreadNeedsRefetch),
         truncated: truncated,
         epochChanged: epochChanged,
       );
@@ -274,6 +432,9 @@ extension _Reconnect on HermesGatewayTransport {
 
     final injected = <_Incoming>[
       if (discardWarnings) (const WarningScopeDiscarded(), false),
+      // The turn on screen died with the old process; what streams now is its
+      // re-run, in the same reply.
+      if (continued) (const ReplyRebuilt('', continued: true), false),
     ];
     var replayedCount = 0;
     final decision = since == null
@@ -331,6 +492,7 @@ extension _Reconnect on HermesGatewayTransport {
       ),
       outcome: decision is Deliver ? 'replayed' : 'rest_refetch',
       replayedCount: replayedCount,
+      refetch: injected.any((e) => e.$1 is ThreadNeedsRefetch),
       truncated: truncated,
       epochChanged: epochChanged,
     );

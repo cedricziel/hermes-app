@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/widgets/new_chat_fab.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
@@ -14,7 +14,10 @@ import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/connect_failure.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/attachment_surface.dart';
+import 'package:hermes_app/src/chat/attachments/widgets/attach_menu.dart';
+import 'package:hermes_app/src/widgets/adaptive_sheet.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
@@ -32,7 +35,13 @@ import 'package:hermes_app/src/notifications/notifications_dialog.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/screens/login_screen.dart';
 import 'package:hermes_app/src/screens/server_setup_screen.dart';
+import 'package:hermes_app/src/memory/widgets/memory_choice_dialog.dart';
 import 'package:hermes_app/src/settings/about_dialog.dart';
+import 'package:hermes_app/src/voice/calls/portable_call_settings.dart';
+import 'package:hermes_app/src/voice/dictation_dialog.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
+import 'package:hermes_app/src/voice/on_device_speech.dart';
+import 'package:hermes_app/src/voice/portable_calls_dialog.dart';
 import 'package:hermes_app/src/settings/appearance_dialog.dart';
 import 'package:hermes_app/src/settings/report_bug_link.dart';
 import 'package:hermes_app/src/settings/settings_dialog.dart';
@@ -50,6 +59,7 @@ import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
 import 'kanban_screen_use_cases.dart';
+import 'platform_theme.dart';
 
 final Uint8List _pixel = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -102,7 +112,9 @@ Widget _notificationsDenied() => Hosted<NotificationSettings>(
   dispose: (settings) => settings.dispose(),
   builder: (_, settings) => withAppProviders(
     CatalogAuth(),
-    _dialog(showNotificationsDialog),
+    _dialog(
+      (context) => showNotificationsDialog(context, openSettings: () async {}),
+    ),
     notificationSettings: settings,
   ),
 );
@@ -121,6 +133,28 @@ Widget _appLock({required bool available}) => Hosted<AppLockController>(
   builder: (_, lock) =>
       withAppProviders(CatalogAuth(), _dialog(showAppLockDialog), lock: lock),
 );
+
+/// The dictation dialog over [speech], which answers for the on-device model.
+Widget _dictation(OnDeviceSpeech speech) => MultiProvider(
+  providers: [
+    ChangeNotifierProvider(create: (_) => DictationSettings()),
+    Provider<OnDeviceSpeech>.value(value: speech),
+  ],
+  child: _dialog(showDictationDialog),
+);
+
+/// A recognizer whose model for the device language is being downloaded.
+class _DownloadingSpeech extends OnDeviceSpeech {
+  @override
+  Future<OnDeviceModel> status(String locale) async =>
+      OnDeviceModel.downloading;
+
+  @override
+  Stream<double> get installProgress => Stream.value(0.4);
+
+  @override
+  Future<void> install(String locale) => Completer<void>().future;
+}
 
 WidgetbookUseCase _screen(
   String name,
@@ -310,6 +344,17 @@ WidgetbookNode appNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ThreadSidebar',
       useCases: [
+        for (final (device, width) in [('iPhone', 390.0), ('iPad', 320.0)])
+          for (final state in ['Idle', 'Refreshing', 'Refresh failed'])
+            _screen(
+              'Pull to refresh $state ($device)',
+              () => CatalogAuth(gated: true),
+              () => _PullToRefreshList(
+                refreshing: state == 'Refreshing',
+                failed: state == 'Refresh failed',
+                width: width,
+              ),
+            ),
         for (final state in [
           'Empty',
           'Populated',
@@ -441,6 +486,58 @@ WidgetbookNode appNode() => WidgetbookFolder(
             ),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Threads on Android',
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.android),
+            child: Hosted<CatalogAuth>(
+              create: () => CatalogAuth(gated: true),
+              dispose: (auth) => auth.dispose(),
+              builder: (_, auth) => withAppProviders(
+                auth,
+                fill(
+                  ThreadSidebar(
+                    threads: threads,
+                    selectedId: 'thread-1',
+                    onSelect: (_) {},
+                    onNewThread: () {},
+                    onOpenProfiles: () {},
+                  ),
+                  width: 411,
+                ),
+              ),
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Searching on Android',
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.android),
+            child: Hosted<CatalogAuth>(
+              create: () => CatalogAuth(gated: true),
+              dispose: (auth) => auth.dispose(),
+              builder: (_, auth) => withAppProviders(
+                auth,
+                Hosted<ThreadSearch>(
+                  create: () =>
+                      ThreadSearch((_) async => searchHits)..update('backup'),
+                  dispose: (search) => search.dispose(),
+                  builder: (_, search) => fill(
+                    ThreadSidebar(
+                      threads: threads,
+                      selectedId: 'thread-2',
+                      onSelect: (_) {},
+                      onNewThread: () {},
+                      search: search,
+                      onOpenHit: (_) {},
+                    ),
+                    width: 411,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
         _screen(
           'No threads',
           () => CatalogAuth(),
@@ -528,7 +625,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: 'Notifications · desktop, no background check ($platform)',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: platform),
+              data: platformTheme(context, platform),
               child: withAppProviders(
                 CatalogAuth(),
                 _dialog(showNotificationsDialog),
@@ -553,27 +650,45 @@ WidgetbookNode appNode() => WidgetbookFolder(
             name:
                 'App lock · ${platform == TargetPlatform.linux ? 'not available' : 'no Windows Hello'} ($platform)',
             builder: (context) => Theme(
-              data: Theme.of(context).copyWith(platform: platform),
+              data: platformTheme(context, platform),
               child: _appLock(available: false),
             ),
           ),
         WidgetbookUseCase(
           name: 'App lock · Windows Hello ready (windows)',
           builder: (context) => Theme(
-            data: Theme.of(context).copyWith(platform: TargetPlatform.windows),
+            data: platformTheme(context, TargetPlatform.windows),
             child: _appLock(available: true),
           ),
         ),
         ...onEachPlatform(
           'About',
-          (_) => withAppProviders(
-            CatalogAuth(),
-            _dialog(
-              (context) => showDialog<void>(
-                context: context,
-                builder: (_) =>
-                    AppAboutDialog(version: '0.1.31', openLink: _opensLink),
-              ),
+          (_) => withAppProviders(CatalogAuth(), _dialog(showAppAboutDialog)),
+        ),
+        ...onEachPlatform(
+          'Portable calls',
+          (_) => ChangeNotifierProvider(
+            create: (_) => PortableCallSettings(),
+            child: _dialog(showPortableCallsDialog),
+          ),
+        ),
+        ...onEachPlatform('Dictation', (_) => _dictation(OnDeviceSpeech())),
+        ...onEachPlatform(
+          'Dictation · downloading',
+          (_) => _dictation(_DownloadingSpeech()),
+        ),
+        ...onEachPlatform(
+          'Memory choice',
+          (_) => _dialog(
+            (context) => showMemoryChoice<String>(
+              context,
+              title: 'In-chat reports',
+              options: const [
+                ('off', 'Off'),
+                ('on', 'On'),
+                ('verbose', 'Verbose'),
+              ],
+              current: 'on',
             ),
           ),
         ),
@@ -641,6 +756,38 @@ WidgetbookNode appNode() => WidgetbookFolder(
           name: 'View only',
           builder: (_) =>
               ImageViewerPage(image: MemoryImage(_pixel), name: 'chart.png'),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'AttachMenu',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Rows',
+          builder: (_) => frame(
+            const Card(
+              child: AttachMenu(
+                origins: AttachOrigin.values,
+                onPick: _ignoreOrigin,
+              ),
+            ),
+            maxWidth: 420,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Presented (sheet on phone, dialog when wide)',
+          builder: (_) => openOnShow(
+            (context) => showAdaptiveSheet<AttachOrigin>(
+              context,
+              maxWidth: 420,
+              showDragHandle: true,
+              maxSheetHeightFraction: 0.9,
+              builder: (sheet) => AttachMenu(
+                origins: AttachOrigin.values,
+                onPick: (origin) => Navigator.of(sheet).pop(origin),
+              ),
+            ),
+          ),
         ),
       ],
     ),
@@ -817,7 +964,7 @@ class _DestinationsState extends State<_Destinations> {
 
 Widget _shortShellSidebar() => Builder(
   builder: (context) => Theme(
-    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    data: platformTheme(context, TargetPlatform.macOS),
     child: MediaQuery(
       data: MediaQuery.of(context).copyWith(size: const Size(800, 280)),
       child: Align(
@@ -838,3 +985,67 @@ Widget _shortShellSidebar() => Builder(
     ),
   ),
 );
+
+void _ignoreOrigin(AttachOrigin _) {}
+
+/// The chat list on an iPhone or in an iPad sidebar: at rest, with the pull spinner showing (a
+/// refresh that never ends), or with the notice a failed pull leaves.
+class _PullToRefreshList extends StatefulWidget {
+  const _PullToRefreshList({
+    required this.refreshing,
+    required this.failed,
+    required this.width,
+  });
+
+  final bool refreshing;
+  final bool failed;
+
+  /// 390 pt for the iPhone chats page, 320 pt for the iPad sidebar.
+  final double width;
+
+  @override
+  State<_PullToRefreshList> createState() => _PullToRefreshListState();
+}
+
+class _PullToRefreshListState extends State<_PullToRefreshList> {
+  final _never = Completer<void>();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.refreshing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        void visit(Element element) {
+          if (element is StatefulElement &&
+              element.state is RefreshIndicatorState) {
+            unawaited((element.state as RefreshIndicatorState).show());
+            return;
+          }
+          element.visitChildren(visit);
+        }
+
+        context.visitChildElements(visit);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: platformTheme(context, TargetPlatform.iOS),
+    child: fill(
+      Scaffold(
+        body: ThreadSidebar(
+          fullPage: true,
+          threads: threads,
+          selectedId: null,
+          onSelect: (_) {},
+          onNewThread: () {},
+          onRefresh: () => _never.future,
+          refreshFailed: widget.failed,
+        ),
+      ),
+      width: widget.width,
+    ),
+  );
+}

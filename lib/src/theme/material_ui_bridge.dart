@@ -1,5 +1,5 @@
 import 'package:cupertino_ui/cupertino_ui.dart' as cui;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:material_ui/material_ui.dart' as mui;
 
 /// Localizations that `material_ui` and `cupertino_ui` widgets look up. Those
@@ -38,23 +38,10 @@ class _EnglishFallbackDelegate<T> extends LocalizationsDelegate<T> {
   bool shouldReload(_EnglishFallbackDelegate<T> old) => false;
 }
 
-/// A `material_ui` theme seeded from the app's [scheme].
-mui.ThemeData buildMaterialUiTheme(ColorScheme scheme) {
-  return mui.ThemeData(
-    colorScheme:
-        mui.ColorScheme.fromSeed(
-          seedColor: scheme.primary,
-          brightness: scheme.brightness,
-        ).copyWith(
-          primary: scheme.primary,
-          surface: scheme.surface,
-          onSurface: scheme.onSurface,
-        ),
-  );
-}
-
-/// Provides the `material_ui` theme to everything below it. Put it above the
-/// `Navigator` (a `MaterialApp.builder`) so dialogs pushed as routes see it.
+/// Adds nothing since the app moved to `material_ui`: its `MaterialApp`
+/// already provides the theme that `gpt_markdown` and the other
+/// `material_ui` readers see. Kept, with [AppThemeScopes], until the
+/// scope guard in `test/app_theme_scopes_test.dart` goes with them.
 class MaterialUiThemeScope extends StatelessWidget {
   const MaterialUiThemeScope({super.key, required this.child});
 
@@ -62,9 +49,23 @@ class MaterialUiThemeScope extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return mui.Theme(
-      data: buildMaterialUiTheme(Theme.of(context).colorScheme),
-      child: child,
-    );
+    return child;
+  }
+}
+
+/// The theme scopes the app puts above its home route. `HermesApp`, the
+/// workflow tests' `pumpScreen` and the Widgetbook catalog all mount this one
+/// widget, so a scope added here reaches all three. It holds none today; see
+/// [MaterialUiThemeScope].
+///
+/// Put it above the `Navigator` (a `MaterialApp.builder`) so routes see it.
+class AppThemeScopes extends StatelessWidget {
+  const AppThemeScopes({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialUiThemeScope(child: child);
   }
 }

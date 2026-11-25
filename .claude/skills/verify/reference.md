@@ -103,9 +103,10 @@ any of its processes survived.
   and starts `gnome-keyring-daemon --unlock --components=secrets` there; with
   `XDG_DATA_HOME` in the run dir the keyring file is throwaway too.
 - **NetworkManager.** `connectivity_plus` asks NetworkManager on the system
-  bus, which a container lacks; the unhandled D-Bus error fails the app at
-  start. Inside the private session the run starts a second `dbus-daemon`,
-  exports it as `DBUS_SYSTEM_BUS_ADDRESS`, and `scripts/verify_fake_nm.dart`
+  bus, which a container lacks; the app does not create the plugin when no
+  system bus exists, and guards it otherwise, so a missing bus no longer
+  fails the app at start. The run still gives it one: inside the private
+  session it starts a second `dbus-daemon`, exports it as `DBUS_SYSTEM_BUS_ADDRESS`, and `scripts/verify_fake_nm.dart`
   owns `org.freedesktop.NetworkManager` there with an empty object manager.
 - **git.** The isolated HOME hides the real `~/.gitconfig`, whose
   `safe.directory` entry Flutter's own checkout may need ("dubious ownership",
@@ -126,12 +127,13 @@ any of its processes survived.
 - Dart ignores `SSL_CERT_FILE`; behind a TLS-intercepting proxy `pub get`
   hangs until the proxy CA is in `/etc/ssl/certs/ca-certificates.crt`.
   `verify.sh` runs Flutter with `--no-pub`: run `flutter pub get` first.
-- `Failed to find bundle/hermes_app`, or the build "succeeds" with no
-  `bundle/`: a first CMake configure that failed left
-  `CMAKE_INSTALL_PREFIX=/usr/local` in `build/linux/x64/debug/CMakeCache.txt`,
-  so later builds install into `/usr/local`. `rm -rf build/linux` (and remove
-  what landed in `/usr/local` per `build/linux/x64/debug/install_manifest.txt`)
-  and run again.
+- `Failed to find bundle/hermes_app`: the build did not install into the
+  bundle. `linux/CMakeLists.txt` now forces `CMAKE_INSTALL_PREFIX` to the
+  bundle directory on every configure (a failed first configure used to leave
+  `/usr/local` in the cache, and the next build installed the app there), so
+  look for a failed build step instead. If an older checkout's build dir
+  still holds `/usr/local`, `rm -rf build/linux` and run again; check
+  `/usr/local` per that dir's `install_manifest.txt` first.
 - `Integrity check failed` for mimalloc: the seeding could not reach
   github.com over git either; fetch the tag elsewhere and drop the tarball
   into `build/linux/x64/debug/`.
@@ -146,8 +148,15 @@ any of its processes survived.
 - `refusing to run with <NAME> in the environment`: the allowlist let a
   secret-looking name through; it should not, so report it rather than
   renaming the variable.
-- `dbus` `SocketException` at app start: no system bus in a container;
-  harmless.
+- A `dbus` `SocketException` at app start is a bug now: with no system bus
+  the app skips `connectivity_plus` (and guards it with one), so look for the
+  call that escaped the guard instead of dismissing it.
+- A failed first `flutter build linux` configure (the mimalloc download for
+  `media_kit_libs_linux` is blocked by the proxy) leaves an empty
+  `mimalloc-*.tar.gz` that fails the next configure's integrity check: seed it
+  as `verify.sh` does. The install prefix no longer matters there: the build
+  file forces it into the bundle directory (`test/linux/linux_install_prefix_test.dart`
+  and the `Build Linux (release)` job, which builds over a cache poisoned with `/usr/local`, check it).
 - A run killed with SIGKILL leaves `/tmp/hermes-verify.*` and processes:
   `scripts/verify.sh clean` (also done at the start of every run).
 - To look at a live run, add a `sleep` to the test and, from another shell,

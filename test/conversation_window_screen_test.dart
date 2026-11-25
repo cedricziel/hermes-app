@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -24,13 +24,16 @@ import 'package:hermes_app/src/windows/conversation_windows.dart'
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/widgets/process_output_card.dart';
+import 'package:hermes_app/src/chat/widgets/following_chat_list.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_gateway.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/find_app_icon.dart';
 import 'support/pump_chat.dart' show composerField;
+import 'support/tooltip_finder.dart';
 
 class _FakeLink implements ConversationWindowLink {
   final calls = <String>[];
@@ -129,6 +132,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: ConversationWindowScreen(
           args: _args,
@@ -187,7 +191,7 @@ void main() {
   ) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Show in Main Window'));
+    await tester.tap(find.tooltip('Show in Main Window'));
 
     expect(link.calls, contains('showInMain:s1:work'));
   });
@@ -218,7 +222,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(server.requestsTo('PATCH', '/api/sessions/s1'), hasLength(1));
-    expect(find.byTooltip('Unpin ⇧⌘P'), findsOneWidget);
+    expect(find.tooltip('Unpin ⇧⌘P'), findsOneWidget);
   });
 
   testWidgets('the archive command archives the chat and closes the window', (
@@ -241,7 +245,7 @@ void main() {
     await pump(tester);
     server.on('DELETE', '/api/sessions/s1', {'ok': true});
 
-    await tester.tap(find.byTooltip('More'));
+    await tester.tap(find.tooltip('More'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete…'));
     await tester.pumpAndSettle();
@@ -255,7 +259,7 @@ void main() {
   testWidgets('share hands the transcript to the share picker', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('Share'));
+    await tester.tap(find.tooltip('Share'));
 
     expect(
       link.calls,
@@ -312,7 +316,7 @@ void main() {
 
     await tester.enterText(composerField, 'Start the dev server');
     await tester.pump();
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.tooltip('Send'));
     await tester.pump();
     for (var i = 0; i < 3; i++) {
       await tester.runAsync(
@@ -413,7 +417,7 @@ void main() {
 
     await tester.enterText(composerField, 'Book a table');
     await tester.pump();
-    await tester.tap(find.byTooltip('Send'));
+    await tester.tap(find.tooltip('Send'));
     await tester.pump();
     for (var i = 0; i < 3; i++) {
       await tester.runAsync(
@@ -441,6 +445,32 @@ void main() {
     expect(gateway.methods.where((m) => m.startsWith('display.')), isEmpty);
     await tester.pumpWidget(const SizedBox());
     await tester.runAsync(gatewayTransport.close);
+  });
+
+  testWidgets('a tool call the reader opened stays open when the list is '
+      'built anew', (tester) async {
+    await pump(tester);
+    await tester.enterText(composerField, 'Hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    final send = transport.sends.last;
+    send
+      ..emit(const ReplyStarted())
+      ..emit(const ToolStarted(id: 't1', name: 'tool1', summary: 's', args: {}))
+      ..emit(const ToolFinished(id: 't1', name: 'tool1', result: 'RESULT-w'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byType(ToolCallCard));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.textContaining('RESULT-w'), findsOneWidget);
+
+    (tester.state(find.byType(FollowingChatList)) as dynamic).recoverForTest();
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(find.textContaining('RESULT-w'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('shows the requests of its own chat only, and marks the '
@@ -483,6 +513,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: Row(
           children: [

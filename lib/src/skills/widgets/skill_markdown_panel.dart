@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../../widgets/app_markdown_theme.dart';
 import '../../widgets/bounded_markdown.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/markdown_links.dart';
@@ -13,11 +14,13 @@ class SkillMarkdownPanel extends StatelessWidget {
     children: [
       Padding(
         padding: EdgeInsets.all(GroupedMetrics.of(context).rowPadding),
-        child: BoundedMarkdown(
-          text,
-          onLinkTap: markdownLinkHandler(),
-          checkboxBuilder: readOnlyTaskBox,
-          radioOptionBuilder: readOnlyRadioOption,
+        child: AppMarkdownTheme(
+          child: BoundedMarkdown(
+            text,
+            onLinkTap: markdownLinkHandler(),
+            checkboxBuilder: readOnlyTaskBox,
+            radioOptionBuilder: readOnlyRadioOption,
+          ),
         ),
       ),
     ],

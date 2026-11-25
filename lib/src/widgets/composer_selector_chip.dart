@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+
+import '../theme/focus_ring.dart';
 
 /// A bounded composer selector with an independently named recovery action.
 /// The accessible label and tooltip retain text that the visual label truncates.
@@ -49,39 +51,43 @@ class ComposerSelectorChip extends StatelessWidget {
                     button: onPressed != null,
                     onTap: onPressed,
                     excludeSemantics: true,
-                    child: InkWell(
-                      onTap: onPressed,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        child: LayoutBuilder(
-                          builder: (context, mainConstraints) => Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (leading != null &&
-                                    mainConstraints.maxWidth >= 80) ...[
-                                  SizedBox.square(
-                                    dimension: 24,
-                                    child: Center(child: leading),
+                    // The pill clips, so the keyboard ring is 2 px inside it.
+                    child: FocusRing(
+                      radius: 18,
+                      child: InkWell(
+                        onTap: onPressed,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          child: LayoutBuilder(
+                            builder: (context, mainConstraints) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (leading != null &&
+                                      mainConstraints.maxWidth >= 80) ...[
+                                    SizedBox.square(
+                                      dimension: 24,
+                                      child: Center(child: leading),
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Flexible(
+                                    child: Text(
+                                      label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.labelMedium,
+                                    ),
                                   ),
-                                  const SizedBox(width: 6),
+                                  if (trailing != null &&
+                                      mainConstraints.maxWidth >= 80)
+                                    trailing!,
                                 ],
-                                Flexible(
-                                  child: Text(
-                                    label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.labelMedium,
-                                  ),
-                                ),
-                                if (trailing != null &&
-                                    mainConstraints.maxWidth >= 80)
-                                  trailing!,
-                              ],
+                              ),
                             ),
                           ),
                         ),

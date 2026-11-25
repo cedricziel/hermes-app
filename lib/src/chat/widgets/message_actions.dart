@@ -1,13 +1,15 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 import 'reply_error_note.dart';
+import 'reply_interrupted_note.dart';
 
 /// What the user asked to do with the last turn.
 enum TurnAction {
@@ -21,24 +23,67 @@ enum TurnAction {
   final String progress;
 }
 
-/// The retry or edit running on the last turn, or why the last one failed.
+/// Why taking the turn back, or branching the chat, did not happen.
+enum TurnProblemKind {
+  /// Hermes could not be reached.
+  unreachable,
+
+  /// Hermes answered and refused.
+  rejected,
+
+  /// Hermes answered that its turn is still running ("busy"): nothing was
+  /// changed and nothing was sent.
+  busy,
+}
+
+/// A failed [action] and why, said under the last reply in the words of the
+/// screen's locale (the controller makes no text).
+@immutable
+class TurnActionProblem {
+  const TurnActionProblem(this.action, this.kind);
+
+  final TurnAction action;
+  final TurnProblemKind kind;
+
+  /// The sentence for [l10n].
+  String text(AppLocalizations l10n) => switch (kind) {
+    TurnProblemKind.busy => l10n.chatTurnBusy,
+    TurnProblemKind.rejected => l10n.chatTurnRejected(action.name),
+    TurnProblemKind.unreachable => l10n.chatTurnUnreachable(action.name),
+  };
+
+  @override
+  bool operator ==(Object other) =>
+      other is TurnActionProblem &&
+      other.action == action &&
+      other.kind == kind;
+
+  @override
+  int get hashCode => Object.hash(action, kind);
+}
+
+/// The retry or edit running on the last turn, why the last one failed, and
+/// whether they are held because the server may still be running the turn
+/// ([held]: Retry and Edit show dimmed, with a line that says why).
 @immutable
 class TurnActionStatus {
-  const TurnActionStatus({this.running, this.problem});
+  const TurnActionStatus({this.running, this.problem, this.held = false});
 
   static const idle = TurnActionStatus();
 
   final TurnAction? running;
-  final String? problem;
+  final TurnActionProblem? problem;
+  final bool held;
 
   @override
   bool operator ==(Object other) =>
       other is TurnActionStatus &&
       other.running == running &&
-      other.problem == problem;
+      other.problem == problem &&
+      other.held == held;
 
   @override
-  int get hashCode => Object.hash(running, problem);
+  int get hashCode => Object.hash(running, problem, held);
 }
 
 /// Where reading a reply aloud stands: [loading] while Hermes speaks it,
@@ -50,7 +95,9 @@ enum ReadAloudState { idle, loading, playing }
 /// takes the prompt back to change it. A reply the user [stopped] says so
 /// first, so it does not read as finished. While [status] has an action
 /// running, it takes the place of retry and edit; a [TurnActionStatus.problem]
-/// is said below the bar. A non-null [readAloud] adds Read aloud after Copy,
+/// is said below the bar. While the status is [TurnActionStatus.held] Retry
+/// and Edit stay on the bar but cannot be pressed, and a line says why
+/// ([heldAnnounceKey] makes a screen reader say it once). A non-null [readAloud] adds Read aloud after Copy,
 /// which [onReadAloud] starts and, while loading or playing, stops.
 /// [onBranch], when given, copies the chat up to this reply into a new one.
 class MessageActions extends StatefulWidget {
@@ -63,6 +110,7 @@ class MessageActions extends StatefulWidget {
     this.onEdit,
     this.onBranch,
     this.status = TurnActionStatus.idle,
+    this.heldAnnounceKey,
     this.readAloud,
     this.onReadAloud,
   });
@@ -76,6 +124,10 @@ class MessageActions extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onBranch;
   final TurnActionStatus status;
+
+  /// Says which reply the held line belongs to, for [ReplyInterruptedNote]'s
+  /// announce-once rule. Null never announces, as in the catalog.
+  final String? heldAnnounceKey;
 
   /// Null hides Read aloud: the profile has no text to speech, or the reply
   /// has nothing to say.
@@ -120,6 +172,7 @@ class _MessageActionsState extends State<MessageActions> {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
+    final android = isAndroid(context);
     final touch = platformChromeOf(context) == PlatformChrome.ios;
     final box = touch ? kAppleMinTapTarget : 32.0;
     Widget action(String label, AppIconSet icon, VoidCallback? onPressed) =>
@@ -129,12 +182,22 @@ class _MessageActionsState extends State<MessageActions> {
           iconSize: 16,
           color: color,
           onPressed: onPressed,
-          visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
+          visualDensity: touch || android
+              ? VisualDensity.standard
+              : VisualDensity.compact,
           constraints: BoxConstraints.tightFor(width: box, height: box),
           padding: EdgeInsets.zero,
+          style: android
+              ? IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  minimumSize: const Size.square(32),
+                )
+              : null,
         );
     final running = widget.status.running;
     final problem = widget.status.problem;
+    final held = widget.status.held && running == null;
+    final l10n = context.l10n;
     final bar = Padding(
       padding: EdgeInsets.only(top: touch ? 0 : 4),
       child: Row(
@@ -217,22 +280,38 @@ class _MessageActionsState extends State<MessageActions> {
             )
           else ...[
             if (widget.onRetry case final retry?)
-              action('Try again', AppIcons.refresh, retry),
+              action('Try again', AppIcons.refresh, held ? null : retry),
             if (widget.onEdit case final edit?)
-              action('Edit prompt', AppIcons.edit, edit),
+              action('Edit prompt', AppIcons.edit, held ? null : edit),
             if (widget.onBranch case final branch?)
               action('Branch in new chat', AppIcons.branch, branch),
           ],
         ],
       ),
     );
-    if (problem == null || running != null) return bar;
+    final showProblem = problem != null && running == null;
+    if (!showProblem && !held) return bar;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(liveRegion: true, child: ReplyErrorNote(problem)),
+        if (showProblem)
+          Semantics(
+            liveRegion: true,
+            child: problem.kind == TurnProblemKind.busy
+                ? ReplyInterruptedNote(
+                    text: problem.text(l10n),
+                    unconfirmed: true,
+                  )
+                : ReplyErrorNote(problem.text(l10n)),
+          ),
         bar,
+        if (held)
+          ReplyInterruptedNote(
+            text: l10n.chatTurnHeld,
+            unconfirmed: true,
+            announceKey: widget.heldAnnounceKey,
+          ),
       ],
     );
   }

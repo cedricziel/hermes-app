@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -63,7 +63,7 @@ void main() {
     chat.select('stored-1');
     await pumpEventQueue();
     final thread = chat.selectedThread!;
-    chat.submit('Test usage', const []);
+    await chat.submit('Test usage', const []);
     await pumpEventQueue();
     gateway.event('session.usage', 'foreign-runtime', {
       'usage': {'total': 999},
@@ -136,7 +136,7 @@ void main() {
       });
       await pumpEventQueue();
       final existing = chat.usageIn(thread)!;
-      chat.submit('Continue same session', const []);
+      await chat.submit('Continue same session', const []);
       await pumpEventQueue();
       expect(chat.usageIn(thread), same(existing));
       expect(existing.snapshot!.total, 8);
@@ -232,7 +232,7 @@ void main() {
         'text': 'Done',
         'status': 'complete',
       });
-      chat.submit('Still usable', const []);
+      await chat.submit('Still usable', const []);
       await pumpEventQueue();
       await usage.opened();
       expect(thread.messages.last.content, 'Done');

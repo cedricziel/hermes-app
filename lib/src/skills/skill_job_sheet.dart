@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
+import '../widgets/adaptive_sheet.dart';
 import '../widgets/busy_bar.dart';
-import '../widgets/dialog_presentation.dart';
 import 'skill_job.dart';
 import 'skills_hub_controller.dart';
+import '../../l10n/l10n.dart';
 
 /// Shows a running or finished job: a progress bar and the tail of its log
 /// while it runs, and the outcome when it ends. Closing it while the job runs
@@ -20,20 +21,10 @@ Future<void> showSkillJobSheet(BuildContext context, SkillsHubController hub) {
 
 /// Presents [job] without changing its execution or owning its lifetime.
 Future<void> showSkillJobStatus(BuildContext context, SkillJob job) {
-  if (Theme.of(context).platform == TargetPlatform.macOS) {
-    return showAppDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520, maxHeight: 560),
-          child: SkillJobSheet(job: job),
-        ),
-      ),
-    );
-  }
-  return showModalBottomSheet<void>(
-    context: context,
+  return showAdaptiveSheet<void>(
+    context,
     showDragHandle: true,
+    maxSheetHeightFraction: 0.9,
     builder: (_) => SkillJobSheet(job: job),
   );
 }
@@ -52,7 +43,6 @@ class SkillJobSheet extends StatelessWidget {
         final tail = job.lines.length > 6
             ? job.lines.sublist(job.lines.length - 6)
             : job.lines;
-        final desktop = theme.platform == TargetPlatform.macOS;
         final close = Align(
           alignment: Alignment.centerRight,
           child: TextButton(
@@ -69,7 +59,7 @@ class SkillJobSheet extends StatelessWidget {
             if (job.running) const BusyBar(),
             if (!job.running)
               Text(
-                _outcome(job),
+                _outcome(job, context.l10n),
                 style: TextStyle(
                   color: job.state == JobState.succeeded
                       ? null
@@ -100,29 +90,27 @@ class SkillJobSheet extends StatelessWidget {
         );
         return SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, desktop ? 16 : 0, 16, 16),
-            child: desktop
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(child: SingleChildScrollView(child: details)),
-                      const SizedBox(height: 8),
-                      close,
-                    ],
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [details, const SizedBox(height: 8), close],
-                  ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: SingleChildScrollView(child: details)),
+                const SizedBox(height: 8),
+                close,
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  static String _outcome(SkillJob job) => switch (job.state) {
+  static String _outcome(
+    SkillJob job,
+    AppLocalizations l10n,
+  ) => switch (job.state) {
     JobState.succeeded => 'Done.',
-    JobState.failed => job.error ?? 'It failed.',
+    JobState.failed => job.error ?? l10n.skillsJobFailedFallback,
     JobState.unknown =>
       'The result could not be confirmed. The installed list was refreshed.',
     _ => '',

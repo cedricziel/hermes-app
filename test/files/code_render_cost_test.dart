@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/files/code_highlight.dart';
 import 'package:hermes_app/src/files/widgets/file_previews.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 import 'widgets/files_widget_harness.dart';
 
@@ -104,6 +105,7 @@ void main() {
     ).join('\n\n');
     Future<void> show(bool source) => tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(
           body: MarkdownPreview(text: fences, showSource: source),
         ),
@@ -154,6 +156,7 @@ void main() {
         List.generate(n, (i) => '```python\ndef f$i(): pass\n```').join('\n\n');
     Future<void> show(String text) => tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         home: Scaffold(body: MarkdownPreview(text: text)),
       ),
     );

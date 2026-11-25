@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/skills/skill_editor_screen.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 
 void main() {
   testWidgets('a save completing during dismissal keeps the skills list', (
@@ -12,6 +13,7 @@ void main() {
     final navigator = GlobalKey<NavigatorState>();
     await tester.pumpWidget(
       MaterialApp(
+        builder: (_, child) => AppThemeScopes(child: child!),
         navigatorKey: navigator,
         home: const Scaffold(body: Text('Chats')),
       ),

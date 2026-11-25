@@ -64,7 +64,7 @@ void main() {
     expect(changes, greaterThan(0));
 
     // A later send continues the bound session.
-    chat.submit('Again', const []);
+    await chat.submit('Again', const []);
     expect(transport.sends.last.threadId, 's1');
   });
 
@@ -138,7 +138,7 @@ void main() {
   test('a reply stays in its thread after the user switches away', () async {
     chat.newThread();
     final first = chat.selectedThread!;
-    chat.submit('Question', const []);
+    await chat.submit('Question', const []);
     final send = transport.sends.single;
 
     chat.newThread();
@@ -160,7 +160,7 @@ void main() {
   test('an answered approval is recorded on its reply', () async {
     chat.newThread();
     final thread = chat.selectedThread!;
-    chat.submit('Run it', const []);
+    await chat.submit('Run it', const []);
     transport.sends.single.emit(
       const ApprovalRequested(
         ApprovalRequest(
@@ -184,7 +184,7 @@ void main() {
   test('an answered vault request is recorded on its reply', () async {
     chat.newThread();
     final thread = chat.selectedThread!;
-    chat.submit('Save it', const []);
+    await chat.submit('Save it', const []);
     transport.sends.single.emit(
       VaultRequested(
         const VaultRequest(
@@ -214,7 +214,7 @@ void main() {
   test('a skipped vault request records a decline', () async {
     chat.newThread();
     final thread = chat.selectedThread!;
-    chat.submit('Save it', const []);
+    await chat.submit('Save it', const []);
     transport.sends.single.emit(
       VaultRequested(
         const VaultRequest(

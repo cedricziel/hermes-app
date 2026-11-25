@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+import '../../files/widgets/safe_path_text.dart' show wellFormedText;
+
+import 'package:material_ui/material_ui.dart';
 
 import '../../widgets/disclosure_tile.dart';
 import '../../../l10n/l10n.dart';
@@ -114,11 +116,12 @@ class ConnectorOperationBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(target.name),
-                Text('${target.action} · ${target.state}'),
-                if (target.detail case final detail?) SelectableText(detail),
+                Text(wellFormedText(target.name)),
+                Text(wellFormedText('${target.action} · ${target.state}')),
+                if (target.detail case final detail?)
+                  SelectableText(wellFormedText(detail)),
                 if (target.instructions case final instructions?)
-                  SelectableText(instructions),
+                  SelectableText(wellFormedText(instructions)),
                 if (!target.canCompleteHere)
                   const Text('This target cannot be completed in this app.'),
                 if (target.browserUri case final uri? when !readOnly)

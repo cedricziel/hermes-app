@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/messaging/messaging_screen.dart';
 import 'package:hermes_app/src/messaging/messaging_setup_screen.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'host.dart';
+import 'platform_theme.dart';
 import 'skills_messaging_use_cases.dart' show skillsServer;
 
 const _platforms = {
@@ -17,10 +18,7 @@ const _platforms = {
 };
 
 Widget _on(BuildContext context, TargetPlatform platform, Widget child) =>
-    Theme(
-      data: Theme.of(context).copyWith(platform: platform),
-      child: child,
-    );
+    Theme(data: platformTheme(context, platform), child: child);
 
 WidgetbookUseCase _messaging(
   String name,
@@ -107,6 +105,23 @@ WidgetbookNode messagingNode() => WidgetbookFolder(
             name: 'Every state ($name)',
             builder: (context) => _on(context, platform, const _RowGroup()),
           ),
+        for (final MapEntry(key: name, value: platform) in const {
+          'Mac': TargetPlatform.macOS,
+          'Material': TargetPlatform.android,
+        }.entries)
+          for (final scale in const [2.0, 3.0])
+            WidgetbookUseCase(
+              name: 'Set up, text ${scale.toInt()}x ($name)',
+              builder: (context) => _on(
+                context,
+                platform,
+                MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(scale)),
+                  child: const _RowGroup(),
+                ),
+              ),
+            ),
       ],
     ),
     WidgetbookComponent(

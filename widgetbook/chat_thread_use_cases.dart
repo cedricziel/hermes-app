@@ -1,14 +1,17 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show Builders, InMemoryChatController, User;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/widgets/message_actions.dart'
+    show TurnActionStatus;
 import 'package:hermes_app/src/chat/chat_theme.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
+import 'package:hermes_app/src/chat/widgets/chat_earlier_messages_failed_row.dart';
 import 'package:hermes_app/src/chat/widgets/chat_history_state.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +40,8 @@ ChatMessage _reply(
   String reasoning = '',
   List<SealedProse> sealedProse = const [],
   String? error,
+  ReplyFailure? failure,
+  bool serverMayRun = false,
 }) => ChatMessage(
   id: id,
   role: ChatRole.assistant,
@@ -48,7 +53,8 @@ ChatMessage _reply(
   reasoning: reasoning,
   sealedProse: sealedProse,
   error: error,
-);
+  failure: failure,
+)..serverMayRun = serverMayRun;
 
 const _markdown =
     'The job hit a `ConnectionResetError` while uploading the checkpoint.\n\n'
@@ -65,17 +71,26 @@ class _ChatThreadView extends StatefulWidget {
     this.attachments = const [],
     this.replying = false,
     this.canRetry = true,
+    this.held = false,
     this.queued = const [],
     this.history,
+    this.earlier,
   });
 
   /// Set for a stored chat whose messages are loading or failed to load.
   final ChatHistoryStatus? history;
+
+  /// Set for a chat whose older messages failed to load.
+  final ChatEarlierMessagesStatus? earlier;
   final List<ChatMessage> messages;
   final List<SharedFile> attachments;
   final bool replying;
   final List<QueuedPrompt> queued;
   final bool canRetry;
+
+  /// The last reply ended on a lost connection and the server may still run
+  /// its turn: Retry and Edit show dimmed, with the reason.
+  final bool held;
 
   @override
   State<_ChatThreadView> createState() => _ChatThreadViewState();
@@ -96,6 +111,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     messages: [for (final m in widget.messages) ...chatMessageToFlyer(m)],
   );
   final _text = TextEditingController();
+  late final _status = ValueNotifier(TurnActionStatus(held: widget.held));
   late final _latest = ValueNotifier<String?>(
     widget.messages.where((m) => m.role == ChatRole.assistant).lastOrNull?.id,
   );
@@ -105,6 +121,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
     _controller.dispose();
     _text.dispose();
     _latest.dispose();
+    _status.dispose();
     super.dispose();
   }
 
@@ -128,11 +145,28 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                     greetingName: 'Ada',
                     onPickPrompt: (_) {},
                     latestReplyId: _latest,
+                    turnActionStatus: _status,
                     onRetry: widget.canRetry ? () {} : null,
                     onEdit: widget.canRetry ? () {} : null,
                     onAnswerApproval: _answered,
                     onAnswerClarify: _answered,
                     onSkipUnsupported: _answered,
+                    topSliver: widget.earlier == null
+                        ? null
+                        : SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                kChatGutter,
+                                0,
+                                kChatGutter,
+                                kChatTurnGap,
+                              ),
+                              child: ChatEarlierMessagesFailedRow(
+                                status: widget.earlier!,
+                                onRetry: () {},
+                              ),
+                            ),
+                          ),
                   ),
                 ).copyWith(
                   composerBuilder: buildChatComposer(
@@ -159,8 +193,10 @@ WidgetbookUseCase _thread(
   List<SharedFile> attachments = const [],
   bool replying = false,
   bool canRetry = true,
+  bool held = false,
   List<QueuedPrompt> queued = const [],
   ChatHistoryStatus? history,
+  ChatEarlierMessagesStatus? earlier,
   bool reducedMotion = false,
   double textScale = 1,
 }) => WidgetbookUseCase(
@@ -172,10 +208,12 @@ WidgetbookUseCase _thread(
     ),
     child: _ChatThreadView(
       history: history,
+      earlier: earlier,
       messages: messages,
       attachments: attachments,
       replying: replying,
       canRetry: canRetry,
+      held: held,
       queued: queued,
     ),
   ),
@@ -210,9 +248,37 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
           const [],
           history: ChatHistoryStatus.failed,
         ),
+        _thread('Earlier messages failed', [
+          _user('u1', 'Why did the run fail around 02:14?'),
+          _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ], earlier: ChatEarlierMessagesStatus.failed),
+        _thread('Earlier messages retrying', [
+          _user('u1', 'Why did the run fail around 02:14?'),
+          _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ], earlier: ChatEarlierMessagesStatus.retrying),
+        _thread(
+          'Earlier messages failed, largest text size',
+          [
+            _user('u1', 'Why did the run fail around 02:14?'),
+            _reply('a1', _markdown, tools: const [finishedToolCall]),
+          ],
+          earlier: ChatEarlierMessagesStatus.failed,
+          textScale: 3.1,
+        ),
         _thread('Conversation', [
           _user('u1', 'Why did the run fail around 02:14?'),
           _reply('a1', _markdown, tools: const [finishedToolCall]),
+        ]),
+        _thread('Links and headings', [
+          _user(
+            'u1',
+            'Where is the retry policy documented? [Runbook](https://example.com/runbook)',
+          ),
+          _reply(
+            'a1',
+            '## Retry policy\n\nSee the [runbook](https://example.com/runbook) '
+                'and the [backoff notes](https://example.com/backoff) for the cap.',
+          ),
         ]),
         _thread('Thinking', [
           _user('u1', 'Why did the run fail around 02:14?'),
@@ -308,16 +374,42 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
             'a1',
             '',
             status: MessageStatus.error,
-            error: 'Something went wrong. Try sending it again.',
+            failure: ReplyFailure.generic,
           ),
         ]),
+        _thread(
+          'Failed reply, the server may still run it (Retry and Edit held)',
+          [
+            _user('u1', 'Summarise the weekly report'),
+            _reply(
+              'a1',
+              'Reading the report now.',
+              status: MessageStatus.error,
+              failure: ReplyFailure.generic,
+              serverMayRun: true,
+              tools: const [cancelledToolCall],
+            ),
+          ],
+          held: true,
+        ),
+        _thread('Could not confirm (Retry and Edit held)', [
+          _user('u1', 'Summarise the weekly report'),
+          ChatMessage(
+            id: 'a1',
+            role: ChatRole.assistant,
+            content: 'Reading the report now.',
+            createdAt: _at,
+            status: MessageStatus.error,
+            loss: ReplyLoss.unconfirmed,
+          )..serverMayRun = true,
+        ], held: true),
         _thread('Failed reply that cannot be retried', [
           _user('u1', 'Summarise the weekly report'),
           _reply(
             'a1',
             '',
             status: MessageStatus.error,
-            error: 'That profile is no longer available. Pick another one.',
+            failure: ReplyFailure.profileUnavailable,
           ),
         ], canRetry: false),
         _thread('Reply cut off', [
@@ -327,7 +419,7 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
             'Done. The job **Morning briefing** runs every day at 07:00.\n\n'
                 'Shall I run it once now,',
             status: MessageStatus.error,
-            error: 'Something went wrong. Try sending it again.',
+            failure: ReplyFailure.generic,
             tools: const [
               ToolCall(
                 name: 'cronjob_manage',

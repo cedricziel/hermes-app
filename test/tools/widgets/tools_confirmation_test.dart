@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -8,6 +8,7 @@ import 'package:hermes_app/src/tools/widgets/tools_confirmation.dart';
 import 'package:hermes_app/src/tools/widgets/tools_difference_sheet.dart';
 
 import 'pump_tools.dart';
+import '../../support/test_localizations.dart';
 
 const _question = ToolsetQuestion(
   title: 'Let Hermes run commands?',
@@ -158,7 +159,7 @@ void main() {
         // too (a scale set on the home page would not reach it).
         await t.pumpWidget(
           MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            localizationsDelegates: kTestLocalizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             theme: buildHermesLightTheme(platform: platform),
             builder: (context, child) => MediaQuery(

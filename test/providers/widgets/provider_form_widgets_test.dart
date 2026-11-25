@@ -1,5 +1,5 @@
-import 'package:flutter/cupertino.dart' show CupertinoDialogAction;
-import 'package:flutter/material.dart';
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoDialogAction;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/l10n/l10n.dart';
@@ -12,6 +12,8 @@ import 'package:hermes_app/src/providers/widgets/provider_form_models.dart';
 import 'package:hermes_app/src/providers/widgets/server_command_view.dart';
 import 'package:hermes_app/src/providers/widgets/sign_in_code_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import '../../support/test_localizations.dart';
 
 const _fakeKey = 'test-key-not-real';
 
@@ -29,9 +31,9 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       locale: locale,
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      localizationsDelegates: kTestLocalizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: buildHermesLightTheme().copyWith(platform: platform),
+      theme: buildHermesLightTheme(platform: platform),
       builder: (context, c) => MediaQuery(
         data: MediaQuery.of(context)
             .copyWith(textScaler: TextScaler.linear(scale)),
@@ -1147,7 +1149,7 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         MaterialApp(
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          localizationsDelegates: kTestLocalizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           theme: buildHermesLightTheme(),
           home: const Scaffold(

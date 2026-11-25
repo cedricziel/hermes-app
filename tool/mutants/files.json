@@ -1,0 +1,344 @@
+{
+  "subject": "files",
+  "tests": [
+    "test/bot_screen/bot_screen_install_panel_test.dart",
+    "test/bot_screen/bot_screen_panel_test.dart",
+    "test/chat/activity/activity_line_placement_test.dart",
+    "test/chat/activity/bound_activity_panel_programs_test.dart",
+    "test/chat/activity/bound_activity_panel_test.dart",
+    "test/chat/activity/checkpoints_context_panel_test.dart",
+    "test/chat/checkpoints/checkpoints_chrome_test.dart",
+    "test/chat/memory_open_launch_profile_test.dart",
+    "test/chat/process_output_integration_test.dart",
+    "test/chat/subagents/bound_activity_panel_agents_test.dart",
+    "test/chat_review_summary_test.dart",
+    "test/conversation_window_screen_test.dart",
+    "test/files/code_render_cost_test.dart",
+    "test/files/files_availability_test.dart",
+    "test/files/files_controller_test.dart",
+    "test/files/files_entry_points_test.dart",
+    "test/files/files_lock_cleanup_test.dart",
+    "test/files/files_platform_policy_test.dart",
+    "test/files/files_provider_test.dart",
+    "test/files/files_screen_test.dart",
+    "test/files/files_telemetry_test.dart",
+    "test/files/fs_fixtures_test.dart",
+    "test/files/hermes_files_repository_test.dart",
+    "test/files/secret_names_test.dart",
+    "test/files/server_path_test.dart",
+    "test/files/widgets/code_preview_test.dart",
+    "test/files/widgets/file_path_bar_test.dart",
+    "test/files/widgets/file_preview_widgets_test.dart",
+    "test/files/widgets/file_row_test.dart",
+    "test/files/widgets/file_size_test.dart",
+    "test/files/widgets/files_browser_view_test.dart",
+    "test/files/widgets/files_questions_test.dart",
+    "test/files/widgets/files_review_fixes_test.dart",
+    "test/files/widgets/files_strings_test.dart",
+    "test/files/widgets/lone_surrogate_preview_test.dart",
+    "test/files/widgets/markdown_task_list_test.dart",
+    "test/focus_ring_geometry_test.dart",
+    "test/launch_profile_contract_test.dart",
+    "test/profiles/call_site_fallback_test.dart",
+    "test/profiles/workspace_fallback_test.dart",
+    "test/real_backend_contract_test.dart",
+    "test/thread_grouping_ui_test.dart",
+    "test/todo_plan_integration_test.dart",
+    "test/workflows/activity_line_workflow_test.dart",
+    "test/workflows/activity_panel_workflow_test.dart",
+    "test/workflows/bot_chat_workflow_test.dart",
+    "test/workflows/bot_mode_workflow_test.dart",
+    "test/workflows/bot_screen_lease_workflow_test.dart",
+    "test/workflows/bot_screen_preview_workflow_test.dart",
+    "test/workflows/bot_screen_viewer_workflow_test.dart",
+    "test/workflows/bot_screen_workflow_test.dart",
+    "test/workflows/chat_autocomplete_workflow_test.dart",
+    "test/workflows/chat_reply_lost_workflow_test.dart",
+    "test/workflows/chat_rich_workflow_test.dart",
+    "test/workflows/chat_workflow_test.dart",
+    "test/workflows/chat_working_workflow_test.dart",
+    "test/workflows/checkpoints_context_workflow_test.dart",
+    "test/workflows/code_blocks_workflow_test.dart",
+    "test/workflows/compact_chat_workflow_test.dart",
+    "test/workflows/connection_screens_workflow_test.dart",
+    "test/workflows/conversation_window_workflow_test.dart",
+    "test/workflows/files_workflow_test.dart",
+    "test/workflows/group_creation_workflow_test.dart",
+    "test/workflows/handoff_workflow_test.dart",
+    "test/workflows/hands_free_strip_workflow_test.dart",
+    "test/workflows/kanban_extras_workflow_test.dart",
+    "test/workflows/kanban_forms_workflow_test.dart",
+    "test/workflows/kanban_task_activity_workflow_test.dart",
+    "test/workflows/kanban_task_metadata_workflow_test.dart",
+    "test/workflows/kanban_worker_log_workflow_test.dart",
+    "test/workflows/kanban_workflow_test.dart",
+    "test/workflows/mac_profiles_workflow_test.dart",
+    "test/workflows/management_workflow_test.dart",
+    "test/workflows/mcp_workflow_test.dart",
+    "test/workflows/memory_proposals_workflow_test.dart",
+    "test/workflows/model_popover_workflow_test.dart",
+    "test/workflows/needs_you_workflow_test.dart",
+    "test/workflows/onboarding_workflow_test.dart",
+    "test/workflows/plugins_workflow_test.dart",
+    "test/workflows/process_control_workflow_test.dart",
+    "test/workflows/profile_creation_workflow_test.dart",
+    "test/workflows/provider_first_run_workflow_test.dart",
+    "test/workflows/providers_workflow_test.dart",
+    "test/workflows/quick_look_workflow_test.dart",
+    "test/workflows/schedules_workflow_test.dart",
+    "test/workflows/server_care_workflow_test.dart",
+    "test/workflows/session_export_workflow_test.dart",
+    "test/workflows/skills_curator_workflow_test.dart",
+    "test/workflows/skills_hub_workflow_test.dart",
+    "test/workflows/subagent_control_workflow_test.dart",
+    "test/workflows/tools_setup_workflow_test.dart",
+    "test/workflows/tools_workflow_test.dart",
+    "test/workflows/voice_call_phases_workflow_test.dart",
+    "test/workflows/voice_call_setup_workflow_test.dart",
+    "test/workflows/working_directory_workflow_test.dart",
+    "test/workspaces/safe_path_display_extra_test.dart",
+    "test/workspaces/safe_path_display_test.dart",
+    "test/workspaces/widgets/workspace_widgets_coderabbit_test.dart",
+    "test/workspaces/widgets/workspace_widgets_review_test.dart",
+    "test/workspaces/widgets/workspace_widgets_screen_review_test.dart",
+    "test/workspaces/widgets/workspace_widgets_test.dart",
+    "test/workspaces/workspace_paths_test.dart",
+    "test/workspaces/workspace_picker_controller_test.dart"
+  ],
+  "quick_tests": [
+    "test/files/files_controller_test.dart",
+    "test/files/files_lock_cleanup_test.dart",
+    "test/files/files_screen_test.dart",
+    "test/files/files_telemetry_test.dart",
+    "test/files/fs_fixtures_test.dart",
+    "test/files/hermes_files_repository_test.dart",
+    "test/files/secret_names_test.dart",
+    "test/files/server_path_test.dart",
+    "test/files/widgets/file_path_bar_test.dart",
+    "test/files/widgets/files_browser_view_test.dart",
+    "test/workspaces/safe_path_display_extra_test.dart",
+    "test/workspaces/widgets/workspace_widgets_review_test.dart",
+    "test/workspaces/widgets/workspace_widgets_screen_review_test.dart",
+    "test/workspaces/widgets/workspace_widgets_test.dart",
+    "test/workspaces/workspace_picker_controller_test.dart"
+  ],
+  "mutants": [
+    {
+      "id": "sp01",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (text.isEmpty || text.contains('\\u0000')) return null;",
+      "new": "if (text.isEmpty) return null;",
+      "note": "NUL accepted"
+    },
+    {
+      "id": "sp02",
+      "file": "lib/src/files/server_path.dart",
+      "old": "_isDriveLetter(text.codeUnitAt(0)) &&",
+      "new": "true &&",
+      "note": "any char accepted as drive letter"
+    },
+    {
+      "id": "sp03",
+      "file": "lib/src/files/server_path.dart",
+      "old": "(text[2] == r'\\' || text[2] == '/')",
+      "new": "(text[2] == r'\\')",
+      "note": "C:/ no longer a drive root"
+    },
+    {
+      "id": "sp04",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (segment == '.' || segment == '..') return;",
+      "new": "if (segment == '.') return;",
+      "note": ".. segment accepted"
+    },
+    {
+      "id": "sp05",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (i > start && segments.length == before) return null;",
+      "new": "if (false) return null;",
+      "note": "dot segments tidied away instead of refused"
+    },
+    {
+      "id": "sp06",
+      "file": "lib/src/files/server_path.dart",
+      "old": "(unit == 0x2F || (!slashes && unit == 0x5C))",
+      "new": "(unit == 0x2F || unit == 0x5C)",
+      "note": "backslash separates in POSIX paths"
+    },
+    {
+      "id": "sp07",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (shareEnd <= shareStart) return null;",
+      "new": "if (shareEnd < shareStart) return null;",
+      "note": "empty UNC share accepted"
+    },
+    {
+      "id": "sp08",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (refused(server) || refused(share)) return null;",
+      "new": "if (refused(server)) return null;",
+      "note": "UNC share '..' accepted"
+    },
+    {
+      "id": "sp09",
+      "file": "lib/src/files/server_path.dart",
+      "old": "part == '.' || part == '..' || part == '?';",
+      "new": "part == '.' || part == '..';",
+      "note": "UNC device form \\\\?\\ accepted"
+    },
+    {
+      "id": "sp10",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (style != root.style || _rootKey != root._rootKey) return false;",
+      "new": "if (style != root.style) return false;",
+      "note": "different root/drive/share counts as within"
+    },
+    {
+      "id": "sp11",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (root._segments.length > _segments.length) return false;",
+      "new": "if (root._segments.length >= _segments.length) return false;",
+      "note": "path not within itself"
+    },
+    {
+      "id": "sp12",
+      "file": "lib/src/files/server_path.dart",
+      "old": "if (_segments[i] != root._segments[i]) return false;",
+      "new": "if (_segments[i].toLowerCase() != root._segments[i].toLowerCase()) return false;",
+      "note": "case-insensitive containment"
+    },
+    {
+      "id": "sp13",
+      "file": "lib/src/files/server_path.dart",
+      "old": "rootKey = '${text[0].toLowerCase()}:';",
+      "new": "rootKey = '${text[0]}:';",
+      "note": "drive letter case-sensitive"
+    },
+    {
+      "id": "sp14",
+      "file": "lib/src/files/server_path.dart",
+      "old": "final key = '${server.toLowerCase()}\\\\${share.toLowerCase()}';",
+      "new": "final key = '$server\\\\$share';",
+      "note": "UNC names case-sensitive"
+    },
+    {
+      "id": "sp15",
+      "file": "lib/src/files/server_path.dart",
+      "old": "value.substring(0, _ends[_segments.length - 2]);",
+      "new": "value.substring(0, _ends[_segments.length - 1]);",
+      "note": "parent is the path itself"
+    },
+    {
+      "id": "sp16",
+      "file": "lib/src/files/server_path.dart",
+      "old": "'ServerPath(<${style.name}, ${_segments.length}>)'",
+      "new": "'ServerPath($value)'",
+      "note": "toString leaks the path"
+    },
+    {
+      "id": "sp17",
+      "file": "lib/src/files/server_path.dart",
+      "old": "} else if (text.startsWith('/')) {",
+      "new": "} else if (true) {",
+      "note": "relative paths accepted"
+    },
+    {
+      "id": "sp18",
+      "file": "lib/src/files/server_path.dart",
+      "old": "other is ServerPath && other.value == value;",
+      "new": "other is ServerPath && other.name == name;",
+      "note": "equality by name only"
+    },
+    {
+      "id": "sn01",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "if (lower == '.env' || _exact.contains(lower)) return true;",
+      "new": "if (_exact.contains(lower)) return true;",
+      "note": ".env not secret"
+    },
+    {
+      "id": "sn02",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "final lower = name.toLowerCase();",
+      "new": "final lower = name;",
+      "note": "case-sensitive secret names"
+    },
+    {
+      "id": "sn03",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "return _prefixes.any(lower.startsWith) ||",
+      "new": "return false ||",
+      "note": "prefix rules off"
+    },
+    {
+      "id": "sn04",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "_suffixes.any(lower.endsWith) ||",
+      "new": "false ||",
+      "note": "suffix rules off"
+    },
+    {
+      "id": "sn05",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "_fragments.any(lower.contains);",
+      "new": "false;",
+      "note": "fragment rules off (token/secret)"
+    },
+    {
+      "id": "sn06",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "lower.startsWith('google_') && lower.endsWith('.json')",
+      "new": "lower.startsWith('google_') || lower.endsWith('.json')",
+      "note": "any .json is secret"
+    },
+    {
+      "id": "sn07",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "if (folders.any((s) => _folders.contains(s.toLowerCase()))) return true;",
+      "new": "if (false) return true;",
+      "note": "secret folders ignored"
+    },
+    {
+      "id": "sn08",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "(parent == '.docker' && name == 'config.json') ||",
+      "new": "false ||",
+      "note": ".docker/config.json not secret"
+    },
+    {
+      "id": "sn09",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "(parent == '.kube' && name == 'config');",
+      "new": "(false);",
+      "note": ".kube/config not secret"
+    },
+    {
+      "id": "sn10",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "if (looksSecretName(segments.last)) return true;",
+      "new": "if (false) return true;",
+      "note": "own-name rule ignored in looksSecret"
+    },
+    {
+      "id": "sn11",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "static const _folders = {'.ssh', '.aws', '.gnupg', 'mcp-tokens', 'pairing'};",
+      "new": "static const _folders = {'.ssh', '.aws', 'mcp-tokens', 'pairing'};",
+      "note": ".gnupg dropped"
+    },
+    {
+      "id": "sn12",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "    '.pgpass',\n",
+      "new": "",
+      "note": ".pgpass dropped"
+    },
+    {
+      "id": "sn13",
+      "file": "lib/src/files/secret_names.dart",
+      "old": "    '.p12',\n",
+      "new": "",
+      "note": ".p12 dropped"
+    }
+  ]
+}
