@@ -61,6 +61,7 @@ import 'chat_session_state.dart';
 import 'owned_session_transport.dart';
 import 'activity/working_summary.dart' show WorkingSummary;
 import 'activity/working_summary_source.dart';
+import 'report_chat_bug.dart';
 import 'todo_plan/todo_plan_state.dart';
 import 'moa_progress_state.dart';
 import 'session_usage/session_usage_controller.dart';
@@ -351,7 +352,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           notifyListeners();
           return;
         }
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'the thread reload on resume');
         if (!_currentActivity(epoch) || generation != _loadGeneration) return;
         _threadsFailed = true;
         notifyListeners();
@@ -1335,7 +1337,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       onOpened?.call();
       if (!_currentActivity(epoch)) return;
       if (prompt != null) onDraft?.call(prompt);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'opening a missing chat');
       if (active && generation == _openGeneration) _failOpen();
     }
   }
@@ -1548,7 +1551,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..named = true;
       select(thread.id);
       onOpened?.call();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'opening a bot chat');
       if (active && generation == _openGeneration) _failOpen();
     }
   }
@@ -2010,7 +2014,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final Map<String, String> statuses;
     try {
       statuses = await transport.activeStatuses();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the active statuses');
       return false;
     }
     if (!active || generation != _loadGeneration || refresh != _activeRefresh) {

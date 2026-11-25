@@ -12,6 +12,7 @@ import '../voice/voice_support.dart';
 import '../voice/synthesized_speech.dart';
 import 'chat_models.dart';
 import 'reactions/reaction_state.dart';
+import 'report_chat_bug.dart';
 import 'thread_sections.dart';
 import 'stored_content.dart';
 import 'tool_result.dart';
@@ -240,7 +241,8 @@ class HermesChatRepository {
   Future<VoiceSupport> voiceSupport({String? profile}) async {
     try {
       return await voiceConfiguration(profile: profile);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the voice support');
       return VoiceSupport.none;
     }
   }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/safe_notifier.dart';
 import 'chat_models.dart';
+import 'report_chat_bug.dart';
 
 enum ThreadSearchStatus { idle, loading, done, failed }
 
@@ -168,7 +169,8 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
       if (!_workAllowed || generation != _generation) return;
       _hits = hits;
       _status = ThreadSearchStatus.done;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a thread search');
       if (!_workAllowed || generation != _generation) return;
       _hits = const [];
       _status = ThreadSearchStatus.failed;

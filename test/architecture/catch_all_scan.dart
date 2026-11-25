@@ -19,12 +19,23 @@ typedef CatchAllFinding = ({Hit hit, String owner});
 /// Types an `on` clause can name and still catch an `Error`.
 const _catchAllTypes = {'Object', 'Error', 'dynamic'};
 
-/// Calls that hand an error to the crash reporter.
-const _reporters = {'reportBug', 'reportUnreadablePrefs', 'reportError'};
+/// Calls (with no receiver) that hand an error to the crash reporter.
+const _reporters = {'reportBug', 'reportChatBug', 'reportUnreadablePrefs'};
 
-/// Calls that only print their argument: passing the error to one is not
-/// handing it on.
-const _printers = {'debugPrint', 'print'};
+/// Calls that take the error itself as an argument and carry it on.
+const _sinkCalls = {
+  'completeError',
+  'addError',
+  'onError',
+  'onFailure',
+  'handleError',
+};
+
+/// Named arguments that carry the error (`copyWith(error: e)`).
+const _namedSlots = {'error', 'exception', 'cause'};
+
+/// A field or variable that holds an error for the screen.
+final _errorSlot = RegExp(r'error|failure|exception', caseSensitive: false);
 
 /// Whether [clause] can catch an `Error`.
 bool catchesErrors(CatchClause clause) {
@@ -36,13 +47,17 @@ bool catchesErrors(CatchClause clause) {
 /// The catch-alls of [file] that neither rethrow, nor report, nor hand the
 /// error on.
 ///
-/// Handled means, in the clause's body (a nested `catch` is judged on its
-/// own): a `rethrow`, a `throw` or `Error.throwWithStackTrace`; a call of
-/// `reportBug`, `reportUnreadablePrefs` or `FlutterError.reportError`; or the
-/// error variable used as a call argument (`completer.completeError(e, st)`,
-/// `onError(e)`, `copyWith(error: e)`), as the right side of an assignment
-/// (`_error = e`), or returned. Interpolating it, reading a member of it
-/// (`e.runtimeType`, `e.toString()`) or passing it to `debugPrint` is not.
+/// Handled means a real sink directly in the clause's body (not in a nested
+/// `catch`, not in a function literal, which may never run or shadow the
+/// error): a `rethrow`, a `throw` or `Error.throwWithStackTrace`;
+/// `reportBug` or `reportUnreadablePrefs` (no receiver) or
+/// `FlutterError.reportError` called with the error; the error itself passed
+/// to `completeError`, `addError`, `Future.error`, `onError`, `onFailure` or
+/// `handleError`, or as an `error:`, `exception:` or `cause:` argument;
+/// assigned to a field or variable whose name holds `error`, `failure` or
+/// `exception`; or returned as is. A classifier (`kindOf(e)`), a predicate
+/// (`if (isCancel(e)) return;`), an interpolation, a member read
+/// (`e.runtimeType`) and `debugPrint(e)` are not sinks.
 List<CatchAllFinding> catchAllFindingsIn(SourceFile file) {
   final unit = parseString(
     content: file.raw,
@@ -104,22 +119,24 @@ String _ownerOf(AstNode node) {
 }
 
 bool _handlesError(CatchClause clause) {
-  final name = clause.exceptionParameter?.name.lexeme;
-  final finder = _HandoffFinder(name);
+  final finder = _SinkFinder(clause.exceptionParameter?.name.lexeme);
   clause.body.accept(finder);
   return finder.handled;
 }
 
-/// Walks a catch body for a hand-off; does not enter a nested `catch`.
-class _HandoffFinder extends RecursiveAstVisitor<void> {
-  _HandoffFinder(this.errorName);
+/// Walks a catch body for a real sink. It does not enter a nested `catch`
+/// (judged on its own) or a function literal (it may never run, and its own
+/// parameter may shadow the error).
+class _SinkFinder extends RecursiveAstVisitor<void> {
+  _SinkFinder(this.errorName);
   final String? errorName;
   bool handled = false;
 
   @override
-  void visitCatchClause(CatchClause node) {
-    // Judged on its own by the outer visitor.
-  }
+  void visitCatchClause(CatchClause node) {}
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {}
 
   @override
   void visitRethrowExpression(RethrowExpression node) => handled = true;
@@ -130,50 +147,130 @@ class _HandoffFinder extends RecursiveAstVisitor<void> {
   @override
   void visitMethodInvocation(MethodInvocation node) {
     final name = node.methodName.name;
-    if (_reporters.contains(name) || name == 'throwWithStackTrace') {
+    final target = node.target;
+    final args = node.argumentList.arguments;
+    final error = errorName;
+    if (name == 'throwWithStackTrace') {
       handled = true;
+    } else if (error != null) {
+      if (_reporters.contains(name) && target == null) {
+        handled =
+            handled || args.any((a) => _mentions(a.argumentExpression, error));
+      } else if (name == 'reportError' &&
+          target is SimpleIdentifier &&
+          target.name == 'FlutterError') {
+        handled =
+            handled || args.any((a) => _mentions(a.argumentExpression, error));
+      } else if (_sinkCalls.contains(name) ||
+          (name == 'error' && _isNamed(target, 'Future')) ||
+          (name == 'call' && _isErrorCallback(target))) {
+        handled =
+            handled || args.any((a) => _isBare(a.argumentExpression, error));
+      }
+      handled =
+          handled ||
+          args.any((a) => a is NamedArgument && _namedErrorSlot(a, error));
     }
     super.visitMethodInvocation(node);
   }
 
   @override
-  void visitSimpleIdentifier(SimpleIdentifier node) {
-    if (errorName != null && node.name == errorName && _handedOn(node)) {
+  void visitAssignmentExpression(AssignmentExpression node) {
+    final error = errorName;
+    if (error != null && _isBare(node.rightHandSide, error)) {
+      final left = node.leftHandSide;
+      final slot = switch (left) {
+        SimpleIdentifier() => left.name,
+        PrefixedIdentifier() => left.identifier.name,
+        PropertyAccess() => left.propertyName.name,
+        _ => '',
+      };
+      if (_errorSlot.hasMatch(slot)) handled = true;
+    }
+    super.visitAssignmentExpression(node);
+  }
+
+  @override
+  void visitReturnStatement(ReturnStatement node) {
+    final error = errorName;
+    final value = node.expression;
+    if (error != null && value != null && _isBare(value, error)) {
       handled = true;
     }
-    super.visitSimpleIdentifier(node);
+    super.visitReturnStatement(node);
   }
 }
 
-/// Whether the use of the error variable at [use] passes the error itself on.
-bool _handedOn(SimpleIdentifier use) {
-  AstNode child = use;
-  AstNode? parent = use.parent;
-  // Look through wrappers that keep the value: `(e)`, `e as Object`, `e!`.
-  while (parent != null &&
-      (parent is ParenthesizedExpression ||
-          parent is AsExpression ||
-          parent is PostfixExpression)) {
-    child = parent;
-    parent = parent.parent;
+/// `reader.failure?.call(e)`, `onError.call(e)`: a callback named for errors.
+bool _isErrorCallback(Expression? target) {
+  final name = switch (target) {
+    SimpleIdentifier() => target.name,
+    PrefixedIdentifier() => target.identifier.name,
+    PropertyAccess() => target.propertyName.name,
+    _ => '',
+  };
+  return _errorSlot.hasMatch(name);
+}
+
+bool _isNamed(Expression? target, String name) =>
+    target is SimpleIdentifier && target.name == name;
+
+/// `error: e`, `exception: e`, `cause: e`.
+bool _namedErrorSlot(NamedArgument argument, String error) =>
+    _namedSlots.contains(argument.name.lexeme) &&
+    _isBare(argument.argumentExpression, error);
+
+/// Whether [expression] is the error variable itself, through `(e)`,
+/// `e as Object`, `e!` and either branch of `cond ? e : other`.
+bool _isBare(Expression expression, String error) {
+  var node = expression;
+  while (true) {
+    if (node is ConditionalExpression) {
+      return _isBare(node.thenExpression, error) ||
+          _isBare(node.elseExpression, error);
+    }
+    if (node is ParenthesizedExpression) {
+      node = node.expression;
+    } else if (node is AsExpression) {
+      node = node.expression;
+    } else if (node is PostfixExpression) {
+      node = node.operand;
+    } else {
+      break;
+    }
   }
-  if (parent is NamedArgument) {
-    child = parent;
-    parent = parent.parent;
+  return node is SimpleIdentifier && node.name == error;
+}
+
+/// Whether the error variable occurs in [node] outside a string interpolation
+/// and a function literal.
+bool _mentions(AstNode node, String error) {
+  final finder = _Mention(error);
+  node.accept(finder);
+  return finder.found;
+}
+
+class _Mention extends RecursiveAstVisitor<void> {
+  _Mention(this.error);
+  final String error;
+  bool found = false;
+
+  @override
+  void visitInterpolationExpression(InterpolationExpression node) {}
+
+  @override
+  void visitFunctionExpression(FunctionExpression node) {}
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    if (node.name == error && !_isMemberRead(node)) found = true;
   }
-  if (parent is ArgumentList) {
-    final call = parent.parent;
-    final callee = switch (call) {
-      MethodInvocation() => call.methodName.name,
-      FunctionExpressionInvocation() => '',
-      _ => null,
-    };
-    return callee == null || !_printers.contains(callee);
-  }
-  if (parent is AssignmentExpression) {
-    return identical(parent.rightHandSide, child);
-  }
-  if (parent is ReturnStatement) return true;
-  if (parent is ExpressionFunctionBody) return true;
-  return false;
+}
+
+/// `e.runtimeType`, `e.message`, `e?.x`: a read of a member, not the error.
+bool _isMemberRead(SimpleIdentifier node) {
+  final parent = node.parent;
+  return (parent is PrefixedIdentifier && parent.prefix == node) ||
+      (parent is PropertyAccess && parent.target == node) ||
+      (parent is MethodInvocation && parent.target == node);
 }

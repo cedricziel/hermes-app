@@ -84,7 +84,8 @@ extension _ChatControllerCommands on ChatController {
         final BotModeChat canonical;
         try {
           canonical = await botChats!.open(bot.bot);
-        } on Object {
+        } on Object catch (error, stack) {
+          reportChatBug(error, stack, 'a bot chat reopen');
           if (_currentActivity(epoch)) {
             report('Bot Chat was compacted. Reopen the bot to continue.');
           }
@@ -131,7 +132,8 @@ extension _ChatControllerCommands on ChatController {
         );
       }
       return true;
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a slash command');
       if (_currentActivity(epoch)) report('Could not run $command: $error');
       return false;
     }
@@ -170,7 +172,8 @@ extension _ChatControllerCommands on ChatController {
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
       if (!_currentActivity(epoch)) return;
       notifyListeners();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the refresh after a slash command');
       if (_currentActivity(epoch)) {
         report('Command ran, but this chat could not be refreshed.');
       }
@@ -311,7 +314,8 @@ extension _ChatControllerCommands on ChatController {
     if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
       try {
         await _undoLastTurn(thread, TurnAction.retry);
-      } on Object catch (error) {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a turn retry');
         if (_currentActivity(epoch) &&
             _sessionActionCurrent(thread, generation)) {
           _failTurnAction(thread, error, TurnAction.retry);
@@ -342,7 +346,8 @@ extension _ChatControllerCommands on ChatController {
     final bool undone;
     try {
       undone = await _undoLastTurn(thread, TurnAction.edit);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a prompt edit');
       if (_currentActivity(epoch) &&
           _sessionActionCurrent(thread, generation)) {
         _failTurnAction(thread, error, TurnAction.edit);

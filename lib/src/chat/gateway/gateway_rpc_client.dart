@@ -6,6 +6,8 @@ import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_me
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import '../report_chat_bug.dart';
+
 /// A server-pushed `event` notification, e.g. `message.delta`.
 class GatewayEvent {
   const GatewayEvent({
@@ -611,7 +613,8 @@ class GatewayRpcClient {
     if (message['result'] case final Map<String, Object?> result) {
       try {
         onLateResult(result);
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a late result callback');
         // The caller's cleanup must not take the socket's reader down.
       }
     }
