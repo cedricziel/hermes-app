@@ -1254,6 +1254,42 @@ void main() {
         expect(seen.error, isA<GatewayConnectionClosed>());
       });
     });
+
+    test('Backoff: each drop of a reply waits longer than the one before', () {
+      fake((async) {
+        final waits = <Duration>[];
+        transport = HermesGatewayTransport(
+          connect: gateway.connect,
+          random: _FixedRandom(0.5),
+          sleep: (delay) async => waits.add(delay),
+        );
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 1));
+        // The reply is back on a live socket each time, with no frame in
+        // between, so only the drops before it can lengthen the wait.
+        for (var again = 2; again <= 5; again++) {
+          gateway.drop();
+          async.elapse(const Duration(seconds: 1));
+        }
+
+        expect(resumes(), 5);
+        expect(seen.error, isNull);
+        // The first reconnect of a reply does not wait. The bound of the
+        // next four doubles each time (600 ms to 4.8 s) and the fixed draw
+        // takes half of it.
+        expect(waits, const [
+          Duration(milliseconds: 300),
+          Duration(milliseconds: 600),
+          Duration(milliseconds: 1200),
+          Duration(milliseconds: 2400),
+        ]);
+      });
+    });
   });
 
   group('A reply reconnecting more than once', () {
@@ -1331,6 +1367,38 @@ void main() {
 
         gateway.drop();
         async.elapse(const Duration(seconds: 10));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(resumes(), 5);
+      });
+    });
+
+    test('a socket that streams only briefly before each drop still gives up '
+        'after 5 reconnects', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        // A frame and a second of quiet on the new socket, then it drops.
+        void streamBrieflyThenDrop() {
+          gateway.event('message.delta', 'rt-1', {'text': 'x'});
+          async.elapse(const Duration(seconds: 1));
+          gateway.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        for (var again = 2; again <= 5; again++) {
+          expect(resumes(), again - 1);
+          streamBrieflyThenDrop();
+        }
+
+        expect(seen.error, isNull);
+        expect(resumes(), 5);
+
+        streamBrieflyThenDrop();
 
         expect(seen.error, isA<GatewayConnectionClosed>());
         expect(resumes(), 5);
@@ -1624,6 +1692,45 @@ void main() {
               as Map)['last_seen'],
           5,
         );
+      });
+    });
+
+    test('a turn that finished starts the next turn with a fresh count of '
+        'reconnects', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = finishedReply;
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        void dropThreeTimes() {
+          for (var drop = 0; drop < 3; drop++) {
+            gateway.drop();
+            async.elapse(const Duration(seconds: 10));
+          }
+        }
+
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        async.flushMicrotasks();
+        dropThreeTimes();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'a',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        async.flushMicrotasks();
+        dropThreeTimes();
+
+        // Six drops in all, past the cap of five for one turn, but three
+        // for each of two.
+        expect(resumes(), 6);
+        expect(follow.error, isNull);
+        expect(follow.done, isFalse);
+        unawaited(follow.subscription.cancel());
       });
     });
 
@@ -2274,6 +2381,132 @@ void main() {
         async.elapse(const Duration(seconds: 30));
 
         expect(attempts, 1);
+      });
+    });
+  });
+
+  group('Cancelling a reply that reconnected', () {
+    test('a reply stopped after its fifth reconnect is not remembered as '
+        'lost', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        int replays() =>
+            gateway.methods.where((m) => m == 'session.events.since').length;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        for (var again = 2; again <= 5; again++) {
+          gateway.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+        expect(resumes(), 5);
+
+        // The consumer stops the reply while it waits on the fifth socket,
+        // which then drops: nobody is left to wait for the reply.
+        unawaited(seen.subscription.cancel());
+        gateway.drop();
+        async.elapse(const Duration(seconds: 10));
+        final replaysBefore = replays();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        // Nothing was lost, so the thread is picked up from the server's
+        // snapshot and no replay from a remembered seq is asked.
+        expect(replays(), replaysBefore);
+        expect(follow.error, isNull);
+        expect(follow.events.first, isA<ReplyStarted>());
+        unawaited(follow.subscription.cancel());
+      });
+    });
+
+    test('a reply cancelled while its reconnect is being answered reports no '
+        'reconnect after the cancel', () {
+      var reportedLive = 0;
+      var reportedAfterCancel = 0;
+      // The cancel lands one microtask later in each round, so it falls in
+      // every gap of the reconnect, however many steps the plumbing takes
+      // between the server's answer and the transport's report of it.
+      for (var later = 0; later <= 12; later++) {
+        fake((async) {
+          var cancelled = false;
+          late StreamSubscription<ChatEvent> subscription;
+          transport = HermesGatewayTransport(
+            connect: gateway.connect,
+            random: _FixedRandom(0.5),
+            events: (name, [attributes = const {}]) {
+              if (name != 'gateway.reconnect') return;
+              if (cancelled) {
+                reportedAfterCancel++;
+              } else {
+                reportedLive++;
+              }
+            },
+          );
+          gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+          gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+          var armed = false;
+          void cancelAfter(int microtasks) {
+            if (microtasks > 0) {
+              scheduleMicrotask(() => cancelAfter(microtasks - 1));
+              return;
+            }
+            cancelled = true;
+            unawaited(subscription.cancel());
+          }
+
+          // The replay is the last thing a reconnect asks the server.
+          gateway.beforeEventsAnswer = (g) {
+            if (armed) return;
+            armed = true;
+            cancelAfter(later);
+          };
+
+          subscription = transport.send(text: 'hi').listen((_) {});
+          async.elapse(const Duration(seconds: 5));
+
+          expect(armed, isTrue);
+          transport.close();
+        });
+      }
+
+      expect(reportedAfterCancel, 0);
+      // The later rounds cancel after the report, so the sweep did pass it.
+      expect(reportedLive, greaterThan(0));
+    });
+
+    test('a reply cancelled while its attempt is pending does not wait for '
+        'the next one', () {
+      fake((async) {
+        final waits = <Duration>[];
+        transport = HermesGatewayTransport(
+          connect: gateway.connect,
+          random: _FixedRandom(0.5),
+          sleep: (delay) async => waits.add(delay),
+        );
+        gateway.silent.add('session.resume');
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(
+          gateway.methods.where((m) => m == 'session.resume'),
+          hasLength(1),
+        );
+
+        unawaited(seen.subscription.cancel());
+        // The resume is never answered: the attempt times out at 20 s.
+        async.elapse(const Duration(seconds: 25));
+
+        expect(waits, isEmpty);
+        expect(
+          gateway.methods.where((m) => m == 'session.resume'),
+          hasLength(1),
+        );
+        expect(seen.error, isNull);
       });
     });
   });
