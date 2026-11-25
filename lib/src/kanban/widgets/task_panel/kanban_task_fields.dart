@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../l10n/l10n.dart';
+
 import '../../../models/model_provider_option.dart';
 import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
@@ -27,6 +29,7 @@ class KanbanTaskFields extends StatelessWidget {
   Widget build(BuildContext context) {
     final task = detail.task;
     final metrics = GroupedMetrics.of(context);
+    final l10n = context.l10n;
     Widget textSection(String title, String text) => GroupedSection(
       header: title,
       children: [
@@ -41,7 +44,7 @@ class KanbanTaskFields extends StatelessWidget {
       children: [
         if (detail.diagnostics.isNotEmpty)
           GroupedSection(
-            header: 'Needs attention',
+            header: l10n.kanbanTaskNeedsAttention,
             children: [
               for (final d in detail.diagnostics)
                 GroupedRow(
@@ -59,15 +62,19 @@ class KanbanTaskFields extends StatelessWidget {
                 ),
             ],
           ),
-        if (task.body != null) textSection('Description', task.body!),
+        if (task.body != null)
+          textSection(l10n.kanbanEditTaskDescriptionLabel, task.body!),
         if (task.latestSummary != null || task.result != null)
-          textSection('Result', task.latestSummary ?? task.result!),
+          textSection(
+            l10n.kanbanTaskResult,
+            task.latestSummary ?? task.result!,
+          ),
         GroupedSection(
-          header: 'Model',
+          header: l10n.kanbanTaskModel,
           children: [
             GroupedRow(
               key: const Key('kanban-task-model'),
-              title: task.modelOverride ?? 'Profile default',
+              title: task.modelOverride ?? l10n.kanbanBulkEffortDefault,
               subtitle: task.reasoningEffort == null
                   ? null
                   : effortLabel(task.reasoningEffort!),
@@ -76,7 +83,7 @@ class KanbanTaskFields extends StatelessWidget {
           ],
         ),
         GroupedSection(
-          header: 'Depends on',
+          header: l10n.kanbanTaskDependsOn,
           children: [
             for (final id in detail.parents)
               GroupedRow(
@@ -84,13 +91,13 @@ class KanbanTaskFields extends StatelessWidget {
                 titleMaxLines: null,
                 chevron: false,
                 trailing: NamedIconButton(
-                  label: 'Remove dependency $id',
+                  label: l10n.kanbanTaskRemoveDependency(id),
                   icon: AppIcons.close,
                   onPressed: () => onRemoveParent(id),
                 ),
               ),
             GroupedRow(
-              title: 'Add',
+              title: l10n.kanbanTaskAdd,
               leading: const AppIcon(AppIcons.add),
               chevron: false,
               onTap: onAddParent,
@@ -99,7 +106,7 @@ class KanbanTaskFields extends StatelessWidget {
         ),
         if (detail.childResults.isNotEmpty)
           GroupedSection(
-            header: 'Subtasks',
+            header: l10n.kanbanTaskSubtasks,
             children: [
               for (final c in detail.childResults)
                 GroupedRow(

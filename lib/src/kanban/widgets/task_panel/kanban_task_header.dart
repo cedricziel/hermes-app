@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../l10n/l10n.dart';
+
 import '../../../widgets/grouped_form.dart';
 import '../../../widgets/grouped_list.dart';
 
@@ -30,6 +32,7 @@ class KanbanTaskHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final subtle = theme.colorScheme.onSurface.withValues(
       alpha: kHermesMutedAlpha,
     );
@@ -48,7 +51,7 @@ class KanbanTaskHeader extends StatelessWidget {
               child: Text(task.title, style: theme.textTheme.titleLarge),
             ),
             NamedIconButton(
-              label: 'Edit',
+              label: l10n.kanbanTaskEdit,
               icon: AppIcons.edit,
               onPressed: onEdit,
             ),
@@ -57,19 +60,24 @@ class KanbanTaskHeader extends StatelessWidget {
         GroupedSection(
           children: [
             GroupedValueRow(
-              title: 'Assignee',
-              value: task.assignee ?? 'Unassigned',
+              title: l10n.kanbanTaskAssignee,
+              value: task.assignee ?? l10n.kanbanTaskUnassigned,
               onTap: onAssign,
             ),
             GroupedValueRow(
-              title: 'Priority',
-              value: task.priority == 0 ? 'Normal' : 'P${task.priority}',
+              title: l10n.kanbanBulkPriorityTitle,
+              value: task.priority == 0
+                  ? l10n.kanbanBulkPriorityNormal
+                  : l10n.kanbanTaskPriorityLevel(task.priority),
               onTap: onPrioritise,
             ),
             if (task.tenant != null)
-              GroupedValueRow(title: 'Tenant', value: task.tenant!),
+              GroupedValueRow(
+                title: l10n.kanbanTaskTenant,
+                value: task.tenant!,
+              ),
             GroupedMenuRow<String>(
-              title: 'Move to…',
+              title: l10n.kanbanTaskMoveTo,
               options: [
                 for (final s in kanbanSettableStatuses)
                   if (s != task.status) s,

@@ -260,7 +260,7 @@ void main() {
   ) async {
     await pumpPanel(tester, locale: const Locale('de'));
 
-    await tester.tap(find.widgetWithText(GroupedValueRow, 'Assignee'));
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Zuständig'));
     await tester.pumpAndSettle();
 
     final dialog = find.byType(KanbanTaskChoiceDialog<String>);
@@ -281,7 +281,7 @@ void main() {
   ) async {
     await pumpPanel(tester, locale: const Locale('de'));
 
-    await tester.tap(find.widgetWithText(GroupedValueRow, 'Priority'));
+    await tester.tap(find.widgetWithText(GroupedValueRow, 'Priorität'));
     await tester.pumpAndSettle();
 
     final dialog = find.byType(KanbanTaskChoiceDialog<int>);

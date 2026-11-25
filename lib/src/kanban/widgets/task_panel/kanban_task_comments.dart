@@ -1,5 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../../l10n/l10n.dart';
+
 import '../../../theme/hermes_theme.dart';
 
 import '../../../chat/widgets/relative_time.dart';
@@ -46,7 +48,7 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
       alpha: kHermesMutedAlpha,
     );
     return GroupedSection(
-      header: 'Comments (${widget.comments.length})',
+      header: context.l10n.kanbanTaskComments(widget.comments.length),
       children: [
         for (final c in widget.comments)
           Padding(
@@ -63,13 +65,13 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
             ),
           ),
         GroupedTextFieldRow(
-          label: 'Comment',
+          label: context.l10n.kanbanTaskComment,
           controller: _comment,
-          hint: 'Add a comment…',
+          hint: context.l10n.kanbanTaskCommentHint,
           onSubmitted: (_) => _send(),
         ),
         GroupedRow(
-          title: 'Send',
+          title: context.l10n.kanbanTaskSend,
           chevron: false,
           leading: const AppIcon(AppIcons.send),
           onTap: _send,

@@ -136,7 +136,7 @@ void main() {
 
     await tester.tap(find.byType(PopupMenuButton<RowAction>));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Terminate'));
+    await tester.tap(find.text('Beenden'));
     await tester.pumpAndSettle();
 
     expect(find.text('Lauf #7 beenden?'), findsOneWidget);
@@ -194,7 +194,7 @@ void main() {
       });
     await pump(tester, locale: const Locale('de'));
 
-    await openMenu(tester, 'Inspect process');
+    await openMenu(tester, 'Prozess untersuchen');
 
     expect(find.text('Lauf #7'), findsOneWidget);
     expect(
@@ -206,7 +206,7 @@ void main() {
     await tester.pumpAndSettle();
 
     server.on('GET', '/api/plugins/kanban/runs/7/inspect', {'alive': false});
-    await openMenu(tester, 'Inspect process');
+    await openMenu(tester, 'Prozess untersuchen');
     expect(find.text('Der Prozess läuft nicht mehr.'), findsOneWidget);
   });
 
