@@ -47,6 +47,10 @@ enum HermesConnectionState {
 /// The shared-preferences key the connected server's address is saved under.
 const kSavedServerUrlKey = 'hermes.server_base_url';
 
+/// The shared-preferences key of the public `http://` addresses the user
+/// chose to keep, a list of normalized addresses. It holds no secret.
+const kAcceptedCleartextServersKey = 'hermes.cleartext_accepted_servers';
+
 const _unexpectedResponseMessage = 'Unexpected response from the server';
 
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
@@ -110,6 +114,9 @@ class AuthController extends ChangeNotifier {
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
   String? _savedServerUrl;
+
+  /// The saved public `http://` address nobody has accepted yet.
+  String? _cleartextToConfirm;
   int _connectGeneration = 0;
   Future<void>? _savedServerWrites;
   HermesStatus? _status;
@@ -221,6 +228,47 @@ class AuthController extends ChangeNotifier {
   /// [HermesConnectionState.ready].
   HermesApiClient? get api => _api;
 
+  /// The saved `http://` address of a public host that the user never
+  /// accepted (saved before the app asked), or null. The app shows the
+  /// question once and answers with [keepCleartextServer] or
+  /// [useHttpsForCleartextServer]; the connection works meanwhile, and work
+  /// without a screen never asks.
+  String? get unconfirmedCleartextServer => _cleartextToConfirm;
+
+  /// Remembers the user's choice to keep the saved `http://` address, so the
+  /// question is not asked again for it.
+  Future<void> keepCleartextServer() async {
+    final address = _cleartextToConfirm;
+    if (address != null) await _acceptCleartext(address);
+  }
+
+  /// Reconnects to the `https://` form of the saved `http://` address. The
+  /// saved address changes only once that connection works.
+  Future<void> useHttpsForCleartextServer() async {
+    final address = _cleartextToConfirm;
+    if (address == null) return;
+    _cleartextToConfirm = null;
+    notifyListeners();
+    await connect(httpsAddressOf(address));
+  }
+
+  Future<List<String>> _acceptedCleartext() async =>
+      await _prefs.getStringList(kAcceptedCleartextServersKey) ?? const [];
+
+  Future<void> _acceptCleartext(String address) async {
+    final accepted = await _acceptedCleartext();
+    if (!accepted.contains(address)) {
+      await _prefs.setStringList(kAcceptedCleartextServersKey, [
+        ...accepted,
+        address,
+      ]);
+    }
+    if (_cleartextToConfirm == address) {
+      _cleartextToConfirm = null;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   Future<void> bootstrap() async {
     if (_devServerUrl.isNotEmpty) {
       await connect(_devServerUrl, remember: false, restoring: true);
@@ -232,6 +280,12 @@ class AuthController extends ChangeNotifier {
       return;
     }
     _savedServerUrl = savedUrl;
+    final saved = normalizeServerUrl(savedUrl);
+    if (saved != null &&
+        isCleartextToPublicHost(saved) &&
+        !(await _acceptedCleartext()).contains(saved)) {
+      _cleartextToConfirm = saved;
+    }
     await connect(savedUrl, restoring: true);
   }
 
@@ -269,6 +323,11 @@ class AuthController extends ChangeNotifier {
       _failedUrl = null;
       _setState(HermesConnectionState.connectionError);
       return;
+    }
+    if (_cleartextToConfirm != typed) _cleartextToConfirm = null;
+    if (allowCleartext && remember && isCleartextToPublicHost(typed)) {
+      await _acceptCleartext(typed);
+      if (stale()) return;
     }
     var normalized = typed;
 
@@ -635,6 +694,7 @@ class AuthController extends ChangeNotifier {
     _ignoreStoredSession = true;
     if (removeServer) {
       _savedServerUrl = null;
+      _cleartextToConfirm = null;
     }
     final departure = _finishDeparture(removeServer, generation);
     _departureInFlight = departure;
