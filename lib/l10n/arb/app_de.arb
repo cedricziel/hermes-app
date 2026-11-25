@@ -943,6 +943,8 @@
   "messagingSetUpMac": "Einrichten…",
   "messagingSetUpValue": "Einrichten",
   "messagingSetupHelperSet": "Gesetzt ({value}). Leer lassen, um den Wert zu behalten.",
+  "messagingSetupNothingToSetUp": "Für diese Messaging-Plattform gibt es nichts einzurichten.",
+  "messagingSetupTitle": "{platform} einrichten",
   "messagingSetupValueHidden": "verborgen",
   "messagingWhatsappAccountHeader": "Konto",
   "messagingWhatsappAccountName": "Name",

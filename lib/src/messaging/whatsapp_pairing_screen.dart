@@ -311,7 +311,10 @@ class _WhatsAppPairingScreenState extends State<WhatsAppPairingScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: const AdaptiveBackButton(previousTitle: 'Messaging'),
+          leading: AdaptiveBackButton(
+            // Back returns to the WhatsApp form it was opened from.
+            previousTitle: context.l10n.messagingSetupTitle('WhatsApp'),
+          ),
           leadingWidth: adaptiveBackLeadingWidth(context),
           title: Text(context.l10n.messagingWhatsappTitle),
         ),

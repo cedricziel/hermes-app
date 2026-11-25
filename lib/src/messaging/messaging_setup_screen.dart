@@ -177,7 +177,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
       appBar: AppBar(
         leading: const AdaptiveBackButton(previousTitle: 'Messaging'),
         leadingWidth: adaptiveBackLeadingWidth(context),
-        title: Text('Set up ${widget.platform.name}'),
+        title: Text(context.l10n.messagingSetupTitle(widget.platform.name)),
       ),
       body: ContentColumn(
         child: vars.isEmpty
@@ -185,7 +185,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   ..._whatsAppLink(),
-                  const Text('Nothing to set up for this messaging platform.'),
+                  Text(context.l10n.messagingSetupNothingToSetUp),
                 ],
               )
             : Form(

@@ -207,6 +207,18 @@ void main() {
       });
     });
 
+    testWidgets('Back is labelled with the form it returns to', (tester) async {
+      await open(tester, size: phone);
+      // The label shortens to "Back" when it does not fit; the title is the
+      // form's, not the list's.
+      expect(
+        tester
+            .widget<AdaptiveBackButton>(find.byType(AdaptiveBackButton))
+            .previousTitle,
+        'Set up WhatsApp',
+      );
+    });
+
     testWidgets('numbers that are not numbers send nothing', (tester) async {
       await open(tester, size: phone);
       await tester.enterText(
