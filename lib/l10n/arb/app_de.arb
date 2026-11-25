@@ -31,10 +31,20 @@
   "@@x-area-background": "",
 
   "@@x-area-bot_mode": "",
+  "botModeCreateModelServerDefault": "Server-Standard verwenden",
+  "botModeCreateNameFooter": "Der Name ist die dauerhafte Kennung des Profils.",
+  "botModeEditModelChoose": "Standardmodell wählen",
+  "botModeGroupApprovalWaiting": "Dieses Mitglied wartet auf deine Zustimmung.",
+  "botModeGroupPendingKind": "Ausstehend: {kind}",
+  "botModeGroupThreadLabel": "Diskussionsthread",
+  "botModeGroupsFooter": "Bots in einer Gruppe bearbeiten gemeinsam eine Aufgabe auf dem Server. Eine Gruppe hat 2–6 Bots, die beim Anlegen festgelegt werden.",
+  "botModeRosterConfirmModelCost": "Dieses Modell kann mehr kosten. Als Standard verwenden?",
 
   "@@x-area-bot_screen": "",
   "botScreenLostToAgent": "Hermes hat die Steuerung zurückgenommen.",
   "botScreenLostToOther": "Jemand anderes hat die Steuerung übernommen.",
+  "botScreenSudoHostFallback": "dein Server",
+  "botScreenViewerTitleFallback": "Bot-Bildschirm",
 
   "@@x-area-chat": "",
   "chatComposerHoldHandedBack": "Deine letzte Nachricht ist wieder im Nachrichtenfeld.",
@@ -353,6 +363,7 @@
   "@@x-area-chat/media": "",
 
   "@@x-area-chat/memory": "",
+  "chatMemoryReviewFallback": "Hintergrundprüfung",
 
   "@@x-area-chat/queue_storage": "",
 
@@ -444,6 +455,7 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsApprovalAnswered": "Beantwortet",
   "chatWidgetsHistoryEarlierFailedTitle": "Frühere Nachrichten konnten nicht geladen werden",
   "chatWidgetsHistoryEarlierRetryLabel": "Frühere Nachrichten erneut laden",
   "chatWidgetsHistoryEarlierRetrying": "Wird erneut versucht …",
@@ -479,6 +491,8 @@
   "chatWidgetsProgramStateStopped": "Gestoppt",
   "chatWidgetsProgramStopBusy": "Wird gestoppt …",
   "chatWidgetsProgramStopButton": "Programm stoppen",
+  "chatWidgetsReasoningThinking": "Denkt nach…",
+  "chatWidgetsSessionStatusUnavailable": "Nicht verfügbar",
   "chatWidgetsThreadListRefreshFailedDetail": "Zieh die Liste nach unten, um es erneut zu versuchen.",
   "chatWidgetsThreadListRefreshFailedTitle": "Deine Chats konnten nicht aktualisiert werden.",
   "chatWidgetsThreadListRefreshing": "Chats werden aktualisiert",
@@ -503,6 +517,7 @@
   "chatWidgetsThreadMenuSave": "Speichern",
   "chatWidgetsThreadMenuTooltip": "Chat-Aktionen",
   "chatWidgetsThreadMenuUnpin": "Nicht mehr anheften",
+  "chatWidgetsThreadSidebarNotConnected": "Nicht verbunden",
   "chatWidgetsToolArgumentsTitle": "Eingabe",
   "chatWidgetsToolValueCopied": "Kopiert",
   "chatWidgetsToolValueCopyError": "Fehlermeldung kopieren",
@@ -867,6 +882,7 @@
   "macosMenuWindow": "Fenster",
 
   "@@x-area-mcp": "",
+  "mcpSignInStartFailed": "Anmeldung bei {server} konnte nicht gestartet werden",
 
   "@@x-area-memory": "",
   "memoryAllMemories": "Alle Erinnerungen",
@@ -900,6 +916,8 @@
   "messagingSetUp": "Einrichten",
   "messagingSetUpMac": "Einrichten…",
   "messagingSetUpValue": "Einrichten",
+  "messagingSetupHelperSet": "Gesetzt ({value}). Leer lassen, um den Wert zu behalten.",
+  "messagingSetupValueHidden": "verborgen",
 
   "@@x-area-models": "",
   "modelsEffortHigh": "Hoch",
@@ -960,6 +978,7 @@
   "pluginsInstallStillRunning": "Der Server installiert noch. Zieh die Liste gleich nach unten, um es zu prüfen.",
   "pluginsInstalled": "Installiert",
   "pluginsInstalledNamed": "{pluginName} installiert",
+  "pluginsProvidersSaveFailed": "Anbieter-Einstellungen konnten nicht gespeichert werden",
   "pluginsRefreshAction": "Aktualisieren",
   "pluginsUpdateFailed": "Das Plugin konnte nicht geändert werden",
 
@@ -1027,6 +1046,7 @@
   "profilesSoulUnsupportedBack": "Zurück",
   "profilesSoulUnsupportedDetail": "Mit einem Update von Hermes auf dem Server kommen sie dazu.",
   "profilesSoulUnsupportedTitle": "Dieser Server bietet keine Persönlichkeitseinstellungen an.",
+  "profilesSwitcherFallbackLabel": "Profil",
 
   "@@x-area-providers": "",
   "providersAccountsFailed": "Die Anmeldung mit einem Konto ist gerade nicht verfügbar.",
@@ -1266,12 +1286,15 @@
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",
+  "quickPanelTitleFallback": "Hermes fragen",
 
   "@@x-area-schedules": "",
   "schedulesFormAdvanced": "Erweitert",
   "schedulesRefreshAction": "Aktualisieren",
+  "schedulesRunRequested": "Ausführung angefordert",
 
   "@@x-area-screens": "",
+  "screensConnectionVersionUnknown": "unbekannt",
   "screensRefreshAction": "Aktualisieren",
 
   "@@x-area-server_care": "",
@@ -1696,6 +1719,7 @@
   "skillsHubInstallCancel": "Abbrechen",
   "skillsHubInstallScanAsks": "Die Sicherheitsprüfung verlangt deine Bestätigung.",
   "skillsHubInstallTitle": "{name} installieren?",
+  "skillsJobFailedFallback": "Es ist fehlgeschlagen.",
   "skillsScreenAllSources": "Alle Quellen",
   "skillsScreenEmpty": "Dieses Profil hat noch keine Skills.",
   "skillsScreenFilterAgent": "Agent",
@@ -2061,6 +2085,8 @@
   "widgetsBack": "Zurück",
   "widgetsCancel": "Abbrechen",
   "widgetsChatBackTitle": "Chat",
+  "widgetsCodeBlockCopied": "Kopiert!",
+  "widgetsCodeBlockCopy": "Code kopieren",
   "widgetsDone": "Fertig",
   "widgetsOk": "OK",
   "widgetsSearch": "Suchen",

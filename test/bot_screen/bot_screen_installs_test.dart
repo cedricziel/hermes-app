@@ -24,7 +24,7 @@ void main() {
   late FakeAsync async;
   late RecordingTracer tracer;
   final logged = <String>[];
-  final asked = <String>[];
+  final asked = <String?>[];
   final askedProfiles = <String>[];
 
   /// What the password prompt answers; null is Cancel.
@@ -91,7 +91,7 @@ void main() {
         telemetry: telemetryOf(),
       );
 
-  Future<String?> defaultAsk(String host, String profile, Future<void> ended) {
+  Future<String?> defaultAsk(String? host, String profile, Future<void> ended) {
     asked.add(host);
     askedProfiles.add(profile);
     if (holdPrompt case final hold?) return hold.future;

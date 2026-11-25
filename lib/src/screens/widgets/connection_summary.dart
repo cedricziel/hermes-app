@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../models/hermes_status.dart';
 import '../../theme/app_icons.dart';
 import '../../widgets/grouped_list.dart';
+import '../../../l10n/l10n.dart';
 
 class ConnectionSummary extends StatelessWidget {
   const ConnectionSummary({
@@ -70,7 +71,9 @@ class ConnectionSummary extends StatelessWidget {
             GroupedRow(
               leading: const AppIcon(AppIcons.checkCircle),
               title: 'Agent version',
-              subtitle: status!.version ?? 'unknown',
+              subtitle:
+                  status!.version ??
+                  context.l10n.screensConnectionVersionUnknown,
               subtitleMaxLines: null,
             ),
             GroupedRow(

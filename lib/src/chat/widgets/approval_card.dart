@@ -4,6 +4,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'input_card_frame.dart';
+import '../../../l10n/l10n.dart';
 
 /// The button text of each approval choice, here and in the Mac menu bar item.
 const approvalChoiceLabels = {
@@ -128,7 +129,8 @@ class _ApprovalCardState extends State<ApprovalCard> {
               ],
             ),
             InputRequestStatus.answered => InputCardNote(
-              _outcomes[request.choice] ?? 'Answered',
+              _outcomes[request.choice] ??
+                  context.l10n.chatWidgetsApprovalAnswered,
             ),
             InputRequestStatus.expired => const InputCardNote(
               'This request timed out',

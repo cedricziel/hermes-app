@@ -9,6 +9,7 @@ import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_toggled.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
 import 'thinking_shimmer.dart';
+import '../../../l10n/l10n.dart';
 
 /// What the model reasoned before it answered, folded away until the user
 /// opens it — assistant-ui's collapsible reasoning part.
@@ -77,7 +78,9 @@ class _ReasoningBlockState extends State<ReasoningBlock> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
-    final label = widget.active ? widget.activity ?? 'Thinking…' : 'Reasoning';
+    final label = widget.active
+        ? widget.activity ?? context.l10n.chatWidgetsReasoningThinking
+        : 'Reasoning';
     final elapsed = widget.active && widget.startedAt != null
         ? '${formatThinkingElapsed(DateTime.now().difference(widget.startedAt!))} · '
         : '';

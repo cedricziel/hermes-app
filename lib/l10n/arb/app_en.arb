@@ -82,6 +82,41 @@
   "@@x-area-background": "",
 
   "@@x-area-bot_mode": "",
+  "botModeCreateModelServerDefault": "Use server default",
+  "@botModeCreateModelServerDefault": {
+    "description": "Value of the Default model row of the new bot form while no model is picked."
+  },
+  "botModeCreateNameFooter": "Name is the permanent profile identifier.",
+  "@botModeCreateNameFooter": {
+    "description": "Footer under the Name field of the new bot form when the name has no error."
+  },
+  "botModeEditModelChoose": "Choose default model",
+  "@botModeEditModelChoose": {
+    "description": "Value of the Default model row of the bot edit form while the bot has no model set."
+  },
+  "botModeGroupApprovalWaiting": "This member is waiting for your approval.",
+  "@botModeGroupApprovalWaiting": {
+    "description": "Description of an approval card for a group member whose request came with no description."
+  },
+  "botModeGroupPendingKind": "Pending {kind}",
+  "@botModeGroupPendingKind": {
+    "description": "Line of a group member's pending request that has no reason. The kind is the server's own word for the request and is shown as it came.",
+    "placeholders": {
+      "kind": {"type": "String", "example": "approval"}
+    }
+  },
+  "botModeGroupThreadLabel": "Discussion thread",
+  "@botModeGroupThreadLabel": {
+    "description": "Small label on a group message that belongs to a discussion thread, when the thread has no name of its own."
+  },
+  "botModeGroupsFooter": "Bots in a group work on a task together on the server. A group has 2–6 bots, fixed when it is created.",
+  "@botModeGroupsFooter": {
+    "description": "Footer of the Groups section on the bot roster when the server gives no reason that groups are unavailable."
+  },
+  "botModeRosterConfirmModelCost": "This model may cost more. Use it as the default?",
+  "@botModeRosterConfirmModelCost": {
+    "description": "Body of the Confirm model change dialog of a bot when the server sends no wording of its own."
+  },
 
   "@@x-area-bot_screen": "",
   "botScreenLostToAgent": "Hermes took control back.",
@@ -91,6 +126,14 @@
   "botScreenLostToOther": "Someone else took control.",
   "@botScreenLostToOther": {
     "description": "Notice over the Bot Screen viewer after this device lost control of the screen to someone other than Hermes."
+  },
+  "botScreenSudoHostFallback": "your server",
+  "@botScreenSudoHostFallback": {
+    "description": "Stands for the server's address in the sudo password question when the address cannot be read."
+  },
+  "botScreenViewerTitleFallback": "Bot screen",
+  "@botScreenViewerTitleFallback": {
+    "description": "Second line of the Bot Screen viewer header when the screen has no control state to name."
   },
 
   "@@x-area-chat": "",
@@ -1712,6 +1755,10 @@
   "@@x-area-chat/media": "",
 
   "@@x-area-chat/memory": "",
+  "chatMemoryReviewFallback": "Background review",
+  "@chatMemoryReviewFallback": {
+    "description": "Second line of the Memory & review card when no review has a summary yet."
+  },
 
   "@@x-area-chat/queue_storage": "",
 
@@ -2116,6 +2163,10 @@
   "@@x-area-chat/todo_plan": "",
 
   "@@x-area-chat/widgets": "",
+  "chatWidgetsApprovalAnswered": "Answered",
+  "@chatWidgetsApprovalAnswered": {
+    "description": "Note on an approval card that was answered, when the answer is not one the app knows."
+  },
   "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
   "@chatWidgetsHistoryEarlierFailedTitle": {
     "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
@@ -2277,6 +2328,14 @@
   "@chatWidgetsProgramStopButton": {
     "description": "Button that asks whether to stop a background program, and the confirmation's destructive button."
   },
+  "chatWidgetsReasoningThinking": "Thinking…",
+  "@chatWidgetsReasoningThinking": {
+    "description": "Label of the reasoning block while the agent thinks and has named no activity yet."
+  },
+  "chatWidgetsSessionStatusUnavailable": "Unavailable",
+  "@chatWidgetsSessionStatusUnavailable": {
+    "description": "Status of the goal, loop or heartbeat in the session status summary when the server reports none."
+  },
   "chatWidgetsThreadListRefreshFailedDetail": "Pull down to try again.",
   "@chatWidgetsThreadListRefreshFailedDetail": {
     "description": "Detail under the title of the notice above the chat list after a pull to refresh failed; the list stays as it was and nothing is retried on its own."
@@ -2384,6 +2443,10 @@
   "chatWidgetsThreadMenuUnpin": "Unpin",
   "@chatWidgetsThreadMenuUnpin": {
     "description": "A pinned chat row's action that takes it off the top of the list, shown in the iPad popover menu, the iPhone action sheet, the swipe action, the VoiceOver actions of the row and the chat actions menu of the other platforms."
+  },
+  "chatWidgetsThreadSidebarNotConnected": "Not connected",
+  "@chatWidgetsThreadSidebarNotConnected": {
+    "description": "Name on the account tile at the bottom of the thread sidebar when there is no user and no server address."
   },
   "chatWidgetsToolArgumentsTitle": "Input",
   "@chatWidgetsToolArgumentsTitle": {
@@ -4077,6 +4140,13 @@
   },
 
   "@@x-area-mcp": "",
+  "mcpSignInStartFailed": "Could not start signing in to {server}",
+  "@mcpSignInStartFailed": {
+    "description": "Failure note of the MCP sign-in screen when the server gave no reason. The server is the MCP server's name.",
+    "placeholders": {
+      "server": {"type": "String", "example": "github"}
+    }
+  },
 
   "@@x-area-memory": "",
   "memoryAllMemories": "All memories",
@@ -4221,6 +4291,17 @@
   "messagingSetUpValue": "Set Up",
   "@messagingSetUpValue": {
     "description": "The muted value at the end of the same row on iOS, in place of a button."
+  },
+  "messagingSetupHelperSet": "Set ({value}). Leave blank to keep it.",
+  "@messagingSetupHelperSet": {
+    "description": "Helper under a messaging setup field that already has a value. The value is the server's redacted form or the word for hidden.",
+    "placeholders": {
+      "value": {"type": "String", "example": "sk-…1234"}
+    }
+  },
+  "messagingSetupValueHidden": "hidden",
+  "@messagingSetupValueHidden": {
+    "description": "Stands for a saved credential's value that the server keeps hidden, inside the Set (…) helper line."
   },
 
   "@@x-area-models": "",
@@ -4462,6 +4543,10 @@
     "placeholders": {
       "pluginName": {"type": "String", "example": "hermes-snapcompact"}
     }
+  },
+  "pluginsProvidersSaveFailed": "Could not save provider settings",
+  "@pluginsProvidersSaveFailed": {
+    "description": "Snackbar after Save on the plugin providers tab failed and the server gave no reason."
   },
   "pluginsRefreshAction": "Refresh",
   "@pluginsRefreshAction": {
@@ -4758,6 +4843,10 @@
   "profilesSoulUnsupportedTitle": "This server doesn't offer personality settings.",
   "@profilesSoulUnsupportedTitle": {
     "description": "Message on the personality page when the server is too old to have the personality routes."
+  },
+  "profilesSwitcherFallbackLabel": "Profile",
+  "@profilesSwitcherFallbackLabel": {
+    "description": "Label of the Mac profile switcher when no profile is known."
   },
 
   "@@x-area-providers": "",
@@ -6079,6 +6168,10 @@
   "@@x-area-quick_actions": "",
 
   "@@x-area-quick_panel": "",
+  "quickPanelTitleFallback": "Ask Hermes",
+  "@quickPanelTitleFallback": {
+    "description": "Title in the header of the quick panel when the panel has no title of its own."
+  },
 
   "@@x-area-schedules": "",
   "schedulesFormAdvanced": "Advanced",
@@ -6089,8 +6182,16 @@
   "@schedulesRefreshAction": {
     "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
   },
+  "schedulesRunRequested": "Run requested",
+  "@schedulesRunRequested": {
+    "description": "Snackbar after Run now when the server confirmed without a message."
+  },
 
   "@@x-area-screens": "",
+  "screensConnectionVersionUnknown": "unknown",
+  "@screensConnectionVersionUnknown": {
+    "description": "Value of the Agent version row of the Connection page when the server reports no version."
+  },
   "screensRefreshAction": "Refresh",
   "@screensRefreshAction": {
     "description": "Name of the Refresh button of the Connection page; reads the server status again."
@@ -8327,6 +8428,10 @@
       }
     }
   },
+  "skillsJobFailedFallback": "It failed.",
+  "@skillsJobFailedFallback": {
+    "description": "Outcome line of a finished skill job that failed and has no error text."
+  },
   "skillsScreenAllSources": "All sources",
   "@skillsScreenAllSources": {
     "description": "Filter chip on the Discover tab that shows skills from every hub source."
@@ -9881,6 +9986,14 @@
   "widgetsChatBackTitle": "Chat",
   "@widgetsChatBackTitle": {
     "description": "Back button title on iOS of a settings page opened from the chat."
+  },
+  "widgetsCodeBlockCopied": "Copied!",
+  "@widgetsCodeBlockCopied": {
+    "description": "Label of the copy button of a code block for two seconds after it copied."
+  },
+  "widgetsCodeBlockCopy": "Copy code",
+  "@widgetsCodeBlockCopy": {
+    "description": "Label and tooltip of the copy button of a code block."
   },
   "widgetsDone": "Done",
   "@widgetsDone": {
