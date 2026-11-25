@@ -8,6 +8,7 @@ import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/token_store.dart';
 import 'package:hermes_app/src/background/headless_hermes.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
+import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -15,6 +16,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/fake_surface_storage.dart';
 import '../support/memory_token_store.dart';
 import '../support/recorded_events.dart';
 import '../support/recording_tracer.dart';
@@ -1125,6 +1127,59 @@ void main() {
         }
       },
     );
+
+    group('a snapshot refresh', () {
+      HeadlessDeps snapshotDeps() => HeadlessDeps(
+        tokenStore: store,
+        prefs: SharedPreferencesAsync(),
+        adapter: dashboard.server,
+        openSocket: (_) => gateway.connect(),
+        telemetry: recorded,
+        snapshotStore: SurfaceSnapshotStore(storage: FakeSurfaceStorage()),
+        appLockOn: () async => false,
+      );
+
+      void profilesFail() => dashboard.server.on('GET', '/api/profiles', {
+        'detail': 'no',
+      }, status: 500);
+
+      test('names the failed source and its error type', () async {
+        profilesFail();
+
+        await run((hermes) => hermes.refreshSnapshot(), with_: snapshotDeps());
+
+        expect(
+          taskSpan().attributes,
+          containsPair('snapshot.sources_failed', 1),
+        );
+        expect(
+          taskSpan().attributes,
+          containsPair('snapshot.sources_error_types', 'profiles:badResponse'),
+        );
+      });
+
+      test(
+        'a later build in the run does not keep an earlier error type',
+        () async {
+          profilesFail();
+
+          await run((hermes) async {
+            await hermes.refreshSnapshot();
+            dashboard.server.on('GET', '/api/profiles', profileListBody([]));
+            await hermes.refreshSnapshot();
+          }, with_: snapshotDeps());
+
+          expect(
+            taskSpan().attributes,
+            containsPair('snapshot.sources_failed', 0),
+          );
+          expect(
+            taskSpan().attributes,
+            isNot(contains('snapshot.sources_error_types')),
+          );
+        },
+      );
+    });
 
     test('a tracer that throws does not stop the work', () async {
       tracer = ThrowingTracer();
