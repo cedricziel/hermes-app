@@ -45,6 +45,17 @@ is in `CLAUDE.md` under "Fleet rules".
   row saying why there is none.
 - The right thing is the shortest path. Prefer a shared building block over a
   raw API; a guard that bans a raw API names its replacement.
+- Run every test that names what you change. Before pushing, search `test/`,
+  `widgetbook/` and `integration_test/` for each user-visible string, ARB key,
+  public symbol or file name the change alters, and run every test file that
+  names one, not only the files the change touches. Say which in `## Proof`.
+  `scripts/premerge_affected_tests.py` already selects test files by import
+  (one level) and for an ARB change by l10n entry point; it does not see which
+  strings a test reads, so the grep is still yours. A `widgetbook/` match runs
+  as `flutter test test/widgetbook_test.dart -j 1 --name '^<Folder> / <Component> '`
+  (`component-catalog` skill), never the whole file. An `integration_test/`
+  match runs only through `scripts/verify.sh app` or the `store-screenshots`
+  skill. Never the full suite; CI runs it.
 - Fast local feedback. Prefer checks that run in the pre-commit hook or in
   `flutter test test/architecture` (the ratchet from #1144; see the
   `architecture-guards` skill; under a second) over CI-only checks.
@@ -99,8 +110,9 @@ Sections in this order:
 
 1. `## Behaviour changes`
 2. `## Proof`: the mutation or reverted fix that the new test kills, the
-   screenshots looked at, the `verify` run line, and the design canvas link
-   where relevant. A `fix:` PR also answers "What would have caught this
+   screenshots looked at, the `verify` run line, the test files run because
+   they name what the change alters, and the design canvas link where
+   relevant. A `fix:` PR also answers "What would have caught this
    earlier?" here.
 3. `## Not verified on a device` (write "Nothing" if nothing)
 4. `## Review`: reviewer kind, the full head SHA reviewed, findings and how
