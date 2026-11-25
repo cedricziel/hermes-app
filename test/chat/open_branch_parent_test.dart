@@ -591,6 +591,47 @@ void main() {
       expect(chat.branchParentStatusOf(branch()), BranchParentStatus.deleted);
     }
 
+    test('a branch whose read failed learns that a sibling found the original '
+        'deleted', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 'branch', title: 'Try another way')
+            ..['_branched_from'] = _parent,
+          sessionRow(id: 'sibling', title: 'Another try')
+            ..['_branched_from'] = _parent,
+        ]),
+      );
+      server.on(
+        'GET',
+        '/api/sessions/sibling/messages',
+        messageListBody('sibling', []),
+      );
+      await chat.loadThreads();
+      await flush();
+      chat.select('branch');
+      await flush();
+      server.on('GET', _descendant(_parent), {'detail': 'down'}, status: 503);
+      await chat.openBranchParent(branch());
+      await flush();
+      expect(
+        chat.branchParentStatusOf(branch()),
+        BranchParentStatus.unreachable,
+      );
+
+      server.on('GET', _descendant(_parent), {
+        'detail': 'Session not found',
+      }, status: 404);
+      chat.select('sibling');
+      await flush();
+      await chat.openBranchParent(thread('sibling'));
+      await flush();
+
+      expect(chat.branchParentStatusOf(branch()), BranchParentStatus.deleted);
+      expect(chat.canOpenBranchParent(branch()), isFalse);
+    });
+
     test('an ordinary list read keeps the deleted parent', () async {
       await learnDeleted();
 

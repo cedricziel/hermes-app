@@ -606,10 +606,12 @@ extension _ChatControllerBranchParent on ChatController {
     final parent = thread.branchParentId;
     if (parent == null) return null;
     final data = _branchParent;
-    return data.reads[_branchKey(thread)] ??
-        (data.deleted.contains((_profile ?? '', parent))
-            ? BranchParentStatus.deleted
-            : BranchParentStatus.resting);
+    final read = data.reads[_branchKey(thread)];
+    if (read == BranchParentStatus.opening) return read;
+    // Deleted is terminal, and one original can have several branches.
+    return data.deleted.contains((_profile ?? '', parent))
+        ? BranchParentStatus.deleted
+        : read ?? BranchParentStatus.resting;
   }
 
   /// The original's title when the loaded list holds it, under the id the
