@@ -4102,6 +4102,10 @@
   "@macosMenuRename": {
     "description": "Chat menu, and the Mac chat row and conversation window menus: renames the chat."
   },
+  "macosMenuSave": "Save",
+  "@macosMenuSave": {
+    "description": "File menu: saves the page in front, offered by the Personality page while it has unsaved text."
+  },
   "macosMenuSelectAll": "Select All",
   "@macosMenuSelectAll": {
     "description": "Edit menu: selects all text in the focused field."
@@ -5071,6 +5075,14 @@
   "profilesSoulBannerOfflineTitle": "You're offline.",
   "@profilesSoulBannerOfflineTitle": {
     "description": "Title of the warning banner when the personality could not be loaded because the device is offline."
+  },
+  "profilesSoulBannerPausedDetail": "Your text is kept. It can be edited again once the connection is back.",
+  "@profilesSoulBannerPausedDetail": {
+    "description": "Detail of the info banner on the personality page while the connection is paused (an expired session that may still be restored)."
+  },
+  "profilesSoulBannerPausedTitle": "The connection is paused.",
+  "@profilesSoulBannerPausedTitle": {
+    "description": "Title of the info banner on the personality page while the connection is paused. The page is read-only and nothing is sent."
   },
   "profilesSoulBannerReadFailed": "Couldn't read the personality file on the server.",
   "@profilesSoulBannerReadFailed": {
