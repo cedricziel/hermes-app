@@ -12,13 +12,14 @@ const _retriesKey = 'hermes.getRetries';
 /// Only GET, only `connectionError` and `connectionTimeout`, at most
 /// [maxRetries] more times. Each wait is drawn at random below a bound that
 /// doubles ([reconnectDelay]), so requests that failed together do not come
-/// back together. A POST, PATCH or DELETE is never sent again here, nor a GET
-/// that got an answer or timed out waiting for one (the server may be busy
-/// with it).
+/// back together. A POST, PUT, PATCH or DELETE is never sent again here, nor
+/// a GET that got an answer or timed out waiting for one (the server may be
+/// busy with it).
 ///
 /// Place it after the telemetry interceptor: each try then keeps its own
-/// span (the burst logger folds their log records into one). A resent request runs the whole chain again, so the
-/// session checks of [AuthController] apply to it as to any other.
+/// span (the burst logger folds their log records into one). A resent
+/// request runs the whole chain again, so the session checks of
+/// [AuthController] apply to it as to any other.
 class GetRetryInterceptor extends Interceptor {
   GetRetryInterceptor(
     this._dio, {
