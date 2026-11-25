@@ -36,12 +36,15 @@ class MemoryWaitingCount extends ChangeNotifier {
   /// Reads the count. A trigger that comes while a read of the same profile is
   /// still out (the chat list finishing, the launch profile arriving and a
   /// resume often land together) joins it, so one moment asks Hermes once.
-  Future<void> refresh(ResolvedProfile? profile) {
+  /// With [supersede] it never joins: a read already out began before what the
+  /// caller wants to see (the user's decisions in Memory), and its answer is
+  /// dropped.
+  Future<void> refresh(ResolvedProfile? profile, {bool supersede = false}) {
     if (profile == null) {
       clear();
       return Future.value();
     }
-    if (profile == _profile) {
+    if (profile == _profile && !supersede) {
       final reading = _reading;
       if (reading != null) return reading;
     }

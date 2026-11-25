@@ -354,7 +354,7 @@ extension _ChatScreenNavigation on _ChatScreenState {
       profile: _chat.profile,
       transport: _chat.transport,
     );
-    if (mounted) unawaited(_refreshMemoryWaiting());
+    if (mounted) unawaited(_refreshMemoryWaiting(supersede: true));
   }
 
   void _openPlugins() {

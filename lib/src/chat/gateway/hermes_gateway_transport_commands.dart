@@ -113,6 +113,12 @@ extension _Commands on HermesGatewayTransport {
     return session['session_id'] as String;
   }
 
+  /// How long an attachment may go unanswered: the frame is queued at once
+  /// and sent while the clock runs, so the time to upload it (one second per
+  /// 64 KB, a 0.5 Mbit/s uplink) comes on top of [longTimeout].
+  Duration _uploadTimeout(String encoded) =>
+      longTimeout + Duration(seconds: encoded.length ~/ 65536);
+
   /// Makes [attachments] available to the agent: an image is queued on the
   /// session (its path goes to [queued]), any other file is staged and its
   /// `@file:` reference returned for the prompt text.
@@ -143,11 +149,11 @@ extension _Commands on HermesGatewayTransport {
       try {
         if (attachment.kind == AttachmentKind.image) {
           try {
-            final result = await client.request('image.attach_bytes', {
+            final result = await client.requestWithin('image.attach_bytes', {
               'session_id': sessionId,
               'content_base64': encoded,
               'filename': name,
-            });
+            }, timeout: _uploadTimeout(encoded));
             if (result['path'] case final String path) queued.add(path);
             continue;
           } on GatewayRpcException catch (error) {
@@ -156,13 +162,13 @@ extension _Commands on HermesGatewayTransport {
           }
         }
         if (reclaimed()) return references;
-        final result = await client.request('file.attach', {
+        final result = await client.requestWithin('file.attach', {
           'session_id': sessionId,
           'name': name,
           'data_url':
               'data:${attachment.mimeType ?? 'application/octet-stream'}'
               ';base64,$encoded',
-        });
+        }, timeout: _uploadTimeout(encoded));
         final reference = result['ref_text'];
         if (reference is! String || reference.isEmpty) {
           throw AttachmentException(
