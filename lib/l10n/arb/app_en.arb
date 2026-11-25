@@ -191,7 +191,7 @@
   },
   "chatReplyRegenerated": "Regenerated",
   "@chatReplyRegenerated": {
-    "description": "Small label in the row of actions under a reply that replaced an earlier one after the user chose Retry or Edit. One word beside a refresh icon, on one line. Shown only in the session where it happened; a chat reloaded from the server does not show it."
+    "description": "Small label on a line above the row of actions under a reply that replaced an earlier one after the user chose Retry or Edit. One word beside a refresh icon; it wraps at the largest text size. Shown only in the session where it happened; a chat reloaded from the server does not show it."
   },
   "chatReplyUnconfirmed": "Couldn't confirm how this reply ended. It may have finished; check the conversation first.",
   "@chatReplyUnconfirmed": {

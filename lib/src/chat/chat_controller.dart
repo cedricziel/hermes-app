@@ -1658,7 +1658,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _removeMoa(thread);
     _undoing.remove(thread);
     _turnProblems.remove(thread);
-    _regenerating.remove(thread);
     _sessionActionGenerations.remove(thread);
     _removeTodo((_profile, thread.id));
     _removeConnector((_profile, thread.id));
