@@ -25,14 +25,26 @@ class SavedCleartextGate extends StatefulWidget {
 class _SavedCleartextGateState extends State<SavedCleartextGate> {
   bool _asking = false;
 
-  static bool _canAsk(AuthController auth) =>
+  /// The address whose question was closed without a choice, not asked again
+  /// until the connection is lost or the question is gone.
+  String? _declined;
+
+  static bool _isUp(AuthController auth) =>
+      auth.state == HermesConnectionState.ready ||
+      auth.state == HermesConnectionState.needsLogin;
+
+  bool _canAsk(AuthController auth) =>
       auth.unconfirmedCleartextServer != null &&
-      (auth.state == HermesConnectionState.ready ||
-          auth.state == HermesConnectionState.needsLogin);
+      auth.unconfirmedCleartextServer != _declined &&
+      _isUp(auth);
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
+    if (auth.unconfirmedCleartextServer == null ||
+        !(_isUp(auth) || auth.state == HermesConnectionState.signingIn)) {
+      _declined = null;
+    }
     if (!_asking && _canAsk(auth)) {
       _asking = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _ask(auth));
@@ -46,13 +58,14 @@ class _SavedCleartextGateState extends State<SavedCleartextGate> {
       if (!mounted || address == null || !_canAsk(auth)) return;
       final host = Uri.parse(address).host;
       final keep = await confirmSavedCleartextServer(context, host: host);
-      // A dialog closed without a choice, or by the connection ending, is no
-      // answer: the question comes back with the next connection.
-      if (keep == null ||
-          auth.unconfirmedCleartextServer != address ||
-          !_canAsk(auth)) {
+      if (!mounted || auth.unconfirmedCleartextServer != address) return;
+      // A dialog closed without a choice is no answer; it stays closed until
+      // the connection is lost. One the connection ending closed is dropped.
+      if (keep == null) {
+        if (_isUp(auth)) _declined = address;
         return;
       }
+      if (!_isUp(auth)) return;
       if (keep) {
         await auth.keepCleartextServer();
       } else {

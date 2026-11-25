@@ -142,6 +142,11 @@ void main() {
     expect(auth.unconfirmedCleartextServer, _publicHttp);
     expect(auth.baseUrl, _publicHttp);
     expect(find.byType(SnackBar), findsNothing);
+
+    // Any later change of the connection state must not reopen it.
+    await tester.runAsync(auth.signOut);
+    await tester.pumpAndSettle();
+    expect(find.text('Keep using http://?'), findsNothing);
   });
 
   testWidgets('an answer after the connection ended changes nothing', (
