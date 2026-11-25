@@ -225,7 +225,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         profile: () => _profile,
         changed: notifyListeners,
         report: report,
-        reportBusy: () => onSendNotice?.call(ChatSendNotice.threadBusy),
+        reportBusy: onSendNotice == null
+            ? null
+            : () => onSendNotice?.call(ChatSendNotice.threadBusy),
         removed: _threadRemoved,
         prepareDelete: _prepareQueueDeletion,
         history: _history,

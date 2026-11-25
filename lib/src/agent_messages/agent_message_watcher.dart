@@ -146,7 +146,9 @@ class AgentMessageWatcher with WidgetsBindingObserver {
   Timer? _timer;
 
   /// The token of the look in flight: made stale, it closes that look's
-  /// requests, so nothing outlives the app's time in front to time out later.
+  /// listing and message reads, so they do not outlive the app's time in front
+  /// to time out later. (The launch profile lookup goes through the shared
+  /// profile resolver and is not closed.)
   /// Each look has its own, so a finished look's reads are not kept alive.
   CancelToken? _reads;
 
