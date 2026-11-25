@@ -26,14 +26,25 @@ class MemoryWaitingCount extends ChangeNotifier {
   ResolvedProfile? _profile;
   DateTime? _readAt;
   int _reads = 0;
+  Future<void>? _reading;
   bool _disposed = false;
 
   /// Null before the first read ends, for another profile than the last
   /// asked, and when the read failed.
   int? waiting;
 
-  Future<void> refresh(ResolvedProfile? profile) async {
-    if (profile == null) return clear();
+  /// Reads the count. A trigger that comes while a read of the same profile is
+  /// still out (the chat list finishing, the launch profile arriving and a
+  /// resume often land together) joins it, so one moment asks Hermes once.
+  Future<void> refresh(ResolvedProfile? profile) {
+    if (profile == null) {
+      clear();
+      return Future.value();
+    }
+    if (profile == _profile) {
+      final reading = _reading;
+      if (reading != null) return reading;
+    }
     final read = ++_reads;
     if (profile != _profile) {
       waiting = null;
@@ -41,6 +52,12 @@ class MemoryWaitingCount extends ChangeNotifier {
     }
     _profile = profile;
     _readAt = _now();
+    return _reading = _read(profile, read).whenComplete(() {
+      if (read == _reads) _reading = null;
+    });
+  }
+
+  Future<void> _read(ResolvedProfile profile, int read) async {
     final snapshot = await _repository.load(profile);
     if (_disposed || read != _reads) return;
     waiting = snapshot.waiting;
@@ -60,6 +77,7 @@ class MemoryWaitingCount extends ChangeNotifier {
 
   void clear() {
     _reads++;
+    _reading = null;
     _profile = null;
     _readAt = null;
     if (waiting == null) return;
