@@ -65,7 +65,7 @@ Where the data comes from after a reload: a history row's `tool_calls` plus the 
 ### Image gallery (`browser_get_images`, `image_generate`, `browser_vision`)
 
 - **Where an image comes from decides when it loads.** A server path (`browser_vision`'s `screenshot_path`) loads through `MediaStore` like a `MEDIA:` attachment, with the app's own credentials, so it loads at once, provided the server will serve it: `HermesMediaSource.image` tries `/api/media` (Hermes' media folders) and falls back to `/api/files/download` (one locked root), and whether a screenshot path lies inside either is unknown. A path the server refuses draws the tile as "Couldn't load" with the tap offered again. An address (an `image_generate` result or a `browser_get_images` `src`) is a third-party host: it loads only on a tap, "Tap to load · cdn.example.com", and only over `https`. `http` shows "Not secure. Open in browser" and loads nothing. After a tap the tile shows the picture; a second tap opens it in the viewer (`ImageViewerPage`, Quick Look on iOS and macOS). A load that fails shows "Couldn't load" and offers the tap again, once per tap; nothing is retried by itself.
-- **Bounds and storage.** At most 10 MB and 15 s per remote image, decoded at tile size. A remote image lives in memory only (the loader's own cache, not `MediaStore`, never a file): it is dropped on sign-out, a server change and when App Lock covers the app, so it needs no file cleanup. A server screenshot is a `MediaStore` file like a `MEDIA:` attachment and follows that rule (cleared on sign-out; App Lock's `clearFileDownloads` leaves chat attachments alone). Over the size is "Too large to load here. Open in browser".
+- **Bounds and storage.** At most 10 MB and 15 s per remote image, decoded at tile size. A remote image lives in memory only (the loader's own cache, not `MediaStore`, never a file): it is dropped on sign-out, a server change and when App Lock covers the app, so it needs no file cleanup. A server screenshot is an image in `MediaStore`'s in-memory cache, like a `MEDIA:` image: it is emptied on sign-out (`MediaStore.clear`) and survives an App Lock cover, which only deletes Files downloads, exactly as chat images do today; App Lock blanks the chat, so nothing draws it while locked.
 - **Layout.** Several images: a grid, two columns on a phone, three from 560 pt, four from 760 pt, tiles 4:3 with the picture covering, the alt text (two lines) and "800 × 800 · cdn.shop.example" under an unloaded one. One image (`image_generate`, `browser_vision`): one tile, full width on a phone and at most 360 pt on a desktop, 16:9 or the aspect ratio the call asked for.
 - **Many images.** Six tiles show and "Show all N" opens the rest in place. `browser_get_images` lists every `<img>` on the page, so images under 32 px on either side (icons, tracking pixels; a size of 0 means not loaded and is kept) are left out, and the header says how many: "9 images · 5 small ones hidden". "Load all" is a button that loads the shown tiles on one tap, still https only.
 - **Generating.** `image_generate` while it runs: a dashed skeleton tile in the aspect ratio of the call, a spinner and "Generating image…", a `BusyBar` under it. No shimmer, as in Files, so reduced motion needs no variant.
@@ -114,7 +114,7 @@ Where the data comes from after a reload: a history row's `tool_calls` plus the 
 - Status is never colour alone: every note has an icon and a word.
 - Targets: 44 pt iOS, 48 dp Android, Windows and Linux, 28 pt Mac, for chips, tiles, link cards, Copy and the `+N more` chip. The tile's picture may be small; its tap area is not.
 - Text size is honoured with no cap; the table scrolls, chips go full width, code wraps.
-- Lost answers: nothing here sends a request to the Hermes server, so the 10-second rule has nothing to apply to; the one request that can fail is a remote image, which ends as "Couldn't load" or a size or time bound within 15 s and is offered again by a tap.
+- Lost answers: nothing here sends a command or a write to the Hermes server, so there is nothing to resend. Two reads can fail: a screenshot (a GET through `MediaStore`) and a remote image (a tap, to another host). Each ends within 15 s as "Couldn't load" and is offered again by a tap, never retried by itself.
 
 ## Platforms
 
@@ -123,14 +123,14 @@ iOS, Android, macOS, Windows, Linux. watchOS and surfaces: none (not offered the
 ## Invariants touched
 
 - Privacy rules: no title, address, path or text reaches a breadcrumb, span or log. The breadcrumbs carry counts and outcomes.
-- API layering: nothing new is requested from the Hermes server; a screenshot goes through `MediaStore` and its existing route. A remote image is the only request to another host, behind a tap.
+- API layering: no new Hermes route and no write; a screenshot is read through `MediaStore` and its existing routes. A remote image is the only request to another host, behind a tap.
 - Localization: every string goes in the ARB files under the `chat` area anchor, never below the widget layer; tool names and server values (`read_file`, paths, titles, error text) stay as the server sent them.
 - Tool call cards keep their keys, ids and open state (`tool_call_expansion.dart`); the views change only what is inside an opened card.
 - Catalog first: each view is a plain-model widget in `lib/src/chat/widgets/` with use cases before any wiring.
 
 ## Observability
 
-- Breadcrumbs (`Breadcrumbs`): `sources_expand` with the count of sources, `sources_open` with the same count, `tool_image_load` with `outcome` of `ok`, `failed`, `too_large` or `insecure`. None carries an address, title or host.
+- Breadcrumbs (`Breadcrumbs`): `chat.sources.expanded` with the count of sources, `chat.sources.opened` with the same count, `chat.tool_image.loaded` with `outcome` of `ok`, `failed`, `too_large` or `insecure`. None carries an address, title or host.
 - No span and no log event (see the proposal).
 
 ## Design pass

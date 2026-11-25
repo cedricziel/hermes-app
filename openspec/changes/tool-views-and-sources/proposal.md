@@ -28,11 +28,11 @@ An opened tool card shows a view of its own for five tools (terminal, web search
 
 ## Security and privacy impact
 
-The views show text and addresses the server sent. The one new network path is a remote image the user taps to load (`https` only, size and time bounded, no credentials sent, held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app; a server screenshot goes through `MediaStore` like any `MEDIA:` file, which clears on sign-out; App Lock's `clearFileDownloads` leaves chat attachments alone, so the screenshot is unchanged by this change). Page and file text is untrusted: every string passes `wellFormedText` and the hidden-character rule of `tool_hidden_chars.dart`. A link opens only for `http` and `https` and never with embedded credentials. No server address, token or message text reaches a breadcrumb, span or log.
+The views show text and addresses the server sent. The one new network path is a remote image the user taps to load (`https` only, size and time bounded, no credentials sent, held in memory only, never written to disk, and dropped on sign-out, a server change and when App Lock covers the app; a server screenshot is fetched from the Hermes server through `MediaStore.image`, whose in-memory cache `MediaStore.clear` empties on sign-out and which App Lock's `clearFileDownloads` leaves alone, as for any chat image, so this change adds nothing there). Page and file text is untrusted: every string passes `wellFormedText` and the hidden-character rule of `tool_hidden_chars.dart`. A link opens only for `http` and `https` and never with embedded credentials. No server address, token or message text reaches a breadcrumb, span or log.
 
 ## Observability
 
-Breadcrumbs only, fixed names and counts, through `Breadcrumbs`: `sources_expand` (count), `sources_open` (count of sources in the row), `tool_image_load` (outcome: `ok`, `failed`, `too_large`, `insecure`). No span: nothing here takes time that crosses a boundary except the image load, whose outcome the breadcrumb already carries. No log event: nothing here fails in a way an operator would count.
+Breadcrumbs only, fixed names and counts, through `Breadcrumbs`: `chat.sources.expanded` (count), `chat.sources.opened` (count of sources in the row), `chat.tool_image.loaded` (outcome: `ok`, `failed`, `too_large`, `insecure`). No span: nothing here takes time that crosses a boundary except the image load, whose outcome the breadcrumb already carries. No log event: nothing here fails in a way an operator would count.
 
 ## Design pass
 
