@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -312,52 +313,110 @@ class _WhatsAppPairingScreenState extends State<WhatsAppPairingScreen>
           leadingWidth: adaptiveBackLeadingWidth(context),
           title: Text(context.l10n.messagingWhatsappTitle),
         ),
-        body: ContentColumn(
-          child: WhatsAppPairingView(
-            phase: _phase,
-            handset: controller.handset,
-            mode: controller.mode,
-            numbers: _numbers,
-            numbersIssue: _numbersIssue,
-            startProblem: _startProblem,
-            serverText: _serverText,
-            workStage: controller.workStage,
-            codeVisibility: _visibility,
-            qrPayload: controller.qr?.value,
-            timeLeft: controller.timeLeft,
-            paused: controller.pausedLine,
-            offline: controller.pollFailing,
-            alreadyLinked: controller.alreadyLinked,
-            accountName: account?.name,
-            accountPhone: account?.phone,
-            profile: widget.profile,
-            selfChatBlankNumbers:
-                controller.mode == WhatsAppMode.selfChat &&
-                parseWhatsAppAllowedUsers(controller.allowedUsers).normalized ==
-                    null,
-            finish: _finishStatus,
-            refreshing: controller.refreshing,
-            refreshFailed: controller.refreshFailed,
-            goneDuringApply: controller.goneDuringApply,
-            onModeChanged: controller.setMode,
-            onNumbersChanged: controller.setAllowedUsers,
-            onStart: controller.canStart ? () => unawaited(_start()) : null,
-            onStartAgain: controller.startAgain,
-            onCancel: _leave,
-            onShowQr: controller.revealQr,
-            onFinish: controller.canFinish ? () => unawaited(_finish()) : null,
-            onCheck: controller.canCheck
-                ? () => unawaited(controller.check())
-                : null,
-            onBack: _leave,
+        body: Shortcuts(
+          shortcuts: const {
+            SingleActivator(LogicalKeyboardKey.enter): _PressPrimaryIntent(),
+            SingleActivator(LogicalKeyboardKey.numpadEnter):
+                _PressPrimaryIntent(),
+          },
+          child: Actions(
+            actions: {_PressPrimaryIntent: _PressPrimaryAction(_pressPrimary)},
+            child: Focus(
+              autofocus: true,
+              child: ContentColumn(
+                child: WhatsAppPairingView(
+                  phase: _phase,
+                  handset: controller.handset,
+                  mode: controller.mode,
+                  numbers: _numbers,
+                  numbersIssue: _numbersIssue,
+                  startProblem: _startProblem,
+                  serverText: _serverText,
+                  workStage: controller.workStage,
+                  codeVisibility: _visibility,
+                  qrPayload: controller.qr?.value,
+                  timeLeft: controller.timeLeft,
+                  paused: controller.pausedLine,
+                  offline: controller.pollFailing,
+                  alreadyLinked: controller.alreadyLinked,
+                  accountName: account?.name,
+                  accountPhone: account?.phone,
+                  profile: widget.profile,
+                  selfChatBlankNumbers:
+                      controller.mode == WhatsAppMode.selfChat &&
+                      parseWhatsAppAllowedUsers(controller.allowedUsers)
+                              .normalized ==
+                          null,
+                  finish: _finishStatus,
+                  refreshing: controller.refreshing,
+                  refreshFailed: controller.refreshFailed,
+                  goneDuringApply: controller.goneDuringApply,
+                  onModeChanged: controller.setMode,
+                  onNumbersChanged: controller.setAllowedUsers,
+                  onStart: controller.canStart
+                      ? () => unawaited(_start())
+                      : null,
+                  onStartAgain: controller.startAgain,
+                  onCancel: _leave,
+                  onShowQr: controller.revealQr,
+                  onFinish: controller.canFinish
+                      ? () => unawaited(_finish())
+                      : null,
+                  onCheck: controller.canCheck
+                      ? () => unawaited(controller.check())
+                      : null,
+                  onBack: _leave,
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
+  /// The screen's one filled button: Start on the form, Finish once linked.
+  VoidCallback? get _primary {
+    final controller = _c;
+    return switch (controller.phase) {
+      WhatsAppPairingPhase.setup when controller.canStart => () => unawaited(
+        _start(),
+      ),
+      WhatsAppPairingPhase.connected when controller.canFinish =>
+        () => unawaited(_finish()),
+      _ => null,
+    };
+  }
+
+  void _pressPrimary() => _primary?.call();
+
   Future<void> _start() {
     _c.setAllowedUsers(_numbers.text);
     return _c.start();
+  }
+}
+
+class _PressPrimaryIntent extends Intent {
+  const _PressPrimaryIntent();
+}
+
+/// Return presses the filled button, unless a field or another button has the
+/// focus: a field keeps its own Return, and a focused button is pressed by
+/// its own handler, which sits below this one.
+class _PressPrimaryAction extends Action<_PressPrimaryIntent> {
+  _PressPrimaryAction(this._press);
+
+  final VoidCallback _press;
+
+  @override
+  bool isEnabled(_PressPrimaryIntent intent) =>
+      FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<EditableText>() ==
+      null;
+
+  @override
+  Object? invoke(_PressPrimaryIntent intent) {
+    _press();
+    return null;
   }
 }

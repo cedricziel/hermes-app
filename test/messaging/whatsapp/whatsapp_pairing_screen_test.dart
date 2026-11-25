@@ -444,6 +444,52 @@ void main() {
     );
   });
 
+  group('Return', () {
+    testWidgets('presses Start on the form, once', (tester) async {
+      await open(tester, size: computer);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+      expect(starts(), 1);
+      // The start is out or answered: Return has no filled button to press.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+      expect(starts(), 1);
+    });
+
+    testWidgets('keeps its own meaning in the numbers field', (tester) async {
+      await open(tester, size: computer);
+      await tester.tap(find.byKey(const Key('whatsapp-numbers')));
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+      expect(starts(), 0);
+    });
+
+    testWidgets('presses Finish once linked, which asks first', (tester) async {
+      startReply = (_) => _ok(_live(waStartAlreadyLinked));
+      statusReply = (_) => _ok(_live(waStatusConnected));
+      await open(tester, size: computer);
+      await begin(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Save and restart?'), findsOneWidget);
+      expect(applies(), 0);
+    });
+
+    testWidgets(
+      'does not press Cancel setup or anything else while the code waits',
+      (tester) async {
+        await open(tester, size: computer);
+        await waitForCode(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await settle(tester);
+        expect(opened, isTrue);
+        expect(cancels(), 0);
+        expect(starts(), 1);
+      },
+    );
+  });
+
   group('leaving', () {
     testWidgets('Back while waiting asks the server to drop the setup once', (
       tester,
