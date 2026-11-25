@@ -355,7 +355,8 @@ Future<void> _copyTranscript(
   try {
     text = threadTranscript(await threadHistory(thread, housekeeping));
   } on Object catch (e, stack) {
-    reportBug(e, stack, 'a transcript copy');
+    // The chat's epoch refusals (suspended, cancelled) are StateErrors.
+    if (e is! StateError) reportBug(e, stack, 'a transcript copy');
     messenger?.showSnackBar(
       SnackBar(content: Text(l10n.chatWidgetsThreadMenuCopyFailed)),
     );

@@ -90,7 +90,7 @@ class _VaultRequestCardState extends State<VaultRequestCard> {
     try {
       await widget.onSkip!();
     } on Object catch (e, stack) {
-      reportBug(e, stack, 'a vault answer');
+      reportBug(e, stack, 'a vault skip');
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);
