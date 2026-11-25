@@ -829,7 +829,12 @@ class AuthController extends ChangeNotifier {
     final url = _baseUrl!;
     _dio = _buildAuthenticatedDio(url, gated: _status?.authRequired ?? true);
     _apiOwnerEpoch = _ownerEpoch;
-    _api = HermesApiClient(_dio!, sessionEpoch: () => _sessionExpiryGeneration);
+    _api = HermesApiClient(
+      _dio!,
+      // A refresh renews the token and an expiry bumps the generation: either
+      // ends a wait the ticket gate began under the earlier one.
+      sessionEpoch: () => (_sessionExpiryGeneration, _session?.accessToken),
+    );
   }
 
   void _acceptIdentity(HermesIdentity identity) {

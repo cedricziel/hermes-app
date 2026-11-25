@@ -225,4 +225,23 @@ void main() {
       ),
     );
   });
+
+  test('a refresh renews the epoch the ticket gate reads, so a wait from a '
+      'lost refresh ends with the new token', () async {
+    server.onRequest(
+      'POST',
+      '/api/auth/ws-ticket',
+      (options) => options.headers['Authorization'] == 'Bearer access-2'
+          ? (status: 200, body: {'ticket': 'tkt'})
+          : (status: 401, body: {'detail': 'no'}),
+    );
+    await controller.bootstrap();
+    final before = controller.api!.sessionEpoch;
+
+    // The 401 refreshes the token and the retry is let through.
+    await controller.api!.raw.authWsTicketApiAuthWsTicketPost();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.api!.sessionEpoch, isNot(before));
+  });
 }
