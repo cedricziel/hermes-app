@@ -272,6 +272,7 @@ class WhatsAppApplyResult {
     required this.confirmed,
     required this.restartStarted,
     required this.needsRestart,
+    this.restartError,
   });
 
   /// The server said `ok: true`. A 200 without it leaves the save unknown.
@@ -283,6 +284,10 @@ class WhatsAppApplyResult {
 
   /// The messaging gateway still has to be restarted by the user.
   final bool needsRestart;
+
+  /// Why the restart child could not be spawned, in the server's words, for
+  /// the saved banner to append as given. Opaque: never printed.
+  final WhatsAppServerText? restartError;
 
   @override
   String toString() =>

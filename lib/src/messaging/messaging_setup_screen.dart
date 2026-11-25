@@ -7,6 +7,8 @@ import '../widgets/disclosure_tile.dart';
 import '../widgets/named_icon_button.dart';
 import 'hermes_messaging_repository.dart';
 import 'telegram_pairing_screen.dart';
+import 'whatsapp/whatsapp_pairing_telemetry.dart';
+import 'whatsapp_pairing_screen.dart';
 import '../chat/gateway_connection_transport.dart';
 import '../widgets/route_dismissal.dart';
 import '../telemetry/report_bug.dart';
@@ -23,11 +25,16 @@ class MessagingSetupScreen extends StatefulWidget {
     required this.platform,
     required this.repository,
     this.changeSource,
+    this.whatsAppTelemetry,
   });
 
   final HermesMessagingPlatform platform;
   final HermesMessagingRepository repository;
   final GatewayConnectionTransport? changeSource;
+
+  /// What the WhatsApp screen tells telemetry; one per Messaging visit, so the
+  /// old-server event is logged once there.
+  final WhatsAppPairingTelemetry? whatsAppTelemetry;
 
   @override
   State<MessagingSetupScreen> createState() => _MessagingSetupScreenState();
@@ -41,6 +48,13 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
   final _cleared = <String>{};
   bool _saving = false;
   String? _error;
+
+  /// The platform list is being read before the WhatsApp screen opens.
+  bool _linking = false;
+
+  /// The server answered that it cannot link WhatsApp this way: the button
+  /// goes away.
+  bool _linkUnsupported = false;
 
   @override
   void dispose() {
@@ -95,6 +109,58 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
     if (paired == true && mounted) dismissRoute(context, true);
   }
 
+  /// Reads whether WhatsApp is already on (10 s at most, the button showing
+  /// progress), then opens the screen that links it. Nothing is started yet.
+  Future<void> _linkWhatsApp(String profile) async {
+    if (_linking) return;
+    setState(() => _linking = true);
+    final wasEnabled = await whatsAppWasEnabled(widget.repository);
+    if (!mounted) return;
+    setState(() => _linking = false);
+    final saved = await Navigator.push<WhatsAppSavedOutcome>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WhatsAppPairingScreen(
+          repository: widget.repository,
+          profile: profile,
+          wasEnabled: wasEnabled,
+          telemetry: widget.whatsAppTelemetry,
+          onUnsupported: () {
+            if (mounted) setState(() => _linkUnsupported = true);
+          },
+        ),
+      ),
+    );
+    if (saved != null && mounted) dismissRoute(context, saved);
+  }
+
+  /// The "Link WhatsApp" entry, for a profile named explicitly and a server
+  /// that has the route.
+  List<Widget> _whatsAppLink() {
+    final profile = widget.repository.profile;
+    if (widget.platform.id != 'whatsapp' ||
+        profile == null ||
+        _linkUnsupported) {
+      return const [];
+    }
+    return [
+      OutlinedButton.icon(
+        onPressed: _linking ? null : () => _linkWhatsApp(profile),
+        icon: _linking
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+              )
+            : const AppIcon(AppIcons.magic),
+        label: Text(context.l10n.messagingWhatsappTitle),
+      ),
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text('Or enter the details yourself.'),
+      ),
+    ];
+  }
+
   void _toggleCleared(String key) {
     _controllers[key]!.clear();
     setState(() {
@@ -115,8 +181,12 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
       ),
       body: ContentColumn(
         child: vars.isEmpty
-            ? const Center(
-                child: Text('Nothing to set up for this messaging platform.'),
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  ..._whatsAppLink(),
+                  const Text('Nothing to set up for this messaging platform.'),
+                ],
               )
             : Form(
                 key: _formKey,
@@ -134,6 +204,7 @@ class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
                         child: Text('Or enter the details yourself.'),
                       ),
                     ],
+                    ..._whatsAppLink(),
                     for (final v in basic) _field(v),
                     if (advanced.isNotEmpty)
                       DisclosureTile(
