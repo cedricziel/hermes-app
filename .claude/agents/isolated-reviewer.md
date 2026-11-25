@@ -58,8 +58,10 @@ Read `CLAUDE.md`, `.claude/skills/fleet-rules/SKILL.md` and the
    each user-visible string, ARB key, public symbol or file name the diff
    alters and run every test file that names one, not only the files the diff
    touches (never `test/widgetbook_test.dart` whole, never the full suite). A
-   failure there is a finding. Name the files you ran on the
-   `Proof reproduced:` line.
+   `widgetbook/` match runs as `flutter test test/widgetbook_test.dart -j 1
+   --name '^<Folder> / <Component> '`; an `integration_test/` match runs only
+   through `scripts/verify.sh app`. A failure there is a finding. Name the
+   files you ran on the `Proof reproduced:` line.
 9. Catalog first. If the diff adds a public widget class (`class X extends
    StatelessWidget` or `StatefulWidget`) under `lib/src/**/widgets/` and no
    line the diff adds under `widgetbook/` names it, either list that as a
@@ -111,7 +113,8 @@ after them:
   finding under `Findings:` instead.
 - The `Revert-the-fix:` line names the test and the fix reverted and says it
   failed, or says `not applicable`.
-- The `Proof reproduced:` line says `yes`, or `no` and what.
+- The `Proof reproduced:` line says `yes`, or `no` and what, then the test
+  files you ran because they name what the diff alters (or `none found`).
 
 An example (emit it without the indentation, as plain lines: no dash, no
 backticks, no code fence; `pr-policy` ignores review lines inside a code fence,
@@ -121,7 +124,7 @@ so a fenced block is not recorded):
     Findings: 1
     high, lib/src/x/y.dart:42, state read before await is written after it, re-read after the await
     Revert-the-fix: foo_test.dart "keeps state" failed when the guard was reverted
-    Proof reproduced: yes
+    Proof reproduced: yes, also ran test/kanban_workers_screen_test.dart (names the changed string)
 
 List each finding on its own line under `Findings:`. Verdict is clean only with
 zero findings of any severity left open. Put reasoning before the block, not in
