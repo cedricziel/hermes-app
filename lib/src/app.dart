@@ -197,6 +197,7 @@ class _HermesAppState extends State<HermesApp> {
           navigatorKey: _navigatorKey,
           child: MacMenuBar(
             navigatorKey: _navigatorKey,
+            modalRoutes: _modalRoutes,
             child: ConversationWindowsMenu(
               child: DesktopNavigationHistoryScope(
                 history: _history,

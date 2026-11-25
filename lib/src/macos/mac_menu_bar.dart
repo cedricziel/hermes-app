@@ -10,6 +10,7 @@ import '../../l10n/l10n.dart';
 import '../api/hermes_repositories.dart';
 import '../navigation/desktop_command_shortcuts.dart';
 import '../navigation/keyboard_shortcuts.dart';
+import '../navigation/modal_route_observer.dart';
 import '../settings/about_dialog.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
@@ -32,11 +33,16 @@ class MacMenuBar extends StatefulWidget {
   const MacMenuBar({
     super.key,
     required this.navigatorKey,
+    this.modalRoutes,
     required this.child,
   });
 
   /// Gives dialogs opened from the menu a context under the navigator.
   final GlobalKey<NavigatorState> navigatorKey;
+
+  /// The app's [ModalRouteObserver], which keeps the Windows and Linux chords
+  /// from running commands behind a dialog.
+  final ModalRouteObserver? modalRoutes;
   final Widget child;
 
   @override
@@ -139,6 +145,7 @@ class _MacMenuBarState extends State<MacMenuBar> {
       child: MacCommandScope.root(
         registry: _registry,
         child: DesktopCommandShortcuts(
+          modalRoutes: widget.modalRoutes,
           child: MacCommandScope(commands: _rootCommands, child: widget.child),
         ),
       ),
