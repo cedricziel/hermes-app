@@ -279,7 +279,11 @@ class AuthController extends ChangeNotifier {
     } on Object {
       answers = false;
     }
-    if (_disposed || _cleartextToConfirm != address) {
+    // A sign-in or connect started meanwhile must not be overrun.
+    if (_disposed ||
+        _cleartextToConfirm != address ||
+        (_state != HermesConnectionState.ready &&
+            _state != HermesConnectionState.needsLogin)) {
       return HttpsSwitch.superseded;
     }
     _cleartextToConfirm = null;

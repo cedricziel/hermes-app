@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/auth/native_login_flow.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -31,6 +32,7 @@ void main() {
     bool httpsRedirectsBack = false,
     Future<void>? httpsGate,
     MemoryTokenStore? tokens,
+    NativeLogin? login,
   }) async {
     if (saved != null) {
       await SharedPreferencesAsync().setString(kSavedServerUrlKey, saved);
@@ -40,6 +42,7 @@ void main() {
     final controller = AuthController(
       tokenStore: tokens ?? MemoryTokenStore(),
       devServerUrl: devServerUrl,
+      login: login ?? runNativeLogin,
       interceptors: [
         InterceptorsWrapper(
           onRequest: (options, handler) async {
@@ -329,6 +332,34 @@ void main() {
       expect(saved.unconfirmedCleartextServer, isNull);
     },
   );
+
+  test('a sign-in started while https:// is probed is not overrun', () async {
+    server
+      ..on('GET', '/api/status', {'auth_required': true})
+      ..on('GET', '/api/auth/providers', {
+        'providers': [
+          {'name': 'oidc', 'display_name': 'SSO'},
+        ],
+      });
+    final gate = Completer<void>();
+    final controller = await bootstrapped(
+      saved: _publicHttp,
+      httpsGate: gate.future,
+      login: (url, {provider, httpClient, cancelled}) =>
+          Completer<HermesSession>().future,
+    );
+    expect(controller.state, HermesConnectionState.needsLogin);
+
+    final switching = controller.useHttpsForCleartextServer();
+    unawaited(controller.signInWithProvider(controller.providers.single));
+    await pumpEventQueue();
+    expect(controller.state, HermesConnectionState.signingIn);
+    gate.complete();
+
+    expect(await switching, HttpsSwitch.superseded);
+    expect(controller.baseUrl, _publicHttp);
+    expect(controller.state, HermesConnectionState.signingIn);
+  });
 }
 
 base class _FailingListWrites extends InMemorySharedPreferencesAsync {
