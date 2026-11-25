@@ -60,14 +60,35 @@ void main() {
         ...standardToolBodyEntries,
         ToolBodyEntry(names: {'patch'}, build: (_) => const _Probe('other')),
       ]);
+      const terminalArgs = {'command': 'git diff'};
 
       expect(
-        registry.bodyFor(_call('patch', diff: '@@ -1 +1 @@\n-a\n+b')),
+        registry.bodyFor(
+          const ToolCall(
+            name: 'terminal',
+            summary: '',
+            args: terminalArgs,
+            diff: '@@ -1 +1 @@\n-a\n+b',
+          ),
+        ),
         isA<ToolDiffBody>(),
       );
       expect(
-        registry.bodyFor(_call('terminal', resultData: {'diff': '-a\n+b'})),
+        registry.bodyFor(
+          const ToolCall(
+            name: 'terminal',
+            summary: '',
+            args: terminalArgs,
+            resultData: {'diff': '-a\n+b'},
+          ),
+        ),
         isA<ToolDiffBody>(),
+      );
+      expect(
+        registry.bodyFor(
+          const ToolCall(name: 'terminal', summary: '', args: terminalArgs),
+        ),
+        isA<TerminalToolBody>(),
       );
     });
 
@@ -127,6 +148,25 @@ void main() {
         ),
         isA<WebSearchToolBody>(),
       );
+    });
+
+    testWidgets('the card shows the body of its registry', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ToolCallCard(
+            call: const ToolCall(name: 'sql_query', summary: ''),
+            initiallyOpen: true,
+            registry: ToolBodyRegistry([
+              ToolBodyEntry(
+                names: {'sql_query'},
+                build: (_) => const _Probe('rows'),
+              ),
+            ]),
+          ),
+        ),
+      );
+
+      expect(find.text('rows'), findsOneWidget);
     });
 
     testWidgets('the card shows the generic input and result when a builder '
