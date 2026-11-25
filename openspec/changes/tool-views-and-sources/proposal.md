@@ -2,7 +2,7 @@
 
 ## Why
 
-An opened tool card shows a view of its own for four tools (terminal, web search, todo, memory) and a diff. Every other result is the card's raw input and result text. The files the agent reads and writes, the pages it opens, the images it finds or makes and the lists it gets back are the most common results and read worst as text (#460). When a reply is built on a web search or browsing, the only way to see what it drew on is to open each tool card (#461).
+An opened tool card shows a view of its own for five tools (terminal, web search, todo, memory, message agent) and a diff. Every other result is the card's raw input and result text. The files the agent reads and writes, the pages it opens, the images it finds or makes and the lists it gets back are the most common results and read worst as text (#460). When a reply is built on a web search or browsing, the only way to see what it drew on is to open each tool card (#461).
 
 `ToolBodyRegistry` (#1378) made a new tool view one entry. This change is the design for the views that use it and for the sources row, so the build can start in the catalog.
 

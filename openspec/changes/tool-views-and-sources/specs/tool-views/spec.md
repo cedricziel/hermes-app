@@ -36,17 +36,17 @@ For `read_file` and `write_file` the card SHALL show the path with its start eli
 
 ### Requirement: Write outcome
 
-A `write_file` card SHALL show the content as sent, coloured once the call settles and plain while it arrives, and a note for each outcome the result reports: bytes written, verified on disk, a lint error with its output, diagnostics, a warning. A refused write SHALL say "Not written." with the server's text and still show what was tried.
+A `write_file` card SHALL show the content as sent, coloured as soon as the call runs, and a note for each outcome the result reports: bytes written, verified on disk, a lint error with its output, diagnostics, a warning. A refused write SHALL say "Not written." with the server's text and still show what was tried.
 
 #### Scenario: Refused
 
 - **WHEN** the result carries `error`
 - **THEN** the card says "Not written.", shows the error text and shows the content under "What Hermes tried to write"
 
-#### Scenario: Streaming
+#### Scenario: Preparing and running
 
-- **WHEN** the call is still preparing its arguments
-- **THEN** the content so far shows as plain text without a gutter
+- **WHEN** the call is still preparing, the model has named the tool and sent no arguments
+- **THEN** the card shows only its header, and once the call runs the path and the coloured content show under "Writing…"
 
 ### Requirement: Binary and image reads
 
