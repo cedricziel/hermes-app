@@ -28,8 +28,8 @@ catalog=test/widgetbook_test.dart
 if [ "$index" -eq 0 ]; then
   parts=${CATALOG_PARTS:-6}
   case "$parts" in
-    '' | 0* | *[!0-9]*)
-      echo "CATALOG_PARTS must be a whole number of 1 or more, got '$parts'" >&2
+    '' | 0* | *[!0-9]* | ???*)
+      echo "CATALOG_PARTS must be a whole number from 1 to 99, got '$parts'" >&2
       exit 64
       ;;
   esac

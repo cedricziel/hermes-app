@@ -125,7 +125,7 @@ class TestShardTest(unittest.TestCase):
         self.assertNotIn("case of part 2\n  boom", summary)
 
     def test_a_part_count_that_is_not_a_positive_number_fails_before_any_test(self):
-        for parts in ("0", "-1", "abc", "1.5", "06"):
+        for parts in ("0", "-1", "abc", "1.5", "06", "100", "18446744073709551616"):
             with self.subTest(parts=parts):
                 proc = self.shard("0", "4", CATALOG_PARTS=parts)
 
