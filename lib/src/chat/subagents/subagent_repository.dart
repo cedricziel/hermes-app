@@ -3,6 +3,7 @@ import 'package:flutter_otel/flutter_otel.dart' show Span;
 import '../../telemetry/telemetry.dart';
 import '../agent_work_transport.dart';
 import '../gateway/gateway_rpc_client.dart' show GatewayRpcException;
+import '../report_chat_bug.dart';
 import 'agent_models.dart';
 import 'agent_work_result.dart';
 import 'process_models.dart';
@@ -131,7 +132,8 @@ class SubagentRepository {
             ? const WorkFailed(WorkFailureKind.other)
             : WorkOk(value);
       }
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a subagent read');
       result = workResultOfError(error);
     }
     _finish(
@@ -168,7 +170,8 @@ class SubagentRepository {
       result = value == null
           ? const WorkFailed(WorkFailureKind.other)
           : WorkOk(value);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a subagent action');
       result = workResultOfError(error);
       recovered = recover?.call(error);
     }

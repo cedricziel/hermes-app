@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -172,5 +173,28 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(again.recent, ['c', 'f', 'e', 'd', 'b']);
     });
+
+    test(
+      'a stored value of the wrong type leaves none and is reported once',
+      () async {
+        final store = SharedPreferencesAsync();
+        await store.setString('hermes.recent_searches', 'not a list');
+        final reported = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
+
+        final search = ThreadSearch((_) async => const [], recentStore: store)
+          ..begin();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(search.recent, isEmpty);
+        expect(reported, hasLength(1));
+        expect(
+          reported.single.context.toString(),
+          'reading the saved recent searches',
+        );
+      },
+    );
   });
 }

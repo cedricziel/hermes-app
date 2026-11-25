@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/safe_notifier.dart';
+import '../settings/report_unreadable_prefs.dart';
 
 enum ThreadGrouping { recent, folder }
 
@@ -30,8 +31,9 @@ class ThreadListPreferences extends ChangeNotifier with SafeNotifier {
           : ThreadGrouping.recent;
       _folded.addAll(folded ?? []);
       notifyListeners();
-    } on Object {
-      // Preferences optional; chats remain usable without storage.
+    } on Object catch (error, stack) {
+      // Chats stay usable on the defaults; the broken store is reported.
+      reportUnreadablePrefs(error, stack, 'the saved thread list view');
     }
   }
 

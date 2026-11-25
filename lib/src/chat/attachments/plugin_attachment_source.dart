@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
 import '../media/media_store.dart';
+import '../report_chat_bug.dart';
 import 'attachment_source.dart';
 import '../../telemetry/report_bug.dart';
 
@@ -107,7 +108,8 @@ class PluginAttachmentSource implements AttachmentSource {
       // Desktops read the clipboard without asking, so a read is the check.
       final (image, paths) = await _desktopClipboard();
       return image != null || paths.isNotEmpty;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a clipboard files probe');
       return false;
     }
   }

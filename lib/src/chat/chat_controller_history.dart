@@ -432,7 +432,8 @@ extension _ChatControllerHistory on ChatController {
         );
       }
       unawaited(refreshActive());
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the thread list');
       if (!active || generation != _loadGeneration) return;
       _loadingThreads = false;
       _threadsFailed = true;
@@ -461,7 +462,8 @@ extension _ChatControllerHistory on ChatController {
       ModelOptions? options;
       try {
         options = await models.load(profile: profile);
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'the quiet model options');
         return;
       }
       if (!active ||
@@ -500,7 +502,8 @@ extension _ChatControllerHistory on ChatController {
       if (error.response?.statusCode == 404) {
         state = ModelOptionsState.unsupported;
       }
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the model options');
       state = ModelOptionsState.failed;
     }
     if (!active ||
@@ -577,7 +580,8 @@ extension _ChatControllerHistory on ChatController {
       if (!active || generation != _loadGeneration) return;
       await controllerFor(thread)
           .setMessages(_ChatControllerCheckpoints(this)._flyerOf(thread));
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the first page');
       if (generation != _loadGeneration) {
         return _restoreStaleRead(id, token, retried: retried);
       }
@@ -864,7 +868,8 @@ extension _ChatControllerHistory on ChatController {
         index: 0,
         animated: false,
       );
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'earlier messages');
       if (active && generation == _loadGeneration) {
         report('Could not load earlier messages');
       }

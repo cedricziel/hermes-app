@@ -369,7 +369,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
       // Not read yet, or the read failed earlier: ask once more.
       try {
         await resolver.load();
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a soul profile load');
         // Left unresolved: nothing is opened.
       }
       if (!mounted) return;
@@ -419,7 +420,8 @@ extension _ChatScreenNavigation on _ChatScreenState {
       // Not read yet, or the read failed earlier: ask once more.
       try {
         await resolver.load();
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'a tools profile load');
         // Left unresolved: nothing is opened.
       }
       if (!mounted) return;

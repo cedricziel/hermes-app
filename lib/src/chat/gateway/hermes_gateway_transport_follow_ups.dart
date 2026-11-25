@@ -432,7 +432,8 @@ extension _FollowUps on HermesGatewayTransport {
             generation == 0) {
           watch.push((SessionControlUnavailable(runtimeId), false));
         }
-      } on Object {
+      } on Object catch (error, stack) {
+        reportChatBug(error, stack, 'the session control read');
         if (!watch.closedByUs &&
             !client.isClosed &&
             generation == controlGeneration) {

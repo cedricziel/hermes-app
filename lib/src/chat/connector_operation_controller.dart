@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'connector_operation_state.dart';
 import 'gateway/gateway_rpc_client.dart';
+import 'report_chat_bug.dart';
 
 typedef ConnectorRespond = Future<Map<String, Object?>> Function(
   Map<String, Object?> params,
@@ -413,7 +414,8 @@ class ConnectorOperationController extends ChangeNotifier {
       }
       if (!opened) _errors[operation.key] = 'Could not open the browser.';
       _log(opened ? 'browser_opened' : 'browser_failed');
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a connector browser open');
       if (_disposed ||
           generation != _generation ||
           !_current(operation, attachment)) {

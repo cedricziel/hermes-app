@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../report_chat_bug.dart';
 import 'action_telemetry.dart';
 import 'chat_action_bridge.dart';
 import 'checkpoint_models.dart';
@@ -313,7 +314,8 @@ class CheckpointsController extends ChangeNotifier {
     CheckpointList result;
     try {
       result = await read();
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the checkpoint list');
       result = const CheckpointsFailed(CheckpointFailureKind.transport);
     }
     telemetry.finish(span, {
@@ -361,7 +363,8 @@ class CheckpointsController extends ChangeNotifier {
     CheckpointChanges result;
     try {
       result = await source.checkpointChanges(binding, hash);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the checkpoint changes');
       result = const ChangesFailed(CheckpointFailureKind.transport);
     }
     telemetry.finish(span, {
@@ -485,7 +488,8 @@ class CheckpointsController extends ChangeNotifier {
         hash: intent.hash,
         filePath: intent.filePath,
       );
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a checkpoint restore');
       result = const RestoreMayHaveHappened();
     }
     try {
@@ -586,7 +590,8 @@ class CheckpointsController extends ChangeNotifier {
           if (live()) {
             try {
               await bridge.reestablishSession();
-            } on Object {
+            } on Object catch (error, stack) {
+              reportChatBug(error, stack, 'a session re-establish');
               // The user is asked to try again either way.
             }
           }
@@ -608,7 +613,8 @@ class CheckpointsController extends ChangeNotifier {
   bool _chatHolds(PromptQuote quote) {
     try {
       return bridge.chatHolds(quote);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the chat hold check');
       // Unknown: leave the composer alone.
       return true;
     }
@@ -656,7 +662,8 @@ class CheckpointsController extends ChangeNotifier {
     try {
       await bridge.refetchChat(historyRemoved: historyRemoved);
       return true;
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'a chat refetch');
       return false;
     }
   }
@@ -666,7 +673,8 @@ class CheckpointsController extends ChangeNotifier {
     _sendHeld = held;
     try {
       bridge.holdSend(held);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'the send hold');
       // The hold is also exposed as [sendHeld].
     }
   }
