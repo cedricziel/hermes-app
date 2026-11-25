@@ -20,6 +20,10 @@ const kSurfaceRemoteInterval = Duration(minutes: 5);
 /// Shared remote-read budget before a pause publishes a partial snapshot.
 const kSurfacePauseWindow = Duration(milliseconds: 800);
 
+/// How far past its budget a remote build may run before its span counts as
+/// suspended: a timer that fires late by seconds is load, by minutes sleep.
+const kSurfaceSuspendedSlack = Duration(seconds: 5);
+
 /// What the connection says about the account, read whenever it matters.
 enum SurfaceSession {
   /// A session is in place; snapshots are built.
@@ -251,6 +255,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
       _builder = _builderFor(repositories);
     }
     final span = localOnly ? null : _startSpan(repositories, trigger);
+    final started = _now();
     try {
       final result = await _builder!.build(
         signedIn: _signedIn,
@@ -260,10 +265,16 @@ class SurfaceSnapshots with WidgetsBindingObserver {
         redact: _lockOn,
         budget: budget,
       );
+      final window = remote ? budget ?? _builder!.timeout : null;
       _endSpan(
         span,
         sourcesFailed: result.sourcesFailed,
         failures: result.failures,
+        suspendedEnd:
+            window != null &&
+                _now().difference(started) > window + kSurfaceSuspendedSlack
+            ? started.add(window)
+            : null,
       );
       return result;
     } on Object {
@@ -308,14 +319,20 @@ class SurfaceSnapshots with WidgetsBindingObserver {
 
   /// A source that timed out leaves the span `partial`, not failed: the
   /// pause build's budget is cut short by design (see [SourceFailures]).
+  /// A remote build whose clock ran far past its budget was suspended with
+  /// the app (its budget timer stopped too): [suspendedEnd], the end of that
+  /// budget, marks the span `app.suspended` and ends it there, not when the
+  /// app came back.
   void _endSpan(
     Span? span, {
     int sourcesFailed = 0,
     SourceFailures failures = const SourceFailures(),
     bool failed = false,
+    DateTime? suspendedEnd,
   }) {
     if (span == null) return;
     try {
+      if (suspendedEnd != null) span.setAttribute('app.suspended', true);
       span.setAttribute('sources_failed', sourcesFailed);
       span.setAttributes(
         failed ? const {'outcome': 'error'} : failures.attributes,
@@ -323,7 +340,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
       if (failed || failures.errored.isNotEmpty) {
         span.setStatus(StatusCode.error);
       }
-      span.end();
+      span.end(suspendedEnd);
     } on Object {
       // Telemetry must not break the app.
     }
