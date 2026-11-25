@@ -64,7 +64,6 @@ class NotificationSettings extends ChangeNotifier {
     final mutedEditsBefore = _mutedEdits;
     final liveActivityEditsBefore = _liveActivityEdits;
     final agentMessageEditsBefore = _agentMessageEdits;
-    var defaultOn = true;
     bool? enabled, asked, denied, schedules, liveActivities, agentMessages;
     List<String>? muted;
     try {
@@ -76,25 +75,26 @@ class NotificationSettings extends ChangeNotifier {
       liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
       agentMessages = await _prefs.getBool(_prefsAgentMessagesKey);
     } on Object catch (error, stack) {
-      // An unreadable store turns the alerts off rather than on: a user who
-      // chose off, or muted a chat, would otherwise get message text.
-      defaultOn = false;
+      // Whatever failed to read, every alert goes off rather than on, also the
+      // ones read before it: a user who chose off, or muted a chat, would
+      // otherwise get message text.
+      enabled = schedules = liveActivities = agentMessages = false;
       reportUnreadablePrefs(error, stack, 'the saved notification settings');
     }
-    if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? defaultOn;
+    if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
     if (_permissionEdits == permissionEditsBefore) {
       _asked = asked ?? false;
       _denied = denied ?? false;
     }
     if (_scheduleEdits == scheduleEditsBefore) {
-      _scheduleAlerts = schedules ?? defaultOn;
+      _scheduleAlerts = schedules ?? true;
     }
     if (_mutedEdits == mutedEditsBefore) _muted = {...?muted};
     if (_liveActivityEdits == liveActivityEditsBefore) {
-      _liveActivities = liveActivities ?? defaultOn;
+      _liveActivities = liveActivities ?? true;
     }
     if (_agentMessageEdits == agentMessageEditsBefore) {
-      _agentMessages = agentMessages ?? defaultOn;
+      _agentMessages = agentMessages ?? true;
     }
     _loaded = true;
     notifyListeners();
