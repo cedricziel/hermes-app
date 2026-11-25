@@ -18,6 +18,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import '../../support/fake_device_authenticator.dart';
 import '../../support/fake_hermes_server.dart';
+import '../../support/recorded_accessibility.dart';
 import '../../support/test_localizations.dart';
 import 'whatsapp_fixtures.dart';
 
@@ -106,6 +107,7 @@ void main() {
     bool wasEnabled = true,
     VoidCallback? onUnsupported,
     HermesMessagingRepository? repository,
+    DateTime Function()? now,
   }) async {
     tester.view
       ..physicalSize = size
@@ -130,6 +132,7 @@ void main() {
                     profile: _profile,
                     wasEnabled: wasEnabled,
                     onUnsupported: onUnsupported,
+                    now: now,
                   ),
                 ),
               );
@@ -382,6 +385,63 @@ void main() {
       await waitForCode(tester);
       expect(calls.where((c) => c == 'Clipboard.setData'), isEmpty);
     });
+  });
+
+  group('a screen reader', () {
+    testWidgets(
+      'is sent to the code after "Show QR code", and the code is in nothing it is sent',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final heard = RecordedAccessibility(tester);
+        await open(tester, size: phone);
+        await waitForCode(tester);
+        expect(heard.focusEvents, 0);
+
+        await tester.tap(find.text('Show QR code'));
+        await tester.pump();
+        await tester.pump();
+        expect(heard.focusEvents, 1);
+        expect(heard.text, isNot(contains('DEMO-NOT-A-REAL-QR')));
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'hears the time left at 60, 30 and 10 seconds from the injected clock',
+      (tester) async {
+        final heard = RecordedAccessibility(tester);
+        final start = DateTime.utc(2026, 11, 15, 12);
+        var elapsed = Duration.zero;
+        Map<String, Object?> at(Map<String, Object?> recorded) => {
+          ...recorded,
+          'expires_at': start
+              .add(const Duration(seconds: 90))
+              .toIso8601String(),
+        };
+        startReply = (_) => _ok(at(waStartFresh));
+        statusReply = (_) => _ok(at(waStatusWaiting));
+        await open(tester, size: computer, now: () => start.add(elapsed));
+        await waitForCode(tester);
+        expect(find.text('Setup closes in 1:30'), findsOneWidget);
+        expect(heard.announcements, isEmpty);
+        // No answer comes in: only the screen's own tick repaints the countdown.
+        statusReply = hang;
+
+        // Each step is one tick of the screen's own timer, no real waiting.
+        for (final seconds in [10, 20, 29, 30, 31, 59, 60, 61, 80, 81]) {
+          elapsed = Duration(seconds: seconds);
+          await tester.pump(const Duration(seconds: 1));
+        }
+        expect(heard.announcements, [
+          'Setup closes in 60 seconds.',
+          'Setup closes in 30 seconds.',
+          'Setup closes in 10 seconds.',
+        ]);
+        // The unanswered poll's own limit runs out after the screen is gone.
+        await leaveScreen(tester);
+        await tester.pump(const Duration(seconds: 11));
+      },
+    );
   });
 
   group('leaving', () {

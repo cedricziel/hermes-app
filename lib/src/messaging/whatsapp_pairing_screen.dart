@@ -84,6 +84,7 @@ class WhatsAppPairingScreen extends StatefulWidget {
     this.wasEnabled = true,
     this.telemetry,
     this.onUnsupported,
+    this.now,
   });
 
   /// The repository of the Messaging list; the screen binds it to [profile].
@@ -100,6 +101,9 @@ class WhatsAppPairingScreen extends StatefulWidget {
 
   /// The server has no such route: the caller takes its entry point away.
   final VoidCallback? onUnsupported;
+
+  /// The clock the countdown reads; the system's by default. A test sets it.
+  final DateTime Function()? now;
 
   @override
   State<WhatsAppPairingScreen> createState() => _WhatsAppPairingScreenState();
@@ -139,6 +143,7 @@ class _WhatsAppPairingScreenState extends State<WhatsAppPairingScreen>
       handset: !computer && size.shortestSide < kWhatsAppHandsetShortestSide,
       followsWindowFocus: computer,
       telemetry: widget.telemetry,
+      now: widget.now,
     );
     controller.addListener(_changed);
     final state = WidgetsBinding.instance.lifecycleState;
