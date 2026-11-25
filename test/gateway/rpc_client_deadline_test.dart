@@ -437,4 +437,27 @@ void main() {
       async.flushMicrotasks();
     });
   });
+
+  test('a liveness probe nobody answers returns false, ends its span once as '
+      'a timeout and leaves no request pending', () {
+    run((async, open, jump, now) {
+      final client = open();
+      bool? alive;
+      client.isResponsive(deadline).then((v) => alive = v);
+      async.flushMicrotasks();
+
+      async.elapse(deadline);
+      async.flushMicrotasks();
+      expect(alive, isFalse);
+      final span = tracer.spans.single;
+      expect(span.endCalls, 1);
+      expect(span.attributes['error.type'], 'GatewayRequestTimeout');
+
+      // The socket closing afterwards finds nothing left to end.
+      unawaited(client.close());
+      async.flushMicrotasks();
+      expect(span.endCalls, 1);
+      expect(span.attributes['error.type'], 'GatewayRequestTimeout');
+    });
+  });
 }
