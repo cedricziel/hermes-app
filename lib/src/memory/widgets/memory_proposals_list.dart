@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../widgets/app_banner.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -8,6 +9,7 @@ import '../memory_proposals.dart';
 import '../memory_proposals_controller.dart';
 import '../memory_proposals_repository.dart';
 import '../memory_settings.dart';
+import 'memory_learning_section.dart';
 import 'memory_proposal_parts.dart';
 
 const kProposalsIntro =
@@ -145,7 +147,10 @@ class MemoryProposalsList extends StatelessWidget {
           children: [
             GroupedSwitchRow(
               key: const Key('proposals-ask-before-saving'),
-              title: MemorySetting.writeApproval.label,
+              title: memorySettingLabel(
+                context.l10n,
+                MemorySetting.writeApproval,
+              ),
               subtitle: kAskBeforeSavingSubtitle,
               subtitleMaxLines: 3,
               value: askBeforeSaving ?? false,

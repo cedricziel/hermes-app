@@ -212,6 +212,7 @@ class GatewayRpcClient {
     this.deadAfter = const Duration(seconds: 45),
     this.resumeGrace = const Duration(milliseconds: 250),
     this.probeTimeout = const Duration(seconds: 5),
+    this.defaultTimeout,
     this.onSocketClosed,
   }) : _channel = channel {
     _subscription = channel.stream.listen(
@@ -230,6 +231,10 @@ class GatewayRpcClient {
   /// the client: a failing callback is ignored.
   final void Function(String reason, int? closeCode, Duration lived)?
   onSocketClosed;
+
+  /// How long a request given no `timeout` of its own waits for its answer
+  /// before it is abandoned; null for no limit.
+  final Duration? defaultTimeout;
 
   final bool heartbeat;
   final Duration pingEvery;
@@ -250,6 +255,9 @@ class GatewayRpcClient {
   final _events = StreamController<GatewayEvent>.broadcast();
   final _serverRequests = StreamController<GatewayServerRequest>.broadcast();
   final _pending = <int, _Pending>{};
+
+  /// Who to tell when the answer of an abandoned request still comes.
+  final _abandoned = <int, void Function(Map<String, Object?>)>{};
   var _nextId = 1;
   var _closed = false;
   var _errored = false;
@@ -321,6 +329,8 @@ class GatewayRpcClient {
   /// Requests the gateway makes of the client. Ends when the socket closes.
   Stream<GatewayServerRequest> get serverRequests => _serverRequests.stream;
 
+  /// Sends [method]. A request that gets no answer within [defaultTimeout] is
+  /// abandoned like one of [requestWithin].
   Future<Map<String, Object?>> request(
     String method, [
     Map<String, Object?> params = const {},
@@ -329,24 +339,34 @@ class GatewayRpcClient {
   /// Like [request], but a request that gets no answer within [timeout] is
   /// abandoned: it fails with [GatewayRequestTimeout], its span ends and its
   /// entry is dropped, so a late answer is ignored. The socket stays open.
+  ///
+  /// A request given [onLateResult] changed something on the server that the
+  /// caller must undo if the answer comes after it gave up: it is told the
+  /// result of such an answer, and an answer read after the deadline but
+  /// before the overdue timer ran (the app slept past it) is a timeout too.
+  /// Any other request settles on an answer that comes before the timer runs,
+  /// its span ended at the deadline.
   Future<Map<String, Object?>> requestWithin(
     String method,
     Map<String, Object?> params, {
     required Duration timeout,
-  }) => _request(method, params, timeout: timeout);
+    void Function(Map<String, Object?> result)? onLateResult,
+  }) => _request(method, params, timeout: timeout, onLateResult: onLateResult);
 
   /// Rechecks ownership after instrumentation, before sending the request frame.
   Future<Map<String, Object?>> requestGuarded(
     String method,
     Map<String, Object?> params, {
     required bool Function() authorize,
-  }) => _request(method, params, authorize: authorize);
+    Duration? timeout,
+  }) => _request(method, params, authorize: authorize, timeout: timeout);
 
   Future<Map<String, Object?>> _request(
     String method,
     Map<String, Object?> params, {
     bool Function()? authorize,
     Duration? timeout,
+    void Function(Map<String, Object?> result)? onLateResult,
   }) {
     if (_closed || authorize?.call() == false) {
       return Future.error(const GatewayConnectionClosed());
@@ -358,34 +378,67 @@ class GatewayRpcClient {
       return Future.error(const GatewayConnectionClosed());
     }
     final completer = Completer<Map<String, Object?>>();
-    final pending = _pending[id] = _Pending(completer, span);
-    _channel.sink.add(
-      jsonEncode({
-        'jsonrpc': '2.0',
-        'id': id,
-        'method': method,
-        'params': params,
-      }),
+    final limit = timeout ?? defaultTimeout;
+    final pending = _pending[id] = _Pending(
+      completer,
+      span,
+      clock.now(),
+      limit,
+      onLateResult,
     );
+    try {
+      _channel.sink.add(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': id,
+          'method': method,
+          'params': params,
+        }),
+      );
+    } on Object catch (error) {
+      // Nothing went out: the request must not stay pending, nor its span open.
+      _pending.remove(id);
+      _finish(pending, failure: error);
+      rethrow;
+    }
     // Armed once the frame is out, so the wait never counts the send.
-    if (timeout != null) {
-      pending.timer = Timer(timeout, () {
+    pending.startedAt = clock.now();
+    if (limit != null) {
+      pending.timer = Timer(limit, () {
         if (_pending.remove(id) == null) return;
-        _telemetry?.finishRequest(span, failure: const GatewayRequestTimeout());
+        if (onLateResult != null) _abandoned[id] = onLateResult;
+        _finish(pending, failure: const GatewayRequestTimeout());
         completer.completeError(const GatewayRequestTimeout());
       });
     }
     return completer.future;
   }
 
+  /// Ends [pending]'s span. A span whose deadline passed while the app was
+  /// suspended (timers stop with the process, so the end would be stamped
+  /// when it woke) is ended at the deadline instead, so no span outlives it.
+  void _finish(_Pending pending, {int? errorCode, Object? failure}) {
+    final span = pending.span, due = pending.dueAt;
+    _telemetry?.finishRequest(
+      span == null ||
+              due == null ||
+              !pending.isOverdue(clock.now(), resumeGrace)
+          ? span
+          : _EndedAt(span, due),
+      errorCode: errorCode,
+      failure: failure,
+    );
+  }
+
   /// Whether the gateway still answers within [timeout]. Any answer counts,
   /// an error too: a socket the OS dropped while the app slept can look open
-  /// and never answer.
+  /// and never answer. An answer that comes late still counts: it proves the
+  /// socket lives, and closing a live one would cost the replies on it.
   Future<bool> isResponsive(Duration timeout) async {
     try {
-      await request('client.capabilities', {
+      await requestWithin('client.capabilities', {
         'server_requests': true,
-      }).timeout(timeout);
+      }, timeout: timeout);
       return true;
     } on GatewayRpcException {
       return true;
@@ -502,15 +555,26 @@ class GatewayRpcClient {
 
   void _settle(int id, Map<String, dynamic> message) {
     final pending = _pending.remove(id);
-    if (pending == null) return;
+    if (pending == null) {
+      _tellLate(_abandoned.remove(id), message);
+      return;
+    }
     pending.timer?.cancel();
+    if (pending.onLateResult != null &&
+        pending.isOverdue(clock.now(), resumeGrace)) {
+      // Read before the overdue timer ran: the caller was promised a timeout.
+      _finish(pending, failure: const GatewayRequestTimeout());
+      pending.completer.completeError(const GatewayRequestTimeout());
+      _tellLate(pending.onLateResult, message);
+      return;
+    }
     final error = message['error'];
     if (error is Map) {
       final code = switch (error['code']) {
         final num code => code.toInt(),
         _ => 0,
       };
-      _telemetry?.finishRequest(pending.span, errorCode: code);
+      _finish(pending, errorCode: code);
       final data = error['data'];
       pending.completer.completeError(
         GatewayRpcException(
@@ -522,19 +586,33 @@ class GatewayRpcClient {
     } else {
       switch (message['result']) {
         case null:
-          _telemetry?.finishRequest(pending.span);
+          _finish(pending);
           pending.completer.complete(const {});
         case final Map<String, Object?> result:
-          _telemetry?.finishRequest(pending.span);
+          _finish(pending);
           pending.completer.complete(result);
         case _:
           // A result that is not an object cannot be read; callers must not
           // take it for a valid empty answer.
           const code = -32603;
-          _telemetry?.finishRequest(pending.span, errorCode: code);
+          _finish(pending, errorCode: code);
           pending.completer.completeError(
             const GatewayRpcException(code, 'malformed result'),
           );
+      }
+    }
+  }
+
+  void _tellLate(
+    void Function(Map<String, Object?> result)? onLateResult,
+    Map<String, dynamic> message,
+  ) {
+    if (onLateResult == null) return;
+    if (message['result'] case final Map<String, Object?> result) {
+      try {
+        onLateResult(result);
+      } on Object {
+        // The caller's cleanup must not take the socket's reader down.
       }
     }
   }
@@ -575,12 +653,10 @@ class GatewayRpcClient {
     _stopHeartbeat();
     final pending = _pending.values.toList();
     _pending.clear();
+    _abandoned.clear();
     for (final call in pending) {
       call.timer?.cancel();
-      _telemetry?.finishRequest(
-        call.span,
-        failure: const GatewayConnectionClosed(),
-      );
+      _finish(call, failure: const GatewayConnectionClosed());
       call.completer.completeError(const GatewayConnectionClosed());
     }
     _events.close();
@@ -607,11 +683,89 @@ class GatewayRpcClient {
 
 /// A request awaiting its answer, and the span that times it.
 class _Pending {
-  _Pending(this.completer, this.span);
+  _Pending(
+    this.completer,
+    this.span,
+    this.startedAt,
+    this.timeout,
+    this.onLateResult,
+  );
 
   final Completer<Map<String, Object?>> completer;
   final Span? span;
 
+  /// When the frame went out: a deadline never counts writing it.
+  DateTime startedAt;
+
+  /// How long the request may wait, if it was given a limit.
+  final Duration? timeout;
+
+  /// Told the result of an answer that came after the deadline.
+  final void Function(Map<String, Object?> result)? onLateResult;
+
+  /// When the deadline falls, if there is one.
+  DateTime? get dueAt {
+    final limit = timeout;
+    return limit == null ? null : startedAt.add(limit);
+  }
+
+  /// Whether [now] is past the deadline by more than [grace]: timers stop
+  /// with the process, so a deadline can pass unnoticed while the app sleeps.
+  bool isOverdue(DateTime now, Duration grace) {
+    final due = dueAt;
+    return due != null && now.difference(due) > grace;
+  }
+
   /// Abandons the request when it runs out of time, if it was given any.
   Timer? timer;
+}
+
+/// A span that ends at [endTime] whenever it is ended.
+class _EndedAt implements Span {
+  _EndedAt(this._inner, this.endTime);
+
+  final Span _inner;
+  final DateTime endTime;
+
+  @override
+  SpanContext get spanContext => _inner.spanContext;
+
+  @override
+  String get name => _inner.name;
+
+  @override
+  bool get isRecording => _inner.isRecording;
+
+  @override
+  void setAttribute(String key, Object? value) =>
+      _inner.setAttribute(key, value);
+
+  @override
+  void setAttributes(Map<String, Object?> attributes) =>
+      _inner.setAttributes(attributes);
+
+  @override
+  void addEvent(
+    String name, {
+    Map<String, Object?>? attributes,
+    DateTime? timestamp,
+  }) => _inner.addEvent(name, attributes: attributes, timestamp: timestamp);
+
+  @override
+  void setStatus(StatusCode code, {String? description}) =>
+      _inner.setStatus(code, description: description);
+
+  @override
+  void recordException(
+    Object exception, {
+    StackTrace? stackTrace,
+    Map<String, Object?>? attributes,
+  }) => _inner.recordException(
+    exception,
+    stackTrace: stackTrace,
+    attributes: attributes,
+  );
+
+  @override
+  void end([DateTime? _]) => _inner.end(endTime);
 }

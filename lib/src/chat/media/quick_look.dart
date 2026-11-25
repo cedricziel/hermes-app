@@ -78,7 +78,7 @@ class MethodChannelQuickLook implements QuickLook {
   final MethodChannel _channel;
 
   /// Whether this platform has native Quick Look: a panel on macOS or a
-  /// dismissible preview with system sharing on iOS.
+  /// native photo viewer with swipe dismissal and system sharing on iOS.
   static bool get supported =>
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.macOS ||
@@ -122,7 +122,7 @@ class MethodChannelQuickLook implements QuickLook {
   }
 }
 
-/// The Quick Look of this platform: a Mac panel or iOS preview sheet.
+/// The Quick Look of this platform: a Mac panel or the iOS photo viewer.
 ///
 /// A Mac engine also reads the system's double-click interval once.
 QuickLook platformQuickLook() {

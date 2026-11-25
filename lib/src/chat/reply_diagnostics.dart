@@ -62,6 +62,7 @@ String replyEndCause(Object? error, {required bool stopped}) {
     GatewayReplyUnconfirmed() => 'unconfirmed',
     GatewayCallTimedOut() => 'timeout',
     TimeoutException() => 'timeout',
+    GatewayRequestTimeout() => 'timeout',
     GatewayConnectionClosed() => 'connection_closed',
     GatewayRpcException() => 'rejected',
     ProfileUnavailableException() => 'profile',

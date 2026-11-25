@@ -4251,12 +4251,32 @@
       }
     }
   },
+  "memoryLearningAgentNotes": "Keep agent notes",
+  "@memoryLearningAgentNotes": {
+    "description": "Title of the Keep agent notes switch in the Learning section of the Memory settings: Hermes keeps its own notes about the setup. Keep it short."
+  },
+  "memoryLearningAgentNotesDetail": "Facts about your setup, tools and conventions",
+  "@memoryLearningAgentNotesDetail": {
+    "description": "Subtitle of the Keep agent notes switch in the Memory settings: what the agent notes hold."
+  },
+  "memoryLearningFooter": "Ask before saving applies right away, the rest from the next chat.",
+  "@memoryLearningFooter": {
+    "description": "Footer of the Learning section of the Memory settings. The first words name the Ask before saving switch (memoryLearningWriteApproval): keep them in step with it."
+  },
+  "memoryLearningHeader": "Learning",
+  "@memoryLearningHeader": {
+    "description": "Header of the section of the Memory settings that sets what Hermes learns about the user and how it reports it. Keep it short."
+  },
   "memoryLearningIntervalEvery": "{turns, plural, =1{After every message} other{After every {turns} messages}}",
   "@memoryLearningIntervalEvery": {
     "description": "Value of the Review chats row of the Memory settings, and one of its choices: Hermes reviews the chat for things to remember after this many messages. 0 is shown as Off.",
     "placeholders": {
       "turns": {"type": "int", "example": "10"}
     }
+  },
+  "memoryLearningReadingSettings": "Reading the memory settings",
+  "@memoryLearningReadingSettings": {
+    "description": "Row of the Learning section of the Memory settings while the settings of the profile are being read."
   },
   "memoryLearningReportDetailed": "With details",
   "@memoryLearningReportDetailed": {
@@ -4265,6 +4285,34 @@
   "memoryLearningReportShort": "Short note",
   "@memoryLearningReportShort": {
     "description": "Choice of the Memory updates in chat row: Hermes reports what it saved in one short line. Keep it short."
+  },
+  "memoryLearningReviewInterval": "Review chats",
+  "@memoryLearningReviewInterval": {
+    "description": "Title of the row of the Memory settings that sets after how many messages Hermes reviews a chat for things to remember. Its value is memoryLearningIntervalEvery. Keep it short."
+  },
+  "memoryLearningUnreadable": "Couldn't read the memory settings",
+  "@memoryLearningUnreadable": {
+    "description": "Row of the Learning section of the Memory settings when reading the settings of the profile failed. Its value is a Retry button."
+  },
+  "memoryLearningUpdatesInChat": "Memory updates in chat",
+  "@memoryLearningUpdatesInChat": {
+    "description": "Title of the row of the Memory settings that sets how Hermes reports in the chat what it saved. Its values are Off, memoryLearningReportShort and memoryLearningReportDetailed. Keep it short."
+  },
+  "memoryLearningUserProfile": "Remember things about me",
+  "@memoryLearningUserProfile": {
+    "description": "Title of the switch of the Memory settings that lets Hermes remember facts about the user. Keep it short."
+  },
+  "memoryLearningUserProfileDetail": "Your preferences, name and habits",
+  "@memoryLearningUserProfileDetail": {
+    "description": "Subtitle of the Remember things about me switch in the Memory settings: what Hermes remembers about the user."
+  },
+  "memoryLearningWriteApproval": "Ask before saving",
+  "@memoryLearningWriteApproval": {
+    "description": "Title of the switch of the Memory settings that makes Hermes ask before it changes memory. Keep it short."
+  },
+  "memoryLearningWriteApprovalDetail": "Hermes asks you before it changes memory",
+  "@memoryLearningWriteApprovalDetail": {
+    "description": "Subtitle of the Ask before saving switch in the Memory settings."
   },
   "memoryLeaveDiscard": "Discard and leave",
   "@memoryLeaveDiscard": {
@@ -4368,6 +4416,17 @@
     "description": "Helper under a messaging setup field that already has a value. The value is the server's redacted form or the word for hidden.",
     "placeholders": {
       "value": {"type": "String", "example": "sk-…1234"}
+    }
+  },
+  "messagingSetupNothingToSetUp": "Nothing to set up for this messaging platform.",
+  "@messagingSetupNothingToSetUp": {
+    "description": "Shown in a messaging platform's setup form when the server lists no settings for it."
+  },
+  "messagingSetupTitle": "Set up {platform}",
+  "@messagingSetupTitle": {
+    "description": "Title of a messaging platform's setup form, and the back label of the screen that opens from it. The platform is its product name, such as WhatsApp.",
+    "placeholders": {
+      "platform": {"type": "String", "example": "WhatsApp"}
     }
   },
   "messagingSetupValueHidden": "hidden",
@@ -4622,6 +4681,10 @@
   "messagingWhatsappOpenServer": "Open Server",
   "@messagingWhatsappOpenServer": {
       "description": "Banner button that opens the Server screen."
+  },
+  "messagingWhatsappOrEnterYourself": "Or enter the details yourself.",
+  "@messagingWhatsappOrEnterYourself": {
+      "description": "Line under the Link WhatsApp button in the WhatsApp setup form, before the fields the user can fill in by hand. Product name WhatsApp is not in it."
   },
   "messagingWhatsappPausedDetail": "Checking again now. The code may have changed.",
   "@messagingWhatsappPausedDetail": {
@@ -8962,6 +9025,10 @@
       }
     }
   },
+  "skillsHubInstalled": "Installed",
+  "@skillsHubInstalled": {
+    "description": "Value on the right of a row in the Discover tab of Skills when the hub skill is already installed. Keep it short."
+  },
   "skillsJobFailedFallback": "It failed.",
   "@skillsJobFailedFallback": {
     "description": "Outcome line of a finished skill job that failed and has no error text."
@@ -9065,6 +9132,16 @@
   "skillsScreenUnsupported": "The connected Hermes does not support skills.",
   "@skillsScreenUnsupported": {
     "description": "Message on the Skills page when the server has no skills routes."
+  },
+  "skillsScreenUsed": "{count, plural, =1{used once} other{used {count} times}}",
+  "@skillsScreenUsed": {
+    "description": "Part of the subtitle of an installed skill: how often the agent used it, shown after the source (for example Bundled · used 14 times). Not shown for a skill that was never used.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "14"
+      }
+    }
   },
   "skillsTrustCommunity": "Community",
   "@skillsTrustCommunity": {

@@ -211,6 +211,11 @@ class HermesGatewayTransport
   /// before it is reported as possibly done.
   final Duration longTimeout;
 
+  /// How long the billing step-up may go unanswered: a device flow, answered
+  /// when the user has finished in the browser, so it outlasts [longTimeout]
+  /// by minutes (a device code lives about as long).
+  static const billingStepUpTimeout = Duration(minutes: 15);
+
   /// How long a connection may take to answer [checkConnection].
   final Duration probeTimeout;
 

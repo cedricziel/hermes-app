@@ -457,6 +457,7 @@ class WhatsAppPairingController extends ChangeNotifier with SafeNotifier {
       !_closed &&
       !_covered &&
       (_applyStatus == WhatsAppApplyStatus.lostAnswer ||
+          _applyStatus == WhatsAppApplyStatus.checkEnabled ||
           _applyStatus == WhatsAppApplyStatus.checkFailed);
 
   /// Start again is offered: a setup that ended, got lost or may be gone.

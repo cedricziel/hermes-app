@@ -173,6 +173,18 @@ void main() {
       );
     });
 
+    testWidgets('an installed skill is marked in German', (tester) async {
+      locale = const Locale('de');
+      await openDiscover(tester);
+
+      final card = find.byKey(const ValueKey('hub-github/compose'));
+      expect(
+        find.descendant(of: card, matching: find.text('Installiert')),
+        findsOneWidget,
+      );
+      expect(find.text('Installed'), findsNothing);
+    });
+
     testWidgets('searching shows results and a timed-out note', (tester) async {
       await openDiscover(tester);
 
@@ -547,7 +559,8 @@ void main() {
     ) async {
       await openDiscover(tester);
 
-      expect(find.text('Installiert'), findsOneWidget);
+      // The tab, and the installed compose skill's row.
+      expect(find.text('Installiert'), findsNWidgets(2));
       expect(find.text('Skills-Hub durchsuchen'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('settings-search-filter')));
