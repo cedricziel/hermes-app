@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -62,9 +63,10 @@ void main() {
       SharedPreferencesAsyncPlatform.instance = UnreadablePrefs();
 
       final controller = ThemeController();
-      await controller.load();
+      final reported = await reportedErrors(controller.load);
 
       expect(controller.mode, ThemeMode.system);
+      expect(reported.single.exception, isA<PlatformException>());
     },
   );
 
