@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_channel/stream_channel.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -45,6 +46,51 @@ class _FixedRandom implements Random {
 
   @override
   int nextInt(int max) => (value * max).floor();
+}
+
+/// A sink that throws a [TypeError] for the frame of [method], as a bug in the
+/// code that writes a request would.
+class _BuggySink implements StreamSink<String> {
+  _BuggySink(this.inner, this.method);
+
+  final StreamSink<String> inner;
+  final String method;
+
+  @override
+  void add(String data) {
+    if (data.contains('"$method"')) throw TypeError();
+    inner.add(data);
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) =>
+      inner.addError(error, stackTrace);
+
+  @override
+  Future<void> addStream(Stream<String> stream) => inner.addStream(stream);
+
+  @override
+  Future<void> close() => inner.close();
+
+  @override
+  Future<void> get done => inner.done;
+}
+
+/// A `connect` whose first socket is the fake gateway's, and whose later ones
+/// throw a [TypeError] when [method] is written to them.
+Future<StreamChannel<String>> Function() _buggyAfterFirst(
+  FakeGateway gateway,
+  String method,
+) {
+  var opened = 0;
+  return () async {
+    final channel = await gateway.connect();
+    if (opened++ == 0) return channel;
+    return StreamChannel<String>(
+      channel.stream,
+      _BuggySink(channel.sink, method),
+    );
+  };
 }
 
 /// The text of each delta a stream delivered, in order.
@@ -1233,6 +1279,65 @@ void main() {
         expect(
           reported.map((d) => d.context.toString()),
           everyElement('a reconnect attempt connect'),
+        );
+      });
+    });
+
+    test('A bug thrown while a reconnect resumes the session is reported, and the reply ends as '
+        'it does for any failed attempt', () {
+      fake((async) {
+        final reported = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          connect: _buggyAfterFirst(gateway, 'session.resume'),
+        );
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(reported, isNotEmpty);
+        expect(
+          reported.map((d) => d.exception),
+          everyElement(isA<TypeError>()),
+        );
+        expect(
+          reported.map((d) => d.context.toString()),
+          everyElement('a reconnect attempt resume'),
+        );
+      });
+    });
+
+    test('A bug thrown while a reconnect replays what was missed is reported, and the reply ends as '
+        'it does for any failed attempt', () {
+      fake((async) {
+        final reported = <FlutterErrorDetails>[];
+        final previous = FlutterError.onError;
+        FlutterError.onError = reported.add;
+        addTearDown(() => FlutterError.onError = previous);
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          connect: _buggyAfterFirst(gateway, 'session.events.since'),
+        );
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(reported, isNotEmpty);
+        expect(
+          reported.map((d) => d.exception),
+          everyElement(isA<TypeError>()),
+        );
+        expect(
+          reported.map((d) => d.context.toString()),
+          everyElement('a reconnect attempt replay'),
         );
       });
     });
