@@ -1,10 +1,9 @@
-# Spec Delta
+# chat-branch-header Specification
 
 ## Purpose
-
 Shows where a branched chat came from, lets the user open the original, and marks branches in the chat list.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Branch marker
 
@@ -80,6 +79,29 @@ The app SHALL offer branching on finished replies only, not on a user prompt.
 
 - **WHEN** the user opens the actions of a user message
 - **THEN** there is no Branch entry
+
+### Requirement: One idempotency key per branch
+
+Every branch request (`session.branch_whole`, or `session.branch` on an older gateway) SHALL carry an `idempotency_key`: a new random value for each branch the user asks for. A request SHALL be sent once; the app SHALL NOT resend it itself. When a branch's answer is lost (a timeout or a closed socket), the next tap on the same chat, branch point and last message SHALL send the same key, so that Hermes returns the branch it already made. Any answer, a refusal, an incomplete copy, another branch point or a changed chat SHALL give the next tap a new key. A gateway that refuses the field as a parameter SHALL get the same method once more without it.
+
+#### Scenario: Two taps
+
+- **WHEN** the user branches a chat twice and the first branch was answered
+- **THEN** the two requests carry different keys
+
+#### Scenario: Lost answer, then the same tap
+
+- **WHEN** a branch gets no answer and the user taps the same Branch again with the chat unchanged
+- **THEN** the second request carries the first one's key
+
+### Requirement: Branch hidden where the server cannot branch
+
+The reply action "Branch in new chat" and the Mac thread menu's "Branch in New Chat" SHALL NOT be offered once the gateway has answered that it knows neither branch method on the open connection. While that is not known, and once a branch worked, they SHALL be offered as before.
+
+#### Scenario: Server without a branch method
+
+- **WHEN** a branch found the gateway without `session.branch_whole` and `session.branch`
+- **THEN** no reply offers Branch and the thread menu has no Branch entry, until a new connection
 
 ### Requirement: Privacy
 

@@ -140,24 +140,52 @@ extension _Branching on HermesGatewayTransport {
     }
   }
 
+  /// [method] with [key]; a gateway that predates `idempotency_key` rejects
+  /// the field and branches without it, as `session.undo` does with `intent`.
+  Future<Map<String, Object?>> _callBranch(
+    GatewayRpcClient client,
+    String method,
+    String runtimeId,
+    String? key,
+  ) async {
+    try {
+      return await _call(client, method, {
+        'session_id': runtimeId,
+        'idempotency_key': ?key,
+      });
+    } on GatewayRpcException catch (error) {
+      if (key == null ||
+          error.code != kGatewayInvalidParams ||
+          !error.message.contains('idempotency_key')) {
+        rethrow;
+      }
+      return _call(client, method, {'session_id': runtimeId});
+    }
+  }
+
   Future<BranchedThread?> _branchThread(
     String threadId, {
     String? profile,
     int dropTurns = 0,
+    String? idempotencyKey,
   }) async {
     final client = await _client();
     final runtimeId = await _commandRuntime(client, threadId, profile);
     Map<String, Object?>? result;
     // `session.branch_whole` does not send the copied transcript back; a
-    // gateway older than it has `session.branch` only.
+    // gateway older than it has `session.branch` only. Each method is sent
+    // once, with the one key. Only an answer that says "no such method", or
+    // that refuses the key as a parameter (nothing was made), leads to a
+    // second request; a lost answer never does.
     for (final method in const ['session.branch_whole', 'session.branch']) {
       try {
-        result = await _call(client, method, {'session_id': runtimeId});
+        result = await _callBranch(client, method, runtimeId, idempotencyKey);
         break;
       } on GatewayRpcException catch (error) {
         if (error.code != kGatewayMethodNotFound) rethrow;
       }
     }
+    _branchSupported = result != null;
     if (result == null) return null;
     final storedId = result['stored_session_id'];
     final branchRuntime = result['session_id'];

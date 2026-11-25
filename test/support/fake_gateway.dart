@@ -199,6 +199,13 @@ class FakeGateway {
   /// it answers.
   bool undoRejectsIntent = false;
 
+  /// An error every branch method answers with: its JSON-RPC code and message.
+  (int, String)? branchFailure;
+
+  /// Whether the branch methods reject an `idempotency_key`, as a gateway that
+  /// predates it answers.
+  bool branchRejectsIdempotencyKey = false;
+
   /// Whether `session.undo` fails in the branch `session.branch` made.
   bool branchUndoFails = false;
 
@@ -415,6 +422,24 @@ class FakeGateway {
         _send({
           'id': id,
           'error': {'code': -32601, 'message': 'unknown method'},
+        });
+      case 'session.branch_whole' || 'session.branch'
+          when branchFailure != null:
+        _send({
+          'id': id,
+          'error': {'code': branchFailure!.$1, 'message': branchFailure!.$2},
+        });
+      case 'session.branch_whole' || 'session.branch'
+          when branchRejectsIdempotencyKey &&
+              params.containsKey('idempotency_key'):
+        _send({
+          'id': id,
+          'error': {
+            'code': 4000,
+            'message':
+                'invalid params for ${request['method']}: idempotency_key: '
+                'Extra inputs are not permitted',
+          },
         });
       case 'session.branch_whole' || 'session.branch':
         _send({

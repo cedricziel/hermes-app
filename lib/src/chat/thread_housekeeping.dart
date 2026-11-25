@@ -26,6 +26,7 @@ class ThreadHousekeeping {
     this.canWork,
     this.prepareDelete,
     this.branch,
+    this.branchSupported,
   });
 
   final HermesChatRepository repository;
@@ -45,6 +46,12 @@ class ThreadHousekeeping {
   /// Copies a thread into a new chat and opens it; null where chats cannot
   /// be branched.
   final Future<void> Function(ChatThread thread)? branch;
+
+  /// Whether the server may branch; false once it has said it cannot.
+  final bool Function()? branchSupported;
+
+  /// Whether the thread menu offers "Branch in New Chat".
+  bool get canBranch => branch != null && (branchSupported?.call() ?? true);
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;

@@ -149,6 +149,26 @@ void main() {
     },
   );
 
+  chatTest('no reply offers a branch once the server cannot branch', (
+    tester,
+  ) async {
+    expect(branch, findsNothing);
+  }, arrange: () => transport.branchSupported = false);
+
+  chatTest('replies keep offering a branch when the server is a known '
+      'brancher', (tester) async {
+    expect(branch, findsNWidgets(2));
+  }, arrange: () => transport.branchSupported = true);
+
+  chatTest('a server that cannot branch loses the action after the first '
+      'try', (tester) async {
+    expect(branch, findsNWidgets(2));
+    await tester.tap(branch.first);
+    await settle(tester);
+
+    expect(branch, findsNothing);
+  }, arrange: () => transport.branchResult = null);
+
   chatTest('the latest reply branches the whole chat', (tester) async {
     await tester.tap(branch.last);
     await settle(tester);

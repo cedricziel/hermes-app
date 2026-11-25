@@ -573,9 +573,18 @@ final class SessionChatTransport
     String threadId, {
     String? profile,
     int dropTurns = 0,
+    String? idempotencyKey,
   }) => _call(
-    (d) => d.branchThread(threadId, profile: profile, dropTurns: dropTurns),
+    (d) => d.branchThread(
+      threadId,
+      profile: profile,
+      dropTurns: dropTurns,
+      idempotencyKey: idempotencyKey,
+    ),
   );
+
+  @override
+  bool? get branchSupported => _delegate?.branchSupported;
 
   @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) =>

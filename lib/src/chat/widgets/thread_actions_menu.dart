@@ -218,7 +218,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             canonical: _thread.isCanonicalBotChat,
             manageable: housekeeping != null,
             canOpenInNewWindow: widget.onOpenInNewWindow != null,
-            canBranch: housekeeping?.branch != null && _thread.remote,
+            canBranch: (housekeeping?.canBranch ?? false) && _thread.remote,
             changeFolder: widget.changeFolder,
             exportJson: widget.exportJson,
           )

@@ -1,5 +1,27 @@
 part of 'chat_controller.dart';
 
+/// One branch the user asked for, named to the server by [key]: of the chat
+/// [threadId] of [profile], cut back by [dropTurns] prompts, while the chat
+/// ended with the message [lastMessageId]. A chat that has moved on is a
+/// different branch.
+final class _BranchAttempt {
+  _BranchAttempt(this.key, this.profile, ChatThread thread, this.dropTurns)
+    : threadId = thread.id,
+      lastMessageId = thread.messages.lastOrNull?.id;
+
+  final String key;
+  final String? profile;
+  final String threadId;
+  final int dropTurns;
+  final String? lastMessageId;
+
+  bool isFor(String? profile, ChatThread thread, int dropTurns) =>
+      profile == this.profile &&
+      thread.id == threadId &&
+      dropTurns == this.dropTurns &&
+      thread.messages.lastOrNull?.id == lastMessageId;
+}
+
 /// Slash commands and retry/edit actions for the last prompt.
 extension _ChatControllerCommands on ChatController {
   Future<List<SlashCommand>> _slashCommandsImpl() async {
@@ -371,6 +393,7 @@ extension _ChatControllerCommands on ChatController {
   bool _canBranchImpl(ChatThread thread) =>
       active &&
       transport != null &&
+      transport!.branchSupported != false &&
       _bound.contains(thread) &&
       _sessionStates[thread]?.reclaimedReason == null &&
       !_undoing.containsKey(thread) &&
@@ -422,6 +445,12 @@ extension _ChatControllerCommands on ChatController {
     final generation = _sessionActionGeneration(thread);
     final profile = _profile;
     final from = fromMessageId == null || dropTurns == 0 ? 'end' : 'message';
+    // A tap on a branch whose answer was lost asks for that branch again.
+    final attemptKey = (profile, thread.id);
+    final attempt = switch (_unconfirmedBranches.remove(attemptKey)) {
+      final lost? when lost.isFor(profile, thread, dropTurns) => lost,
+      _ => _BranchAttempt(const Uuid().v4(), profile, thread, dropTurns),
+    };
     _undoing[thread] = TurnAction.branch;
     _turnProblems.remove(thread);
     notifyListeners();
@@ -432,6 +461,7 @@ extension _ChatControllerCommands on ChatController {
         thread.id,
         profile: profile,
         dropTurns: dropTurns,
+        idempotencyKey: attempt.key,
       );
     } on BranchIncomplete catch (error) {
       failure = error.cause;
@@ -444,6 +474,11 @@ extension _ChatControllerCommands on ChatController {
     } on Object catch (error, stack) {
       reportChatBug(error, stack, 'a chat branch');
       failure = error;
+      if (_currentActivity(epoch) &&
+          _turnProblemOf(TurnAction.branch, error).kind ==
+              TurnProblemKind.unreachable) {
+        _unconfirmedBranches[attemptKey] = attempt;
+      }
     } finally {
       if (_currentActivity(epoch) &&
           _sessionActionCurrent(thread, generation)) {
@@ -655,7 +690,8 @@ extension _ChatControllerBranchParent on ChatController {
       tip = await repository
           .latestDescendant(parent, profile: profile)
           .timeout(_answerWithin);
-    } on Object {
+    } on Object catch (error, stack) {
+      reportChatBug(error, stack, 'opening the original chat');
       failed = true;
     }
     if (disposed) return;

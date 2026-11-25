@@ -1,6 +1,6 @@
 # Design brief: Branched from, in a chat and in the list
 
-Change: `openspec/changes/chat-branch-header/`. Read its design.md for the server facts (which row keys carry the parent, why `parent_session_id` alone is not a branch, what a deleted parent leaves behind, the `latest-descendant` probe); this brief is the visual and copy pass. Issue: #458. The "Branch in new chat" action already shipped in #880 (`docs/architecture/chat.md`, "Branching").
+Change: `openspec/changes/archive/2026-11-25-chat-branch-header/` (archived; its requirements are `openspec/specs/chat-branch-header/spec.md`). Read its design.md for the server facts (which row keys carry the parent, why `parent_session_id` alone is not a branch, what a deleted parent leaves behind, the `latest-descendant` probe); this brief is the visual and copy pass. Issue: #458. The "Branch in new chat" action already shipped in #880 (`docs/architecture/chat.md`, "Branching").
 
 ## Design (done)
 

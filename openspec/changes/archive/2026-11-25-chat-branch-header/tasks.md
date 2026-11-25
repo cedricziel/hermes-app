@@ -32,4 +32,10 @@ Plain-model widgets only: no controller, no repository, no screen.
 
 - [x] 4.1 `ThreadSidebar` rows, the Mac source list and both search views pass the glyph flag from `ChatThread.branchParentId`.
 - [x] 4.2 Docs: `docs/architecture/chat.md` Branching bullet, `openspec/specs/chat/spec.md` (scenarios under "Thread list loading" and "Thread search").
-- [ ] 4.3 Archive this change, in the last of the four PRs to merge.
+- [x] 4.3 Archive this change, in the last of the four PRs to merge. (Done in PR 5.)
+
+## 5. PR 5 - `feat(chat): send an idempotency key with every branch and hide Branch when the server lacks it`
+
+- [x] 5.1 Failing tests first: one key per tap; the key kept after a lost answer for the same tap and not after any answer; the same key on the `session.branch` fallback; a gateway that refuses the field gets the request without it; a branch is sent once.
+- [x] 5.2 `ChatTransport.branchSupported` (false once neither method exists, true once one worked, null unknown, forgotten with the connection); no reply Branch action and no Mac menu entry when false.
+- [x] 5.3 Archive this change.
