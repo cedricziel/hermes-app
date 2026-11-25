@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter_soloud/flutter_soloud.dart' as soloud;
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../../macos/mac_app.dart';
 import 'portable_call_audio.dart';
@@ -20,18 +19,10 @@ import 'portable_call_audio.dart';
 Future<void> runSoloudQuitProbeIfAsked() async {
   if (!kDebugMode || !Platform.isMacOS) return;
   if (Platform.environment['HERMES_SOLOUD_QUIT_PROBE'] != '1') return;
-  final player = SoLoudCallPlayer();
-  try {
-    await player.init();
-    stdout.writeln('HERMES_PROBE soloud initialised');
-    await player.play(Uint8List(3200), 16000);
-    stdout.writeln('HERMES_PROBE soloud played');
-    await Future<void>.delayed(const Duration(seconds: 1));
-  } on soloud.SoLoudNoPlaybackDevicesFoundCppException {
-    stdout.writeln('HERMES_PROBE soloud no audio device');
-  } on Object catch (error) {
-    stdout.writeln('HERMES_PROBE soloud failed: ${error.runtimeType}');
-  }
+  final outcome = await playSoloudQuitProbe(
+    onInitialised: () => stdout.writeln('HERMES_PROBE soloud initialised'),
+  );
+  stdout.writeln('HERMES_PROBE soloud $outcome');
   stdout.writeln('HERMES_PROBE terminating');
   await stdout.flush();
   await MacApp.terminate();

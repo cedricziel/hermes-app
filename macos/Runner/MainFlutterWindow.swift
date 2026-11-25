@@ -175,14 +175,19 @@ class MainFlutterWindow: NSWindow {
 /// The Runner calls it after its own `RegisterGeneratedPlugins`, so a regenerated
 /// GeneratedPluginRegistrant.swift (flutter pub get, a macOS build) cannot drop it.
 /// Call it after every `RegisterGeneratedPlugins` (one engine each). It fails closed: an
-/// instance it cannot find is logged once and launch goes on.
+/// instance it cannot find (missing, NSNull, or without the handler) is logged once and
+/// launch goes on.
 enum SoloudTerminationGuard {
   static let pluginKey = "FlutterSoloudPlugin"
   static let librarySymbol = "soloud_vst3HostUnloadAll"
+  static let terminateSelector = NSSelectorFromString("applicationWillTerminate:")
   private static var logged = false
 
   static func disarm(in registry: FlutterPluginRegistry) {
-    guard let instance = registry.valuePublished(byPlugin: pluginKey) else {
+    // `valuePublished(byPlugin:)` answers NSNull for a plugin that published nothing.
+    guard let instance = registry.valuePublished(byPlugin: pluginKey),
+      !(instance is NSNull), instance.responds(to: terminateSelector)
+    else {
       if !logged {
         logged = true
         NSLog("flutter_soloud quit handler not disarmed: plugin instance not found")
@@ -195,7 +200,7 @@ enum SoloudTerminationGuard {
       forName: NSApplication.willTerminateNotification, object: nil, queue: nil
     ) { [weak instance] notification in
       guard libraryLoaded() else { return }
-      _ = instance?.perform(NSSelectorFromString("applicationWillTerminate:"), with: notification)
+      _ = instance?.perform(terminateSelector, with: notification)
     }
   }
 

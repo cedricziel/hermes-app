@@ -60,10 +60,19 @@ void main() {
   test('the guard calls the plugin handler only once the library resolved', () {
     expect(
       window,
-      contains(
-        'removeObserver(\n'
-        '      instance, name: NSApplication.willTerminateNotification, object: nil)',
+      matches(
+        RegExp(
+          r'removeObserver\(\s*instance,\s*name:\s*NSApplication\.willTerminateNotification,\s*object:\s*nil\s*\)',
+        ),
       ),
+      reason: "the plugin's own observer must be removed",
+    );
+    expect(
+      window,
+      contains(
+        '!(instance is NSNull), instance.responds(to: terminateSelector)',
+      ),
+      reason: 'NSNull (a plugin that published nothing) is not the plugin',
     );
     expect(
       window,
@@ -73,7 +82,14 @@ void main() {
   });
 
   test('nothing registers the plugin by hand outside the registrant', () {
-    expect(window, isNot(contains('FlutterSoloudPlugin.register')));
+    for (final file in Directory('macos/Runner').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.swift')) continue;
+      expect(
+        read(file.path),
+        isNot(contains('FlutterSoloudPlugin.register')),
+        reason: '${file.path} registers the plugin by hand',
+      );
+    }
   });
 
   test(

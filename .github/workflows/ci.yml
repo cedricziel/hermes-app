@@ -411,10 +411,11 @@ jobs:
           bundle="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Contents/Info.plist")"
           marker="$(mktemp)"
           trap 'rm -f quit.log "$marker"' EXIT
-          reports() { # crash reports of the app newer than the launch
+          reports() { # crash reports of the app (named <product name>-<date>.ips; the runner's own
+          # Runner.Listener and Runner.Worker reports are not ours) newer than the launch
             find "$HOME/Library/Logs/DiagnosticReports" /Library/Logs/DiagnosticReports \
               "$HOME/Library/Containers/$bundle/Data/Library/Logs" \
-              \( -name 'Hermes*.ips' -o -name 'Runner*.ips' \) -newer "$marker" 2>/dev/null || true
+              -name "$name-*.ips" -newer "$marker" 2>/dev/null || true
           }
           # Diagnosis only: ReportCrash writes the report a few seconds after the crash.
           crash_report() {
@@ -424,7 +425,7 @@ jobs:
               [ -n "$report" ] && break
               sleep 1
             done
-            if [ -z "$report" ]; then echo "No Hermes or Runner crash report within 15 s."; return 0; fi
+            if [ -z "$report" ]; then echo "No $name crash report within 15 s."; return 0; fi
             echo "::group::Crash report $report"
             python3 -I - "$report" <<'PY' || true
           import json, sys
