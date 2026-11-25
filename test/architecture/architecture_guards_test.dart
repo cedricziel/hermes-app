@@ -9,6 +9,8 @@
 /// The `architecture-guards` skill says how to add a rule and prove it fails.
 library;
 
+import 'dart:io';
+
 import 'package:analyzer/dart/analysis/features.dart';
 import 'package:analyzer/dart/analysis/utilities.dart';
 import 'package:analyzer/dart/ast/ast.dart';
@@ -1065,12 +1067,48 @@ final _widgetLayerImport = RegExp(
   multiLine: true,
 );
 
-bool _importsWidgetLayer(SourceFile f) =>
-    f.path.startsWith('lib/src/') && _widgetLayerImport.hasMatch(f.raw);
+final _partOf = RegExp(
+  r"""^part\s+of\s+['"]([^'"]+)['"]\s*;""",
+  multiLine: true,
+);
 
-/// Files whose `?? 'literal'` is not visible text, with the reason. Empty:
-/// the known hits are in `baseline/arch.yaml`.
-const _englishNullFallbackNotVisibleText = <String, String>{};
+/// A `part of` file has no imports of its own: it belongs to the widget layer
+/// when the library file it names imports it.
+bool _importsWidgetLayer(SourceFile f) {
+  if (!f.path.startsWith('lib/src/')) return false;
+  if (_widgetLayerImport.hasMatch(f.raw)) return true;
+  final parent = _partOf.firstMatch(f.raw)?.group(1);
+  if (parent == null) return false;
+  final file = File(Uri.file(f.path).resolve(parent).toFilePath());
+  return file.existsSync() &&
+      _widgetLayerImport.hasMatch(file.readAsStringSync());
+}
+
+/// Files whose `?? 'literal'` is not visible text, with how many such hits
+/// each keeps and why (exact: the count shrinks with the code). Other hits of
+/// the same file are real labels and stay in `baseline/arch.yaml`.
+const _englishNullFallbackNotVisibleText = <String, ExactAllow>{
+  'lib/src/tools/widgets/readiness_row.dart': ExactAllow(
+    2,
+    "the platform name 'macOS', a proper noun the same in every language",
+  ),
+  'lib/src/chat/widgets/chat_header.dart': ExactAllow(
+    1,
+    "the product name 'Hermes'",
+  ),
+  'lib/src/chat/chat_screen_layout.dart': ExactAllow(
+    1,
+    "the product name 'Hermes'",
+  ),
+  'lib/src/chat/chat_screen_navigation.dart': ExactAllow(
+    1,
+    "the profile id 'default', sent to the server, not shown",
+  ),
+  'lib/src/widgets/hermes_code_block.dart': ExactAllow(
+    1,
+    "the font family 'JetBrainsMono'; the file's other two hits are labels",
+  ),
+};
 
 List<Hit> _englishDefaultHits() => [
   for (final f in _allEnglishDefaults())
@@ -1426,11 +1464,11 @@ final guardRules = <Rule>[
         'the fallback with context.l10n.<key> (a key in '
         'lib/l10n/arb/app_en.arb and app_de.arb). A fallback that is not '
         'visible text (an id, a header, a file name) goes on '
-        '_englishNullFallbackNotVisibleText (path) with its reason, or is '
+        '_englishNullFallbackNotVisibleText (path, exact count) with its reason, or is '
         'written as a named constant.',
     pattern: _englishNullFallback,
     where: _importsWidgetLayer,
-    allow: _englishNullFallbackNotVisibleText,
+    exact: _englishNullFallbackNotVisibleText,
   ),
 
   // docs/architecture/settings-screens.md, "Keyboard focus ring": chips take

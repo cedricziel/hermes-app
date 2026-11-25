@@ -134,9 +134,6 @@ const _noPlural = <String, _Reason>{
   'chatActivityLinePlanCounter': _Reason('a ratio, no word'),
   'chatActivityLinePlanCounterLabel': _Reason('a ratio read as "plan 2 of 5"'),
   'chatActivityLineReferencesCounter': _Reason('a ratio, no word'),
-  'chatActivityLineReferencesCounterLabel': _Reason(
-    'a ratio of answered to asked models; the noun follows the ratio',
-  ),
   'chatActivityNeedsYouConnectManyTitle': _Reason(
     'only built for two or more services; one has its own key '
     '(chatActivityNeedsYouConnectTitle)',
@@ -154,7 +151,7 @@ const _noPlural = <String, _Reason>{
   'chatSubagentsNoteCounter': _Reason('a limit "3 / 10", no word'),
   'chatWidgetsProgramStateExited': _Reason('an exit code'),
   'filesListCapFooter': _Reason(
-    'the footer shows a cap that is far above one; "first n of m"',
+    'shown only when the list is cut at a cap far above one; "first n of m"',
   ),
   'kanbanInspectProcess': _Reason('a process id'),
   'kanbanInspectThreads': _Reason('a label, a colon and a number'),

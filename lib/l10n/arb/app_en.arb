@@ -452,7 +452,7 @@
       }
     }
   },
-  "chatActivityLineReferencesCounterLabel": "{done} of {total} models answered",
+  "chatActivityLineReferencesCounterLabel": "{done} of {total, plural, =1{1 model} other{{total} models}} answered",
   "@chatActivityLineReferencesCounterLabel": {
     "description": "Spoken form of the models counter on the activity line.",
     "placeholders": {
@@ -5925,7 +5925,7 @@
   "@serverCareHeadlineChannelsOffline": {
     "description": "Headline when some messaging channels are not connected and the count is unknown."
   },
-  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured, plural, =1{1 messaging channel is} other{{configured} messaging channels are}} offline",
+  "serverCareHeadlineChannelsOfflineCount": "{offline} of {configured, plural, =1{1 messaging channel} other{{configured} messaging channels}} {offline, plural, =1{is} other{are}} offline",
   "@serverCareHeadlineChannelsOfflineCount": {
     "description": "Headline when a known number of the configured messaging channels is not connected.",
     "placeholders": {

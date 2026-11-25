@@ -75,7 +75,6 @@ arch.english-null-fallback:
   lib/src/bot_screen/widgets/bot_screen_viewer_header.dart: 1
   lib/src/chat/memory/memory_activity_card.dart: 1
   lib/src/chat/widgets/approval_card.dart: 1
-  lib/src/chat/widgets/chat_header.dart: 1
   lib/src/chat/widgets/reasoning_block.dart: 1
   lib/src/chat/widgets/session_status_card.dart: 3
   lib/src/chat/widgets/thread_sidebar.dart: 1
@@ -97,6 +96,5 @@ arch.english-null-fallback:
   lib/src/screens/widgets/connection_summary.dart: 1
   lib/src/shell/app_shell.dart: 1
   lib/src/skills/skill_job_sheet.dart: 1
-  lib/src/tools/widgets/readiness_row.dart: 2
   lib/src/voice/voice_call_screen.dart: 1
   lib/src/widgets/hermes_code_block.dart: 3

@@ -28,7 +28,11 @@ void main() {
     );
     expect(
       de.serverCareHeadlineChannelsOfflineCount(1, 2),
-      '1 von 2 Messaging-Kanälen sind offline',
+      '1 von 2 Messaging-Kanälen ist offline',
+    );
+    expect(
+      de.serverCareHeadlineChannelsOfflineCount(2, 2),
+      '2 von 2 Messaging-Kanälen sind offline',
     );
     expect(
       en.serverCareHeadlineChannelsOfflineCount(1, 1),
@@ -36,7 +40,34 @@ void main() {
     );
     expect(
       en.serverCareHeadlineChannelsOfflineCount(1, 2),
-      '1 of 2 messaging channels are offline',
+      '1 of 2 messaging channels is offline',
+    );
+    expect(
+      en.serverCareHeadlineChannelsOfflineCount(2, 2),
+      '2 of 2 messaging channels are offline',
+    );
+  });
+
+  test('the models counter label agrees with done and total', () {
+    expect(
+      de.chatActivityLineReferencesCounterLabel(1, 3),
+      '1 von 3 Modellen hat geantwortet',
+    );
+    expect(
+      de.chatActivityLineReferencesCounterLabel(3, 3),
+      '3 von 3 Modellen haben geantwortet',
+    );
+    expect(
+      de.chatActivityLineReferencesCounterLabel(1, 1),
+      '1 von 1 Modell hat geantwortet',
+    );
+    expect(
+      en.chatActivityLineReferencesCounterLabel(1, 1),
+      '1 of 1 model answered',
+    );
+    expect(
+      en.chatActivityLineReferencesCounterLabel(2, 3),
+      '2 of 3 models answered',
     );
   });
 }
