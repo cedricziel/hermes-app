@@ -3,6 +3,7 @@ import 'package:macos_window_utils/widgets/transparent_macos_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/l10n.dart';
+import '../settings/report_unreadable_prefs.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
@@ -52,11 +53,17 @@ class MacSidebarController extends ChangeNotifier {
   bool get collapsed => _collapsed;
 
   Future<void> load() async {
-    final (width, collapsed, folded) = await (
-      _prefs.getDouble(_widthKey),
-      _prefs.getBool(_collapsedKey),
-      _prefs.getStringList(_sectionsKey),
-    ).wait;
+    double? width;
+    bool? collapsed;
+    List<String>? folded;
+    try {
+      width = await _prefs.getDouble(_widthKey);
+      collapsed = await _prefs.getBool(_collapsedKey);
+      folded = await _prefs.getStringList(_sectionsKey);
+    } on Object catch (error, stack) {
+      // An unreadable store keeps the default layout.
+      reportUnreadablePrefs(error, stack, 'the saved sidebar layout');
+    }
     sections._restore(folded);
     if (!_touched) {
       _width = (width ?? _width).clamp(
