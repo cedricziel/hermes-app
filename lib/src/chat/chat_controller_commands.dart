@@ -565,3 +565,122 @@ extension _ChatControllerCommands on ChatController {
     return true;
   }
 }
+
+/// What the row under a branched chat's header knows, in memory only: which
+/// original Hermes said is gone, which chat a tap resolved, and which taps
+/// are waiting for an answer. Nothing here is stored, logged or put in a
+/// breadcrumb; the breadcrumb of a tap carries its outcome alone.
+class _BranchParentData {
+  /// Originals Hermes answered "not found" for, by (profile, original id).
+  final deleted = <(String, String)>{};
+
+  /// The chat a tap opened for an original, by (profile, original id): a
+  /// compressed original opens its tip, and the row names that.
+  final tips = <(String, String), String>{};
+
+  /// Branches (profile, id) whose original is being read
+  /// ([BranchParentStatus.opening]) or whose last read got no usable answer
+  /// ([BranchParentStatus.unreachable]).
+  final reads = <(String, String), BranchParentStatus>{};
+
+  /// Counts the times a read in flight stopped being wanted.
+  var run = 0;
+
+  /// Drops everything, and every read in flight with it.
+  void clear() {
+    run++;
+    deleted.clear();
+    tips.clear();
+    reads.clear();
+  }
+
+  /// Drops the reads in flight, and keeps what Hermes said.
+  void dropReads() {
+    run++;
+    reads.removeWhere((_, status) => status == BranchParentStatus.opening);
+  }
+}
+
+/// Opening the chat a branch was copied from.
+extension _ChatControllerBranchParent on ChatController {
+  /// How long a tap waits for Hermes before it ends in unreachable.
+  static const _answerWithin = Duration(seconds: 10);
+
+  (String, String) _branchKey(ChatThread thread) => (_profile ?? '', thread.id);
+
+  BranchParentStatus? _branchParentStatusImpl(ChatThread thread) {
+    final parent = thread.branchParentId;
+    if (parent == null) return null;
+    final data = _branchParent;
+    final read = data.reads[_branchKey(thread)];
+    if (read == BranchParentStatus.opening) return read;
+    // Deleted is terminal, and one original can have several branches.
+    return data.deleted.contains((_profile ?? '', parent))
+        ? BranchParentStatus.deleted
+        : read ?? BranchParentStatus.resting;
+  }
+
+  /// The original's title when the loaded list holds it, under the id the
+  /// branch names or the tip a tap resolved it to, and the row has one.
+  String? _branchParentTitleImpl(ChatThread thread) {
+    final parent = thread.branchParentId;
+    if (parent == null) return null;
+    final tip = _branchParent.tips[(_profile ?? '', parent)];
+    ChatThread? loaded(String? id) =>
+        _threads.where((t) => t.id == id).firstOrNull;
+    final title = (loaded(tip) ?? loaded(parent))?.title;
+    return title == null || title.trim().isEmpty ? null : title;
+  }
+
+  /// Reads where the original ends and opens it. The answer counts only if,
+  /// when it lands, the app is as the tap saw it and the branch is still the
+  /// chat in front; otherwise nothing opens.
+  Future<void> _openBranchParentImpl(ChatThread thread) async {
+    final parent = thread.branchParentId;
+    final repository = this.repository;
+    if (parent == null || repository == null || !canOpenBranchParent(thread)) {
+      return;
+    }
+    final data = _branchParent;
+    final key = _branchKey(thread);
+    final profile = _profile;
+    final epoch = _activityEpoch;
+    final run = data.run;
+    data.reads[key] = BranchParentStatus.opening;
+    notifyListeners();
+
+    String? tip;
+    var failed = false;
+    try {
+      tip = await repository
+          .latestDescendant(parent, profile: profile)
+          .timeout(_answerWithin);
+    } on Object {
+      failed = true;
+    }
+    if (disposed) return;
+
+    final wanted =
+        data.run == run && _currentActivity(epoch) && selectedId == thread.id;
+    if (data.run == run) data.reads.remove(key);
+    final String outcome;
+    if (!wanted) {
+      outcome = 'dropped';
+    } else if (failed) {
+      data.reads[key] = BranchParentStatus.unreachable;
+      outcome = 'unreachable';
+    } else if (tip == null) {
+      data.deleted.add((profile ?? '', parent));
+      outcome = 'deleted';
+    } else {
+      data.tips[(profile ?? '', parent)] = tip;
+      open(
+        NotificationTarget(threadId: tip, profile: profile),
+        fetchMissing: true,
+      );
+      outcome = 'opened';
+    }
+    breadcrumbs('chat.branch_parent.open', {'outcome': outcome});
+    notifyListeners();
+  }
+}

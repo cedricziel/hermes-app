@@ -1,13 +1,21 @@
+import 'package:flutter_chat_core/flutter_chat_core.dart'
+    show InMemoryChatController;
+import 'package:hermes_app/src/chat/chat_message_mapper.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/chat_branch_notice.dart';
+import 'package:hermes_app/src/chat/widgets/chat_thread_view.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 import 'package:widgetbook/widgetbook.dart';
+
+import '../test/support/fake_attachment_source.dart';
 
 import 'frame.dart';
 import 'mac_sidebar_use_cases.dart' show mac;
@@ -84,6 +92,80 @@ Widget _macRow({required bool branch, bool selected = false}) => mac(
   ),
 );
 
+/// The chat with the notice in its slot, between the header and the
+/// transcript, as the main chat screen builds it.
+class _BranchedChat extends StatefulWidget {
+  const _BranchedChat(this.state);
+
+  final ChatBranchNoticeState state;
+
+  @override
+  State<_BranchedChat> createState() => _BranchedChatState();
+}
+
+class _BranchedChatState extends State<_BranchedChat> {
+  late final _messages = [
+    ChatMessage(
+      id: 'u1',
+      role: ChatRole.user,
+      content: 'Same plan, but with the backup job first.',
+      createdAt: DateTime(2026, 11, 20),
+    ),
+    ChatMessage(
+      id: 'a1',
+      role: ChatRole.assistant,
+      content: 'Done. The backup job now runs before the sync.',
+      createdAt: DateTime(2026, 11, 20),
+    ),
+  ];
+  late final _chatThread = ChatThread(
+    id: 'branch-1',
+    title: 'Try the other approach',
+    updatedAt: DateTime(2026, 11, 20),
+    remote: true,
+    messages: _messages,
+  );
+  late final _controller = InMemoryChatController(
+    messages: [for (final m in _messages) ...chatMessageToFlyer(m)],
+  );
+  final _text = TextEditingController();
+  final _focus = FocusNode();
+  final _latest = ValueNotifier<String?>(null);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _text.dispose();
+    _focus.dispose();
+    _latest.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Provider<MediaStore?>.value(
+    value: null,
+    child: ChatThreadView(
+      thread: _chatThread,
+      chatController: _controller,
+      composerController: _text,
+      composerFocus: _focus,
+      attachments: const [],
+      attachmentSource: FakeAttachmentSource(),
+      onAddAttachments: (_) {},
+      onRemoveAttachment: (_) {},
+      onSend: (_) {},
+      onPickStarter: (_) {},
+      latestReplyId: _latest,
+      welcome: false,
+      branchNotice: ChatBranchNotice(
+        state: widget.state,
+        parentTitle: _title,
+        onTap: () {},
+      ),
+    ),
+  );
+}
+
 WidgetbookNode chatBranchNode() => WidgetbookFolder(
   name: 'Branched chat',
   children: [
@@ -128,6 +210,19 @@ WidgetbookNode chatBranchNode() => WidgetbookFolder(
         _case(
           'Largest text (3x), could not reach Hermes',
           () => _scaled(3, _notice(ChatBranchNoticeState.unreachable)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ChatThreadView',
+      useCases: [
+        _case(
+          'Notice in its slot',
+          () => _BranchedChat(ChatBranchNoticeState.title),
+        ),
+        _case(
+          'Notice, could not reach Hermes',
+          () => _BranchedChat(ChatBranchNoticeState.unreachable),
         ),
       ],
     ),
