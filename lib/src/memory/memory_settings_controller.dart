@@ -36,8 +36,9 @@ class MemorySettingsController extends ChangeNotifier {
   bool loading = false;
   bool unreadable = false;
 
-  /// What the last refused change says, until the next change.
-  String? message;
+  /// The setting whose last change the server refused, until the next change.
+  /// The screen words the notice.
+  MemorySetting? failedSetting;
 
   /// The memory provider; null until it is read, and after a read that
   /// failed.
@@ -67,7 +68,7 @@ class MemorySettingsController extends ChangeNotifier {
     _profile = profile;
     _confirmed = settings = null;
     _writing.clear();
-    message = null;
+    failedSetting = null;
     unreadable = false;
     loading = false;
     provider = null;
@@ -172,7 +173,7 @@ class MemorySettingsController extends ChangeNotifier {
     final shown = settings;
     if (shown == null || shown.valueOf(setting) == value) return;
     breadcrumbs('memory.setting_toggled', {'key': setting.key});
-    message = null;
+    failedSetting = null;
     settings = shown.withValue(setting, value);
     notifyListeners();
     if (_writing.add(setting)) _track(_flush(setting));
@@ -195,7 +196,7 @@ class MemorySettingsController extends ChangeNotifier {
         _confirmed = _confirmed?.withValue(setting, wanted);
       } on MemoryWriteFailure {
         if (stale()) return;
-        message = "Couldn't change ${setting.label}. Try again.";
+        failedSetting = setting;
         final shown = settings;
         if (shown == null) {
           notifyListeners();

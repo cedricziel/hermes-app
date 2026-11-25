@@ -1132,8 +1132,7 @@ List<Hit> _englishDefaultHits() => [
 ];
 
 /// A function named `*Label`, `*Title` or `*Summary`, with the literal it
-/// returns, and `path#name` as the owner (`path#Class.name` for a static
-/// method).
+/// returns, and `path#name` as the owner (`path#Class.name` for a method).
 typedef LabelHelper = ({Hit hit, String owner, String literal});
 
 final _labelHelperName = RegExp(
@@ -1151,7 +1150,8 @@ const _labelReturnTypes = {
 };
 final _l10nParameterType = RegExp(r'\b(?:AppLocalizations|BuildContext)\b');
 
-/// The top-level functions and static methods of [file] named `*Label`,
+/// The top-level functions and getters, and the methods and getters (static
+/// or not) of types, of [file] named `*Label`,
 /// `*Title` or `*Summary` that return `String`, `String?`, `Future<String>`,
 /// `Future<String?>`, `FutureOr<String>`, `FutureOr<String?>`,
 /// `Stream<String>` or `Stream<String?>` (or declare no type), return or
@@ -1196,7 +1196,7 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
   }
 
   for (final member in unit.declarations) {
-    if (member is FunctionDeclaration && !member.isGetter) {
+    if (member is FunctionDeclaration && !member.isSetter) {
       check(
         null,
         member.name,
@@ -1207,23 +1207,22 @@ List<LabelHelper> labelHelpersIn(SourceFile file) {
     }
   }
   unit.accept(
-    _StaticMethods((owner, m) {
-      if (m.isGetter || m.isSetter) return;
+    _Methods((owner, m) {
+      if (m.isSetter) return;
       check(owner, m.name, m.returnType, m.parameters, m.body);
     }),
   );
   return found;
 }
 
-/// The static methods of classes, enums, mixins, extensions and extension
-/// types, with the name of the one that holds each.
-class _StaticMethods extends RecursiveAstVisitor<void> {
-  _StaticMethods(this.onMethod);
+/// The methods and getters, static or not, of classes, enums, mixins,
+/// extensions and extension types, with the name of the one that holds each.
+class _Methods extends RecursiveAstVisitor<void> {
+  _Methods(this.onMethod);
   final void Function(String owner, MethodDeclaration) onMethod;
 
   @override
   void visitMethodDeclaration(MethodDeclaration node) {
-    if (!node.isStatic) return;
     final holder = node.parent?.parent;
     final name = switch (holder) {
       ClassDeclaration() => holder.namePart.typeName.lexeme,
@@ -1323,13 +1322,16 @@ class _LiteralFinder extends RecursiveAstVisitor<void> {
 
 /// Label helpers that return text nobody reads, as `path#name` with the
 /// reason. Exact: an entry that no longer matches fails.
-const _labelHelperNotVisibleText = <String, String>{};
+const _labelHelperNotVisibleText = <String, String>{
+  'lib/src/providers/providers_screen.dart#_ProvidersScreenState._profileLabel':
+      "the profile id 'default', the name Hermes gives a server without "
+      'profiles, as the English-default allowlist above explains',
+};
 
 List<LabelHelper>? _labelHelpers;
 
 List<LabelHelper> _allLabelHelpers() => _labelHelpers ??= [
-  for (final file in dartFiles('lib'))
-    if (_importsWidgetLayer(file)) ...labelHelpersIn(file),
+  for (final file in dartFiles('lib')) ...labelHelpersIn(file),
 ];
 
 List<Hit> _labelHelperHits() => [
@@ -1695,14 +1697,14 @@ final guardRules = <Rule>[
   _custom(
     name: 'label-helper-takes-l10n',
     message:
-        'a top-level function or static method named *Label, *Title or '
+        'a function, method or getter named *Label, *Title or '
         '*Summary that returns an English literal shows English in a German '
         'UI: pass AppLocalizations and return l10n.<key>, like '
         'kanbanStatusLabel(l10n, status) and effortLabel(l10n, effort) (keys '
         'in lib/l10n/arb/app_en.arb and app_de.arb). A helper whose text is '
         'not visible (an id, a semantic identifier, a debug label, a server '
         'value passed through) goes on _labelHelperNotVisibleText '
-        '(path#name) with its reason.',
+        '(path#name, path#Type.name for a method) with its reason.',
     hits: _labelHelperHits,
   ),
 
@@ -2860,6 +2862,40 @@ void main() {
       }
     });
 
+    test('instance methods and getters hit', () {
+      expect(owners("class K { String statusLabel(int x) => 'Done'; }"), [
+        'lib/src/y.dart#K.statusLabel',
+      ]);
+      expect(owners("class K { String get title => 'Settings'; }"), [
+        'lib/src/y.dart#K.title',
+      ]);
+      expect(owners("String get pageTitle => 'Settings';"), [
+        'lib/src/y.dart#pageTitle',
+      ]);
+      expect(
+        owners("class K { String statusLabel(AppLocalizations l) => 'a'; }"),
+        isEmpty,
+      );
+      expect(owners("class K { String get title => l10n.title; }"), isEmpty);
+      expect(
+        owners("class K { set title(String v) { _t = 'Done'; } }"),
+        isEmpty,
+      );
+    });
+
+    test('a file that does not import the widget layer is read too', () {
+      // The scan takes every file under lib/, not only widget-layer ones.
+      final plain = SourceFile(
+        'lib/src/mcp/presentation.dart',
+        "String serverLabel(int n) => 'Server';",
+      );
+      expect(_importsWidgetLayer(plain), isFalse);
+      expect(
+        [for (final f in labelHelpersIn(plain)) f.owner],
+        ['lib/src/mcp/presentation.dart#serverLabel'],
+      );
+    });
+
     test('static methods of an enum, a mixin and an extension hit', () {
       expect(owners("enum E { a; static String modeLabel(E e) => 'Auto'; }"), [
         'lib/src/y.dart#E.modeLabel',
@@ -2937,11 +2973,9 @@ void main() {
       ]);
     });
 
-    test('other names, return types, getters and instance methods pass', () {
+    test('other names and return types pass', () {
       expect(owners("String statusName(S s) => 'Done';"), isEmpty);
       expect(owners("int countLabel(S s) => 3;"), isEmpty);
-      expect(owners("String get pageTitle => 'Settings';"), isEmpty);
-      expect(owners("class K { String tagLabel(int x) => 'Tag'; }"), isEmpty);
       expect(
         owners("String f(S s) { String inner() => 'Done'; return s.id; }"),
         isEmpty,

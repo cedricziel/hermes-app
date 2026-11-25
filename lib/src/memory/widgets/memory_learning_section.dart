@@ -28,14 +28,14 @@ class MemoryLearningSection extends StatelessWidget {
     required this.onChanged,
     required this.onRetry,
     this.unreadable = false,
-    this.message,
+    this.failedSetting,
   });
 
   final MemorySettings? settings;
   final bool unreadable;
 
-  /// Why the last change was undone.
-  final String? message;
+  /// The setting whose last change was undone, if any.
+  final MemorySetting? failedSetting;
   final void Function(MemorySetting setting, Object value) onChanged;
   final VoidCallback onRetry;
 
@@ -88,13 +88,15 @@ class MemoryLearningSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (message != null)
+        if (failedSetting != null)
           Padding(
             padding: const EdgeInsets.only(top: 16),
             child: AppBanner(
               tone: AppBannerTone.error,
               icon: AppIcons.error,
-              title: message!,
+              title: l10n.memoryLearningChangeFailed(
+                memorySettingLabel(l10n, failedSetting!),
+              ),
             ),
           ),
         GroupedSection(
