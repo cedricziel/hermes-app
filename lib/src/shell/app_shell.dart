@@ -286,7 +286,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         connectionEvents: gateway.connectionEvents,
         registerServerRequestHandler: gateway.registerServerRequestHandler,
         askPassword: _askSudoPassword,
-        host: Uri.tryParse(auth!.baseUrl!)?.host ?? 'your server',
+        host: Uri.tryParse(auth!.baseUrl!)?.host,
         telemetry: repositories.telemetry,
       );
       _botsRepository = BotModeRosterRepository(

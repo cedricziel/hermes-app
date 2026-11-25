@@ -4,6 +4,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/disclosure_tile.dart';
 import 'memory_recall.dart';
+import '../../../l10n/l10n.dart';
 
 /// Reference activity in the inspector. The current protocol cannot identify
 /// the recalled notes, so expansion explains that limit instead of repeating
@@ -48,7 +49,7 @@ class MemoryActivityCard extends StatelessWidget {
               children: [
                 const Text('Memory & review'),
                 Text(
-                  latest?.summary ?? 'Background review',
+                  latest?.summary ?? context.l10n.chatMemoryReviewFallback,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall

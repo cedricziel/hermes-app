@@ -35,7 +35,7 @@ typedef RegisterServerRequestHandler = void Function() Function(
 /// the question. [ended] completes when the question no longer matters: the
 /// install is over or the server withdrew the request.
 typedef SudoPasswordAsker = Future<String?> Function(
-  String host,
+  String? host,
   String profile,
   Future<void> ended,
 );
@@ -75,8 +75,9 @@ class BotScreenInstalls extends ChangeNotifier {
     );
   }
 
-  /// The Hermes host named in the password question; shown, never logged.
-  final String host;
+  /// The Hermes host named in the password question, null when the server's
+  /// address cannot be read; shown, never logged.
+  final String? host;
   final ConnectionTelemetry telemetry;
   final Duration patience;
 

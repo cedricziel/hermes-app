@@ -8,6 +8,7 @@ import '../../theme/platform_chrome.dart';
 import '../../widgets/adaptive_dialog.dart';
 import '../../widgets/dialog_presentation.dart';
 import '../../widgets/route_dismissal.dart';
+import '../../../l10n/l10n.dart';
 
 /// The question Hermes asks before it installs the desktop: the sudo password
 /// of the server's user.
@@ -31,8 +32,8 @@ class SudoPasswordPrompt extends StatefulWidget {
     this.controller,
   });
 
-  /// The Hermes host the password is for.
-  final String host;
+  /// The Hermes host the password is for; null when its address cannot be read.
+  final String? host;
 
   /// The profile the install is for.
   final String profile;
@@ -85,7 +86,7 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Your Hermes server (${widget.host}) needs the password of its '
+            'Your Hermes server (${widget.host ?? context.l10n.botScreenSudoHostFallback}) needs the password of its '
             'user to install the desktop for the profile "${widget.profile}". '
             'It goes to the server once and is not stored.',
           ),
@@ -148,7 +149,7 @@ class _SudoPasswordPromptState extends State<SudoPasswordPrompt> {
 /// [breadcrumbs], with no text.
 Future<String?> showSudoPasswordPrompt(
   BuildContext context, {
-  required String host,
+  required String? host,
   required String profile,
   required Future<void> ended,
   Breadcrumbs breadcrumbs = Breadcrumbs.none,

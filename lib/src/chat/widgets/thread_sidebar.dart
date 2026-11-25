@@ -909,7 +909,7 @@ class AccountFooter extends StatelessWidget {
     if (platformChromeOf(context) == PlatformChrome.macos) {
       final baseUrl = auth.baseUrl;
       final host = baseUrl == null
-          ? 'Not connected'
+          ? context.l10n.chatWidgetsThreadSidebarNotConnected
           : (Uri.tryParse(baseUrl)?.authority ?? baseUrl);
       return MacAccountFooter(
         name: user,
@@ -921,7 +921,10 @@ class AccountFooter extends StatelessWidget {
             : null,
       );
     }
-    final label = user ?? auth.baseUrl ?? 'Not connected';
+    final label =
+        user ??
+        auth.baseUrl ??
+        context.l10n.chatWidgetsThreadSidebarNotConnected;
     final mark = serverAttentionMarkOf(context);
 
     return Padding(

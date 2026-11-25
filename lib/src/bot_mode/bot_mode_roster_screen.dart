@@ -327,7 +327,8 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
                         builder: (context) => AlertDialog(
                           title: const Text('Confirm model change'),
                           content: Text(
-                            result.confirmMessage ?? 'This model may cost more. Use it as the default?',
+                            result.confirmMessage ??
+                                context.l10n.botModeRosterConfirmModelCost,
                           ),
                           actions: [
                             TextButton(
