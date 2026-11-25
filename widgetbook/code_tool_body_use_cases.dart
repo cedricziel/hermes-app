@@ -222,6 +222,19 @@ WidgetbookNode codeToolBodyNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Largest text, narrow',
+          builder: (_) => _scaled(
+            3,
+            _card(
+              _read(
+                _complete(),
+                path: 'packages/app/lib/src/chat/widgets/file_sizes.dart',
+              ),
+              width: 320,
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Largest text',
           builder: (_) => _scaled(3, _card(_read(_complete()), width: 390)),
         ),

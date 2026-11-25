@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/code_tool_bodies.dart';
+import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:material_ui/material_ui.dart';
@@ -83,6 +84,76 @@ void main() {
       find.ancestor(of: gutter, matching: find.byType(ExcludeSemantics)),
       findsWidgets,
     );
+  });
+
+  testWidgets('a selection across rows copies one line per row', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const SelectionArea(
+        child: ToolValueView(
+          text: 'alpha\n\nbeta\ngamma',
+          lineNumbers: [1, 2, 3, 4],
+        ),
+      ),
+    );
+    final area = tester.state<SelectableRegionState>(
+      find.byType(SelectableRegion),
+    );
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    area.selectAll(SelectionChangedCause.toolbar);
+    await tester.pumpAndSettle();
+    // ignore: deprecated_member_use
+    area.copySelection(SelectionChangedCause.toolbar);
+    await tester.pump();
+    expect(copied, 'alpha\n\nbeta\ngamma');
+  });
+
+  testWidgets('the header fits at three times the text size on a narrow '
+      'screen', (tester) async {
+    for (final width in [200.0, 320.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesDarkTheme(),
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(3)),
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(
+                  width: width,
+                  child: _read(
+                    readCall(
+                      readAnswer(content: numbered(['a']), totalLines: 1),
+                      args: const {
+                        'path':
+                            'packages/app/lib/src/chat/widgets/file_sizes.dart',
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull, reason: 'width $width');
+    }
   });
 
   testWidgets('every note has an icon and a word', (tester) async {

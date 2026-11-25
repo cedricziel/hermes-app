@@ -148,10 +148,14 @@ class _CodeToolBodyState extends State<CodeToolBody> {
                       Flexible(child: _StartElidedPath(path: widget.path)),
                       if (language != null) ...[
                         const SizedBox(width: 8),
-                        Text(
-                          toolValueTagName(context, language),
-                          key: const ValueKey('tool-value-tag'),
-                          style: _caption(context).copyWith(color: subtle),
+                        Flexible(
+                          child: Text(
+                            toolValueTagName(context, language),
+                            key: const ValueKey('tool-value-tag'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _caption(context).copyWith(color: subtle),
+                          ),
                         ),
                       ],
                     ],

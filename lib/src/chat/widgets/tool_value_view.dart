@@ -233,6 +233,13 @@ class _ToolValueViewState extends State<ToolValueView> {
                   ),
                 ),
               ),
+              // A selection across rows copies what the rows hold with
+              // nothing between them; this line feed, which has no size and
+              // is not read out, ends each line but the last.
+              if (i < lines.length - 1)
+                const ExcludeSemantics(
+                  child: Text('\n', style: TextStyle(height: 0)),
+                ),
             ],
           ),
       ],
