@@ -6,7 +6,6 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
-import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/background/app_presence.dart';
 import 'package:hermes_app/src/background/background_refresh.dart';
 import 'package:hermes_app/src/background/background_check_status.dart';
@@ -175,12 +174,7 @@ void main() {
     Duration timeout = const Duration(seconds: 5),
     Duration stepTimeout = const Duration(seconds: 3),
     bool appOpen = false,
-    Future<Map<String, Object?>> Function(
-      HermesGatewayTransport transport,
-      String method,
-      Map<String, Object?> params,
-    )?
-    request,
+    GatewayRequest? request,
   }) => BackgroundRefreshDeps(
     headless: wiring ?? headless(),
     statusStore: statusStore,
@@ -917,7 +911,7 @@ void main() {
 
       final outcome = await refresh(
         with_: deps(
-          request: (transport, method, params) async {
+          request: (transport, method, params, {timeout}) async {
             if (params['profile'] == 'work') throw TimeoutException('slow');
             return transport.request(method, params);
           },

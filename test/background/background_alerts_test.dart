@@ -651,6 +651,30 @@ void main() {
       expect(await running.read(), hasLength(1));
     });
 
+    test('gives up on a live-session list that never answers when its lookup '
+        'is up, and the request ends with that error', () async {
+      await running.replace([left('c1')]);
+      gateway.silent.add('session.active_list');
+
+      final outcome = await refresh(
+        () => [
+          RunningRepliesStep(
+            running: running,
+            now: () => _now,
+            lookup: const Duration(milliseconds: 100),
+          ),
+        ],
+      );
+
+      expect(outcome, isA<HeadlessDone<void>>());
+      expect(notifications.shown, isEmpty);
+      expect(await running.read(), hasLength(1));
+      final span = tracer.spans.singleWhere(
+        (s) => s.name == 'session.active_list send',
+      );
+      expect(span.attributes['error.type'], 'GatewayRequestTimeout');
+    });
+
     test('still announces the profiles that could be read', () async {
       await running.replace([left('c1'), left('c2', profile: 'default')]);
       idle('c1');

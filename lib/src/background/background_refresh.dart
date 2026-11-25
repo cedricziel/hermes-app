@@ -137,7 +137,7 @@ class BackgroundContext {
     Duration? timeout,
   ]) {
     final send = _request;
-    if (send != null) return send(transport, method, params);
+    if (send != null) return send(transport, method, params, timeout: timeout);
     return timeout == null
         ? transport.request(method, params)
         : transport.requestKeepingConnection(method, params, timeout: timeout);
@@ -151,8 +151,9 @@ class BackgroundContext {
 typedef GatewayRequest = Future<Map<String, Object?>> Function(
   HermesGatewayTransport transport,
   String method,
-  Map<String, Object?> params,
-);
+  Map<String, Object?> params, {
+  Duration? timeout,
+});
 
 /// One independent piece of a run.
 abstract class BackgroundStep {
