@@ -124,6 +124,9 @@ class AuthController extends ChangeNotifier {
   StreamSubscription<void>? _networkChanges;
 
   HermesConnectionState _state = HermesConnectionState.initializing;
+
+  /// How often [_state] was set, to tell that it moved in between.
+  int _stateChanges = 0;
   String? _baseUrl;
   String? _savedServerUrl;
 
@@ -262,6 +265,7 @@ class AuthController extends ChangeNotifier {
     final address = _cleartextToConfirm;
     if (address == null) return HttpsSwitch.superseded;
     final https = httpsAddressOf(address);
+    final changes = _stateChanges;
     var answers = true;
     try {
       final probe = await HermesApiClient(
@@ -279,11 +283,11 @@ class AuthController extends ChangeNotifier {
     } on Object {
       answers = false;
     }
-    // A sign-in or connect started meanwhile must not be overrun.
+    // A sign-in or connect that started, even one that has finished, must
+    // not be overrun.
     if (_disposed ||
         _cleartextToConfirm != address ||
-        (_state != HermesConnectionState.ready &&
-            _state != HermesConnectionState.needsLogin)) {
+        _stateChanges != changes) {
       return HttpsSwitch.superseded;
     }
     _cleartextToConfirm = null;
@@ -1344,6 +1348,7 @@ class AuthController extends ChangeNotifier {
   void _setState(HermesConnectionState next) {
     if (_disposed) return;
     _state = next;
+    _stateChanges++;
     _events('auth.state', {'state': next.name});
     notifyListeners();
   }

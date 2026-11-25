@@ -361,6 +361,40 @@ void main() {
     expect(controller.state, HermesConnectionState.signingIn);
   });
 
+  test('a sign-in that finishes while https:// is probed is not thrown '
+      'away', () async {
+    server
+      ..on('GET', '/api/status', {'auth_required': true})
+      ..on('GET', '/api/auth/me', {'user_id': 'u1', 'provider': 'oidc'})
+      ..on('GET', '/api/auth/providers', {
+        'providers': [
+          {'name': 'oidc', 'display_name': 'SSO'},
+        ],
+      });
+    final gate = Completer<void>();
+    final controller = await bootstrapped(
+      saved: _publicHttp,
+      httpsGate: gate.future,
+      login: (url, {provider, httpClient, cancelled}) async =>
+          const HermesSession(
+            accessToken: 'access',
+            refreshToken: 'refresh',
+            expiresAt: 4102444800,
+            provider: 'oidc',
+            userId: 'u1',
+          ),
+    );
+
+    final switching = controller.useHttpsForCleartextServer();
+    await controller.signInWithProvider(controller.providers.single);
+    expect(controller.state, HermesConnectionState.ready);
+    gate.complete();
+
+    expect(await switching, HttpsSwitch.superseded);
+    expect(controller.baseUrl, _publicHttp);
+    expect(controller.state, HermesConnectionState.ready);
+  });
+
   test('an unreadable accepted list asks, and still connects', () async {
     SharedPreferencesAsyncPlatform.instance = _FailingListReads();
     final controller = await bootstrapped(saved: _publicHttp);
