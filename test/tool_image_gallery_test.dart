@@ -28,6 +28,7 @@ final _png = base64Decode(
 class _Source implements MediaSource {
   final paths = <String>[];
   var refuse = false;
+  Error? error;
 
   /// A path whose answer waits for its gate, and the bytes it then returns.
   final gates = <String, Completer<void>>{};
@@ -37,6 +38,7 @@ class _Source implements MediaSource {
   Future<Uint8List> image(String path) async {
     paths.add(path);
     if (refuse) throw const MediaFetchException(MediaFailure.refused);
+    if (error != null) throw error!;
     await gates[path]?.future;
     return bytes[path] ?? Uint8List.fromList(_png);
   }
@@ -52,6 +54,9 @@ class _Adapter implements HttpClientAdapter {
   /// When set, an answer waits for it.
   Completer<void>? gate;
 
+  /// What an answer carries, when not the PNG.
+  Uint8List? body;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -60,7 +65,10 @@ class _Adapter implements HttpClientAdapter {
   ) async {
     requests.add(options.uri);
     await gate?.future;
-    return ResponseBody.fromBytes(status == 200 ? _png : const [], status);
+    return ResponseBody.fromBytes(
+      status == 200 ? body ?? _png : const [],
+      status,
+    );
   }
 
   @override
@@ -581,6 +589,68 @@ void main() {
         expect(find.byType(ImageViewerPage), findsNothing);
       },
     );
+
+    testWidgets(
+      'bytes that do not decode leave a tile that can be tried again',
+      (tester) async {
+        // A PNG header the size check accepts, then nothing a decoder can read.
+        final broken = Uint8List(33)
+          ..setAll(0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+          ..buffer.asByteData().setUint32(16, 1)
+          ..buffer.asByteData().setUint32(20, 1);
+        final setup = _Setup()..adapter.body = broken;
+        await pumpOnPlatform(
+          tester,
+          Provider<ToolImageLoader?>.value(
+            value: setup.loader,
+            child: ToolCallCard(
+              call: imagesCall(
+                imagesAnswer([pageImage('https://cdn.shop.example/a.png')]),
+              ),
+              initiallyOpen: true,
+            ),
+          ),
+          platform: TargetPlatform.android,
+        );
+        await tester.tap(find.byType(ToolImageTile));
+        await _settle(tester);
+        // The decoder runs outside the fake clock.
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(_states(tester), [ToolImageState.failed]);
+        expect(
+          setup.loader.bytesOf(Uri.parse('https://cdn.shop.example/a.png')),
+          isNull,
+        );
+      },
+    );
+
+    testWidgets('an unexpected error ends a server image as a failure', (
+      tester,
+    ) async {
+      final setup = _Setup()..source.error = StateError('not a media error');
+      await pumpOnPlatform(
+        tester,
+        MultiProvider(
+          providers: [
+            Provider<MediaStore?>.value(value: setup.store),
+            Provider<ToolImageLoader?>.value(value: setup.loader),
+          ],
+          child: ToolCallCard(
+            call: visionCall(visionAnswer()),
+            initiallyOpen: true,
+          ),
+        ),
+        platform: TargetPlatform.android,
+      );
+      await _settle(tester);
+
+      expect(_states(tester), [ToolImageState.failed]);
+    });
 
     testWidgets(
       'a clear while a load runs leaves a tile that waits, not a failure',

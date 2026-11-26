@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' show min;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -245,6 +244,14 @@ class ToolImageLoader {
     );
   }
 
+  /// Drops one image whose bytes turned out not to decode.
+  void forget(Uri uri) {
+    final key = uri.toString();
+    if (_bytes.remove(key) == null) return;
+    unawaited(_forgetProviders((k) => k == key));
+    _changes.notify();
+  }
+
   /// Removes the providers of the images [forget] names, and their decoded
   /// frames from the shared image cache.
   Future<void> _forgetProviders(bool Function(String key) forget) {
@@ -318,6 +325,9 @@ class _Changes extends ChangeNotifier {
 /// with a side of any length, and the product of two never overflows.
 const _side = 1 << 24;
 
+/// What a header claims when a side alone is too long: over every limit.
+const _over = 1 << 60;
+
 /// How many pixels the header of a PNG, GIF, JPEG or WebP claims, or null for
 /// any other format or a header that is cut short. Only the header is read.
 @visibleForTesting
@@ -328,8 +338,10 @@ int? claimedPixels(Uint8List b) {
   int le24(int i) => le16(i) | b[i + 2] << 16;
   final n = b.length;
   if (n >= 24 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E) {
-    // Clamped, so two 32-bit sides cannot wrap the product negative.
-    return min(be32(16), _side) * min(be32(20), _side);
+    final width = be32(16);
+    final height = be32(20);
+    // Past this a side alone is over any limit, and the product could wrap.
+    return width > _side || height > _side ? _over : width * height;
   }
   if (n >= 10 && b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) {
     return le16(6) * le16(8);

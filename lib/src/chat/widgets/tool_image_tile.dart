@@ -46,6 +46,7 @@ class ToolImageTile extends StatelessWidget {
     this.image,
     this.aspectRatio = 4 / 3,
     this.onTap,
+    this.onBroken,
   });
 
   final ToolImageState state;
@@ -67,6 +68,9 @@ class ToolImageTile extends StatelessWidget {
 
   /// What a tap does in this state; null when it does nothing.
   final VoidCallback? onTap;
+
+  /// Called once the picture turns out not to decode.
+  final VoidCallback? onBroken;
 
   @override
   Widget build(BuildContext context) {
@@ -113,11 +117,16 @@ class ToolImageTile extends StatelessWidget {
                         width: double.infinity,
                         height: double.infinity,
                         excludeFromSemantics: true,
-                        errorBuilder: (_, _, _) => _status(
-                          context,
-                          AppIcons.brokenImage,
-                          l10n.chatWidgetsImageCouldntLoad,
-                        ),
+                        errorBuilder: (_, _, _) {
+                          WidgetsBinding.instance.addPostFrameCallback(
+                            (_) => onBroken?.call(),
+                          );
+                          return _status(
+                            context,
+                            AppIcons.brokenImage,
+                            l10n.chatWidgetsImageCouldntLoad,
+                          );
+                        },
                       ),
                     )
                   : _status(

@@ -12,6 +12,7 @@ import '../chat_models.dart';
 import '../media/media_source.dart' show MediaFailure, MediaFetchException;
 import '../media/media_store.dart';
 import '../page_link.dart';
+import '../report_chat_bug.dart';
 import '../tool_image_loader.dart';
 import '../tool_result.dart';
 import 'code_tool_body.dart' show CodeNote, CodeNoteTone, CodeNoteView;
@@ -167,12 +168,29 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
       };
     } on MediaFetchException {
       next = ToolImageState.failed;
+    } on Object catch (error, stack) {
+      // Anything else must not strand the tile in "loading".
+      reportChatBug(error, stack, 'an image load');
+      next = ToolImageState.failed;
     }
     if (!mounted || epoch != _epoch) return;
     setState(() {
       if (served != null) _fetched[i] = served;
       _states[i] = next;
     });
+  }
+
+  /// The picture of tile [i] could not be decoded: its bytes are not an
+  /// image, so they are dropped and a tap asks for them again.
+  void _broke(int i) {
+    if (!mounted ||
+        i >= _states.length ||
+        _states[i] != ToolImageState.loaded) {
+      return;
+    }
+    final uri = widget.items[i].uri;
+    if (uri != null) _loader?.forget(uri);
+    setState(() => _states[i] = ToolImageState.failed);
   }
 
   void _load(int i) {
@@ -262,6 +280,7 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
             image: _imageOf(i),
             aspectRatio: widget.aspectRatio,
             onTap: _tapOf(i, name),
+            onBroken: () => _broke(i),
           );
         }(),
     ];
@@ -338,6 +357,10 @@ class _ClosesWhenDroppedState extends State<_ClosesWhenDropped> {
   void initState() {
     super.initState();
     widget.loader.changes.addListener(_changed);
+    // A clear between the tap and this first build raised no notification.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _changed();
+    });
   }
 
   @override

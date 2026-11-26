@@ -587,4 +587,27 @@ void main() {
       expect(loader.bytesOf(_cdn), isNull);
     },
   );
+
+  test('a PNG that is very long on one side is too large', () async {
+    // 30,000,000 x 1 is under 2^32 on each side but over the pixel limit.
+    final header = Uint8List(33)
+      ..setAll(0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+      ..buffer.asByteData().setUint32(16, 30000000)
+      ..buffer.asByteData().setUint32(20, 1);
+    final (loader, _) = _loader((_) => _ok(header));
+
+    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.tooLarge);
+  });
+
+  test('forget drops one image and tells the listeners', () async {
+    final (loader, _) = _loader((_) => _ok());
+    await loader.load(_cdn);
+    var told = 0;
+    loader.changes.addListener(() => told++);
+
+    loader.forget(_cdn);
+
+    expect(loader.bytesOf(_cdn), isNull);
+    expect(told, 1);
+  });
 }
