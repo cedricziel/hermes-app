@@ -9,8 +9,10 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import '../support/test_localizations.dart';
 
-final _now = DateTime.utc(2026, 11, 15, 12);
-final _ran = DateTime.utc(2026, 11, 12, 9, 12);
+// Local times: the section draws a pass in the viewer's zone, so the exact
+// text must not depend on the machine's zone.
+final _now = DateTime(2026, 11, 15, 12);
+final _ran = DateTime(2026, 11, 12, 9, 12);
 
 CuratorStatusView _status({
   bool? enabled,
