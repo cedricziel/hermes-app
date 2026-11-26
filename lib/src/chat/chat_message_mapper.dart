@@ -314,24 +314,40 @@ int outcomeLineIndex(List<Message> messages, DateTime at) {
   return last < 0 ? messages.length : last + 1;
 }
 
-/// The calls of the turn that [message] ends in [messages], from the last
-/// prompt to [message]: what its sources row is read from. Empty when another
-/// assistant message of the turn follows it, and null when [message] is not
-/// among [messages] (a reply not yet added), which leaves it to its own calls.
+/// Whether the turn goes on in [next] after [message]: a stored turn is
+/// several assistant rows, and each row that only made tool calls (no text of
+/// its own) hands over to the next. A reply with text ends its turn, so one
+/// that follows it with no prompt between (another client's) starts its own.
+bool continuesTurn(ChatMessage message, ChatMessage? next) =>
+    next != null &&
+    next.role == ChatRole.assistant &&
+    message.role == ChatRole.assistant &&
+    message.content.isEmpty &&
+    message.toolCalls.isNotEmpty;
+
+/// The calls of the turn that the message at [at] of [messages] ends, which is
+/// what its sources row is read from; empty when the turn goes on after it.
+List<ToolCall> _turnCallsEndingAt(List<ChatMessage> messages, int at) {
+  if (at + 1 < messages.length &&
+      continuesTurn(messages[at], messages[at + 1])) {
+    return const [];
+  }
+  var start = at;
+  while (start > 0 && continuesTurn(messages[start - 1], messages[start])) {
+    start--;
+  }
+  return [for (var i = start; i <= at; i++) ...messages[i].toolCalls];
+}
+
+/// The calls of the turn that [message] ends in [messages], or null when
+/// [message] is not among them (a reply not yet added), which leaves it to
+/// its own calls.
 List<ToolCall>? turnCallsEndedBy(
   List<ChatMessage> messages,
   ChatMessage message,
 ) {
   final at = messages.lastIndexOf(message);
-  if (at < 0) return null;
-  if (at + 1 < messages.length && messages[at + 1].role != ChatRole.user) {
-    return const [];
-  }
-  var start = at;
-  while (start > 0 && messages[start - 1].role != ChatRole.user) {
-    start--;
-  }
-  return [for (var i = start; i <= at; i++) ...messages[i].toolCalls];
+  return at < 0 ? null : _turnCallsEndingAt(messages, at);
 }
 
 /// Stored tool calls and their final reply are separate assistant rows.
@@ -343,12 +359,11 @@ List<Message> chatMessagesToFlyer(Iterable<ChatMessage> messages) {
   final calls = <ToolCall>[];
   for (final (i, message) in all.indexed) {
     if (message.role == ChatRole.user) calls.clear();
-    final endsTurn = i + 1 == all.length || all[i + 1].role == ChatRole.user;
     result.addAll(
       chatMessageToFlyer(
         message,
         voiceCalls: calls,
-        sourceCalls: endsTurn ? [...calls, ...message.toolCalls] : const [],
+        sourceCalls: _turnCallsEndingAt(all, i),
       ),
     );
     calls.addAll(message.toolCalls);

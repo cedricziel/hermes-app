@@ -209,14 +209,16 @@ void main() {
   });
 
   group('the calls a settled reply is mapped with again', () {
+    // A stored row that only made calls has no text; a reply has.
     ChatMessage message(
       ChatRole role,
-      String id, [
+      String id, {
       List<ToolCall> calls = const [],
-    ]) => ChatMessage(
+      String text = '',
+    }) => ChatMessage(
       id: id,
       role: role,
-      content: id,
+      content: text,
       createdAt: DateTime(2026),
       toolCalls: calls,
     );
@@ -224,17 +226,49 @@ void main() {
     test('are those of its whole turn only for the message that ends it', () {
       final a = searchCall([searchHit('https://a.test/')]);
       final b = searchCall([searchHit('https://b.test/')]);
-      final prompt = message(ChatRole.user, 'prompt');
-      final first = message(ChatRole.assistant, 'first', [a]);
-      final last = message(ChatRole.assistant, 'last', [b]);
-      final next = message(ChatRole.user, 'next');
-      final later = message(ChatRole.assistant, 'later');
-      final all = [prompt, first, last, next, later];
+      final prompt = message(ChatRole.user, 'prompt', text: 'ask');
+      final first = message(ChatRole.assistant, 'first', calls: [a]);
+      final second = message(ChatRole.assistant, 'second', calls: [b]);
+      final reply = message(ChatRole.assistant, 'reply', text: 'answer');
+      final next = message(ChatRole.user, 'next', text: 'more');
+      final later = message(ChatRole.assistant, 'later', text: 'again');
+      final all = [prompt, first, second, reply, next, later];
 
       expect(turnCallsEndedBy(all, first), isEmpty);
-      expect(turnCallsEndedBy(all, last), [a, b]);
+      expect(turnCallsEndedBy(all, second), isEmpty);
+      expect(turnCallsEndedBy(all, reply), [a, b]);
       expect(turnCallsEndedBy(all, later), isEmpty);
       expect(turnCallsEndedBy(all, message(ChatRole.assistant, 'new')), isNull);
     });
+
+    test(
+      'are the reply\'s own when it follows another reply with no prompt',
+      () {
+        // Another client's prompt: the app shows a second reply right after the
+        // first, with no user message between.
+        final a = searchCall([searchHit('https://a.test/')]);
+        final b = searchCall([searchHit('https://b.test/')]);
+        final first = message(
+          ChatRole.assistant,
+          'first',
+          calls: [a],
+          text: 'one',
+        );
+        final second = message(
+          ChatRole.assistant,
+          'second',
+          calls: [b],
+          text: 'two',
+        );
+        final all = [
+          message(ChatRole.user, 'prompt', text: 'ask'),
+          first,
+          second,
+        ];
+
+        expect(turnCallsEndedBy(all, first), [a]);
+        expect(turnCallsEndedBy(all, second), [b]);
+      },
+    );
   });
 }

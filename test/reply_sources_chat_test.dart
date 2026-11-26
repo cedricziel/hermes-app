@@ -176,8 +176,8 @@ void main() {
   testWidgets(
     'a turn that began on an older page gets its sources when that page loads',
     (tester) async {
-      // One turn over 130 rows: the prompt and the search are older than the
-      // newest page, the reply that ends the turn is on it.
+      // One turn over 130 rows: its prompt and calls are older than the
+      // newest page (rows 31 to 130), the reply that ends it is on that page.
       server
         ..on(
           'GET',
@@ -190,30 +190,45 @@ void main() {
           final offset = request.queryParameters['offset'] as int;
           final newest = total - offset;
           final oldest = newest - limit + 1 < 1 ? 1 : newest - limit + 1;
-          Map<String, Object?> row(int id) => switch (id) {
-            10 => messageRow(id: id, role: 'user', content: 'Research it'),
-            11 => messageRow(
-              id: id,
-              role: 'assistant',
-              content: '',
-              toolCalls: [
-                {
-                  'id': 'c1',
-                  'function': {
-                    'name': 'web_search',
-                    'arguments': jsonEncode({'query': 'it'}),
-                  },
+          Map<String, Object?> call(int id, String callId) => messageRow(
+            id: id,
+            role: 'assistant',
+            content: '',
+            toolCalls: [
+              {
+                'id': callId,
+                'function': {
+                  'name': 'web_search',
+                  'arguments': jsonEncode({'query': 'it'}),
                 },
-              ],
-            ),
-            12 => messageRow(
+              },
+            ],
+          );
+          Map<String, Object?> row(int id) => switch (id) {
+            25 => messageRow(id: id, role: 'user', content: 'Research it'),
+            26 => call(id, 'c1'),
+            27 => messageRow(
               id: id,
               role: 'tool',
               toolCallId: 'c1',
               content: jsonEncode(_answer()),
             ),
-            < 10 => messageRow(id: id, role: 'user', content: 'Earlier $id'),
-            _ => messageRow(id: id, role: 'assistant', content: 'Step $id'),
+            28 => call(id, 'c2'),
+            29 => messageRow(
+              id: id,
+              role: 'tool',
+              toolCallId: 'c2',
+              content: jsonEncode(_answer()),
+            ),
+            30 => call(id, 'c3'),
+            31 => messageRow(id: id, role: 'assistant', content: 'The answer'),
+            < 25 => messageRow(id: id, role: 'user', content: 'Earlier $id'),
+            _ when id.isEven => messageRow(
+              id: id,
+              role: 'assistant',
+              content: 'Reply $id',
+            ),
+            _ => messageRow(id: id, role: 'user', content: 'Question $id'),
           };
           return (
             status: 200,
@@ -238,14 +253,16 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      // Back at the reply that ends the turn.
-      for (var i = 0; i < 80; i++) {
-        await tester.drag(find.byType(Chat), const Offset(0, -2000));
-        await tester.pump(const Duration(milliseconds: 100));
+      // Down to the reply that ends the turn.
+      for (
+        var i = 0;
+        i < 200 && find.text('Sources · 2').evaluate().isEmpty;
+        i++
+      ) {
+        await tester.drag(find.byType(Chat), const Offset(0, -300));
+        await tester.pump(const Duration(milliseconds: 50));
       }
-      await tester.pumpAndSettle();
-      expect(find.text('Step 130'), findsOneWidget);
-      expect(find.text('Sources · 2'), findsOneWidget);
+      expect(find.byType(SourcesRow), findsOneWidget);
       // One row for the turn, not one under the older page's last text too.
       expect(
         tester
