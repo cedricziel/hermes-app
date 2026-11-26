@@ -46,6 +46,19 @@ const _approval = ApprovalRequest(
   choices: ['once', 'deny'],
 );
 
+/// A cell value that counts how often the raw result encodes it to JSON.
+class _EncodeProbe {
+  var encoded = 0;
+
+  Object toJson() {
+    encoded++;
+    return 'probe';
+  }
+
+  @override
+  String toString() => 'probe';
+}
+
 void main() {
   testWidgets('tapping opens the input and result, and again closes them', (
     tester,
@@ -574,6 +587,25 @@ void main() {
           find.textContaining('column_9', findRichText: true),
           findsWidgets,
         );
+      });
+
+      testWidgets('the raw result is not encoded until it is opened', (
+        tester,
+      ) async {
+        final probe = _EncodeProbe();
+        await _pump(
+          tester,
+          rowsCall([
+            {'a': probe},
+          ], name: 'list_things'),
+        );
+        await tester.tap(find.text('list_things'));
+        await tester.pumpAndSettle();
+        expect(probe.encoded, 0);
+
+        await tester.tap(find.text('Raw result'));
+        await tester.pumpAndSettle();
+        expect(probe.encoded, greaterThan(0));
       });
 
       test('a failed call shows its error, not a table', () {
