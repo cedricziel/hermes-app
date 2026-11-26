@@ -95,9 +95,12 @@ typedef ScreenPreviewBuilder = Widget Function(ScreenPreviewRun run);
 /// that failed with the model provider's error offers [onCheckProviders].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
 /// A tapped link goes to [openLink], the system browser when null. A
-/// [topSliver] sits above the first message and scrolls with the thread.
+/// [topSliver] sits above the first message and scrolls with the thread. A
+/// finished reply shows the row of the pages it drew on unless [showSources]
+/// is false (the quick panel).
 Builders buildChatBuilders({
   required ValueChanged<StarterPrompt> onPickPrompt,
+  bool showSources = true,
   List<StarterPrompt>? starterPrompts,
   Widget? welcomeCard,
   VoidCallback? onCheckProviders,
@@ -154,6 +157,7 @@ Builders buildChatBuilders({
               onBranch: onBranch,
               onLinkTap: onLinkTap,
               onCheckProviders: onCheckProviders,
+              showSources: showSources,
             ),
     imageMessageBuilder: (
       context,
@@ -260,6 +264,7 @@ Widget _buildText(
   ValueChanged<String>? onBranch,
   void Function(String url, String title)? onLinkTap,
   VoidCallback? onCheckProviders,
+  bool showSources = true,
 }) {
   final scheme = Theme.of(context).colorScheme;
   final error = message.metadata?[kMetaError] as String?;
@@ -354,11 +359,12 @@ Widget _buildText(
           )
         else
           ReplyErrorNote(error),
-      if (message.metadata?[kMetaSources] case final List<TurnSource> sources)
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: ReplySources(sources: sources),
-        ),
+      if (showSources)
+        if (message.metadata?[kMetaSources] case final List<TurnSource> sources)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: ReplySources(sources: sources),
+          ),
       if (latestReplyId == null)
         below(false)
       else

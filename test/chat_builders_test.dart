@@ -17,7 +17,9 @@ import 'package:hermes_app/src/chat/chat_models.dart'
         UnsupportedRequest,
         VaultKind,
         VaultRequest;
+import 'package:hermes_app/src/chat/sources/turn_sources.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
+import 'package:hermes_app/src/chat/widgets/sources_row.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
@@ -53,6 +55,7 @@ Future<void> _pumpChat(
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
   onAnswerClarify,
   Future<bool> Function(Uri uri)? openLink,
+  bool showSources = true,
 }) async {
   final controller = InMemoryChatController(messages: messages);
   addTearDown(controller.dispose);
@@ -73,6 +76,7 @@ Future<void> _pumpChat(
             onAnswerApproval: onAnswerApproval,
             onAnswerClarify: onAnswerClarify,
             openLink: openLink,
+            showSources: showSources,
           ).copyWith(composerBuilder: (_) => const SizedBox.shrink()),
         ),
       ),
@@ -540,6 +544,37 @@ void main() {
       await _pumpChat(tester, messages: [_text(kUserAuthorId, 'hello')]);
 
       expect(find.byType(WelcomeView), findsNothing);
+    });
+  });
+
+  group('the sources row of a reply', () {
+    final reply = Message.text(
+      id: 'reply',
+      authorId: kAssistantAuthorId,
+      text: 'The answer.',
+      createdAt: DateTime.utc(2026, 1, 1, 14, 30),
+      metadata: {
+        kMetaSources: [
+          const TurnSource(
+            address: 'https://site.example/page',
+            title: 'A page',
+            host: 'site.example',
+          ),
+        ],
+      },
+    );
+
+    testWidgets('shows under the reply', (tester) async {
+      await _pumpChat(tester, messages: [reply]);
+
+      expect(find.byType(SourcesRow), findsOneWidget);
+    });
+
+    testWidgets('is left out where the chat asks for none', (tester) async {
+      await _pumpChat(tester, messages: [reply], showSources: false);
+
+      expect(find.text('The answer.'), findsOneWidget);
+      expect(find.byType(SourcesRow), findsNothing);
     });
   });
 }

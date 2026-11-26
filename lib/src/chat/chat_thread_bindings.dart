@@ -154,6 +154,7 @@ ChatThreadView boundChatThreadView({
   required ValueChanged<String> onSend,
   required LatestReply latestReply,
   bool welcome = true,
+  bool showSources = true,
   bool editable = false,
   bool branchable = false,
   String? greetingName,
@@ -240,6 +241,7 @@ ChatThreadView boundChatThreadView({
     latestReplyId: latestReply.id,
     turnActionStatus: latestReply.status,
     welcome: welcome,
+    showSources: showSources,
     modelPill: recipientChip == null
         ? composerModelPill(chat, onSetupModel: onSetupModel)
         : Row(
