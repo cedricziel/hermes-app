@@ -381,6 +381,22 @@ void main() {
     expect(find.byType(HiddenCharBox), findsWidgets);
   });
 
+  testWidgets('a refused write with no content has no heading over nothing', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      WriteFileToolBody.of(
+        writeCall(
+          {'error': 'File changed on disk'},
+          args: const {'path': 'a.txt', 'content': ''},
+        ),
+      )!,
+    );
+    expect(find.text('Not written.'), findsOneWidget);
+    expect(find.text('What Hermes tried to write'), findsNothing);
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,

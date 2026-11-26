@@ -185,7 +185,9 @@ class WriteFileToolBody extends StatelessWidget {
       copyText: result.content,
       state: state,
       statusLabel: l10n.chatWidgetsCodeWriting,
-      heading: result.refused ? l10n.chatWidgetsCodeTried : '',
+      heading: result.refused && result.rows.isNotEmpty
+          ? l10n.chatWidgetsCodeTried
+          : '',
       leading: [
         if (result.refused)
           CodeNote(

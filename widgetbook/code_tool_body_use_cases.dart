@@ -305,6 +305,15 @@ WidgetbookNode codeToolBodyNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Refused, no content',
+          builder: (_) => _card(
+            writeCall(
+              {'error': 'The file changed on disk since it was read.'},
+              args: {'path': 'notes/todo.md', 'content': ''},
+            ),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Refused, German',
           builder: (_) => _german(
             _card(
