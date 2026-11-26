@@ -28,11 +28,16 @@ class _Source implements MediaSource {
   final paths = <String>[];
   var refuse = false;
 
+  /// A path whose answer waits for its gate, and the bytes it then returns.
+  final gates = <String, Completer<void>>{};
+  final bytes = <String, Uint8List>{};
+
   @override
   Future<Uint8List> image(String path) async {
     paths.add(path);
     if (refuse) throw const MediaFetchException(MediaFailure.refused);
-    return Uint8List.fromList(_png);
+    await gates[path]?.future;
+    return bytes[path] ?? Uint8List.fromList(_png);
   }
 
   @override
@@ -55,6 +60,12 @@ class _Adapter implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+/// A loader that never keeps what it loads, as one cleared just after a load.
+class _ForgetfulLoader extends ToolImageLoader {
+  @override
+  Future<Uint8List> load(Uri uri) async => Uint8List.fromList(_png);
 }
 
 class _Setup {
@@ -403,6 +414,94 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(_states(tester), [ToolImageState.idle]);
     });
+
+    testWidgets('a load that ends after a clear leaves a tile that waits', (
+      tester,
+    ) async {
+      await pumpOnPlatform(
+        tester,
+        Provider<ToolImageLoader?>.value(
+          value: _ForgetfulLoader(),
+          child: ToolCallCard(
+            call: imagesCall(
+              imagesAnswer([pageImage('https://cdn.shop.example/a.png')]),
+            ),
+            initiallyOpen: true,
+          ),
+        ),
+        platform: TargetPlatform.android,
+      );
+
+      await tester.tap(find.byType(ToolImageTile));
+      await _settle(tester);
+
+      expect(_states(tester), [ToolImageState.idle]);
+    });
+
+    testWidgets('a fetch for the old items does not fill the new ones', (
+      tester,
+    ) async {
+      final setup = _Setup();
+      final old = '/srv/a/old.png';
+      final fresh = '/srv/a/new.png';
+      setup.source
+        ..gates[old] = Completer<void>()
+        ..bytes[old] = Uint8List.fromList([..._png, 0, 0, 0])
+        ..bytes[fresh] = Uint8List.fromList(_png);
+      Future<void> show(String path) => pumpOnPlatform(
+        tester,
+        MultiProvider(
+          providers: [
+            Provider<MediaStore?>.value(value: setup.store),
+            Provider<ToolImageLoader?>.value(value: setup.loader),
+          ],
+          child: ToolCallCard(
+            call: visionCall(visionAnswer(path: path)),
+            initiallyOpen: true,
+          ),
+        ),
+        platform: TargetPlatform.android,
+      );
+      await show(old);
+      await show(fresh);
+      await _settle(tester);
+
+      setup.source.gates[old]!.complete();
+      await _settle(tester);
+      await tester.tap(find.byType(ToolImageTile));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final viewer = tester.widget<ImageViewerPage>(
+        find.byType(ImageViewerPage),
+      );
+      await viewer.onSave!();
+
+      expect(setup.actions.saved.single.bytes, setup.source.bytes[fresh]);
+    });
+
+    testWidgets(
+      'an open viewer of a remote image closes when the loader clears',
+      (tester) async {
+        final setup = await _pump(
+          tester,
+          imagesCall(
+            imagesAnswer([pageImage('https://cdn.shop.example/a.png')]),
+          ),
+        );
+        await tester.tap(find.byType(ToolImageTile));
+        await _settle(tester);
+        await tester.tap(find.byType(ToolImageTile));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(ImageViewerPage), findsOneWidget);
+
+        await tester.runAsync(setup.loader.clear);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(ImageViewerPage), findsNothing);
+      },
+    );
 
     testWidgets('a loaded tile waits for a tap again once the loader clears', (
       tester,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show listEquals;
@@ -78,6 +79,11 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
   final _fetched = <int, Uint8List>{};
   ToolImageLoader? _loader;
 
+  /// The viewer open on a remote image, and which one: it closes when the
+  /// loader drops that image's bytes.
+  Route<void>? _viewer;
+  Uri? _viewerUri;
+
   /// Counts the times the items changed, so a load that was asked for the old
   /// items does not write into the new ones.
   var _epoch = 0;
@@ -126,6 +132,14 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
   void _loaderChanged() {
     final loader = _loader;
     if (loader == null) return;
+    final viewer = _viewer;
+    final shown = _viewerUri;
+    if (viewer != null &&
+        shown != null &&
+        viewer.isActive &&
+        loader.bytesOf(shown) == null) {
+      viewer.navigator?.removeRoute(viewer);
+    }
     setState(() {
       for (var i = 0; i < _states.length; i++) {
         final uri = widget.items[i].uri;
@@ -189,19 +203,22 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
         ? null
         : MemoryImage(bytes);
     if (image == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => ImageViewerPage(
-          image: image,
-          name: name,
-          // A remote image is never saved: it exists only in memory.
-          onSave: bytes == null || store == null
-              ? null
-              : () => store.save(fileNameOf(item.path), bytes),
-        ),
+    final route = MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => ImageViewerPage(
+        image: image,
+        name: name,
+        // A remote image is never saved: it exists only in memory.
+        onSave: bytes == null || store == null
+            ? null
+            : () => store.save(fileNameOf(item.path), bytes),
       ),
     );
+    if (item.uri != null) {
+      _viewer = route;
+      _viewerUri = item.uri;
+    }
+    unawaited(Navigator.of(context).push(route));
   }
 
   void Function()? _tapOf(int i, String name) {
