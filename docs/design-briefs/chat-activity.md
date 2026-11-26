@@ -265,6 +265,18 @@ This extends an existing designed surface (the action bar under a reply, `Messag
 
 **Not checked.** VoiceOver and TalkBack output on a device, the contrast of the dimmed glyphs on the dark surface beyond an eye check, the German sentences read by a German speaker.
 
+## Addendum: a regenerated reply
+
+This extends an existing designed surface (the action bar under a reply, `MessageActions`) with one label. It adds a state, not a screen, and needs no new canvas.
+
+**What the person sees.** A reply that replaced one a Retry or an Edit took back has a line above its action bar: a refresh icon and "Regenerated" (German: "Neu erstellt"), in the subtle text colour at the same small size as the "Stopped" label (16 pt icon, 12.5 pt text, 4 pt gap). It is above the bar, not in it: five actions fill a 320 pt row, so a label beside them overflows or shrinks to an ellipsis at large text. At the largest text size the line wraps rather than truncating. The icon is never the only signal: the word is always there. A reply that failed shows no mark, and a chat reloaded from history shows none, since Hermes does not store it.
+
+**Widgets (plain models).** `MessageActions(regenerated:)`; no new widget.
+
+**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions): "Regenerated reply" (with every action and Read aloud), "Regenerated and stopped" and "Regenerated, largest text on a narrow screen" (320 pt, 3x). Light and dark, phone and desktop come from the catalog's addons.
+
+**Not checked.** A rendered look of the label next to the actions on a device, VoiceOver and TalkBack output, the German word read by a German speaker.
+
 ## Composer recipient chip
 
 Recorded after the fact on 2026-11-24; describes what #1114 built. The chip is not part of the activity line or the Needs-you dock; it sits in the same composer area and was recorded here by the audit. Read from `lib/src/chat/chat_screen_layout.dart`, `lib/src/chat/chat_thread_bindings.dart`, `lib/src/profiles/widgets/recipient_picker.dart` and `lib/src/widgets/composer_selector_chip.dart` on main. The spec scenario is "Existing conversation shows no recipient selector" in `openspec/specs/messenger-navigation/spec.md`.

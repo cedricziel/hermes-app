@@ -272,6 +272,8 @@ extension _ChatControllerVoice on ChatController {
         !_enqueueing.contains(thread)) {
       _bound.remove(thread);
     }
+    // The turn it was to replace is still dropped, so the next reply replaces it.
+    if (undo.regenerated) _regenerating.add(thread);
     _removeReply(thread, reply);
     _removeReply(thread, prompt);
     // The words were the chat's title only because they were its first prompt.
@@ -317,6 +319,10 @@ final class _SendUndo {
   /// the answers about the turn before it stale.
   final int? generation;
   int? bumped;
+
+  /// The reply took the thread's regenerated mark, so a withdrawn send hands
+  /// it back.
+  bool regenerated = false;
 
   /// The reply before the prompt that settled without its completion, which
   /// the new turn was to take over.

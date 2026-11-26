@@ -10,6 +10,7 @@ extension _ChatControllerSessionState on ChatController {
     _sessionActionGenerations[thread] = ++_nextSessionActionGeneration;
     _undoing.remove(thread);
     _turnProblems.remove(thread);
+    _regenerating.remove(thread);
   }
 
   ChatSessionState? _sessionStateInImpl(ChatThread thread) =>

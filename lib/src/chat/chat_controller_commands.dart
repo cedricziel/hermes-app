@@ -596,6 +596,9 @@ extension _ChatControllerCommands on ChatController {
         _sessionStates[thread]?.reclaimedReason != null) {
       return true;
     }
+    // The server dropped the turn and so did this chat: the next reply the
+    // user sends here replaces it.
+    _regenerating.add(thread);
     notifyListeners();
     return true;
   }

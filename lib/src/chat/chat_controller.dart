@@ -341,6 +341,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _undoing.clear();
     _unconfirmedBranches.clear();
     _retrying.clear();
+    _regenerating.clear();
     _interrupts.clear();
     _holds.clear();
     for (final subscription in _replies) {
@@ -2211,6 +2212,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// prompt again. A full restore waits for it: between the two the chat is
   /// neither undoing nor replying.
   final _retrying = <ChatThread>{};
+
+  /// Threads whose last turn a Retry or an Edit took back, so the next reply
+  /// there replaces the dropped one and is marked ([ChatMessage.regenerated]).
+  final _regenerating = <ChatThread>{};
 
   /// Why the last retry or edit of a thread failed, until the next one or the
   /// next prompt.
