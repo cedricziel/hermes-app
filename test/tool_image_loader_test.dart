@@ -599,4 +599,41 @@ void main() {
     expect(loader.bytesOf(_cdn), isNull);
     expect(told, 1);
   });
+
+  test('nearby widths share one decode', () async {
+    final (loader, _) = _loader((_) => _ok());
+    await loader.load(_cdn);
+
+    expect(decodeWidthStep(1), 64);
+    expect(decodeWidthStep(64), 64);
+    expect(decodeWidthStep(65), 128);
+    expect(
+      identical(
+        loader.imageFor(_cdn, width: 100),
+        loader.imageFor(_cdn, width: 120),
+      ),
+      isTrue,
+    );
+    expect(
+      identical(
+        loader.imageFor(_cdn, width: 100),
+        loader.imageFor(_cdn, width: 200),
+      ),
+      isFalse,
+    );
+  });
+
+  test('bytes that finish just before a clear are not kept', () async {
+    late ToolImageLoader loader;
+    loader = ToolImageLoader(
+      // A download that ignores its cancel and ends right after a clear.
+      download: (uri, cancel) async {
+        await loader.clear();
+        return Uint8List.fromList(_png);
+      },
+    );
+
+    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.cleared);
+    expect(loader.bytesOf(_cdn), isNull);
+  });
 }

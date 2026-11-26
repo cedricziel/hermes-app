@@ -49,7 +49,10 @@ class ToolImageLoader {
     this.timeout = const Duration(seconds: 15),
     this.memoryBudget = 48 * 1024 * 1024,
     this.maxPixels = 25 * 1000 * 1000,
-  }) : _dioOverride = dio;
+    @visibleForTesting
+    Future<Uint8List> Function(Uri uri, CancelToken cancel)? download,
+  }) : _downloadOverride = download,
+       _dioOverride = dio;
 
   /// The loader the app runs: it clears itself when [signedOut] fires (a
   /// server change signs out too) and each time [lock] changes to [locked].
@@ -70,6 +73,8 @@ class ToolImageLoader {
   Listenable get changes => _changes;
 
   final Dio? _dioOverride;
+  final Future<Uint8List> Function(Uri uri, CancelToken cancel)?
+  _downloadOverride;
   late final Dio _dio = _dioOverride ?? Dio();
   final Breadcrumbs breadcrumbs;
   final int maxBytes;
@@ -108,7 +113,7 @@ class ToolImageLoader {
     _cancels.add(cancel);
     var outcome = ToolImageOutcome.ok;
     try {
-      final bytes = await _download(uri, cancel).timeout(
+      final bytes = await (_downloadOverride ?? _download)(uri, cancel).timeout(
         timeout,
         onTimeout: () {
           cancel.cancel();
@@ -234,9 +239,7 @@ class ToolImageLoader {
   ImageProvider? imageFor(Uri uri, {int? width}) {
     final bytes = _bytes[uri.toString()];
     if (bytes == null) return null;
-    // Widths in steps of 64 px, so a window being resized decodes a few
-    // times, not once per pixel.
-    final step = width == null ? null : (width + 63) ~/ 64 * 64;
+    final step = width == null ? null : decodeWidthStep(width);
     return _providers[(uri.toString(), step)] ??= ResizeImage.resizeIfNeeded(
       step,
       null,
@@ -320,6 +323,10 @@ extension on ToolImageOutcome {
 class _Changes extends ChangeNotifier {
   void notify() => notifyListeners();
 }
+
+/// A decode width in steps of 64 px, so a window being resized decodes a few
+/// times, not once per pixel.
+int decodeWidthStep(int width) => (width + 63) ~/ 64 * 64;
 
 /// The longest side a header is read as: no larger one can fit the pixel limit
 /// with a side of any length, and the product of two never overflows.
