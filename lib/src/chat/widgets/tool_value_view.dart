@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
@@ -74,6 +75,11 @@ class ToolValueView extends StatefulWidget {
 
 class _ToolValueViewState extends State<ToolValueView> {
   late List<CodeRun> _runs;
+
+  /// For a numbered text, the boxes each line may draw: the text's
+  /// [kToolHiddenBoxMax] shared out in line order once, so a row built again on
+  /// scroll draws what it drew before and the whole text stays within the cap.
+  var _rowBoxes = const <int>[];
   late bool _hasHidden;
   CodeHighlightWorker? _worker;
   var _generation = 0;
@@ -113,6 +119,9 @@ class _ToolValueViewState extends State<ToolValueView> {
       display = display.substring(0, display.length - 1);
     }
     _hasHidden = hasHiddenToolText(display);
+    _rowBoxes = widget.lineNumbers == null || !_hasHidden
+        ? const []
+        : _allotBoxes(display);
     _runs = [(display, null)];
     final language = widget.language;
     if (!widget.settled ||
@@ -132,6 +141,18 @@ class _ToolValueViewState extends State<ToolValueView> {
         }),
       );
     }
+  }
+
+  static List<int> _allotBoxes(String display) {
+    var left = kToolHiddenBoxMax;
+    return [
+      for (final line in display.split('\n'))
+        () {
+          final granted = min(countHiddenToolRunes(line), left);
+          left -= granted;
+          return granted;
+        }(),
+    ];
   }
 
   @override
@@ -231,9 +252,7 @@ class _ToolValueViewState extends State<ToolValueView> {
                 lines[i],
                 base,
                 palette,
-                // Its own budget: a row built again on scroll must not spend
-                // what the others have.
-                HiddenBoxBudget(),
+                HiddenBoxBudget(i < _rowBoxes.length ? _rowBoxes[i] : 0),
                 context,
               ),
             ),

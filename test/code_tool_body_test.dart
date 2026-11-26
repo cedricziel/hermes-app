@@ -397,6 +397,30 @@ void main() {
     expect(find.text('What Hermes tried to write'), findsNothing);
   });
 
+  testWidgets('a numbered text boxes at most kToolHiddenBoxMax characters', (
+    tester,
+  ) async {
+    // 40 rows of 20 hidden characters: 800 candidates for 200 boxes.
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(
+            content: numbered([
+              for (var i = 0; i < 40; i++) 'a${'\u200B' * 20}b',
+            ]),
+            totalLines: 40,
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(HiddenCharBox), findsWidgets);
+    expect(
+      find.byType(HiddenCharBox).evaluate().length,
+      lessThanOrEqualTo(kToolHiddenBoxMax),
+    );
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,

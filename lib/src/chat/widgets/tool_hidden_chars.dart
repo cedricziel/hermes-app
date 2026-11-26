@@ -75,6 +75,22 @@ bool hasHiddenToolText(String text) {
   return false;
 }
 
+/// How many characters of [text] [hiddenCharSpans] would box, counted as it
+/// counts them.
+int countHiddenToolRunes(String text) {
+  var count = 0;
+  var exemptUntil = 0;
+  for (var i = 0; i < text.length; i++) {
+    final unit = text.codeUnitAt(i);
+    if (unit >= 0x20 && unit < 0x7F) continue;
+    final rune = _runeAt(text, i);
+    if (rune == 0x1F3F4) exemptUntil = _flagTagEnd(text, i);
+    if (isHiddenToolRune(rune) && i >= exemptUntil) count++;
+    if (rune > 0xFFFF) i++;
+  }
+  return count;
+}
+
 /// The label a screen reader reads for [rune]'s box.
 String hiddenCharLabel(BuildContext context, int rune) =>
     context.l10n.chatWidgetsToolValueHiddenChar(_hex(rune));
