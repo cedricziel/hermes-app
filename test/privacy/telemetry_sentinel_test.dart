@@ -732,6 +732,12 @@ void main() {
   });
 }
 
+/// A 1 x 1 PNG: the loader reads the size from the header.
+final _pngBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/'
+  'iZk9HQAAAABJRU5ErkJggg==',
+);
+
 /// Answers an image by its name: `ok` is small, `fail` is refused, anything
 /// else is over the loader's limit.
 class _ImageAdapter implements HttpClientAdapter {
@@ -746,7 +752,7 @@ class _ImageAdapter implements HttpClientAdapter {
     requested++;
     final name = options.uri.pathSegments.last;
     return name == 'ok.png'
-        ? ResponseBody.fromBytes(const [1, 2, 3], 200)
+        ? ResponseBody.fromBytes(_pngBytes, 200)
         : name == 'fail.png'
         ? ResponseBody.fromBytes(const [], 500)
         : ResponseBody.fromBytes(Uint8List(64), 200);

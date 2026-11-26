@@ -9,7 +9,16 @@ import 'package:flutter/painting.dart';
 import '../telemetry/breadcrumbs.dart';
 
 /// How a remote image load ended, when it did not.
-enum ToolImageOutcome { ok, failed, tooLarge, insecure }
+enum ToolImageOutcome {
+  ok,
+  failed,
+  tooLarge,
+  insecure,
+
+  /// The loader cleared (App Lock, sign-out) while the request ran: nothing
+  /// went wrong, the tile just waits for a tap again.
+  cleared,
+}
 
 class ToolImageException implements Exception {
   const ToolImageException(this.outcome);
@@ -106,22 +115,35 @@ class ToolImageLoader {
           throw const ToolImageException(ToolImageOutcome.failed);
         },
       );
+      if (generation != _generation) {
+        throw const ToolImageException(ToolImageOutcome.cleared);
+      }
+      // Only the formats whose header says how big the picture is: a small
+      // file can hold one that takes gigabytes to decode, and any other
+      // format (BMP, ICO, HEIC) cannot be told apart from such a file.
       final pixels = claimedPixels(bytes);
-      if (pixels != null && pixels > maxPixels) {
+      if (pixels == null) {
+        throw const ToolImageException(ToolImageOutcome.failed);
+      }
+      if (pixels > maxPixels) {
         throw const ToolImageException(ToolImageOutcome.tooLarge);
       }
-      if (generation == _generation) _remember(key, bytes);
+      _remember(key, bytes);
       return bytes;
     } on ToolImageException catch (e) {
       outcome = e.outcome;
       rethrow;
     } on Object {
-      outcome = ToolImageOutcome.failed;
-      throw const ToolImageException(ToolImageOutcome.failed);
+      outcome = generation == _generation
+          ? ToolImageOutcome.failed
+          : ToolImageOutcome.cleared;
+      throw ToolImageException(outcome);
     } finally {
       _cancels.remove(cancel);
       if (generation == _generation) unawaited(_inflight.remove(key));
-      breadcrumbs('chat.tool_image.loaded', {'outcome': outcome.wire});
+      if (outcome != ToolImageOutcome.cleared) {
+        breadcrumbs('chat.tool_image.loaded', {'outcome': outcome.wire});
+      }
     }
   }
 
@@ -281,6 +303,7 @@ extension on ToolImageOutcome {
     ToolImageOutcome.failed => 'failed',
     ToolImageOutcome.tooLarge => 'too_large',
     ToolImageOutcome.insecure => 'insecure',
+    ToolImageOutcome.cleared => 'cleared',
   };
 }
 

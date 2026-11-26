@@ -463,4 +463,63 @@ void main() {
       expect(loader.imageFor(_cdn), isNull);
     },
   );
+
+  test('a format whose size the header does not give is refused', () async {
+    // A BMP can be run-length coded: a small file for a huge picture.
+    final bmp = Uint8List(64)..setAll(0, 'BM'.codeUnits);
+    final (loader, _) = _loader((_) => _ok(bmp));
+
+    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.failed);
+    expect(loader.bytesOf(_cdn), isNull);
+  });
+
+  test(
+    'a clear mid-request is its own outcome and leaves no breadcrumb',
+    () async {
+      final gate = Completer<void>();
+      final crumbs = <String>[];
+      final (loader, _) = _loader((_) async {
+        await gate.future;
+        return _ok();
+      }, crumbs: crumbs);
+
+      final pending = _outcome(loader.load(_cdn));
+      await loader.clear();
+      gate.complete();
+
+      expect(await pending, ToolImageOutcome.cleared);
+      expect(crumbs, isEmpty);
+    },
+  );
+
+  test(
+    'loading again after a clear is not undone by the cancelled load',
+    () async {
+      final gates = <Completer<void>>[];
+      final (loader, adapter) = _loader((_) async {
+        final gate = Completer<void>();
+        gates.add(gate);
+        await gate.future;
+        return _ok();
+      });
+
+      final first = _outcome(loader.load(_cdn));
+      await loader.clear();
+      final second = loader.load(_cdn);
+      await first;
+      while (gates.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      final before = adapter.requests.length;
+      // The second is still running: a third call joins it.
+      final third = loader.load(_cdn);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      for (final gate in gates) {
+        if (!gate.isCompleted) gate.complete();
+      }
+      await Future.wait([second, third]);
+
+      expect(adapter.requests, hasLength(before));
+    },
+  );
 }

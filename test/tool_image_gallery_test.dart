@@ -49,6 +49,9 @@ class _Adapter implements HttpClientAdapter {
   final requests = <Uri>[];
   var status = 200;
 
+  /// When set, an answer waits for it.
+  Completer<void>? gate;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -56,6 +59,7 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options.uri);
+    await gate?.future;
     return ResponseBody.fromBytes(status == 200 ? _png : const [], status);
   }
 
@@ -501,6 +505,36 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
 
         expect(find.byType(ImageViewerPage), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a clear while a load runs leaves a tile that waits, not a failure',
+      (tester) async {
+        final gate = Completer<void>();
+        final setup = _Setup()..adapter.gate = gate;
+        await pumpOnPlatform(
+          tester,
+          MultiProvider(
+            providers: [Provider<ToolImageLoader?>.value(value: setup.loader)],
+            child: ToolCallCard(
+              call: imagesCall(
+                imagesAnswer([pageImage('https://cdn.shop.example/a.png')]),
+              ),
+              initiallyOpen: true,
+            ),
+          ),
+          platform: TargetPlatform.android,
+        );
+        await tester.tap(find.byType(ToolImageTile));
+        await _settle(tester);
+        expect(_states(tester), [ToolImageState.loading]);
+
+        await tester.runAsync(setup.loader.clear);
+        gate.complete();
+        await _settle(tester);
+
+        expect(_states(tester), [ToolImageState.idle]);
       },
     );
 

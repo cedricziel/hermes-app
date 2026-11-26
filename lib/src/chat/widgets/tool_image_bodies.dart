@@ -175,6 +175,7 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
       next = switch (e.outcome) {
         ToolImageOutcome.tooLarge => ToolImageState.tooLarge,
         ToolImageOutcome.insecure => ToolImageState.insecure,
+        ToolImageOutcome.cleared => ToolImageState.idle,
         _ => ToolImageState.failed,
       };
     } on MediaFetchException {
