@@ -2513,7 +2513,7 @@
   },
   "chatWidgetsImageCouldntLoad": "Couldn't load",
   "@chatWidgetsImageCouldntLoad": {
-    "description": "Status in an image tile whose picture did not load (the host did not answer in time, refused, or sent something that is not an image)."
+    "description": "Status in an image tile whose picture did not load (the host did not answer in time, refused, or sent something the app does not read as a PNG, GIF, JPEG or WebP image)."
   },
   "chatWidgetsImageCount": "{count, plural, =1{1 image} other{{count} images}}",
   "@chatWidgetsImageCount": {
@@ -2596,7 +2596,7 @@
   },
   "chatWidgetsImageTooLarge": "Too large to load here. Open in browser",
   "@chatWidgetsImageTooLarge": {
-    "description": "Status in an image tile whose picture is over the size limit: a tap opens it in the browser."
+    "description": "Status in an image tile whose picture is over the size limit (bytes or pixels): a tap opens it in the browser."
   },
   "chatWidgetsLinkBotWarning": "This page may block automated visitors.",
   "@chatWidgetsLinkBotWarning": {

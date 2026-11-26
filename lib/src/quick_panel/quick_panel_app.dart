@@ -10,7 +10,6 @@ import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
-import '../chat/tool_image_loader.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/material_ui_bridge.dart';
@@ -20,6 +19,7 @@ import '../voice/voice_recorder.dart';
 import '../windows/conversation_window_args.dart';
 import '../windows/desktop_conversation_windows.dart';
 import '../windows/window_api_client.dart';
+import '../windows/window_tool_image_loader.dart';
 import 'quick_panel_screen.dart';
 
 /// Runs the quick panel's engine (macOS), which desktop_multi_window started
@@ -54,10 +54,7 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
           dispose: (_, store) => store?.dispose(),
         ),
         // Cleared when the main window locks (see `QuickPanelScreen`).
-        Provider<ToolImageLoader?>(
-          create: (_) => ToolImageLoader(),
-          dispose: (_, loader) => loader?.dispose(),
-        ),
+        windowToolImageLoaderProvider(),
       ],
       child: Builder(
         builder: (context) => MaterialApp(

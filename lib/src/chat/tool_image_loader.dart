@@ -123,9 +123,10 @@ class ToolImageLoader {
       // file can hold one that takes gigabytes to decode, and any other
       // format (BMP, ICO, HEIC) cannot be told apart from such a file.
       final pixels = claimedPixels(bytes);
-      // Refused like an over-size image: a tap would only download it again,
-      // so the tile offers the browser.
-      if (pixels == null || pixels > maxPixels) {
+      if (pixels == null) {
+        throw const ToolImageException(ToolImageOutcome.failed);
+      }
+      if (pixels > maxPixels) {
         throw const ToolImageException(ToolImageOutcome.tooLarge);
       }
       _remember(key, bytes);

@@ -11,7 +11,6 @@ import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
-import '../chat/tool_image_loader.dart';
 import '../chat/media/quick_look.dart';
 import '../macos/mac_window.dart';
 import '../quick_panel/quick_panel_app.dart';
@@ -22,6 +21,7 @@ import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
 import 'window_api_client.dart';
+import 'window_tool_image_loader.dart';
 
 /// The conversation window [main] was started for: desktop_multi_window
 /// starts each window's engine at `main(["multi_window", id, arguments])`.
@@ -79,10 +79,7 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
         ),
         // The window clears it when the main window locks (see
         // `ConversationWindowScreen`); its end frees the rest.
-        Provider<ToolImageLoader?>(
-          create: (_) => ToolImageLoader(),
-          dispose: (_, loader) => loader?.dispose(),
-        ),
+        windowToolImageLoaderProvider(),
       ],
       child: Builder(
         builder: (context) => MaterialApp(

@@ -483,17 +483,14 @@ void main() {
     },
   );
 
-  test(
-    'a format whose size the header does not give is too large to load',
-    () async {
-      // A BMP can be run-length coded: a small file for a huge picture.
-      final bmp = Uint8List(64)..setAll(0, 'BM'.codeUnits);
-      final (loader, _) = _loader((_) => _ok(bmp));
+  test('a format whose size the header does not give does not load', () async {
+    // A BMP can be run-length coded: a small file for a huge picture.
+    final bmp = Uint8List(64)..setAll(0, 'BM'.codeUnits);
+    final (loader, _) = _loader((_) => _ok(bmp));
 
-      expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.tooLarge);
-      expect(loader.bytesOf(_cdn), isNull);
-    },
-  );
+    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.failed);
+    expect(loader.bytesOf(_cdn), isNull);
+  });
 
   test(
     'a clear mid-request is its own outcome and leaves no breadcrumb',
