@@ -35,7 +35,7 @@ class SchedulesMacToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MacToolbar(
-    title: 'Schedules',
+    title: context.l10n.schedulesToolbarTitle,
     subtitle: jobCount == 1 ? '1 job' : '$jobCount jobs',
     border: true,
     actions: [
@@ -59,7 +59,7 @@ class SchedulesMacToolbar extends StatelessWidget {
         onPressed: onRefresh,
       ),
       MacToolbarButton(
-        label: 'New Schedule',
+        label: context.l10n.macosMenuNewSchedule,
         shortcut: '⌘N',
         icon: AppIcons.add,
         onPressed: onNew,
@@ -83,6 +83,7 @@ class ScheduleScopeControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = context.l10n;
     Widget label(String text) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Text(
@@ -98,7 +99,10 @@ class ScheduleScopeControl extends StatelessWidget {
         backgroundColor: scheme.surfaceContainerHighest,
         thumbColor: scheme.surface,
         padding: const EdgeInsets.all(2),
-        children: {false: label('This profile'), true: label('All profiles')},
+        children: {
+          false: label(l10n.schedulesToolbarScopeThis),
+          true: label(l10n.schedulesToolbarScopeAll),
+        },
         onValueChanged: (value) {
           if (value != null) onChanged(value);
         },
