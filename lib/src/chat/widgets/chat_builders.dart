@@ -37,12 +37,14 @@ import '../../macos/menu_selection_area.dart';
 import 'message_drag_grip.dart';
 import 'read_aloud_actions.dart';
 import '../first_run_card.dart' show isProviderReplyError;
+import '../sources/turn_sources.dart' show TurnSource;
 import '../starter_prompts.dart';
 import '../../providers/widgets/connect_model_card.dart'
     show ProviderReplyFailure;
 import 'reasoning_block.dart';
 import 'review_summary_note.dart';
 import 'scroll_to_latest_button.dart';
+import 'sources_row.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'reply_interrupted_note.dart';
@@ -352,6 +354,11 @@ Widget _buildText(
           )
         else
           ReplyErrorNote(error),
+      if (message.metadata?[kMetaSources] case final List<TurnSource> sources)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: ReplySources(sources: sources),
+        ),
       if (latestReplyId == null)
         below(false)
       else

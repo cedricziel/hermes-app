@@ -131,6 +131,12 @@ class _Reason {
 
 /// Messages with a number that needs no plural form, with the reason.
 const _noPlural = <String, _Reason>{
+  'chatWidgetsSourcesMore': _Reason(
+    'a chip over a number, "+4 more", with no noun that agrees with it',
+  ),
+  'chatWidgetsSourcesSemantics': _Reason(
+    'a name and a number, "Sources, 7": the label is the same for one',
+  ),
   'chatWidgetsImageNumbered': _Reason('a position "image 3 of 9", no noun'),
   'chatWidgetsImageShowAll': _Reason('a button over a number, no noun'),
   'chatActivityLinePlanCounter': _Reason('a ratio, no word'),

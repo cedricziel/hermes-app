@@ -106,6 +106,10 @@ const String kMetaError = 'error';
 const String kMetaStreaming = 'streaming';
 const String kMetaStopped = 'stopped';
 
+/// On a finished reply's `TextMessage`: the pages its turn drew on, a
+/// non-empty `List<TurnSource>`, shown as a row of sources under the text.
+const String kMetaSources = 'sources';
+
 /// On a reply's `TextMessage` that replaced an earlier one after Retry or Edit
 /// (`ChatMessage.regenerated`); shown in its action row.
 const String kMetaRegenerated = 'regenerated';

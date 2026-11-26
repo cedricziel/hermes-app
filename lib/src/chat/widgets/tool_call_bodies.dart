@@ -6,6 +6,7 @@ import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../tool_result.dart';
+import '../web_search_result.dart';
 import 'code_tool_bodies.dart';
 import 'link_tool_bodies.dart';
 import 'memory_tool_body.dart';
@@ -189,9 +190,6 @@ class TerminalToolBody extends StatelessWidget {
   }
 }
 
-/// One hit of a web search.
-typedef WebSearchHit = ({String title, String url, String description});
-
 /// A web search: the hits it found, title, address and snippet.
 class WebSearchToolBody extends StatelessWidget {
   const WebSearchToolBody({super.key, required this.hits});
@@ -199,21 +197,8 @@ class WebSearchToolBody extends StatelessWidget {
   final List<WebSearchHit> hits;
 
   static WebSearchToolBody? of(ToolCall call) {
-    if (call.resultData case {'data': {'web': final List web}}) {
-      final hits = [
-        for (final hit in web)
-          if (hit case {'url': final String url})
-            (
-              title: hit['title'] is String ? hit['title'] as String : url,
-              url: url,
-              description: hit['description'] is String
-                  ? hit['description'] as String
-                  : '',
-            ),
-      ];
-      return WebSearchToolBody(hits: hits);
-    }
-    return null;
+    final hits = webSearchHits(call);
+    return hits == null ? null : WebSearchToolBody(hits: hits);
   }
 
   @override
@@ -234,7 +219,7 @@ class WebSearchToolBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    wellFormedText(hit.title),
+                    wellFormedText(hit.title ?? hit.url),
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,

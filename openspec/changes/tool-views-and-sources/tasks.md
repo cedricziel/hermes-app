@@ -70,6 +70,11 @@ Catalog use cases (`widgetbook/sources_row_use_cases.dart`): one source, three, 
 
 Acceptance tests: `test/turn_sources_test.dart` (opened pages first, search hits after, de-duplication across `Example.com/a#x` and `example.com/a`, credentials excluded, other schemes excluded, `browser_snapshot` adds nothing, an errored `web_extract` page adds nothing, the first title wins), a history test with the repository mapping that a turn of three assistant rows shows one row with all their sources and that a reload equals the live turn, `test/sources_row_test.dart` (a tap opens the address and makes no other request, "+N more" expands in place, the host is never elided before the title, no row for no sources and none while streaming). Add the sources row's flow (expand and open, with a sentinel in a title, host and address) to `test/privacy/telemetry_sentinel_test.dart`. Revert-the-fix: collect over one message only and the history test fails.
 
+- [x] 5.1 Catalog first: `SourcesRow` as a plain model with every use case above, in both themes, phone and desktop, German and the largest text (`widgetbook/sources_row_use_cases.dart`). The press menu is shared with `LinkPreviewCard` (`widgets/page_press_menu.dart`).
+- [x] 5.2 The pure `sources/turn_sources.dart` and the `web_search` parse moved out of its widget (`web_search_result.dart`), reused by both.
+- [x] 5.3 The wiring: `kMetaSources` on the reply's `TextMessage` (`chat_message_mapper.dart`, the turn's calls handed to the message that ends it), the row in `_buildText`, the strings in `app_en.arb` and `app_de.arb`, the breadcrumbs and the sentinel flow.
+- [x] 5.4 The acceptance tests above (`test/turn_sources_test.dart`, `test/reply_sources_history_test.dart`, `test/sources_row_test.dart`, `test/reply_sources_chat_test.dart`), built from fixtures read from the Hermes source at `d923a5eb` (`test/support/sources_fixtures.dart`), not recorded; PR 0 replaces them with recorded ones.
+
 ## Not verified
 
 The slices are built from a canvas and source reading. Each needs `scripts/verify.sh app` or `verify-in-app` against a throwaway Hermes with a scripted model for the file and search tools; the browser, image and vision views are verified on a device with a real browser tool and an image provider, or are listed under "Not verified on a device" in their PRs.

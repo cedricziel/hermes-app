@@ -2955,6 +2955,48 @@
   "@chatWidgetsSessionStatusUnavailable": {
     "description": "Status of the goal, loop or heartbeat in the session status summary when the server reports none."
   },
+  "chatWidgetsSourcesChipLabel": "{title}, {host}",
+  "@chatWidgetsSourcesChipLabel": {
+    "description": "Screen-reader name of a source chip under a reply: the page's title, then its host.",
+    "placeholders": {
+      "title": {"type": "String"},
+      "host": {"type": "String"}
+    }
+  },
+  "chatWidgetsSourcesFewer": "Show fewer",
+  "@chatWidgetsSourcesFewer": {
+    "description": "Chip that folds an expanded row of sources back to its first few."
+  },
+  "chatWidgetsSourcesHeader": "{count, plural, =1{Source} other{Sources · {count}}}",
+  "@chatWidgetsSourcesHeader": {
+    "description": "Header of the row of pages a reply drew on.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsSourcesMore": "+{count} more",
+  "@chatWidgetsSourcesMore": {
+    "description": "Chip that shows the rest of a reply's sources in place.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsSourcesSemantics": "Sources, {count}",
+  "@chatWidgetsSourcesSemantics": {
+    "description": "Screen-reader name of the row of pages a reply drew on.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
   "chatWidgetsThreadListRefreshFailedDetail": "Pull down to try again.",
   "@chatWidgetsThreadListRefreshFailedDetail": {
     "description": "Detail under the title of the notice above the chat list after a pull to refresh failed; the list stays as it was and nothing is retried on its own."

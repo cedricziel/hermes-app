@@ -6,6 +6,7 @@ import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 import 'markdown_entities.dart';
 import 'media/extract_media.dart';
+import 'sources/turn_sources.dart';
 import '../voice/voice_transcript.dart';
 
 /// Attachments come first, then input requests, text and tool runs
@@ -23,9 +24,14 @@ import '../voice/voice_transcript.dart';
 /// run's first call, so a streaming reply that mutates content, status or
 /// appends another sealed entry or call maps to ids the controller can
 /// match with `updateMessage`.
+///
+/// A finished reply carries the sources of [sourceCalls], the calls of its
+/// whole turn (those of [m] when left out): a turn read from history is
+/// several messages, and only the one that ends it shows the row.
 List<Message> chatMessageToFlyer(
   ChatMessage m, {
   Iterable<ToolCall> voiceCalls = const [],
+  Iterable<ToolCall>? sourceCalls,
 }) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
@@ -237,6 +243,20 @@ List<Message> chatMessageToFlyer(
         },
       ),
   ];
+  // A row appearing under half a sentence would move the text, so only a
+  // finished reply shows its sources.
+  final turnCalls = sourceCalls ?? m.toolCalls;
+  if (m.role == ChatRole.assistant && !m.isPending && turnCalls.isNotEmpty) {
+    final at = messages.indexWhere((e) => e is TextMessage && e.id == m.id);
+    final sources = at < 0
+        ? const <TurnSource>[]
+        : collectTurnSources(turnCalls);
+    if (sources.isNotEmpty) {
+      messages[at] = messages[at].copyWith(
+        metadata: {...?messages[at].metadata, kMetaSources: sources},
+      );
+    }
+  }
   if (m.canonicalRow case final row? when messages.isNotEmpty) {
     final last = messages.last;
     messages[messages.length - 1] = last.copyWith(
@@ -295,13 +315,22 @@ int outcomeLineIndex(List<Message> messages, DateTime at) {
 }
 
 /// Stored tool calls and their final reply are separate assistant rows.
-/// Carry TTS results only within the same turn when restoring history.
+/// Carry TTS results only within the same turn when restoring history, and
+/// give the sources of the whole turn to the message that ends it.
 List<Message> chatMessagesToFlyer(Iterable<ChatMessage> messages) {
+  final all = messages.toList();
   final result = <Message>[];
   final calls = <ToolCall>[];
-  for (final message in messages) {
+  for (final (i, message) in all.indexed) {
     if (message.role == ChatRole.user) calls.clear();
-    result.addAll(chatMessageToFlyer(message, voiceCalls: calls));
+    final endsTurn = i + 1 == all.length || all[i + 1].role == ChatRole.user;
+    result.addAll(
+      chatMessageToFlyer(
+        message,
+        voiceCalls: calls,
+        sourceCalls: endsTurn ? [...calls, ...message.toolCalls] : const [],
+      ),
+    );
     calls.addAll(message.toolCalls);
   }
   return result;

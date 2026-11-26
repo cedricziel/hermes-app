@@ -1,7 +1,4 @@
-import 'dart:async';
-
-import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:material_ui/material_ui.dart';
 
 import '../../../l10n/l10n.dart';
@@ -9,13 +6,10 @@ import '../../files/widgets/safe_path_text.dart' show safePathText;
 import '../../theme/app_icons.dart';
 import '../../theme/focus_ring.dart';
 import '../../theme/hermes_theme.dart';
-import '../../theme/platform_chrome.dart';
-import '../../widgets/adaptive_popup_menu_button.dart' show showRingMenu;
-import '../../widgets/app_action_sheet.dart';
 import '../../widgets/busy_bar.dart';
 import '../page_link.dart';
-import '../report_chat_bug.dart';
 import 'code_tool_body.dart' show CodeNote, CodeNoteTone, CodeNoteView;
+import 'page_press_menu.dart';
 
 /// Where a page stands: [ready] with its text, [running] while the tool still
 /// works on it, or [failed].
@@ -67,36 +61,16 @@ class LinkPreviewCard extends StatelessWidget {
     final uri = link.uri;
     final openable = ready && uri != null && onOpen != null;
     final shownTitle = _oneLine(title);
-    final copyText = ready ? link.copyText : null;
-    final copied = l10n.chatWidgetsToolValueCopied;
-    final view = View.of(context);
-    final direction = Directionality.of(context);
-    final actions = [
-      if (openable) _PressAction(l10n.chatWidgetsLinkOpen, () => onOpen!(uri)),
-      if (copyText != null)
-        _PressAction(l10n.chatWidgetsLinkCopy, () async {
-          try {
-            await Clipboard.setData(ClipboardData(text: copyText));
-          } on Object catch (error, stack) {
-            reportChatBug(error, stack, 'a page link copy');
-            return;
-          }
-          unawaited(
-            SemanticsService.sendAnnouncement(
-              view,
-              copied,
-              direction,
-            ).catchError((Object _) {}),
-          );
-        }),
-    ];
+    final actions = ready
+        ? pagePressActions(context, link, onOpen: onOpen)
+        : const <PagePressAction>[];
     final excerptText = _oneLine(excerpt);
     final content = Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ExcludeSemantics(child: _Tile(letter: link.monogram)),
+          PageTile(letter: link.monogram, size: 36),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -175,13 +149,13 @@ class LinkPreviewCard extends StatelessWidget {
                   radius: 10,
                   child: InkWell(
                     onTap: openable ? () => onOpen!(uri) : null,
-                    onLongPress: () => _showMenu(
+                    onLongPress: () => showPagePressMenu(
                       context,
                       actions,
-                      _centreOf(context),
+                      centreOf(context),
                       safePathText(link.host),
                     ),
-                    onSecondaryTapUp: (details) => _showMenu(
+                    onSecondaryTapUp: (details) => showPagePressMenu(
                       context,
                       actions,
                       details.globalPosition,
@@ -205,82 +179,9 @@ class LinkPreviewCard extends StatelessWidget {
   }
 }
 
-class _PressAction {
-  const _PressAction(this.label, this.run);
-
-  final String label;
-  final FutureOr<void> Function() run;
-}
-
-Offset _centreOf(BuildContext context) {
-  final box = context.findRenderObject()! as RenderBox;
-  return box.localToGlobal(box.size.center(Offset.zero));
-}
-
-/// The press menu: an action sheet on iOS, a menu at the pointer elsewhere.
-Future<void> _showMenu(
-  BuildContext context,
-  List<_PressAction> actions,
-  Offset at,
-  String title,
-) async {
-  final _PressAction? chosen;
-  if (platformChromeOf(context) == PlatformChrome.ios) {
-    chosen = await showAppActionSheet<_PressAction>(
-      context: context,
-      title: title,
-      entries: [
-        for (final action in actions)
-          AppActionSheetEntry(label: action.label, value: action),
-      ],
-    );
-  } else {
-    final overlay =
-        Overlay.of(context).context.findRenderObject()! as RenderBox;
-    chosen = await showRingMenu<_PressAction>(
-      context: context,
-      position: RelativeRect.fromRect(
-        at & Size.zero,
-        Offset.zero & overlay.size,
-      ),
-      items: [
-        for (final action in actions)
-          PopupMenuItem(value: action, child: Text(action.label)),
-      ],
-    );
-  }
-  await chosen?.run();
-}
-
 /// Text from the web on one line: whitespace collapsed, and made safe to show.
 String _oneLine(String text) =>
     safePathText(text.replaceAll(RegExp(r'\s+'), ' ').trim());
-
-class _Tile extends StatelessWidget {
-  const _Tile({required this.letter});
-
-  final String letter;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: 36,
-      height: 36,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        letter,
-        textScaler: TextScaler.noScaling,
-        style: Theme.of(context).textTheme.titleSmall!
-            .copyWith(color: scheme.onSurfaceVariant),
-      ),
-    );
-  }
-}
 
 class _Running extends StatelessWidget {
   const _Running({required this.label});
