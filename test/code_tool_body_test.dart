@@ -460,6 +460,26 @@ void main() {
     expect(find.text('Read it first.'), findsOneWidget);
   });
 
+  testWidgets('shows the server notes under every kind of read', (
+    tester,
+  ) async {
+    const notes = {'_warning': 'Careful.', 'hint': 'Try x.'};
+    for (final (answer, line) in [
+      ({...notes, 'is_binary': true, 'file_size': 9}, 'Not a text file.'),
+      ({...notes, 'error': 'Nope'}, "Couldn't read this file."),
+      ({...notes, 'content': '', 'total_lines': 5}, 'Nothing at these lines.'),
+      (
+        {...notes, 'status': 'unchanged', 'dedup': true},
+        'Hermes did not read this again: the file has not changed.',
+      ),
+    ]) {
+      await _pump(tester, _read(readCall(answer)));
+      expect(find.text(line), findsOneWidget, reason: '$answer');
+      expect(find.text('Careful.'), findsOneWidget, reason: '$answer');
+      expect(find.text('Try x.'), findsOneWidget, reason: '$answer');
+    }
+  });
+
   testWidgets('a text that gains line numbers drops its last carriage '
       'return', (tester) async {
     final numbers = ValueNotifier<List<int>?>(null);

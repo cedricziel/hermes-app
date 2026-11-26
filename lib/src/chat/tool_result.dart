@@ -61,10 +61,10 @@ String toolResultError(Object? result) => switch (result) {
 };
 
 /// The object a call's result is, for the views that read its keys: the
-/// decoded [ToolCall.resultData] when it is an object, else [ToolCall.result]
-/// decoded when that text is a JSON object (live, a result may reach a view as
-/// a string, as [ToolCall.resultData] or as [ToolCall.result]). Null for a list, a text that is not JSON and a call with no
-/// result.
+/// decoded [ToolCall.resultData] when it is an object, else the JSON object
+/// that [ToolCall.resultData] or [ToolCall.result] holds as text (live, a
+/// result may reach a view as a string). Null for a list, a text that is not
+/// JSON and a call with no result.
 Map<String, Object?>? toolResultMap(ToolCall call) {
   final data = call.resultData;
   if (data is Map) return data.cast<String, Object?>();

@@ -146,6 +146,16 @@ WidgetbookNode codeToolBodyNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Missing, with Hermes\' warning and hint',
+          builder: (_) => _card(
+            _read({
+              'error': 'File not found: tools/file_size.dart',
+              '_warning': 'You already looked for this file.',
+              'hint': 'Check the spelling of the path.',
+            }),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Binary',
           builder: (_) => _card(
             _read({
@@ -301,6 +311,16 @@ WidgetbookNode codeToolBodyNode() => WidgetbookFolder(
           builder: (_) => _card(
             _write({
               'error': 'The file changed on disk since it was read. Read it again before writing.',
+            }),
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Refused, with warning and hint',
+          builder: (_) => _card(
+            _write({
+              'error': 'The file changed on disk since it was read.',
+              '_warning': 'The path resolved to /srv/notes/todo.md.',
+              'hint': 'Read the file again before writing it.',
             }),
           ),
         ),
