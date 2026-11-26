@@ -325,6 +325,33 @@ void main() {
     expect(find.byType(Text).evaluate().length, lessThan(300));
   });
 
+  testWidgets('a failed copy neither throws nor says Copied', (tester) async {
+    await _pump(
+      tester,
+      _read(readCall(readAnswer(content: numbered(['a']), totalLines: 1))),
+    );
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          throw PlatformException(code: 'unavailable');
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.tap(find.byKey(const ValueKey('tool-value-copy')));
+    await tester.pump();
+    // The failure is neither thrown out of the tap nor shown as a copy.
+    expect(tester.takeException(), isNull);
+    expect(find.text('Copied'), findsNothing);
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,

@@ -40,7 +40,7 @@ class WriteFileResult {
   final String diagnostics;
   final String warning;
 
-  /// Hermes' `_warning` (where the path resolved to) and `hint` texts.
+  /// Hermes' `hint` text (`warning` holds `warning` and `_warning`).
   final String hint;
 
   bool get refused => error.isNotEmpty;
