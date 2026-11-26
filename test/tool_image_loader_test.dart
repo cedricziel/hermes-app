@@ -377,4 +377,90 @@ void main() {
     lock.value = true;
     expect(cleared, 2);
   });
+
+  test('an image whose header claims too many pixels is too large', () async {
+    // 30,000 x 30,000 in a few bytes: a PNG header is enough to say so.
+    final header = Uint8List(33)
+      ..setAll(0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+      ..buffer.asByteData().setUint32(16, 30000)
+      ..buffer.asByteData().setUint32(20, 30000);
+    final (loader, _) = _loader((_) => _ok(header));
+
+    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.tooLarge);
+    expect(loader.bytesOf(_cdn), isNull);
+  });
+
+  test('the header of each format gives its size, and an unknown one none', () {
+    final png = Uint8List(33)
+      ..setAll(0, [0x89, 0x50, 0x4E, 0x47])
+      ..buffer.asByteData().setUint32(16, 300)
+      ..buffer.asByteData().setUint32(20, 200);
+    final gif = Uint8List.fromList([
+      0x47,
+      0x49,
+      0x46,
+      0x38,
+      0x39,
+      0x61,
+      0x2C,
+      0x01,
+      0xC8,
+      0x00,
+      0,
+      0,
+    ]);
+    // SOI, an APP0 segment of 16 bytes, then SOF0 with 200 x 300.
+    final jpeg = Uint8List.fromList([
+      0xFF,
+      0xD8,
+      0xFF,
+      0xE0,
+      0x00,
+      0x10,
+      ...List.filled(14, 0),
+      0xFF,
+      0xC0,
+      0x00,
+      0x11,
+      0x08,
+      0x00,
+      0xC8,
+      0x01,
+      0x2C,
+      0,
+      0,
+      0,
+    ]);
+    final webp = Uint8List(40)
+      ..setAll(0, 'RIFF'.codeUnits)
+      ..setAll(8, 'WEBPVP8X'.codeUnits)
+      ..setAll(24, [0x2B, 0x01, 0x00, 0xC7, 0x00, 0x00]);
+
+    expect(claimedPixels(png), 60000);
+    expect(claimedPixels(gif), 60000);
+    expect(claimedPixels(jpeg), 60000);
+    expect(claimedPixels(webp), 60000);
+    expect(claimedPixels(Uint8List.fromList([1, 2, 3])), isNull);
+  });
+
+  test(
+    'going over the memory budget tells the listeners and drops frames',
+    () async {
+      final (_, adapter) = _loader((_) => _ok());
+      final loader = ToolImageLoader(
+        dio: Dio()..httpClientAdapter = adapter,
+        memoryBudget: _png.length + 10,
+      );
+      final second = Uri.parse('https://cdn.example/b.png');
+      var told = 0;
+      loader.changes.addListener(() => told++);
+      await loader.load(_cdn);
+      expect(loader.imageFor(_cdn), isNotNull);
+
+      await loader.load(second);
+
+      expect(told, 1);
+      expect(loader.imageFor(_cdn), isNull);
+    },
+  );
 }

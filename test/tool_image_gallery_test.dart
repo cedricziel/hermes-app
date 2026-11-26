@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/tool_image_loader.dart';
 import 'package:hermes_app/src/chat/widgets/image_viewer.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_image_gallery.dart';
 import 'package:hermes_app/src/chat/widgets/tool_image_tile.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
@@ -564,6 +565,28 @@ void main() {
       await _pump(tester, visionCall(visionAnswer(path: 'page.png')));
       expect(find.byType(ToolImageTile), findsNothing);
     });
+  });
+
+  testWidgets('one image is one large tile, however wide the page', (
+    tester,
+  ) async {
+    await pumpOnPlatform(
+      tester,
+      const Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 900,
+          child: ToolImageGallery(
+            tiles: [
+              ToolImageTile(state: ToolImageState.idle, host: 'a.example'),
+            ],
+          ),
+        ),
+      ),
+      platform: TargetPlatform.macOS,
+    );
+
+    expect(tester.getSize(find.byType(ToolImageTile)).width, 360);
   });
 
   testWidgets('rendering a gallery makes no HTTP client of its own', (

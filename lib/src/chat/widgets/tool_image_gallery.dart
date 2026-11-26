@@ -5,6 +5,9 @@ import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import 'tool_image_tile.dart';
 
+/// The widest a single image's tile is drawn.
+const _singleWidth = 360.0;
+
 /// How many tiles show before "Show all".
 const kGalleryFirstTiles = 6;
 
@@ -58,7 +61,7 @@ class _ToolImageGalleryState extends State<ToolImageGallery> {
       return Align(
         alignment: Alignment.topLeft,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: const BoxConstraints(maxWidth: _singleWidth),
           child: tiles.first,
         ),
       );
@@ -89,6 +92,16 @@ class _ToolImageGalleryState extends State<ToolImageGallery> {
         ),
         LayoutBuilder(
           builder: (context, box) {
+            // One image is a large tile, however wide the page.
+            if (tiles.length == 1) {
+              return Align(
+                alignment: Alignment.topLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _singleWidth),
+                  child: tiles.first,
+                ),
+              );
+            }
             // Words at the largest text sizes need a tile's whole width.
             final columns = MediaQuery.textScalerOf(context).scale(1) > 1.6
                 ? 1

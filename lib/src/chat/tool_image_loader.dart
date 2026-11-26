@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart'
-    show ChangeNotifier, Listenable, VoidCallback;
+    show ChangeNotifier, Listenable, VoidCallback, visibleForTesting;
 import 'package:flutter/painting.dart';
 
 import '../telemetry/breadcrumbs.dart';
@@ -39,6 +39,7 @@ class ToolImageLoader {
     this.maxBytes = 10 * 1024 * 1024,
     this.timeout = const Duration(seconds: 15),
     this.memoryBudget = 48 * 1024 * 1024,
+    this.maxPixels = 25 * 1000 * 1000,
   }) : _dioOverride = dio;
 
   /// The loader the app runs: it clears itself when [signedOut] fires (a
@@ -64,6 +65,10 @@ class ToolImageLoader {
   final Breadcrumbs breadcrumbs;
   final int maxBytes;
   final Duration timeout;
+
+  /// The most pixels an image may claim: a small file can hold a picture that
+  /// takes gigabytes to decode.
+  final int maxPixels;
 
   /// The most bytes kept at once; the oldest image goes first.
   final int memoryBudget;
@@ -101,6 +106,10 @@ class ToolImageLoader {
           throw const ToolImageException(ToolImageOutcome.failed);
         },
       );
+      final pixels = claimedPixels(bytes);
+      if (pixels != null && pixels > maxPixels) {
+        throw const ToolImageException(ToolImageOutcome.tooLarge);
+      }
       if (generation == _generation) _remember(key, bytes);
       return bytes;
     } on ToolImageException catch (e) {
@@ -277,4 +286,59 @@ extension on ToolImageOutcome {
 
 class _Changes extends ChangeNotifier {
   void notify() => notifyListeners();
+}
+
+/// How many pixels the header of a PNG, GIF, JPEG or WebP claims, or null for
+/// any other format or a header that is cut short. Only the header is read.
+@visibleForTesting
+int? claimedPixels(Uint8List b) {
+  int be16(int i) => b[i] << 8 | b[i + 1];
+  int be32(int i) => be16(i) << 16 | be16(i + 2);
+  int le16(int i) => b[i] | b[i + 1] << 8;
+  int le24(int i) => le16(i) | b[i + 2] << 16;
+  final n = b.length;
+  if (n >= 24 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E) {
+    return be32(16) * be32(20);
+  }
+  if (n >= 10 && b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) {
+    return le16(6) * le16(8);
+  }
+  if (n >= 4 && b[0] == 0xFF && b[1] == 0xD8) {
+    var i = 2;
+    while (i + 9 < n) {
+      if (b[i] != 0xFF) {
+        i++;
+        continue;
+      }
+      final marker = b[i + 1];
+      if (marker == 0xFF) {
+        i++;
+      } else if (marker == 0xD8 ||
+          marker == 0x01 ||
+          (marker >= 0xD0 && marker <= 0xD7)) {
+        i += 2;
+      } else if (marker >= 0xC0 &&
+          marker <= 0xCF &&
+          marker != 0xC4 &&
+          marker != 0xC8 &&
+          marker != 0xCC) {
+        return be16(i + 5) * be16(i + 7);
+      } else {
+        i += 2 + be16(i + 2);
+      }
+    }
+    return null;
+  }
+  if (n >= 30 && b[0] == 0x52 && b[8] == 0x57 && b[9] == 0x45) {
+    final kind = String.fromCharCodes(b.sublist(12, 16));
+    if (kind == 'VP8 ') return (le16(26) & 0x3fff) * (le16(28) & 0x3fff);
+    if (kind == 'VP8L') {
+      final width = 1 + ((b[22] & 0x3f) << 8 | b[21]);
+      final height =
+          1 + ((b[24] & 0x0f) << 10 | b[23] << 2 | (b[22] & 0xc0) >> 6);
+      return width * height;
+    }
+    if (kind == 'VP8X') return (1 + le24(24)) * (1 + le24(27));
+  }
+  return null;
 }
