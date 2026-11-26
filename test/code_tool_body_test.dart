@@ -53,13 +53,13 @@ void main() {
       ),
     );
     expect(await _copy(tester), 'first\r\nsecond\r');
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await tester.pump(ToolValuePanel.copiedFor);
   });
 
   testWidgets('a write copies the content as sent', (tester) async {
     await _pump(tester, WriteFileToolBody.of(writeCall({'bytes_written': 3}))!);
     expect(await _copy(tester), '# Todo\n- ship it\n');
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await tester.pump(ToolValuePanel.copiedFor);
   });
 
   testWidgets('the gutter is not selectable and not read out', (tester) async {
@@ -304,6 +304,25 @@ void main() {
     );
     expect(find.text('Resolved to /srv.'), findsOneWidget);
     expect(find.text('Prefer patch.'), findsOneWidget);
+  });
+
+  testWidgets('a 2,000-line read builds only the rows that show', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(
+            content: numbered([for (var i = 0; i < 2000; i++) 'line $i']),
+            totalLines: 2000,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('1'), findsOneWidget);
+    expect(find.text('1999'), findsNothing);
+    expect(find.byType(Text).evaluate().length, lessThan(300));
   });
 
   testWidgets('every note has an icon and a word', (tester) async {

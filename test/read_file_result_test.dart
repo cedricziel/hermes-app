@@ -191,7 +191,7 @@ void main() {
       expect(result.hint, 'The file has merge conflict markers.');
     });
 
-    test('keeps hint for a read that was not cut short', () {
+    test('keeps hint and _hint, a cut-short read\'s included', () {
       final plain = _parse(
         readCall(
           readAnswer(
@@ -209,7 +209,19 @@ void main() {
           ),
         ),
       )!;
-      expect(cut.hint, isEmpty);
+      expect(cut.hint, 'Use offset=2 to continue.');
+      final both = _parse(
+        readCall(
+          readAnswer(
+            content: numbered(['a']),
+            extra: {
+              'hint': 'Transcoded from UTF-16.',
+              '_hint': 'Conflict markers.',
+            },
+          ),
+        ),
+      )!;
+      expect(both.hint, 'Transcoded from UTF-16.\nConflict markers.');
     });
 
     test('keeps the path out of its text', () {

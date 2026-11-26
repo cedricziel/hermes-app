@@ -178,6 +178,9 @@ class _ToolValueViewState extends State<ToolValueView> {
   ];
 
   /// [_runs] cut at their line feeds, one row per line with its number.
+  /// More lines than this are built lazily in a box of the panel's height.
+  static const _lazyAbove = 40;
+
   Widget _numberedLines(
     BuildContext context,
     TextStyle base,
@@ -202,53 +205,57 @@ class _ToolValueViewState extends State<ToolValueView> {
     final width = gutter.width.ceilToDouble() + 12;
     gutter.dispose();
     final muted = base.copyWith(color: context.hermesColors.subtleText);
-    return Column(
+    Widget row(int i) => Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var i = 0; i < lines.length; i++)
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ExcludeSemantics(
-                child: SelectionContainer.disabled(
-                  child: SizedBox(
-                    width: width,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Text(
-                        i < numbers.length ? '${numbers[i]}' : '',
-                        textAlign: TextAlign.end,
-                        softWrap: false,
-                        style: muted,
-                      ),
-                    ),
-                  ),
+        ExcludeSemantics(
+          child: SelectionContainer.disabled(
+            child: SizedBox(
+              width: width,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Text(
+                  i < numbers.length ? '${numbers[i]}' : '',
+                  textAlign: TextAlign.end,
+                  softWrap: false,
+                  style: muted,
                 ),
               ),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
-                    style: base,
-                    children: _spansFor(
-                      lines[i],
-                      base,
-                      palette,
-                      budget,
-                      context,
-                    ),
-                  ),
-                ),
-              ),
-              // A selection across rows copies what the rows hold with
-              // nothing between them; this line feed, which has no size and
-              // is not read out, ends each line but the last.
-              if (i < lines.length - 1)
-                const ExcludeSemantics(
-                  child: Text('\n', style: TextStyle(height: 0)),
-                ),
-            ],
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: base,
+              children: _spansFor(lines[i], base, palette, budget, context),
+            ),
+          ),
+        ),
+        // A selection across rows copies what the rows hold with
+        // nothing between them; this line feed, which has no size and
+        // is not read out, ends each line but the last.
+        if (i < lines.length - 1)
+          const ExcludeSemantics(
+            child: Text('\n', style: TextStyle(height: 0)),
           ),
       ],
+    );
+    // A long file is built as it scrolls: the rows of a default read of 2,000
+    // lines would be about 6,000 widgets at once. A short one sizes itself.
+    if (lines.length > _lazyAbove) {
+      return SizedBox(
+        height: ToolValuePanel.maxHeight,
+        child: ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: lines.length,
+          itemBuilder: (context, i) => row(i),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (var i = 0; i < lines.length; i++) row(i)],
     );
   }
 }
