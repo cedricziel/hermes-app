@@ -283,6 +283,10 @@ class _Visitor extends RecursiveAstVisitor<void> {
   final bool isWidgetFile;
   final findings = <Finding>[];
 
+  /// Local functions whose String parameter reaches a label, by name: the
+  /// scope they are visible in and the positional indexes that are shown.
+  final _labelHelpers = <String, List<({AstNode scope, Set<int> indexes})>>{};
+
   void _add(String category, AstNode node, [String? tag]) {
     final line = lineInfo.getLocation(node.offset).lineNumber;
     var text = source
@@ -307,6 +311,46 @@ class _Visitor extends RecursiveAstVisitor<void> {
       if (member != null && member != 'transparent') _add('a.color', parent!);
     }
     super.visitPrefixedIdentifier(node);
+  }
+
+  @override
+  void visitFunctionDeclarationStatement(FunctionDeclarationStatement node) {
+    final fn = node.functionDeclaration;
+    final scope = node.parent;
+    final params = fn.functionExpression.parameters?.parameters;
+    if (isWidgetFile && scope != null && params != null) {
+      final shown = <int>{};
+      var index = 0;
+      for (final p in params.where((p) => p.isPositional)) {
+        final name = p.name?.lexeme;
+        if (name != null && _reachesLabel(fn.functionExpression.body, name)) {
+          shown.add(index);
+        }
+        index++;
+      }
+      if (shown.isNotEmpty) {
+        (_labelHelpers[fn.name.lexeme] ??= []).add((
+          scope: scope,
+          indexes: shown,
+        ));
+      }
+    }
+    super.visitFunctionDeclarationStatement(node);
+  }
+
+  @override
+  void visitEnumConstantDeclaration(EnumConstantDeclaration node) {
+    final args = node.arguments?.argumentList.arguments;
+    if (isWidgetFile && args != null) {
+      for (final a in args) {
+        final e = a is NamedArgument ? a.argumentExpression : a as Expression;
+        if (e is StringLiteral && _looksLikeSentence(_literalText(e))) {
+          _add('d.string', e);
+          break;
+        }
+      }
+    }
+    super.visitEnumConstantDeclaration(node);
   }
 
   @override
@@ -433,12 +477,47 @@ class _Visitor extends RecursiveAstVisitor<void> {
       }
     }
 
+    if (type == null && _labelHelpers.containsKey(name)) {
+      for (final helper in _labelHelpers[name]!) {
+        if (!_isWithin(c.node, helper.scope)) continue;
+        final positional = c.positional;
+        for (final i in helper.indexes) {
+          if (i < positional.length) _string(positional[i], c.node);
+        }
+      }
+    }
+
     if (type == null && name == 'Duration') {
       final lit = c.args.any(
         (a) => a is NamedArgument && _numLiteral(a.argumentExpression) != null,
       );
       if (lit && _isAnimationDuration(c.node)) _add('a.duration', c.node);
     }
+  }
+
+  bool _isWithin(AstNode node, AstNode scope) {
+    for (AstNode? n = node; n != null; n = n.parent) {
+      if (n == scope) return true;
+    }
+    return false;
+  }
+
+  /// Whether the parameter [name] is handed to a label argument or to the
+  /// text of a `Text` in [body]: the places `_string` reads at a call site.
+  bool _reachesLabel(FunctionBody body, String name) {
+    final finder = _ParameterUse(name);
+    body.accept(finder);
+    return finder.reachesLabel;
+  }
+
+  /// An enum constant's text is shown when it reads as a phrase: a capital
+  /// then lowercase letters, or several words, without the characters of an
+  /// id, a path or a key. `retry`, `GET`, `user_id` and `a/b.png` are not.
+  bool _looksLikeSentence(String text) {
+    final t = text.trim();
+    if (t.length < 2 || RegExp(r'[/_\\.:@#$]').hasMatch(t)) return false;
+    return RegExp(r'^[A-Z][a-z]').hasMatch(t) ||
+        RegExp(r'[A-Za-z]+ [A-Za-z]+').hasMatch(t);
   }
 
   /// A gap sits among the children of a Row, Column or list; a SizedBox
@@ -521,5 +600,38 @@ class _Visitor extends RecursiveAstVisitor<void> {
           .join();
     }
     return '';
+  }
+}
+
+/// Finds where a parameter is used as the value of a label argument or as the
+/// text of a `Text` (what [_Visitor._string] reads at a literal).
+class _ParameterUse extends RecursiveAstVisitor<void> {
+  _ParameterUse(this.name);
+
+  final String name;
+  bool reachesLabel = false;
+
+  @override
+  void visitSimpleIdentifier(SimpleIdentifier node) {
+    if (node.name != name) return;
+    var at = node as AstNode;
+    var parent = at.parent;
+    while (parent is ParenthesizedExpression ||
+        parent is ConditionalExpression) {
+      at = parent!;
+      parent = at.parent;
+    }
+    if (parent is NamedArgument && _stringArgs.contains(parent.name.lexeme)) {
+      reachesLabel = true;
+    }
+    if (parent is ArgumentList && parent.arguments.first == at) {
+      final call = parent.parent;
+      final callee = switch (call) {
+        MethodInvocation() => call.methodName.name,
+        InstanceCreationExpression() => call.constructorName.type.name.lexeme,
+        _ => null,
+      };
+      if (callee == 'Text' || callee == 'SelectableText') reachesLabel = true;
+    }
   }
 }
