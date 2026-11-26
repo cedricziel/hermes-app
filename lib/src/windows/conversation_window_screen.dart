@@ -12,6 +12,7 @@ import '../chat/activity/needs_you_queue.dart';
 import '../chat/attachments/attachment_source.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
+import '../chat/tool_image_loader.dart';
 import '../workspaces/ui/bound_working_directory.dart';
 import '../chat/queue_storage/queue_broker.dart';
 import '../chat/queue_storage/queue_record.dart';
@@ -189,9 +190,13 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
       ..add(_link.commands.listen(_onCommand))
       ..add(_link.keyChanges.listen(_onKeyChanged));
     if (link is QueueWindowLink) {
+      final images = context.read<ToolImageLoader?>();
       _subscriptions.add(
         (link as QueueWindowLink).queueVisibility.listen((visible) {
-          if (!visible) _export?.locked();
+          if (visible) return;
+          _export?.locked();
+          // Images from other hosts are in memory only, and go with the lock.
+          if (images != null) unawaited(images.clear());
         }),
       );
     }

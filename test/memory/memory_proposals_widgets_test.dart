@@ -402,7 +402,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text("Couldn't read Skill changes"), findsOneWidget);
+      expect(find.text("Couldn't read skill changes"), findsOneWidget);
       expect(find.text('Runs on a Mac'), findsOneWidget);
     });
 

@@ -19,6 +19,7 @@ import '../voice/voice_recorder.dart';
 import '../windows/conversation_window_args.dart';
 import '../windows/desktop_conversation_windows.dart';
 import '../windows/window_api_client.dart';
+import '../windows/window_tool_image_loader.dart';
 import 'quick_panel_screen.dart';
 
 /// Runs the quick panel's engine (macOS), which desktop_multi_window started
@@ -52,6 +53,8 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
           ),
           dispose: (_, store) => store?.dispose(),
         ),
+        // Cleared when the main window locks (see `QuickPanelScreen`).
+        windowToolImageLoaderProvider(),
       ],
       child: Builder(
         builder: (context) => MaterialApp(

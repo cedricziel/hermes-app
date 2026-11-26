@@ -11,6 +11,7 @@ import 'link_tool_bodies.dart';
 import 'memory_tool_body.dart';
 import 'rows_tool_body.dart';
 import 'tool_body_registry.dart';
+import 'tool_image_bodies.dart';
 
 /// The views the standard tools have, tried in this order. The diff comes
 /// first: a call that changed a file shows its diff, whatever the tool.
@@ -25,6 +26,9 @@ const standardToolBodyEntries = <ToolBodyEntry>[
   ToolBodyEntry(names: {'write_file'}, build: WriteFileToolBody.of),
   ToolBodyEntry(names: {'browser_navigate'}, build: LinkToolBody.navigate),
   ToolBodyEntry(names: {'web_extract'}, build: LinkToolBody.extract),
+  ToolBodyEntry(names: {'browser_get_images'}, build: ToolImagesBody.getImages),
+  ToolBodyEntry(names: {'image_generate'}, build: ToolImagesBody.generate),
+  ToolBodyEntry(names: {'browser_vision'}, build: ToolImagesBody.vision),
   // Last: a list of flat rows from a tool with no view of its own.
   ToolBodyEntry(fallback: true, build: RowsToolBody.of),
 ];

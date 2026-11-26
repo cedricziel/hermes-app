@@ -55,6 +55,7 @@ class MemoryProposalsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final metrics = GroupedMetrics.of(context);
     final muted = context.hermesColors.subtleText;
     final read = snapshot;
@@ -91,7 +92,7 @@ class MemoryProposalsList extends StatelessWidget {
             child: Center(child: CircularProgressIndicator.adaptive()),
           )
         else ...[
-          ..._notes(read),
+          ..._notes(l10n, read),
           if (proposals.isNotEmpty)
             GroupedSection(
               children: [
@@ -113,12 +114,12 @@ class MemoryProposalsList extends StatelessWidget {
               child: Column(
                 children: [
                   Text(
-                    'Nothing is waiting',
+                    l10n.memoryProposalsEmptyTitle,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Changes Hermes proposes will show up here.',
+                    l10n.memoryProposalsEmptyBody,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: metrics.subtitleSize,
@@ -138,7 +139,7 @@ class MemoryProposalsList extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: Theme.of(context).colorScheme.error,
                   ),
-                  child: const Text('Reject all'),
+                  child: Text(l10n.memoryRejectAllAction),
                 ),
               ),
             ),
@@ -163,7 +164,7 @@ class MemoryProposalsList extends StatelessWidget {
   }
 
   /// What could not be read, as a row that retries.
-  List<Widget> _notes(ProposalsSnapshot read) {
+  List<Widget> _notes(AppLocalizations l10n, ProposalsSnapshot read) {
     final rows = <Widget>[];
     void note(String title, String? detail) => rows.add(
       GroupedSection(
@@ -173,7 +174,7 @@ class MemoryProposalsList extends StatelessWidget {
             title: title,
             subtitle: detail,
             subtitleMaxLines: 6,
-            value: 'Retry',
+            value: l10n.commonRetry,
             onTap: onRetry,
           ),
         ],
@@ -183,21 +184,21 @@ class MemoryProposalsList extends StatelessWidget {
         read.memory.status == ProposalReadStatus.unsupported &&
         read.skills.status == ProposalReadStatus.unsupported;
     if (both) {
-      note("Can't read changes on this server", null);
+      note(l10n.memoryProposalsReadUnsupported, null);
       return rows;
     }
-    for (final (label, kind) in [
-      ('Memory', read.memory),
-      ('Skill', read.skills),
+    for (final (failedTitle, kind) in [
+      (l10n.memoryProposalsReadFailedMemory, read.memory),
+      (l10n.memoryProposalsReadFailedSkills, read.skills),
     ]) {
       switch (kind.status) {
         case ProposalReadStatus.ok:
         case ProposalReadStatus.unsupported:
           break;
         case ProposalReadStatus.failed:
-          note("Couldn't read $label changes", null);
+          note(failedTitle, null);
         case ProposalReadStatus.unreadable:
-          note("Hermes answered in a way the app doesn't understand", kind.raw);
+          note(l10n.memoryProposalsReadUnreadable, kind.raw);
       }
     }
     return rows;

@@ -722,7 +722,13 @@ void main() {
         expect(toolCallBody(rowsCall(flatRows, name: 'read_file')), isNull);
       });
 
-      for (final name in ['browser_navigate', 'web_extract']) {
+      for (final name in [
+        'browser_navigate',
+        'web_extract',
+        'browser_get_images',
+        'image_generate',
+        'browser_vision',
+      ]) {
         test(
           'the registered $name keeps a result it declines off the table',
           () {
