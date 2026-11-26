@@ -5,12 +5,16 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/code_tool_bodies.dart';
 import 'package:hermes_app/src/chat/widgets/code_tool_body.dart';
+import 'package:hermes_app/src/chat/widgets/rows_tool_body.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_bodies.dart';
+import 'package:hermes_app/src/chat/widgets/tool_body_registry.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_rows_table.dart';
 import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/code_tool_fixtures.dart';
+import 'support/rows_fixtures.dart';
 
 Future<void> _pump(
   WidgetTester tester,
@@ -519,6 +523,122 @@ void main() {
         expect(find.byType(ToolDiffBody), findsOneWidget);
         expect(find.byType(CodeToolBody), findsNothing);
       });
+    });
+
+    group('the rows table', () {
+      final flatRows = [
+        {'id': 1, 'name': 'a'},
+        {'id': 2, 'name': 'b'},
+      ];
+
+      testWidgets('a file search shows its matches as a table', (tester) async {
+        await _pump(
+          tester,
+          rowsCall(densifiedAnswer(manyMatches(12), totalCount: 12)),
+        );
+        await tester.tap(find.text('search_files'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ToolRowsTable), findsOneWidget);
+        expect(find.text('12 matches · 3 columns'), findsOneWidget);
+        expect(find.text('Result'), findsNothing);
+      });
+
+      testWidgets('another tool with a list of flat rows gets the table', (
+        tester,
+      ) async {
+        await _pump(tester, rowsCall(flatRows, name: 'list_things'));
+        await tester.tap(find.text('list_things'));
+        await tester.pumpAndSettle();
+        expect(find.text('2 rows · 2 columns'), findsOneWidget);
+      });
+
+      testWidgets('a search with no match says so', (tester) async {
+        await _pump(tester, rowsCall({'total_count': 0}));
+        await tester.tap(find.text('search_files'));
+        await tester.pumpAndSettle();
+        expect(find.text('No matches'), findsOneWidget);
+      });
+
+      testWidgets('a running search says Searching…', (tester) async {
+        await _pump(tester, rowsCall(null, status: ToolCallStatus.running));
+        await tester.tap(find.text('search_files'));
+        await tester.pump();
+        expect(find.text('Searching…'), findsOneWidget);
+      });
+
+      testWidgets('a nested value falls back and does not throw', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          rowsCall(
+            [
+              {
+                'a': {'b': 1},
+              },
+            ],
+            text: '[{"a":{"b":1}}]',
+            name: 'list_things',
+          ),
+        );
+        await tester.tap(find.text('list_things'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ToolRowsTable), findsNothing);
+        expect(find.text('Result'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      test(
+        'the table entry is the last one and serves a tool with no view',
+        () {
+          final last = standardToolBodyEntries.last;
+          expect(last.names, isEmpty);
+          expect(last.fallback, isTrue);
+          expect(
+            last.build(rowsCall(flatRows, name: 'list_things')),
+            isA<RowsToolBody>(),
+          );
+          for (final other in standardToolBodyEntries.take(
+            standardToolBodyEntries.length - 1,
+          )) {
+            expect(other.names.isNotEmpty || other.matches == null, isTrue);
+          }
+        },
+      );
+
+      test('a terminal call keeps the terminal view', () {
+        final body = toolCallBody(
+          ToolCall(
+            name: 'terminal',
+            summary: '',
+            args: const {'command': 'ls'},
+            resultData: {'output': 'a\nb', 'exit_code': 0, 'rows': flatRows},
+          ),
+        );
+        expect(body, isA<TerminalToolBody>());
+        // Even when its own view declines, the table does not take it.
+        expect(toolCallBody(rowsCall(flatRows, name: 'terminal')), isNull);
+      });
+
+      test('a read_file call whose view declines does not become a table', () {
+        expect(toolCallBody(rowsCall(flatRows, name: 'read_file')), isNull);
+      });
+
+      for (final name in ['browser_get_images', 'web_extract']) {
+        test('$name does not fall to a table when its own view declines', () {
+          // The views of these tools are other entries; one that declines
+          // the result must leave the generic view, not the table.
+          final registry = ToolBodyRegistry([
+            ToolBodyEntry(names: {name}, build: (_) => null),
+            standardToolBodyEntries.last,
+          ]);
+          expect(registry.bodyFor(rowsCall(flatRows, name: name)), isNull);
+          expect(
+            registry.bodyFor(rowsCall(flatRows, name: 'list_things')),
+            isA<RowsToolBody>(),
+          );
+        });
+      }
     });
   });
 }

@@ -2584,6 +2584,137 @@
   "@chatWidgetsReasoningThinking": {
     "description": "Label of the reasoning block while the agent thinks and has named no activity yet."
   },
+  "chatWidgetsRowsCapped": "Showing the first {shown} of {total}",
+  "@chatWidgetsRowsCapped": {
+    "description": "Line under a table that shows the most rows it ever shows (500) while Hermes sent more.",
+    "placeholders": {
+      "shown": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsRowsCopyRow": "Copy row",
+  "@chatWidgetsRowsCopyRow": {
+    "description": "Menu entry and screen reader action on a table row; copies the row as JSON."
+  },
+  "chatWidgetsRowsEmptyCell": "empty",
+  "@chatWidgetsRowsEmptyCell": {
+    "description": "What a screen reader says for a table cell that holds no value."
+  },
+  "chatWidgetsRowsHeldBack": "{count, plural, =1{1 result was held back by Hermes.} other{{count} results were held back by Hermes.}}",
+  "@chatWidgetsRowsHeldBack": {
+    "description": "Note over a table of search matches: Hermes left results out because they target files that may hold secrets. The server's own text follows it.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsRowsMoreColumns": "{count, plural, =1{+1 more column} other{+{count} more columns}}",
+  "@chatWidgetsRowsMoreColumns": {
+    "description": "Under a table with more than eight columns: how many are not shown.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsRowsNoMatches": "No matches",
+  "@chatWidgetsRowsNoMatches": {
+    "description": "Line that stands for a search that found nothing."
+  },
+  "chatWidgetsRowsRowLabel": "Row {row} of {count}",
+  "@chatWidgetsRowsRowLabel": {
+    "description": "What a screen reader says first for a table row; the column names and values follow.",
+    "placeholders": {
+      "row": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsRowsSearching": "Searching…",
+  "@chatWidgetsRowsSearching": {
+    "description": "Line over an empty table while a file search runs."
+  },
+  "chatWidgetsRowsShowMore": "Show {count} more",
+  "@chatWidgetsRowsShowMore": {
+    "description": "Button under a table that adds the next rows. {count} is how many it adds.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsRowsShowingMatches": "Showing {shown} of {total, plural, =1{1 match} other{{total} matches}}",
+  "@chatWidgetsRowsShowingMatches": {
+    "description": "Line under a table of search matches: how many rows show out of how many Hermes found.",
+    "placeholders": {
+      "shown": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsRowsShowingRows": "Showing {shown} of {total, plural, =1{1 row} other{{total} rows}}",
+  "@chatWidgetsRowsShowingRows": {
+    "description": "Line under a table of rows: how many rows show out of how many there are.",
+    "placeholders": {
+      "shown": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsRowsStoppedEarly": "{count, plural, =1{The search stopped early. There is at least 1 match.} other{The search stopped early. There are at least {count} matches.}}",
+  "@chatWidgetsRowsStoppedEarly": {
+    "description": "Warning note over a table of search matches: Hermes cut the search short, so {count} is a lower bound.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsRowsSummaryMatches": "{count, plural, =1{1 match} other{{count} matches}} · {columns, plural, =1{1 column} other{{columns} columns}}",
+  "@chatWidgetsRowsSummaryMatches": {
+    "description": "Line above a table of search matches: how many rows and columns it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "columns": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsRowsSummaryRows": "{count, plural, =1{1 row} other{{count} rows}} · {columns, plural, =1{1 column} other{{columns} columns}}",
+  "@chatWidgetsRowsSummaryRows": {
+    "description": "Line above a table of rows from a tool result: how many rows and columns it has.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "columns": {
+        "type": "int"
+      }
+    }
+  },
   "chatWidgetsSessionStatusUnavailable": "Unavailable",
   "@chatWidgetsSessionStatusUnavailable": {
     "description": "Status of the goal, loop or heartbeat in the session status summary when the server reports none."

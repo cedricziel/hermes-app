@@ -158,6 +158,9 @@ const _noPlural = <String, _Reason>{
   ),
   'chatWidgetsCodeLines': _Reason('line numbers, no noun after them'),
   'chatWidgetsCodeLinesNoTotal': _Reason('line numbers, no noun after them'),
+  'chatWidgetsRowsCapped': _Reason('numbers, no noun after them'),
+  'chatWidgetsRowsRowLabel': _Reason('a row position, no noun after it'),
+  'chatWidgetsRowsShowMore': _Reason('a count with no noun after it'),
   'chatWidgetsProgramStateExited': _Reason('an exit code'),
   'filesListCapFooter': _Reason(
     'shown only when the list is cut at a cap far above one; "first n of m"',

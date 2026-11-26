@@ -8,6 +8,7 @@ import '../chat_models.dart';
 import '../tool_result.dart';
 import 'code_tool_bodies.dart';
 import 'memory_tool_body.dart';
+import 'rows_tool_body.dart';
 import 'tool_body_registry.dart';
 
 /// The views the standard tools have, tried in this order. The diff comes
@@ -21,6 +22,8 @@ const standardToolBodyEntries = <ToolBodyEntry>[
   ToolBodyEntry(names: {'memory'}, build: MemoryToolBody.of),
   ToolBodyEntry(names: {'read_file'}, build: ReadFileToolBody.of),
   ToolBodyEntry(names: {'write_file'}, build: WriteFileToolBody.of),
+  // Last: a list of flat rows from a tool with no view of its own.
+  ToolBodyEntry(fallback: true, build: RowsToolBody.of),
 ];
 
 Widget? _diffBody(ToolCall call) {

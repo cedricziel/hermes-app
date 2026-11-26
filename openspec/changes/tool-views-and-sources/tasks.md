@@ -47,6 +47,11 @@ Catalog use cases (`widgetbook/tool_rows_table_use_cases.dart`): search matches,
 
 Acceptance tests: `test/rows_result_test.dart` (a list of flat maps is a table, a nested value is not, an empty list is not, a map with one large list of maps is, a path-grouped `matches_text` of 12 matches becomes 12 rows, a block with a stray line or another `matches_format` is not a table, a hit whose content holds `\r` or U+2028 still parses, `{total_count: 0}` is "No matches", `[]` from another tool is not a table, `_omitted` gives the held-back note, `_warning` and `_hint` show as notes, a `files` or `counts` answer falls back, `matches` with three rows is, the first row orders the columns), `test/tool_rows_table_test.dart` (the header stays while rows scroll, numbers right-aligned, a screen reader gets row and column names, Copy row copies JSON), `test/tool_call_card_test.dart` (the table entry is last, a `terminal` call keeps the terminal view, and a `browser_get_images` or `web_extract` call whose own view declines a list of flat rows falls back to the generic view, not the table).
 
+- [x] 4.1 Catalog first: `ToolRowsTable` as a plain model with every use case above, in both themes, phone and desktop, German and the largest text (`widgetbook/tool_rows_table_use_cases.dart`).
+- [x] 4.2 The pure `rows_result.dart`: the flat-rows predicate, the column order, the `search_files` mapping from `matches` and from the path-grouped `matches_text`, and `_omitted`, `_warning`, `_hint` and the early stop as notes.
+- [x] 4.3 The last registry entry (`RowsToolBody`) and the strings in `app_en.arb` and `app_de.arb`.
+- [x] 4.4 The acceptance tests above, built from fixtures read from the Hermes source at `d923a5eb` (`test/support/rows_fixtures.dart`), not recorded; PR 0 replaces them with recorded ones.
+
 ## 5. PR 5 - `feat(chat): sources row under a reply`
 
 Files: `lib/src/chat/sources/turn_sources.dart` (pure: collect from a turn's calls, opened before search hits, normal form, de-duplication; reuses the `web_search` parse and `page_link.dart`), `lib/src/chat/widgets/sources_row.dart` (plain model: sources, expanded, callbacks), the wiring where the reply's text is drawn (`chat_message_mapper.dart` and the message builder in `chat_builders.dart`), strings, breadcrumbs `chat.sources.expanded` and `chat.sources.opened`.
