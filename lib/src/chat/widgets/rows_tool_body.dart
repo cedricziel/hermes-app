@@ -97,10 +97,13 @@ class RowsToolBody extends StatelessWidget {
             style: codeCaption(context),
           ),
           children: [
-            ToolValuePanel(
-              label: l10n.chatWidgetsRowsRawResult,
-              text: wellFormedText(_rawResult()),
-              language: 'json',
+            // Built only once opened: encoding a large result is not free.
+            Builder(
+              builder: (context) => ToolValuePanel(
+                label: l10n.chatWidgetsRowsRawResult,
+                text: wellFormedText(_rawResult()),
+                language: 'json',
+              ),
             ),
           ],
         ),

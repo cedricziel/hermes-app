@@ -330,6 +330,36 @@ void main() {
       expect(jsonDecode(_clipboard!), rows[0]);
     });
 
+    testWidgets('picking it after the table is gone does nothing and throws', (
+      tester,
+    ) async {
+      _mockClipboard(tester);
+      final shown = ValueNotifier(true);
+      addTearDown(shown.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: ValueListenableBuilder<bool>(
+              valueListenable: shown,
+              builder: (_, show, _) =>
+                  show ? _table(_matches(2)) : const SizedBox(),
+            ),
+          ),
+        ),
+      );
+
+      await tester.longPress(find.byKey(_row(0)));
+      await tester.pumpAndSettle();
+      shown.value = false;
+      await tester.pump();
+      await tester.tap(find.text('Copy row'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(_clipboard, isNull);
+    });
+
     testWidgets('a screen reader gets it as an action on the row', (
       tester,
     ) async {
