@@ -325,7 +325,7 @@ style.string:
   lib/src/bot_screen/widgets/bot_screen_viewer_view.dart: 11
   lib/src/bot_screen/widgets/force_hand_back.dart: 5
   lib/src/bot_screen/widgets/sudo_password_prompt.dart: 5
-  lib/src/bot_screen/widgets/takeover_confirmation.dart: 4
+  lib/src/bot_screen/widgets/takeover_confirmation.dart: 7
   lib/src/chat/activity/bound_activity_panel.dart: 1
   lib/src/chat/activity/widgets/activity_panel.dart: 3
   lib/src/chat/attachments/attachment_file_actions.dart: 4
@@ -387,7 +387,7 @@ style.string:
   lib/src/memory/widgets/memory_entry_list.dart: 4
   lib/src/memory/widgets/memory_fill_bar.dart: 2
   lib/src/memory/widgets/memory_proposal_detail.dart: 3
-  lib/src/memory/widgets/memory_proposals_list.dart: 3
+  lib/src/memory/widgets/memory_proposals_list.dart: 6
   lib/src/memory/widgets/memory_storage_section.dart: 6
   lib/src/memory/widgets/memory_waiting_card.dart: 1
   lib/src/messaging/messaging_screen.dart: 4
@@ -407,6 +407,7 @@ style.string:
   lib/src/profiles/mac_profiles_page.dart: 4
   lib/src/profiles/profiles_screen.dart: 5
   lib/src/profiles/widgets/mac_profile_switcher.dart: 4
+  lib/src/profiles/widgets/mac_profiles_view.dart: 9
   lib/src/profiles/widgets/new_profile_dialog.dart: 8
   lib/src/profiles/widgets/profile_avatar.dart: 1
   lib/src/profiles/widgets/profile_tile.dart: 3
@@ -417,7 +418,7 @@ style.string:
   lib/src/schedules/job_form_screen.dart: 10
   lib/src/schedules/schedule_actions.dart: 4
   lib/src/schedules/schedule_alerts.dart: 1
-  lib/src/schedules/schedule_picker.dart: 5
+  lib/src/schedules/schedule_picker.dart: 10
   lib/src/schedules/schedules_list.dart: 3
   lib/src/schedules/schedules_screen.dart: 6
   lib/src/schedules/widgets/job_model_field.dart: 1
@@ -426,7 +427,7 @@ style.string:
   lib/src/schedules/widgets/schedule_detail_view.dart: 11
   lib/src/schedules/widgets/schedule_filter_menu.dart: 2
   lib/src/schedules/widgets/schedule_sections.dart: 5
-  lib/src/schedules/widgets/schedules_mac_toolbar.dart: 2
+  lib/src/schedules/widgets/schedules_mac_toolbar.dart: 4
   lib/src/screens/home_screen.dart: 3
   lib/src/screens/login_screen.dart: 6
   lib/src/screens/server_setup_screen.dart: 6

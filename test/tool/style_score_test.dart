@@ -521,6 +521,107 @@ void main() {
     test('only counts files that import the widget layer', () {
       expect(scan("final a = Text('Retry');", imports: ''), isEmpty);
     });
+
+    group('through a local helper', () {
+      String helper(String call, {String sink = 'label: label'}) =>
+          'Widget build() {\n'
+          '  Widget action(String label, int icon) => Button($sink, icon: icon);\n'
+          '  return Row(children: [$call]);\n'
+          '}\n';
+
+      test('counts a literal passed to a parameter that reaches a label', () {
+        expect(scan(helper("action('Copy', 1)")), ['d.string']);
+        expect(scan(helper("action(c ? 'Copied' : 'Copy', 1)")), ['d.string']);
+        expect(scan(helper("action('Copy', 1)", sink: 'tooltip: label')), [
+          'd.string',
+        ]);
+        expect(
+          scan(
+            'Widget build() {\n'
+            '  Widget pill(String text) => Text(text);\n'
+            "  return pill('Stopped');\n"
+            '}\n',
+          ),
+          ['d.string'],
+        );
+      });
+
+      test('counts each call that passes English', () {
+        expect(scan(helper("action('Copy', 1), action('Try again', 2)")), [
+          'd.string',
+          'd.string',
+        ]);
+      });
+
+      test('ignores a localised argument and a literal with no letters', () {
+        expect(scan(helper('action(l10n.copy, 1)')), isEmpty);
+        expect(scan(helper("action('—', 1)")), isEmpty);
+      });
+
+      test('ignores a parameter that never reaches a label', () {
+        expect(
+          scan(helper("action('copy-id', 1)", sink: 'key: Key(label)')),
+          isEmpty,
+        );
+        expect(
+          scan(helper("action('Copy', 1)", sink: 'semantics: other(label)')),
+          isEmpty,
+        );
+      });
+
+      test('ignores a literal given to another parameter', () {
+        expect(
+          scan(
+            'Widget build() {\n'
+            '  Widget action(String label, String id) =>\n'
+            '      Button(label: label, id: id);\n'
+            "  return action(l10n.copy, 'Copy');\n"
+            '}\n',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('ignores a function of the same name outside the helper scope', () {
+        expect(
+          scan(
+            'Widget build() {\n'
+            '  Widget action(String label) => Button(label: label);\n'
+            '  return action(l10n.copy);\n'
+            '}\n'
+            "Widget other() => action('Copy');\n",
+          ),
+          isEmpty,
+        );
+      });
+    });
+
+    group('in an enum constant', () {
+      test('counts English text given to a constant', () {
+        expect(scan("enum A { retry('Trying again…'), edit('Edit prompt') }"), [
+          'd.string',
+          'd.string',
+        ]);
+        expect(scan("enum A { copy(caption: 'Copy', icon: 1) }"), ['d.string']);
+      });
+
+      test('ignores ids, keys, paths, codes and one lowercase word', () {
+        expect(scan("enum A { x('user_id'), y('retry'), z('GET') }"), isEmpty);
+        expect(
+          scan("enum A { x('assets/a.png'), y('a.b.c'), z('Key: x') }"),
+          isEmpty,
+        );
+        expect(scan("enum A { x('abc123'), y('sk-123') }"), isEmpty);
+      });
+
+      test('ignores a localised or non-string argument', () {
+        expect(scan('enum A { x(1), y(l10n.copy), z(Foo.bar) }'), isEmpty);
+      });
+
+      test('only counts files that import the widget layer', () {
+        expect(scan("enum A { x('Trying again…') }", imports: ''), isEmpty);
+      });
+    });
   });
 
   group('scope', () {
