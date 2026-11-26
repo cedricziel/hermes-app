@@ -259,6 +259,8 @@ void main() {
       expect(turnCallsEndedBy(all, reply), [a]);
       expect(turnEndAfter(all, 1), 4);
       expect(turnEndAfter([...all, message(ChatRole.user, 'next')], 3), 4);
+      // A page that ends on the steer hands over from the call before it.
+      expect(turnEndAfter(all, 2), 4);
     });
 
     test(

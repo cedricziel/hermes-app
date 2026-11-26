@@ -356,13 +356,19 @@ List<ToolCall> _turnCallsEndingAt(List<ChatMessage> messages, int at) {
 /// to, from [at] on: what an older history page loaded before [at + 1] is
 /// mapped together with.
 int turnEndAfter(List<ChatMessage> messages, int at) {
+  // A steer row at [at] hands over from the message before it.
   var last = at;
+  while (last > 0 && _isSteer(messages[last])) {
+    last--;
+  }
+  var end = at + 1;
   for (var i = at + 1; i < messages.length; i++) {
     if (_isSteer(messages[i])) continue;
     if (!continuesTurn(messages[last], messages[i])) break;
     last = i;
+    end = i + 1;
   }
-  return last + 1;
+  return end;
 }
 
 /// The calls of the turn that [message] ends in [messages], or null when
