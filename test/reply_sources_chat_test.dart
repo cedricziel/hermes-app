@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
-import 'package:hermes_app/src/chat/sources/turn_sources.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
@@ -205,15 +204,7 @@ void main() {
         size: const Size(390, 844),
       );
       await openThread(tester, 'Long chat');
-      List<TurnSource>? sourcesOfLastReply() =>
-          tester
-                  .widget<Chat>(find.byType(Chat))
-                  .chatController
-                  .messages
-                  .last
-                  .metadata?[kMetaSources]
-              as List<TurnSource>?;
-      expect(sourcesOfLastReply(), isNull);
+      expect(find.byType(SourcesRow), findsNothing);
 
       for (var i = 0; i < 40; i++) {
         await tester.drag(find.byType(Chat), const Offset(0, 2000));
@@ -221,7 +212,14 @@ void main() {
       }
       await tester.pumpAndSettle();
 
-      expect(sourcesOfLastReply(), hasLength(2));
+      // Back at the reply that ends the turn.
+      for (var i = 0; i < 80; i++) {
+        await tester.drag(find.byType(Chat), const Offset(0, -2000));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('Step 130'), findsOneWidget);
+      expect(find.text('Sources · 2'), findsOneWidget);
       // One row for the turn, not one under the older page's last text too.
       expect(
         tester
