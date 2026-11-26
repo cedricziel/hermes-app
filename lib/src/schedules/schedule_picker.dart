@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
 import '../theme/focus_ring.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_form.dart';
@@ -11,15 +12,11 @@ import 'schedule_spec.dart';
 import 'schedule_widgets.dart';
 
 enum WhenMode {
-  every('Every'),
-  daily('Daily'),
-  weekly('Weekly'),
-  once('Once'),
-  cron('Cron');
-
-  const WhenMode(this.label);
-
-  final String label;
+  every,
+  daily,
+  weekly,
+  once,
+  cron;
 
   static WhenMode of(ScheduleSpec spec) => switch (spec) {
     EverySpec() => every,
@@ -29,6 +26,15 @@ enum WhenMode {
     CronSpec() => cron,
   };
 }
+
+/// The name of [mode]'s segment.
+String whenModeLabel(AppLocalizations l10n, WhenMode mode) => switch (mode) {
+  WhenMode.every => l10n.schedulesPickerModeEvery,
+  WhenMode.daily => l10n.schedulesPickerModeDaily,
+  WhenMode.weekly => l10n.schedulesPickerModeWeekly,
+  WhenMode.once => l10n.schedulesPickerModeOnce,
+  WhenMode.cron => l10n.schedulesPickerModeCron,
+};
 
 /// "When" as a group: the five ways to say it, the rows of the chosen one
 /// and, where the phone can work it out, the next runs as its footer.
@@ -154,6 +160,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final mode = WhenMode.of(_spec);
     final (hour, minute) = _time;
     final runs = _spec.validate(widget.now) == null
@@ -169,14 +176,16 @@ class _SchedulePickerState extends State<SchedulePicker> {
             GroupedSegmentedRow<WhenMode>(
               key: const Key('when-mode'),
               value: mode,
-              segments: {for (final m in WhenMode.values) m: m.label},
+              segments: {
+                for (final m in WhenMode.values) m: whenModeLabel(l10n, m),
+              },
               onChanged: _mode,
             ),
             ...switch (_spec) {
               EverySpec(:final unit) => [
                 GroupedTextFieldRow(
                   key: const Key('when-amount'),
-                  label: 'Every',
+                  label: l10n.schedulesPickerEvery,
                   controller: _amount,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -186,7 +195,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
                 ),
                 GroupedMenuRow<EveryUnit>(
                   key: const Key('when-unit'),
-                  title: 'Unit',
+                  title: l10n.schedulesPickerUnit,
                   options: EveryUnit.values,
                   labelOf: (u) => u.label,
                   selected: unit,
@@ -207,7 +216,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               OnceSpec(:final at) => [
                 GroupedValueRow(
                   key: const Key('when-date'),
-                  title: 'Date',
+                  title: l10n.schedulesPickerDate,
                   value: MaterialLocalizations.of(context).formatShortDate(at),
                   onTap: _pickDate,
                 ),
@@ -216,7 +225,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               CronSpec() => [
                 GroupedTextFieldRow(
                   key: const Key('when-cron'),
-                  label: 'Schedule',
+                  label: l10n.schedulesPickerSchedule,
                   hint: '0 9 * * 1-5',
                   controller: _cron,
                   autocorrect: false,
@@ -247,7 +256,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
 
   Widget _timeRow(String time) => GroupedValueRow(
     key: const Key('when-time'),
-    title: 'Time',
+    title: context.l10n.schedulesPickerTime,
     value: time,
     onTap: _pickTime,
   );

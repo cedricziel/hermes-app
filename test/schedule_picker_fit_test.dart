@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -43,8 +44,9 @@ Future<void> _expectReadable(
   await tester.pumpAndSettle();
   expect(tester.takeException(), isNull);
 
+  final l10n = await AppLocalizations.delegate.load(const Locale('en'));
   for (final label in [
-    for (final mode in WhenMode.values) mode.label,
+    for (final mode in WhenMode.values) whenModeLabel(l10n, mode),
     'Mon',
     'Tue',
     'Wed',
