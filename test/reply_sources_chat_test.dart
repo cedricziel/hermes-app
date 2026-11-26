@@ -108,6 +108,32 @@ void main() {
     },
   );
 
+  testWidgets('a stored turn keeps its sources when the session is reclaimed', (
+    tester,
+  ) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      withProfiles: true,
+      transport: transport,
+      size: const Size(390, 844),
+    );
+    await openThread(tester, 'Synthetic');
+    await tester.enterText(composerField, 'go');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pump();
+    final send = transport.sends.single;
+    send
+      ..emit(const ReplyStarted())
+      ..emit(const SessionReclaimed('rt-1', 'stored', 'Opened elsewhere'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Here is the answer.'), findsOneWidget);
+    expect(find.text('Sources · 2'), findsOneWidget);
+  });
+
   testWidgets(
     'a live reply shows them once it is finished, not while it streams',
     (tester) async {

@@ -314,6 +314,26 @@ int outcomeLineIndex(List<Message> messages, DateTime at) {
   return last < 0 ? messages.length : last + 1;
 }
 
+/// The calls of the turn that [message] ends in [messages], from the last
+/// prompt to [message]: what its sources row is read from. Empty when another
+/// assistant message of the turn follows it, and null when [message] is not
+/// among [messages] (a reply not yet added), which leaves it to its own calls.
+List<ToolCall>? turnCallsEndedBy(
+  List<ChatMessage> messages,
+  ChatMessage message,
+) {
+  final at = messages.lastIndexOf(message);
+  if (at < 0) return null;
+  if (at + 1 < messages.length && messages[at + 1].role != ChatRole.user) {
+    return const [];
+  }
+  var start = at;
+  while (start > 0 && messages[start - 1].role != ChatRole.user) {
+    start--;
+  }
+  return [for (var i = start; i <= at; i++) ...messages[i].toolCalls];
+}
+
 /// Stored tool calls and their final reply are separate assistant rows.
 /// Carry TTS results only within the same turn when restoring history, and
 /// give the sources of the whole turn to the message that ends it.

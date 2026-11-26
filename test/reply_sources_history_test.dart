@@ -207,4 +207,34 @@ void main() {
       expect(chatMessageToFlyer(plain).single.metadata, isNull);
     });
   });
+
+  group('the calls a settled reply is mapped with again', () {
+    ChatMessage message(
+      ChatRole role,
+      String id, [
+      List<ToolCall> calls = const [],
+    ]) => ChatMessage(
+      id: id,
+      role: role,
+      content: id,
+      createdAt: DateTime(2026),
+      toolCalls: calls,
+    );
+
+    test('are those of its whole turn only for the message that ends it', () {
+      final a = searchCall([searchHit('https://a.test/')]);
+      final b = searchCall([searchHit('https://b.test/')]);
+      final prompt = message(ChatRole.user, 'prompt');
+      final first = message(ChatRole.assistant, 'first', [a]);
+      final last = message(ChatRole.assistant, 'last', [b]);
+      final next = message(ChatRole.user, 'next');
+      final later = message(ChatRole.assistant, 'later');
+      final all = [prompt, first, last, next, later];
+
+      expect(turnCallsEndedBy(all, first), isEmpty);
+      expect(turnCallsEndedBy(all, last), [a, b]);
+      expect(turnCallsEndedBy(all, later), isEmpty);
+      expect(turnCallsEndedBy(all, message(ChatRole.assistant, 'new')), isNull);
+    });
+  });
 }
