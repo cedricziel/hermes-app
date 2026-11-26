@@ -5,6 +5,8 @@ import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/tool_image_loader.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:hermes_app/src/telemetry/telemetry_config.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -12,6 +14,23 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_device_authenticator.dart';
 
 void main() {
+  test('the app\'s provider list has the loader', () async {
+    final telemetry = await Telemetry.initialize(
+      const TelemetryConfig(
+        otlpEndpoint: '',
+        otlpHeaders: {},
+        serviceName: 'test',
+        serviceVersion: '',
+        deploymentEnvironment: 'test',
+      ),
+    );
+
+    expect(
+      appLockProviders(telemetry).whereType<Provider<ToolImageLoader?>>(),
+      hasLength(1),
+    );
+  });
+
   testWidgets('the app\'s loader clears when the app locks and on sign-out', (
     tester,
   ) async {

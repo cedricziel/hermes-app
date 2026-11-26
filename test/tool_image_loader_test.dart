@@ -464,14 +464,17 @@ void main() {
     },
   );
 
-  test('a format whose size the header does not give is refused', () async {
-    // A BMP can be run-length coded: a small file for a huge picture.
-    final bmp = Uint8List(64)..setAll(0, 'BM'.codeUnits);
-    final (loader, _) = _loader((_) => _ok(bmp));
+  test(
+    'a format whose size the header does not give is too large to load',
+    () async {
+      // A BMP can be run-length coded: a small file for a huge picture.
+      final bmp = Uint8List(64)..setAll(0, 'BM'.codeUnits);
+      final (loader, _) = _loader((_) => _ok(bmp));
 
-    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.failed);
-    expect(loader.bytesOf(_cdn), isNull);
-  });
+      expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.tooLarge);
+      expect(loader.bytesOf(_cdn), isNull);
+    },
+  );
 
   test(
     'a clear mid-request is its own outcome and leaves no breadcrumb',
@@ -520,4 +523,23 @@ void main() {
       expect(adapter.requests, hasLength(before));
     },
   );
+
+  test('a clear while the body streams keeps nothing', () async {
+    final gate = Completer<void>();
+    final (loader, _) = _loader(
+      (_) => ResponseBody(() async* {
+        yield Uint8List.fromList(_png.sublist(0, 20));
+        await gate.future;
+        yield Uint8List.fromList(_png.sublist(20));
+      }(), 200),
+    );
+
+    final pending = _outcome(loader.load(_cdn));
+    await pumpEventQueue();
+    await loader.clear();
+    gate.complete();
+
+    expect(await pending, ToolImageOutcome.cleared);
+    expect(loader.bytesOf(_cdn), isNull);
+  });
 }
