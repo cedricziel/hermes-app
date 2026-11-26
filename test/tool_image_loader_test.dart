@@ -507,13 +507,11 @@ void main() {
       await loader.clear();
       final second = loader.load(_cdn);
       await first;
-      while (gates.isEmpty) {
-        await Future<void>.delayed(const Duration(milliseconds: 1));
-      }
+      await pumpEventQueue();
       final before = adapter.requests.length;
       // The second is still running: a third call joins it.
       final third = loader.load(_cdn);
-      await Future<void>.delayed(const Duration(milliseconds: 5));
+      await pumpEventQueue();
       for (final gate in gates) {
         if (!gate.isCompleted) gate.complete();
       }

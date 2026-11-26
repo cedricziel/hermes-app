@@ -79,11 +79,6 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
   final _fetched = <int, Uint8List>{};
   ToolImageLoader? _loader;
 
-  /// The viewer open on a remote image, and which one: it closes when the
-  /// loader drops that image's bytes.
-  Route<void>? _viewer;
-  Uri? _viewerUri;
-
   /// Counts the times the items changed, so a load that was asked for the old
   /// items does not write into the new ones.
   var _epoch = 0;
@@ -132,14 +127,6 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
   void _loaderChanged() {
     final loader = _loader;
     if (loader == null) return;
-    final viewer = _viewer;
-    final shown = _viewerUri;
-    if (viewer != null &&
-        shown != null &&
-        viewer.isActive &&
-        loader.bytesOf(shown) == null) {
-      viewer.navigator?.removeRoute(viewer);
-    }
     setState(() {
       for (var i = 0; i < _states.length; i++) {
         final uri = widget.items[i].uri;
@@ -204,22 +191,25 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
         ? null
         : MemoryImage(bytes);
     if (image == null) return;
-    final route = MaterialPageRoute<void>(
-      fullscreenDialog: true,
-      builder: (_) => ImageViewerPage(
-        image: image,
-        name: name,
-        // A remote image is never saved: it exists only in memory.
-        onSave: bytes == null || store == null
-            ? null
-            : () => store.save(fileNameOf(item.path), bytes),
+    final uri = item.uri;
+    final viewer = ImageViewerPage(
+      image: image,
+      name: name,
+      // A remote image is never saved: it exists only in memory.
+      onSave: bytes == null || store == null
+          ? null
+          : () => store.save(fileNameOf(item.path), bytes),
+    );
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => uri == null || loader == null
+              ? viewer
+              : _ClosesWhenDropped(loader: loader, uri: uri, child: viewer),
+        ),
       ),
     );
-    if (item.uri != null) {
-      _viewer = route;
-      _viewerUri = item.uri;
-    }
-    unawaited(Navigator.of(context).push(route));
   }
 
   void Function()? _tapOf(int i, String name) {
@@ -329,6 +319,49 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
       ),
     );
   }
+}
+
+/// A viewer of a remote image that closes itself when the loader drops that
+/// image's bytes (App Lock, sign-out), whether or not the card that opened it
+/// is still on screen.
+class _ClosesWhenDropped extends StatefulWidget {
+  const _ClosesWhenDropped({
+    required this.loader,
+    required this.uri,
+    required this.child,
+  });
+
+  final ToolImageLoader loader;
+  final Uri uri;
+  final Widget child;
+
+  @override
+  State<_ClosesWhenDropped> createState() => _ClosesWhenDroppedState();
+}
+
+class _ClosesWhenDroppedState extends State<_ClosesWhenDropped> {
+  @override
+  void initState() {
+    super.initState();
+    widget.loader.changes.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.loader.changes.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    if (widget.loader.bytesOf(widget.uri) != null) return;
+    final route = ModalRoute.of(context);
+    if (route != null && route.isActive) {
+      Navigator.of(context).removeRoute(route);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// The parse of a call, kept: the card asks on every build, closed ones too.

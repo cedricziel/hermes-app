@@ -420,6 +420,48 @@ void main() {
       expect(_states(tester), [ToolImageState.idle]);
     });
 
+    testWidgets('a viewer stays closable by a clear after its card is gone', (
+      tester,
+    ) async {
+      final setup = _Setup();
+      final showCard = ValueNotifier(true);
+      addTearDown(showCard.dispose);
+      await pumpOnPlatform(
+        tester,
+        MultiProvider(
+          providers: [Provider<ToolImageLoader?>.value(value: setup.loader)],
+          child: ValueListenableBuilder(
+            valueListenable: showCard,
+            builder: (_, show, _) => show
+                ? ToolCallCard(
+                    call: imagesCall(
+                      imagesAnswer([
+                        pageImage('https://cdn.shop.example/a.png'),
+                      ]),
+                    ),
+                    initiallyOpen: true,
+                  )
+                : const SizedBox(),
+          ),
+        ),
+        platform: TargetPlatform.android,
+      );
+      await tester.tap(find.byType(ToolImageTile));
+      await _settle(tester);
+      await tester.tap(find.byType(ToolImageTile));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      showCard.value = false;
+      await tester.pump();
+      expect(find.byType(ImageViewerPage), findsOneWidget);
+
+      await tester.runAsync(setup.loader.clear);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byType(ImageViewerPage), findsNothing);
+    });
+
     testWidgets('a load that ends after a clear leaves a tile that waits', (
       tester,
     ) async {

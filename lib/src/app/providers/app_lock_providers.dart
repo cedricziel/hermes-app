@@ -26,21 +26,7 @@ List<SingleChildWidget> appLockProviders(Telemetry telemetry) => [
     ),
     dispose: (_, cleanup) => cleanup.dispose(),
   ),
-  // Images a tool result named, from other hosts and in memory only: gone on
-  // sign-out, a server change and each time the app locks.
-  Provider<ToolImageLoader?>(
-    lazy: false,
-    create: (context) {
-      final lock = context.read<AppLockController>();
-      return ToolImageLoader.forApp(
-        breadcrumbs: context.read<Breadcrumbs>(),
-        signedOut: context.read<AuthController>().signedOut,
-        lock: lock,
-        locked: () => lock.locked,
-      );
-    },
-    dispose: (_, loader) => loader?.dispose(),
-  ),
+  toolImageLoaderProvider(),
   ChangeNotifierProvider<QueuePersistence>(
     lazy: false,
     create: (context) => QueuePersistence(
@@ -50,3 +36,20 @@ List<SingleChildWidget> appLockProviders(Telemetry telemetry) => [
     )..start(),
   ),
 ];
+
+/// Images a tool result named, from other hosts and in memory only: gone on
+/// sign-out, a server change and each time the app locks.
+Provider<ToolImageLoader?> toolImageLoaderProvider() =>
+    Provider<ToolImageLoader?>(
+      lazy: false,
+      create: (context) {
+        final lock = context.read<AppLockController>();
+        return ToolImageLoader.forApp(
+          breadcrumbs: context.read<Breadcrumbs>(),
+          signedOut: context.read<AuthController>().signedOut,
+          lock: lock,
+          locked: () => lock.locked,
+        );
+      },
+      dispose: (_, loader) => loader?.dispose(),
+    );
