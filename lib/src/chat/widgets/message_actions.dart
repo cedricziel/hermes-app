@@ -13,14 +13,16 @@ import 'reply_interrupted_note.dart';
 
 /// What the user asked to do with the last turn.
 enum TurnAction {
-  retry('Trying again…'),
-  edit('Taking the prompt back…'),
-  branch('Branching…');
-
-  const TurnAction(this.progress);
+  retry,
+  edit,
+  branch;
 
   /// Said while the action runs.
-  final String progress;
+  String progress(AppLocalizations l10n) => switch (this) {
+    retry => l10n.chatActionRetrying,
+    edit => l10n.chatActionEditing,
+    branch => l10n.chatActionBranching,
+  };
 }
 
 /// Why taking the turn back, or branching the chat, did not happen.
@@ -225,21 +227,21 @@ class _MessageActionsState extends State<MessageActions> {
             ),
           if (widget.showCopy)
             action(
-              _copied ? 'Copied' : 'Copy',
+              _copied ? l10n.chatActionCopied : l10n.chatActionCopy,
               _copied ? AppIcons.check : AppIcons.copyOutlined,
               _copy,
             ),
           if (widget.readAloud case final state?)
             switch (state) {
               ReadAloudState.idle => action(
-                'Read aloud',
+                l10n.chatActionReadAloud,
                 AppIcons.speaker,
                 widget.onReadAloud,
               ),
               ReadAloudState.playing => Semantics(
                 liveRegion: true,
                 child: action(
-                  'Stop reading',
+                  l10n.chatActionStopReading,
                   AppIcons.stop,
                   widget.onReadAloud,
                 ),
@@ -247,7 +249,11 @@ class _MessageActionsState extends State<MessageActions> {
               ReadAloudState.loading => Stack(
                 alignment: Alignment.center,
                 children: [
-                  action('Stop reading', AppIcons.stop, widget.onReadAloud),
+                  action(
+                    l10n.chatActionStopReading,
+                    AppIcons.stop,
+                    widget.onReadAloud,
+                  ),
                   IgnorePointer(
                     child: SizedBox.square(
                       key: const Key('read-aloud-loading'),
@@ -280,7 +286,7 @@ class _MessageActionsState extends State<MessageActions> {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        running.progress,
+                        running.progress(l10n),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: color, fontSize: 12.5),
@@ -292,11 +298,15 @@ class _MessageActionsState extends State<MessageActions> {
             )
           else ...[
             if (widget.onRetry case final retry?)
-              action('Try again', AppIcons.refresh, held ? null : retry),
+              action(
+                l10n.chatActionRetry,
+                AppIcons.refresh,
+                held ? null : retry,
+              ),
             if (widget.onEdit case final edit?)
-              action('Edit prompt', AppIcons.edit, held ? null : edit),
+              action(l10n.chatActionEdit, AppIcons.edit, held ? null : edit),
             if (widget.onBranch case final branch?)
-              action('Branch in new chat', AppIcons.branch, branch),
+              action(l10n.chatActionBranch, AppIcons.branch, branch),
           ],
         ],
       ),
