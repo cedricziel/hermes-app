@@ -16,6 +16,7 @@ import 'memory_tool_use_cases.dart';
 import 'memory_use_cases.dart';
 import 'session_usage_use_cases.dart';
 import 'code_tool_body_use_cases.dart';
+import 'link_preview_use_cases.dart';
 import 'tool_value_use_cases.dart';
 import 'connector_operation_use_cases.dart';
 import 'side_result_use_cases.dart';
@@ -177,6 +178,7 @@ final List<WidgetbookNode> directories = [
   memoryToolNode(),
   sessionUsageNode(),
   codeToolBodyNode(),
+  linkPreviewNode(),
   toolValueNode(),
   chatContextNode(),
   chatCheckpointsNode(),

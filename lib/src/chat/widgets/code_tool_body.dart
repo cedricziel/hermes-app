@@ -225,7 +225,7 @@ class _CodeToolBodyState extends State<CodeToolBody> {
             ),
           if (widget.state == CodeToolState.running)
             _RunningLine(label: widget.statusLabel),
-          for (final note in widget.leading) _CodeNoteView(note),
+          for (final note in widget.leading) CodeNoteView(note),
           if (widget.heading.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2, bottom: 4),
@@ -256,7 +256,7 @@ class _CodeToolBodyState extends State<CodeToolBody> {
                 style: _caption(context).copyWith(color: subtle),
               ),
             ),
-          for (final note in widget.trailing) _CodeNoteView(note),
+          for (final note in widget.trailing) CodeNoteView(note),
         ],
       ),
     );
@@ -291,8 +291,10 @@ class _RunningLine extends StatelessWidget {
   );
 }
 
-class _CodeNoteView extends StatelessWidget {
-  const _CodeNoteView(this.note);
+/// One [CodeNote] as a line with its icon: shared by the other views that
+/// say what happened to a tool call.
+class CodeNoteView extends StatelessWidget {
+  const CodeNoteView(this.note, {super.key});
 
   final CodeNote note;
 

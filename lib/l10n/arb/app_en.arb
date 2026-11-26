@@ -2483,6 +2483,60 @@
   "@chatWidgetsHistoryLoading": {
     "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
   },
+  "chatWidgetsLinkBotWarning": "This page may block automated visitors.",
+  "@chatWidgetsLinkBotWarning": {
+    "description": "Note under a page card when the browser tool warned the site may block automated visitors; Hermes' own text follows under it."
+  },
+  "chatWidgetsLinkCopy": "Copy link",
+  "@chatWidgetsLinkCopy": {
+    "description": "Entry of a page card's press menu that copies the page's address, without any user name or password."
+  },
+  "chatWidgetsLinkCouldntOpen": "Couldn't open this page.",
+  "@chatWidgetsLinkCouldntOpen": {
+    "description": "Heading of the note under a page card when the browser tool could not open the page; Hermes' error text follows."
+  },
+  "chatWidgetsLinkCouldntRead": "Couldn't read this page.",
+  "@chatWidgetsLinkCouldntRead": {
+    "description": "Heading of the note on a page card when Hermes could not read that page's text; Hermes' error text follows."
+  },
+  "chatWidgetsLinkElements": "{count, plural, =1{1 interactive element on the page} other{{count} interactive elements on the page}}",
+  "@chatWidgetsLinkElements": {
+    "description": "Line under a page card: how many elements of the page the agent can click or type into.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsLinkNoPages": "No pages",
+  "@chatWidgetsLinkNoPages": {
+    "description": "Line shown when a page tool answered with no pages."
+  },
+  "chatWidgetsLinkNotOpened": "Not opened: only web addresses open from here",
+  "@chatWidgetsLinkNotOpened": {
+    "description": "Note on a page card whose address is not an http or https address, which the app never opens."
+  },
+  "chatWidgetsLinkNotOpenedCredentials": "Not opened: the address holds a user name or password.",
+  "@chatWidgetsLinkNotOpenedCredentials": {
+    "description": "Note on a page card whose web address has a user name or password in it, which the app never opens or shows."
+  },
+  "chatWidgetsLinkOpen": "Open in browser",
+  "@chatWidgetsLinkOpen": {
+    "description": "Entry of a page card's press menu that opens the page in the system browser."
+  },
+  "chatWidgetsLinkOpening": "Opening…",
+  "@chatWidgetsLinkOpening": {
+    "description": "Shown on a page card while the browser tool is still opening the page."
+  },
+  "chatWidgetsLinkReading": "Reading…",
+  "@chatWidgetsLinkReading": {
+    "description": "Shown on a page card while Hermes is still reading the page's text."
+  },
+  "chatWidgetsLinkSnapshot": "Page snapshot",
+  "@chatWidgetsLinkSnapshot": {
+    "description": "Title of the collapsed section that holds the text snapshot of a page the browser tool opened."
+  },
   "chatWidgetsMacToolbarMore": "More",
   "@chatWidgetsMacToolbarMore": {
     "description": "Accessibility label and tooltip of the \"…\" button in the Mac chat toolbar that opens the overflow menu."

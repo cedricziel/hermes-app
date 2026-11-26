@@ -124,6 +124,10 @@ Rule _custom({
   );
 }
 
+/// `Image.network` (however the call is split over lines) and `NetworkImage`;
+/// `\b` keeps a `CachedNetworkImage` out.
+final _chatNetworkImage = RegExp(r'\b(?:Image\s*\.\s*network|NetworkImage)\b');
+
 /// A Material list tile built outside a `FocusRing(`: the tile's shape is not
 /// state-aware, so the ring is a wrapper. `\b` keeps `MacSourceListTile` out.
 final _bareListTile = RegExp(
@@ -1697,6 +1701,27 @@ final guardRules = <Rule>[
     hits: gatewayRequestTimeoutHits,
   ),
 
+  // openspec/changes/tool-views-and-sources: a tool result's card requests
+  // nothing from a third-party host until the user taps it.
+  _guard(
+    name: 'chat-network-image',
+    message:
+        'Image.network and NetworkImage request their address the moment they '
+        'build, which tells a page\'s host that this user\'s agent visited it '
+        'with nobody having tapped anything: a remote image loads only '
+        'through the gallery loader (lib/src/chat/tool_image_loader.dart, '
+        'which PR 3 of tool-views-and-sources adds: until it lands, no remote '
+        'image), and a server file through MediaStore.',
+    root: 'lib/src/chat',
+    pattern: _chatNetworkImage,
+    view: _code,
+    allow: {
+      'lib/src/chat/tool_image_loader.dart':
+          'the gallery\'s loader: the one place a remote image is requested, '
+          'after a tap, over https, bounded and held in memory only',
+    },
+  ),
+
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
   _guard(
     name: 'deep-link-literal',
@@ -2530,6 +2555,19 @@ void main() {
         expect(flutterBarrelImportHitsIn(real).single.line, 9);
       },
     );
+  });
+
+  test('the chat network-image pattern catches a split call', () {
+    for (final source in [
+      "Image.network('a')",
+      "Image\n    .network('a')",
+      "Image . network('a')",
+      'const NetworkImage(url)',
+    ]) {
+      expect(_chatNetworkImage.hasMatch(source), isTrue, reason: source);
+    }
+    expect(_chatNetworkImage.hasMatch('CachedNetworkImage(url)'), isFalse);
+    expect(_chatNetworkImage.hasMatch('Image.memory(bytes)'), isFalse);
   });
 
   test('the keyboard-override pattern catches a call and a tear-off', () {
