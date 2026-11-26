@@ -326,6 +326,11 @@ void main() {
       expect(find.text('Showing the first 500 of 700'), findsOneWidget);
     });
 
+    testWidgets('a total in the thousands is grouped', (tester) async {
+      await _pump(tester, _table(_matches(30), total: 1234));
+      expect(find.text('Showing 30 of 1,234 matches'), findsOneWidget);
+    });
+
     testWidgets('a lower bound is not an exact total', (tester) async {
       await _pump(tester, _table(_matches(30), total: 212, lowerBound: true));
       expect(find.text('Showing 30 of at least 212 matches'), findsOneWidget);

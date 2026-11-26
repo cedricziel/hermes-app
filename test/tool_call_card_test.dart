@@ -556,6 +556,16 @@ void main() {
         expect(find.text('Result'), findsNothing);
       });
 
+      testWidgets('the summary groups thousands', (tester) async {
+        await _pump(
+          tester,
+          rowsCall(densifiedAnswer(manyMatches(1200), totalCount: 1200)),
+        );
+        await tester.tap(find.text('search_files'));
+        await tester.pumpAndSettle();
+        expect(find.text('1,200 matches · 3 columns'), findsOneWidget);
+      });
+
       testWidgets('another tool with a list of flat rows gets the table', (
         tester,
       ) async {
