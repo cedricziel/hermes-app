@@ -1697,6 +1697,26 @@ final guardRules = <Rule>[
     hits: gatewayRequestTimeoutHits,
   ),
 
+  // openspec/changes/tool-views-and-sources: a tool result's card requests
+  // nothing from a third-party host until the user taps it.
+  _guard(
+    name: 'chat-network-image',
+    message:
+        'Image.network and NetworkImage request their address the moment they '
+        'build, which tells a page\'s host that this user\'s agent visited it '
+        'with nobody having tapped anything: load a remote image through the '
+        'gallery loader (lib/src/chat/tool_image_loader.dart), and a server '
+        'file through MediaStore.',
+    root: 'lib/src/chat',
+    pattern: RegExp(r'\b(?:Image\.network|NetworkImage)\b'),
+    view: _code,
+    allow: {
+      'lib/src/chat/tool_image_loader.dart':
+          'the gallery\'s loader: the one place a remote image is requested, '
+          'after a tap, over https, bounded and held in memory only',
+    },
+  ),
+
   // CLAUDE.md "Architecture" > Deep links; docs/architecture/deep-links.md.
   _guard(
     name: 'deep-link-literal',
