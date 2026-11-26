@@ -115,7 +115,9 @@ extension _ChatControllerSending on ChatController {
     _interrupts.remove(thread);
     _generations[thread] = ++_generationSeq;
     undo.bumped = _generations[thread];
-    final placeholder = _addPlaceholder(thread);
+    final placeholder = _addPlaceholder(thread)
+      ..regenerated = _regenerating.remove(thread);
+    undo.regenerated = placeholder.regenerated;
     thread.updatedAt = undo.stamped = DateTime.now();
     notifyListeners();
     if (!_currentActivity(epoch)) return false;

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
+import 'package:hermes_app/src/chat/widgets/scroll_to_latest_button.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -124,6 +125,45 @@ void main() {
     await wheel(tester, 4000);
     await streamLines(tester, reply, 10);
     expect(distanceFromBottom(tester), lessThan(1));
+
+    reply.finish();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  /// Whether the jump-to-latest button is scaled in: the list animates it
+  /// from 0 (away) to 1 (shown).
+  bool jumpToLatestShown(WidgetTester tester) =>
+      tester
+          .widget<ScrollToLatestButton>(find.byType(ScrollToLatestButton))
+          .animation
+          .value >
+      0;
+
+  testWidgets('jump to latest shows only when scrolled up and follows the '
+      'streaming reply again once tapped', (tester) async {
+    final reply = await startReply(tester);
+    await streamLines(tester, reply, 60);
+    await tester.pump(const Duration(seconds: 1));
+    expect(jumpToLatestShown(tester), isFalse);
+
+    await wheel(tester, -400);
+    await streamLines(tester, reply, 10);
+    await tester.pump(const Duration(seconds: 1));
+    expect(distanceFromBottom(tester), greaterThan(100));
+    expect(jumpToLatestShown(tester), isTrue);
+
+    await tester.tap(find.byType(FloatingActionButton));
+    // The list starts the scroll after the frame and then flings to the end.
+    await tester.pump();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(distanceFromBottom(tester), lessThan(1));
+    expect(jumpToLatestShown(tester), isFalse);
+
+    await streamLines(tester, reply, 10);
+    expect(distanceFromBottom(tester), lessThan(1));
+    expect(jumpToLatestShown(tester), isFalse);
 
     reply.finish();
     await tester.pump(const Duration(seconds: 1));

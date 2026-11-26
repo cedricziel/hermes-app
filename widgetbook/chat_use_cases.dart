@@ -1147,6 +1147,48 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           MessageActions(text: 'Timed out', showCopy: false, onRetry: () {}),
         ),
         _tool(
+          'Regenerated reply',
+          MessageActions(
+            text: 'The build finished.',
+            regenerated: true,
+            onRetry: () {},
+            onEdit: () {},
+            onBranch: () {},
+            readAloud: ReadAloudState.idle,
+            onReadAloud: () {},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Regenerated, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'The build finished.',
+                regenerated: true,
+                onRetry: () {},
+                onEdit: () {},
+                onBranch: () {},
+                readAloud: ReadAloudState.idle,
+                onReadAloud: () {},
+              ),
+              maxWidth: 320,
+            ),
+          ),
+        ),
+        _tool(
+          'Regenerated and stopped',
+          MessageActions(
+            text: 'The job hit a',
+            regenerated: true,
+            stopped: true,
+            onRetry: () {},
+            onEdit: () {},
+            onBranch: () {},
+          ),
+        ),
+        _tool(
           'Stopped by the user',
           MessageActions(text: 'The job hit a', stopped: true, onRetry: () {}),
         ),

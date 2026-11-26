@@ -106,6 +106,10 @@ const String kMetaError = 'error';
 const String kMetaStreaming = 'streaming';
 const String kMetaStopped = 'stopped';
 
+/// On a reply's `TextMessage` that replaced an earlier one after Retry or Edit
+/// (`ChatMessage.regenerated`); shown in its action row.
+const String kMetaRegenerated = 'regenerated';
+
 /// On a failed reply's `TextMessage` that carries no `error`: the reply was
 /// settled because the server no longer has its turn or could not say how it
 /// ended (`ChatMessage.loss`). The value is the `ReplyLoss` name; the note

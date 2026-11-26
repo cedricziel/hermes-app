@@ -300,6 +300,7 @@ Widget _buildText(
       text: message.text,
       showCopy: message.text.isNotEmpty,
       stopped: message.metadata?[kMetaStopped] == true,
+      regenerated: message.metadata?[kMetaRegenerated] == true,
       onRetry: latest ? onRetry : null,
       onEdit: latest ? onEdit : null,
       onBranch: onBranch == null ? null : () => onBranch(message.id),
