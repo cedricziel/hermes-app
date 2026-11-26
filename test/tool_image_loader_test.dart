@@ -234,7 +234,7 @@ void main() {
     },
   );
 
-  test('a load that ends after clear keeps nothing', () async {
+  test('a load in flight when the loader clears keeps nothing', () async {
     final gate = Completer<void>();
     final (loader, _) = _loader((_) async {
       await gate.future;
@@ -264,6 +264,18 @@ void main() {
     expect(loader.bytesOf(second), _png);
   });
 
+  test('clear and eviction tell the listeners, and a cleared image has no provider', () async {
+    final (loader, _) = _loader((_) => _ok());
+    var told = 0;
+    loader.changes.addListener(() => told++);
+    await loader.load(_cdn);
+
+    await loader.clear();
+
+    expect(told, 1);
+    expect(loader.imageFor(_cdn), isNull);
+  });
+
   test('writes nothing to disk', () async {
     final (loader, _) = _loader((_) => _ok());
 
@@ -289,8 +301,8 @@ void main() {
     );
     await tester.runAsync(() async {
       await loader.load(_cdn);
-      await precacheImage(loader.imageFor(_cdn, width: 64), context);
-      await precacheImage(loader.imageFor(_cdn), context);
+      await precacheImage(loader.imageFor(_cdn, width: 64)!, context);
+      await precacheImage(loader.imageFor(_cdn)!, context);
     });
     expect(cache.currentSize, 2);
 

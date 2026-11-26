@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -73,12 +74,38 @@ class ToolImagesBody extends StatefulWidget {
 }
 
 class _ToolImagesBodyState extends State<ToolImagesBody> {
-  late final List<ToolImageState> _states;
+  var _states = <ToolImageState>[];
   final _fetched = <int, Uint8List>{};
+  ToolImageLoader? _loader;
+
+  /// Counts the times the items changed, so a load that was asked for the old
+  /// items does not write into the new ones.
+  var _epoch = 0;
 
   @override
   void initState() {
     super.initState();
+    _loader = context.read<ToolImageLoader?>();
+    _loader?.changes.addListener(_loaderChanged);
+    _reset();
+  }
+
+  @override
+  void didUpdateWidget(ToolImagesBody old) {
+    super.didUpdateWidget(old);
+    // A running call that finishes keeps this State with its new items.
+    if (!listEquals(old.items, widget.items)) _reset();
+  }
+
+  @override
+  void dispose() {
+    _loader?.changes.removeListener(_loaderChanged);
+    super.dispose();
+  }
+
+  void _reset() {
+    _epoch++;
+    _fetched.clear();
     final items = widget.items;
     _states = [
       for (final item in items)
@@ -94,10 +121,28 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
     }
   }
 
+  /// The loader dropped bytes (App Lock, sign-out, its memory budget): a tile
+  /// that showed one waits for a tap again.
+  void _loaderChanged() {
+    final loader = _loader;
+    if (loader == null) return;
+    setState(() {
+      for (var i = 0; i < _states.length; i++) {
+        final uri = widget.items[i].uri;
+        if (_states[i] == ToolImageState.loaded &&
+            uri != null &&
+            loader.bytesOf(uri) == null) {
+          _states[i] = ToolImageState.idle;
+        }
+      }
+    });
+  }
+
   Future<void> _fetch(int i) async {
     final item = widget.items[i];
+    final epoch = _epoch;
     final store = context.read<MediaStore?>();
-    final loader = context.read<ToolImageLoader?>();
+    final loader = _loader;
     var next = ToolImageState.loaded;
     try {
       if (item.uri == null) {
@@ -118,7 +163,7 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
     } on MediaFetchException {
       next = ToolImageState.failed;
     }
-    if (mounted) setState(() => _states[i] = next);
+    if (mounted && epoch == _epoch) setState(() => _states[i] = next);
   }
 
   void _load(int i) {
@@ -129,7 +174,7 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
   void _open(int i, String name) {
     final item = widget.items[i];
     final store = context.read<MediaStore?>();
-    final loader = context.read<ToolImageLoader?>();
+    final loader = _loader;
     final bytes = _fetched[i];
     final image = item.uri != null
         ? loader?.imageFor(item.uri!)
@@ -166,17 +211,12 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
   ImageProvider Function(int)? _imageOf(int i) {
     final item = widget.items[i];
     if (_states[i] != ToolImageState.loaded) return null;
-    final loader = context.read<ToolImageLoader?>();
-    final bytes = _fetched[i];
-    if (item.uri != null) {
-      return loader?.bytesOf(item.uri!) == null
-          ? null
-          : (width) => loader!.imageFor(item.uri!, width: width);
-    }
-    return bytes == null
-        ? null
-        : (width) =>
-              ResizeImage.resizeIfNeeded(width, null, MemoryImage(bytes));
+    final uri = item.uri;
+    final bytes = uri == null ? _fetched[i] : _loader?.bytesOf(uri);
+    if (bytes == null) return null;
+    return (width) =>
+        (uri == null ? null : _loader?.imageFor(uri, width: width)) ??
+        ResizeImage.resizeIfNeeded(width, null, MemoryImage(bytes));
   }
 
   @override

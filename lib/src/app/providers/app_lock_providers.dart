@@ -32,9 +32,12 @@ List<SingleChildWidget> appLockProviders(Telemetry telemetry) => [
     lazy: false,
     create: (context) {
       final lock = context.read<AppLockController>();
-      return ToolImageLoader(breadcrumbs: context.read<Breadcrumbs>())
-        ..clearOnSignOut(context.read<AuthController>().signedOut)
-        ..clearWhenLocked(lock, () => lock.locked);
+      return ToolImageLoader.forApp(
+        breadcrumbs: context.read<Breadcrumbs>(),
+        signedOut: context.read<AuthController>().signedOut,
+        lock: lock,
+        locked: () => lock.locked,
+      );
     },
     dispose: (_, loader) => loader?.dispose(),
   ),

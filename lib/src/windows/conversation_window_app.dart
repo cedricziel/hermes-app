@@ -77,7 +77,8 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
           ),
           dispose: (_, store) => store?.dispose(),
         ),
-        // The window ends with its memory: no sign-out or lock reaches it.
+        // The window clears it when the main window locks (see
+        // `ConversationWindowScreen`); its end frees the rest.
         Provider<ToolImageLoader?>(
           create: (_) => ToolImageLoader(),
           dispose: (_, loader) => loader?.dispose(),

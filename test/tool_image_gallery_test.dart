@@ -375,6 +375,55 @@ void main() {
     });
   });
 
+  group('when things change under a tile', () {
+    testWidgets('a running image_generate card that finishes shows its image', (
+      tester,
+    ) async {
+      final setup = _Setup();
+      Future<void> show(ToolCall call) => pumpOnPlatform(
+        tester,
+        MultiProvider(
+          providers: [
+            Provider<MediaStore?>.value(value: setup.store),
+            Provider<ToolImageLoader?>.value(value: setup.loader),
+          ],
+          child: ToolCallCard(call: call, initiallyOpen: true),
+        ),
+        platform: TargetPlatform.android,
+      );
+      await show(generateCall(null, status: ToolCallStatus.running));
+      expect(_states(tester), [ToolImageState.generating]);
+
+      await show(generateCall(generated('https://img.service.example/1.png')));
+      await _settle(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(_states(tester), [ToolImageState.idle]);
+    });
+
+    testWidgets('a loaded tile waits for a tap again once the loader clears', (
+      tester,
+    ) async {
+      final setup = await _pump(
+        tester,
+        imagesCall(imagesAnswer([pageImage('https://cdn.shop.example/a.png')])),
+      );
+      await tester.tap(find.byType(ToolImageTile));
+      await _settle(tester);
+      expect(_states(tester), [ToolImageState.loaded]);
+
+      await tester.runAsync(setup.loader.clear);
+      await tester.pump();
+
+      expect(_states(tester), [ToolImageState.idle]);
+      await tester.tap(find.byType(ToolImageTile));
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(_states(tester), [ToolImageState.loaded]);
+      expect(setup.adapter.requests, hasLength(2));
+    });
+  });
+
   group('browser_vision', () {
     testWidgets(
       'shows the screenshot through the media store and the analysis',

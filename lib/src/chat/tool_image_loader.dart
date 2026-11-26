@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
+import 'package:flutter/foundation.dart'
+    show ChangeNotifier, Listenable, VoidCallback;
 import 'package:flutter/painting.dart';
 
 import '../telemetry/breadcrumbs.dart';
@@ -29,7 +30,8 @@ class ToolImageException implements Exception {
 /// bytes live in this object's memory, never on disk, and so do the frames
 /// decoded from them in Flutter's shared image cache: [clear] drops both, and
 /// runs on sign-out (which a server change is too) and when App Lock covers
-/// the app.
+/// the app. It notifies when bytes are dropped, so a tile that showed one
+/// goes back to waiting for a tap.
 class ToolImageLoader {
   ToolImageLoader({
     Dio? dio,
@@ -39,7 +41,23 @@ class ToolImageLoader {
     this.memoryBudget = 48 * 1024 * 1024,
   }) : _dioOverride = dio;
 
+  /// The loader the app runs: it clears itself when [signedOut] fires (a
+  /// server change signs out too) and each time [lock] changes to [locked].
+  factory ToolImageLoader.forApp({
+    required Breadcrumbs breadcrumbs,
+    required Stream<void> signedOut,
+    required Listenable lock,
+    required bool Function() locked,
+  }) => ToolImageLoader(breadcrumbs: breadcrumbs)
+    ..clearOnSignOut(signedOut)
+    ..clearWhenLocked(lock, locked);
+
   static const _maxRedirects = 3;
+
+  final _changes = _Changes();
+
+  /// Notifies each time bytes are dropped: [clear], or the memory budget.
+  Listenable get changes => _changes;
 
   final Dio? _dioOverride;
   late final Dio _dio = _dioOverride ?? Dio();
@@ -175,20 +193,23 @@ class ToolImageLoader {
       final oldest = _bytes.keys.first;
       total -= _bytes.remove(oldest)!.length;
       _forgetProviders((k) => k == oldest);
+      _changes.notify();
     }
   }
 
   /// The image of a loaded [uri], decoded at [width] pixels when given (the
   /// tile's size) and in full otherwise (the viewer). The loader keeps the
   /// provider so [clear] can evict its decoded frames from the image cache.
-  ImageProvider imageFor(Uri uri, {int? width}) {
+  ImageProvider? imageFor(Uri uri, {int? width}) {
+    final bytes = _bytes[uri.toString()];
+    if (bytes == null) return null;
     // Widths in steps of 64 px, so a window being resized decodes a few
     // times, not once per pixel.
     final step = width == null ? null : (width + 63) ~/ 64 * 64;
     return _providers[(uri.toString(), step)] ??= ResizeImage.resizeIfNeeded(
       step,
       null,
-      MemoryImage(_bytes[uri.toString()]!),
+      MemoryImage(bytes),
     );
   }
 
@@ -214,6 +235,7 @@ class ToolImageLoader {
     _cancels.clear();
     _inflight.clear();
     _bytes.clear();
+    _changes.notify();
     return _forgetProviders((_) => true);
   }
 
@@ -240,6 +262,7 @@ class ToolImageLoader {
   void dispose() {
     _signedOut?.cancel();
     _unlisten?.call();
+    _changes.dispose();
   }
 }
 
@@ -250,4 +273,8 @@ extension on ToolImageOutcome {
     ToolImageOutcome.tooLarge => 'too_large',
     ToolImageOutcome.insecure => 'insecure',
   };
+}
+
+class _Changes extends ChangeNotifier {
+  void notify() => notifyListeners();
 }
