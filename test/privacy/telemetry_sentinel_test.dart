@@ -615,7 +615,7 @@ void main() {
     final adapter = _ImageAdapter();
     final loader = ToolImageLoader(
       dio: Dio()..httpClientAdapter = adapter,
-      maxBytes: 8,
+      maxBytes: 100,
       breadcrumbs: sinks.breadcrumbs,
     );
     String address(String name) => 'https://$_host/$_titleMarker/$name.png';
@@ -655,6 +655,14 @@ void main() {
     });
 
     expect(adapter.requested, 3);
+    expect(
+      sinks.records.map((r) => r.text),
+      containsAll([
+        contains('outcome=ok'),
+        contains('outcome=failed'),
+        contains('outcome=too_large'),
+      ]),
+    );
     expect(
       sinks.records.where((r) => r.text.startsWith('chat.tool_image.loaded')),
       hasLength(3),
@@ -755,7 +763,7 @@ class _ImageAdapter implements HttpClientAdapter {
         ? ResponseBody.fromBytes(_pngBytes, 200)
         : name == 'fail.png'
         ? ResponseBody.fromBytes(const [], 500)
-        : ResponseBody.fromBytes(Uint8List(64), 200);
+        : ResponseBody.fromBytes(Uint8List(200), 200);
   }
 
   @override
