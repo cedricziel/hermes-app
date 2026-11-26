@@ -241,6 +241,26 @@ void main() {
       expect(turnCallsEndedBy(all, message(ChatRole.assistant, 'new')), isNull);
     });
 
+    test('keep the turn across a steer row', () {
+      final a = searchCall([searchHit('https://a.test/')]);
+      final call = message(ChatRole.assistant, 'call', calls: [a]);
+      final steer = ChatMessage(
+        id: 'steer',
+        role: ChatRole.user,
+        content: 'also check b',
+        displayKind: kSteerDisplayKind,
+        createdAt: DateTime(2026),
+      );
+      final reply = message(ChatRole.assistant, 'reply', text: 'answer');
+      final prompt = message(ChatRole.user, 'prompt', text: 'ask');
+      final all = [prompt, call, steer, reply];
+
+      expect(turnCallsEndedBy(all, call), isEmpty);
+      expect(turnCallsEndedBy(all, reply), [a]);
+      expect(turnEndAfter(all, 1), 4);
+      expect(turnEndAfter([...all, message(ChatRole.user, 'next')], 3), 4);
+    });
+
     test(
       'are the reply\'s own when it follows another reply with no prompt',
       () {

@@ -870,13 +870,10 @@ extension _ChatControllerHistory on ChatController {
       // A turn that began on this page ends on the held ones: mapped with
       // them, its older rows are not taken for its end, and the sources row
       // of its reply (already shown) holds the whole turn.
-      final turnRest = <ChatMessage>[];
-      var last = older.last;
-      for (final m in thread.messages.skip(older.length)) {
-        if (!continuesTurn(last, m)) break;
-        turnRest.add(m);
-        last = m;
-      }
+      final turnRest = thread.messages.sublist(
+        older.length,
+        turnEndAfter(thread.messages, older.length - 1),
+      );
       final flyers = chatMessagesToFlyer([...older, ...turnRest]);
       final controller = controllerFor(thread);
       final shown = {for (final m in controller.messages) m.id: m};

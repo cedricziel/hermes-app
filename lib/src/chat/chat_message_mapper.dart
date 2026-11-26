@@ -325,18 +325,44 @@ bool continuesTurn(ChatMessage message, ChatMessage? next) =>
     message.content.isEmpty &&
     message.toolCalls.isNotEmpty;
 
+/// Words the user folded into a running turn: not a new prompt.
+bool _isSteer(ChatMessage message) =>
+    message.role == ChatRole.user && message.displayKind == kSteerDisplayKind;
+
 /// The calls of the turn that the message at [at] of [messages] ends, which is
 /// what its sources row is read from; empty when the turn goes on after it.
+/// A steer row between two messages of a turn does not end it.
 List<ToolCall> _turnCallsEndingAt(List<ChatMessage> messages, int at) {
-  if (at + 1 < messages.length &&
-      continuesTurn(messages[at], messages[at + 1])) {
+  var next = at + 1;
+  while (next < messages.length && _isSteer(messages[next])) {
+    next++;
+  }
+  if (next < messages.length && continuesTurn(messages[at], messages[next])) {
     return const [];
   }
   var start = at;
-  while (start > 0 && continuesTurn(messages[start - 1], messages[start])) {
-    start--;
+  while (true) {
+    var before = start - 1;
+    while (before >= 0 && _isSteer(messages[before])) {
+      before--;
+    }
+    if (before < 0 || !continuesTurn(messages[before], messages[start])) break;
+    start = before;
   }
   return [for (var i = start; i <= at; i++) ...messages[i].toolCalls];
+}
+
+/// The end (exclusive) of the turn the message at [at] of [messages] belongs
+/// to, from [at] on: what an older history page loaded before [at + 1] is
+/// mapped together with.
+int turnEndAfter(List<ChatMessage> messages, int at) {
+  var last = at;
+  for (var i = at + 1; i < messages.length; i++) {
+    if (_isSteer(messages[i])) continue;
+    if (!continuesTurn(messages[last], messages[i])) break;
+    last = i;
+  }
+  return last + 1;
 }
 
 /// The calls of the turn that [message] ends in [messages], or null when

@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/widgets/sources_row.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
+import 'platform_theme.dart';
 
 const _pages = [
   ('Release notes for November', 'news.example.net'),
@@ -186,7 +187,10 @@ WidgetbookNode sourcesRowNode() => WidgetbookFolder(
         ),
         WidgetbookUseCase(
           name: 'Narrow Mac window',
-          builder: (_) => _row(_sources(7), width: 320),
+          builder: (context) => Theme(
+            data: platformTheme(context, TargetPlatform.macOS),
+            child: Builder(builder: (_) => _row(_sources(7), width: 320)),
+          ),
         ),
         WidgetbookUseCase(
           name: 'Wide window',
