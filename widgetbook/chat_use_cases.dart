@@ -1220,6 +1220,24 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             status: const TurnActionStatus(running: TurnAction.retry),
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Taking the prompt back, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'The build finished.',
+                onRetry: () {},
+                onEdit: () {},
+                readAloud: ReadAloudState.idle,
+                onReadAloud: () {},
+                status: const TurnActionStatus(running: TurnAction.edit),
+              ),
+              maxWidth: 320,
+            ),
+          ),
+        ),
         _tool(
           'Taking the prompt back',
           MessageActions(
