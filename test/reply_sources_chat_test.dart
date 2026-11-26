@@ -1,6 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_message_kinds.dart';
+import 'package:hermes_app/src/chat/sources/turn_sources.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
@@ -142,6 +145,83 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(find.text('Sources · 2'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a turn that began on an older page gets its sources when that page loads',
+    (tester) async {
+      // One turn over 130 rows: the prompt and the search are older than the
+      // newest page, the reply that ends the turn is on it.
+      server
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([sessionRow(id: 'long', title: 'Long chat')]),
+        )
+        ..onRequest('GET', '/api/sessions/long/messages', (request) {
+          const total = 130;
+          final limit = request.queryParameters['limit'] as int;
+          final offset = request.queryParameters['offset'] as int;
+          final newest = total - offset;
+          final oldest = newest - limit + 1 < 1 ? 1 : newest - limit + 1;
+          Map<String, Object?> row(int id) => switch (id) {
+            10 => messageRow(id: id, role: 'user', content: 'Research it'),
+            11 => messageRow(
+              id: id,
+              role: 'assistant',
+              content: '',
+              toolCalls: [
+                {
+                  'id': 'c1',
+                  'function': {
+                    'name': 'web_search',
+                    'arguments': jsonEncode({'query': 'it'}),
+                  },
+                },
+              ],
+            ),
+            12 => messageRow(
+              id: id,
+              role: 'tool',
+              toolCallId: 'c1',
+              content: jsonEncode(_answer()),
+            ),
+            < 10 => messageRow(id: id, role: 'user', content: 'Earlier $id'),
+            _ => messageRow(id: id, role: 'assistant', content: 'Step $id'),
+          };
+          return (
+            status: 200,
+            body: messageListBody('long', [
+              for (var id = oldest; id <= newest; id++) row(id),
+            ]),
+          );
+        });
+      await pumpChatScreen(
+        tester,
+        server: server,
+        withProfiles: true,
+        transport: transport,
+        size: const Size(390, 844),
+      );
+      await openThread(tester, 'Long chat');
+      List<TurnSource>? sourcesOfLastReply() =>
+          tester
+                  .widget<Chat>(find.byType(Chat))
+                  .chatController
+                  .messages
+                  .last
+                  .metadata?[kMetaSources]
+              as List<TurnSource>?;
+      expect(sourcesOfLastReply(), isNull);
+
+      for (var i = 0; i < 40; i++) {
+        await tester.drag(find.byType(Chat), const Offset(0, 2000));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pumpAndSettle();
+
+      expect(sourcesOfLastReply(), hasLength(2));
     },
   );
 }
