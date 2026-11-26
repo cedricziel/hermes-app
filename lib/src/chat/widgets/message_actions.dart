@@ -220,7 +220,7 @@ class _MessageActionsState extends State<MessageActions> {
         children: [
           if (widget.stopped)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsetsDirectional.only(end: 8),
               child: statusLabel(AppIcons.stop, l10n.chatReplyStopped),
             ),
           if (widget.showCopy)

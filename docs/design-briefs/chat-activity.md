@@ -275,7 +275,7 @@ This extends an existing designed surface (the action bar under a reply, `Messag
 
 **Widgets (plain models).** `MessageActions(regenerated:)`; no new widget.
 
-**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions): "Regenerated reply" (with every action and Read aloud), "Regenerated and stopped" and "Regenerated, largest text on a narrow screen" (320 pt, 3x) "Stopped, largest text on a narrow screen" and "Taking the prompt back, largest text on a narrow screen" (both 320 pt, 3x). Light and dark, phone and desktop come from the catalog's addons.
+**Catalog use cases** (`widgetbook/chat_use_cases.dart` MessageActions): "Regenerated reply" (with every action and Read aloud), "Regenerated and stopped", "Regenerated, largest text on a narrow screen", "Stopped, largest text on a narrow screen" and "Taking the prompt back, largest text on a narrow screen" (the last three at 320 pt, 3x). Light and dark, phone and desktop come from the catalog's addons.
 
 **Not checked.** A rendered look of the label next to the actions on a device, VoiceOver and TalkBack output, the German word read by a German speaker.
 
