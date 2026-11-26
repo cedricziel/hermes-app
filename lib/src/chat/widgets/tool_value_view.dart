@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/semantics.dart';
@@ -55,6 +56,7 @@ class ToolValueView extends StatefulWidget {
     this.language,
     this.settled = true,
     this.selectable = true,
+    this.lineNumbers,
   });
 
   final String text;
@@ -62,12 +64,22 @@ class ToolValueView extends StatefulWidget {
   final bool settled;
   final bool selectable;
 
+  /// A number per line of [text], drawn in a gutter that is not selectable.
+  /// Each line is its own row, so a wrapped line keeps its number on its
+  /// first row. Null draws the text alone.
+  final List<int>? lineNumbers;
+
   @override
   State<ToolValueView> createState() => _ToolValueViewState();
 }
 
 class _ToolValueViewState extends State<ToolValueView> {
   late List<CodeRun> _runs;
+
+  /// For a numbered text, the boxes each line may draw: the text's
+  /// [kToolHiddenBoxMax] shared out in line order once, so a row built again on
+  /// scroll draws what it drew before and the whole text stays within the cap.
+  var _rowBoxes = const <int>[];
   late bool _hasHidden;
   CodeHighlightWorker? _worker;
   var _generation = 0;
@@ -83,7 +95,8 @@ class _ToolValueViewState extends State<ToolValueView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text ||
         oldWidget.language != widget.language ||
-        oldWidget.settled != widget.settled) {
+        oldWidget.settled != widget.settled ||
+        (oldWidget.lineNumbers == null) != (widget.lineNumbers == null)) {
       _colour();
     }
   }
@@ -100,8 +113,16 @@ class _ToolValueViewState extends State<ToolValueView> {
     final generation = ++_generation;
     _worker?.kill();
     _worker = null;
-    final display = withoutCrlfReturns(wellFormedText(widget.text));
+    var display = withoutCrlfReturns(wellFormedText(widget.text));
+    // The last row of a numbered text has no line feed after it, so its
+    // carriage return is dropped here; Copy still has it.
+    if (widget.lineNumbers != null && display.endsWith('\r')) {
+      display = display.substring(0, display.length - 1);
+    }
     _hasHidden = hasHiddenToolText(display);
+    _rowBoxes = widget.lineNumbers == null || !_hasHidden
+        ? const []
+        : _allotBoxes(display);
     _runs = [(display, null)];
     final language = widget.language;
     if (!widget.settled ||
@@ -123,26 +144,32 @@ class _ToolValueViewState extends State<ToolValueView> {
     }
   }
 
+  static List<int> _allotBoxes(String display) {
+    var left = kToolHiddenBoxMax;
+    return [
+      for (final line in display.split('\n'))
+        () {
+          final granted = min(countHiddenToolRunes(line), left);
+          left -= granted;
+          return granted;
+        }(),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final base = _mono.copyWith(color: Theme.of(context).colorScheme.onSurface);
     final palette = context.codeColors;
     final budget = HiddenBoxBudget();
-    final children = <InlineSpan>[
-      for (final (text, token) in _runs)
-        if (_hasHidden)
-          ...hiddenCharSpans(
-            context,
-            text,
-            codeTokenStyle(token, palette),
-            budget,
-            boxStyle: base,
+    final numbers = widget.lineNumbers;
+    final text = numbers == null || numbers.isEmpty
+        ? Text.rich(
+            TextSpan(
+              style: base,
+              children: _spansFor(_runs, base, palette, budget, context),
+            ),
           )
-        else
-          TextSpan(text: text, style: codeTokenStyle(token, palette)),
-    ];
-    final span = TextSpan(style: base, children: children);
-    final text = Text.rich(span);
+        : _numberedLines(context, base, palette, numbers);
     // A selection copies the text of a box too (its escape, `U+202E`), which
     // SelectableText cannot: it turns each box into U+FFFC. Inside a
     // SelectionArea (the chat's) the text just joins that.
@@ -150,6 +177,113 @@ class _ToolValueViewState extends State<ToolValueView> {
       return text;
     }
     return MenuSelectionArea(child: text);
+  }
+
+  List<InlineSpan> _spansFor(
+    List<CodeRun> runs,
+    TextStyle base,
+    HermesCodeColors palette,
+    HiddenBoxBudget budget,
+    BuildContext context,
+  ) => [
+    for (final (text, token) in runs)
+      if (_hasHidden)
+        ...hiddenCharSpans(
+          context,
+          text,
+          codeTokenStyle(token, palette),
+          budget,
+          boxStyle: base,
+        )
+      else
+        TextSpan(text: text, style: codeTokenStyle(token, palette)),
+  ];
+
+  /// [_runs] cut at their line feeds, one row per line with its number.
+  /// More lines than this are built lazily in a box of the panel's height.
+  static const _lazyAbove = 40;
+
+  Widget _numberedLines(
+    BuildContext context,
+    TextStyle base,
+    HermesCodeColors palette,
+    List<int> numbers,
+  ) {
+    final lines = <List<CodeRun>>[[]];
+    for (final (text, token) in _runs) {
+      final parts = text.split('\n');
+      for (var i = 0; i < parts.length; i++) {
+        if (i > 0) lines.add([]);
+        if (parts[i].isNotEmpty) lines.last.add((parts[i], token));
+      }
+    }
+    final digits = '${numbers.reduce((a, b) => a > b ? a : b)}'.length;
+    final gutter = TextPainter(
+      text: TextSpan(text: '0' * digits, style: base),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = gutter.width.ceilToDouble() + 12;
+    gutter.dispose();
+    final muted = base.copyWith(color: context.hermesColors.subtleText);
+    Widget row(int i) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ExcludeSemantics(
+          child: SelectionContainer.disabled(
+            child: SizedBox(
+              width: width,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Text(
+                  i < numbers.length ? '${numbers[i]}' : '',
+                  textAlign: TextAlign.end,
+                  softWrap: false,
+                  style: muted,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: base,
+              children: _spansFor(
+                lines[i],
+                base,
+                palette,
+                HiddenBoxBudget(i < _rowBoxes.length ? _rowBoxes[i] : 0),
+                context,
+              ),
+            ),
+          ),
+        ),
+        // A selection across rows copies what the rows hold with
+        // nothing between them; this line feed, which has no size and
+        // is not read out, ends each line but the last.
+        if (i < lines.length - 1)
+          const ExcludeSemantics(
+            child: Text('\n', style: TextStyle(height: 0)),
+          ),
+      ],
+    );
+    // A long file is built as it scrolls: the rows of a default read of 2,000
+    // lines would be about 6,000 widgets at once. A short one sizes itself.
+    if (lines.length > _lazyAbove) {
+      return SizedBox(
+        height: ToolValuePanel.maxHeight,
+        child: ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: lines.length,
+          itemBuilder: (context, i) => row(i),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (var i = 0; i < lines.length; i++) row(i)],
+    );
   }
 }
 

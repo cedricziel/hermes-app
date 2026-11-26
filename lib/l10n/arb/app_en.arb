@@ -2223,6 +2223,202 @@
   "@chatWidgetsBranchRowLabel": {
     "description": "Added to a chat's screen reader label in the chat list and in search results when the chat was branched from another; the branch glyph before its title has no label of its own."
   },
+  "chatWidgetsCodeCheckedOnDisk": "Checked on disk.",
+  "@chatWidgetsCodeCheckedOnDisk": {
+    "description": "Outcome note under a written file when Hermes read it back from disk but reported no size."
+  },
+  "chatWidgetsCodeCopy": "Copy code",
+  "@chatWidgetsCodeCopy": {
+    "description": "Accessible name of the Copy button above a file's text in a tool call."
+  },
+  "chatWidgetsCodeCouldntRead": "Couldn't read this file.",
+  "@chatWidgetsCodeCouldntRead": {
+    "description": "Heading of the note under a file path when Hermes could not read the file; the server's own text follows it."
+  },
+  "chatWidgetsCodeCutShort": "Cut short.",
+  "@chatWidgetsCodeCutShort": {
+    "description": "First sentence of the note under a file's text that Hermes read only in part."
+  },
+  "chatWidgetsCodeCutShortLines": "Lines {first}–{last} of {total}.",
+  "@chatWidgetsCodeCutShortLines": {
+    "description": "Sentence of the cut-short note: which lines were shown, out of how many the file has.",
+    "placeholders": {
+      "first": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "last": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeCutShortLinesNoTotal": "Lines {first}–{last}.",
+  "@chatWidgetsCodeCutShortLinesNoTotal": {
+    "description": "Sentence of the cut-short note when the file's line count is not known.",
+    "placeholders": {
+      "first": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "last": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeCutShortNext": "The next read starts at line {line}.",
+  "@chatWidgetsCodeCutShortNext": {
+    "description": "Sentence of the cut-short note: where Hermes would continue reading.",
+    "placeholders": {
+      "line": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeDiagnostics": "Diagnostics",
+  "@chatWidgetsCodeDiagnostics": {
+    "description": "Heading above the editor diagnostics Hermes reported for a file it wrote."
+  },
+  "chatWidgetsCodeDocument": "Text taken from the document.",
+  "@chatWidgetsCodeDocument": {
+    "description": "Note under the text Hermes read out of a PDF, spreadsheet or similar document instead of the file itself."
+  },
+  "chatWidgetsCodeEmpty": "This file is empty.",
+  "@chatWidgetsCodeEmpty": {
+    "description": "Shown under a file's path when Hermes read it and it holds no text."
+  },
+  "chatWidgetsCodeLineOne": "Line {line}",
+  "@chatWidgetsCodeLineOne": {
+    "description": "Line under a file's text when one line is shown and the file's line count is not known.",
+    "placeholders": {
+      "line": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeLineOneOf": "Line {line} of {total}",
+  "@chatWidgetsCodeLineOneOf": {
+    "description": "Line under a file's text when one line is shown: which line, and how many the file has.",
+    "placeholders": {
+      "line": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeLines": "Lines {first}–{last} of {total}",
+  "@chatWidgetsCodeLines": {
+    "description": "Line under a file's text: which lines are shown and how many the file has.",
+    "placeholders": {
+      "first": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "last": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeLinesNoTotal": "Lines {first}–{last}",
+  "@chatWidgetsCodeLinesNoTotal": {
+    "description": "Line under a file's text: which lines are shown, when the file's line count is not known.",
+    "placeholders": {
+      "first": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "last": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsCodeLongLinesCut": "Some long lines were cut by Hermes.",
+  "@chatWidgetsCodeLongLinesCut": {
+    "description": "Note under a file's text: Hermes cut lines that were too long, so a copy is not the whole file."
+  },
+  "chatWidgetsCodeMasked": "Hermes may have hidden passwords or keys in this text.",
+  "@chatWidgetsCodeMasked": {
+    "description": "Note under a file's text that holds a marker of a secret Hermes masked."
+  },
+  "chatWidgetsCodeNeverShown": "The content is never shown here.",
+  "@chatWidgetsCodeNeverShown": {
+    "description": "Last sentence of the note about a file that is not text."
+  },
+  "chatWidgetsCodeNotText": "Not a text file.",
+  "@chatWidgetsCodeNotText": {
+    "description": "Heading of the note under a path when Hermes found the file is binary or an image."
+  },
+  "chatWidgetsCodeNotWritten": "Not written.",
+  "@chatWidgetsCodeNotWritten": {
+    "description": "Heading of the note under a path when Hermes refused to write the file; the server's own text follows it."
+  },
+  "chatWidgetsCodeNothingAtLines": "Nothing at these lines.",
+  "@chatWidgetsCodeNothingAtLines": {
+    "description": "Shown under a file's path when the read started after the last line."
+  },
+  "chatWidgetsCodeReading": "Reading…",
+  "@chatWidgetsCodeReading": {
+    "description": "Shown under a file's path while Hermes reads it."
+  },
+  "chatWidgetsCodeSimilarFiles": "Similar files",
+  "@chatWidgetsCodeSimilarFiles": {
+    "description": "Label above the paths Hermes offered when the file it was asked to read does not exist."
+  },
+  "chatWidgetsCodeSizeLimit": "The server stopped at its size limit.",
+  "@chatWidgetsCodeSizeLimit": {
+    "description": "Sentence of the cut-short note when the read ended at the server's size limit."
+  },
+  "chatWidgetsCodeSyntaxProblem": "Syntax check found a problem.",
+  "@chatWidgetsCodeSyntaxProblem": {
+    "description": "Heading of the note under a written file when Hermes' syntax check failed; its output follows."
+  },
+  "chatWidgetsCodeTried": "What Hermes tried to write",
+  "@chatWidgetsCodeTried": {
+    "description": "Label above the text of a write Hermes refused."
+  },
+  "chatWidgetsCodeUnchanged": "Hermes did not read this again: the file has not changed.",
+  "@chatWidgetsCodeUnchanged": {
+    "description": "Note under a path when Hermes answered a repeated read without the file's text."
+  },
+  "chatWidgetsCodeWriting": "Writing…",
+  "@chatWidgetsCodeWriting": {
+    "description": "Shown under a file's text while Hermes writes it."
+  },
+  "chatWidgetsCodeWrote": "Wrote {size}.",
+  "@chatWidgetsCodeWrote": {
+    "description": "Outcome note under a written file: how much was written; size is a number with its unit.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsCodeWroteChecked": "Wrote {size}. Checked on disk.",
+  "@chatWidgetsCodeWroteChecked": {
+    "description": "Outcome note under a written file that Hermes read back from disk.",
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
   "chatWidgetsHistoryEarlierFailedTitle": "Couldn't load earlier messages",
   "@chatWidgetsHistoryEarlierFailedTitle": {
     "description": "Title of the row at the top of a stored chat's transcript when its older messages could not be read, while newer ones are on screen; a Retry button sits beside it."
