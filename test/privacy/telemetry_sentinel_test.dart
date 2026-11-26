@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:dio/dio.dart'
+    show Dio, HttpClientAdapter, RequestOptions, ResponseBody;
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
@@ -16,6 +18,9 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/tool_image_loader.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_image_tile.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
@@ -36,8 +41,10 @@ import '../support/fake_gateway.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/local_dashboard.dart';
+import '../support/image_tool_fixtures.dart';
 import '../support/memory_token_store.dart';
 import '../support/pump_chat.dart';
+import '../support/pump_on_platform.dart';
 import '../support/recording_tracer.dart';
 
 /// A [Random] whose draws are fixed, so reconnect backoff is known.
@@ -602,6 +609,59 @@ void main() {
     expectClean();
   });
 
+  testWidgets('image load: tap, load, failure, not secure, too large', (
+    tester,
+  ) async {
+    final adapter = _ImageAdapter();
+    final loader = ToolImageLoader(
+      dio: Dio()..httpClientAdapter = adapter,
+      maxBytes: 8,
+      breadcrumbs: sinks.breadcrumbs,
+    );
+    String address(String name) => 'https://$_host/$_titleMarker/$name.png';
+    await pumpOnPlatform(
+      tester,
+      Provider<ToolImageLoader?>.value(
+        value: loader,
+        child: SingleChildScrollView(
+          child: ToolCallCard(
+            call: imagesCall(
+              imagesAnswer([
+                pageImage(address('ok'), alt: _title),
+                pageImage(address('fail'), alt: _title),
+                pageImage(address('big'), alt: _title),
+                pageImage('http://$_host/$_titleMarker/plain.png', alt: _title),
+              ]),
+            ),
+            initiallyOpen: true,
+          ),
+        ),
+      ),
+      platform: TargetPlatform.android,
+    );
+
+    await sinks.capturingPrint(() async {
+      for (final tile in tester.widgetList<ToolImageTile>(
+        find.byType(ToolImageTile),
+      )) {
+        if (tile.onTap == null || tile.state == ToolImageState.insecure) {
+          continue;
+        }
+        tile.onTap!();
+        for (var i = 0; i < 20; i++) {
+          await tester.pump(const Duration(milliseconds: 10));
+        }
+      }
+    });
+
+    expect(adapter.requested, 3);
+    expect(
+      sinks.records.where((r) => r.text.startsWith('chat.tool_image.loaded')),
+      hasLength(3),
+    );
+    expectClean();
+  });
+
   test('server care and kanban', () async {
     final server = FakeHermesServer()
       ..on('GET', '/api/status', statusHealthy())
@@ -670,6 +730,30 @@ void main() {
     expect(sinks.tracer.all, isNotEmpty);
     expectClean();
   });
+}
+
+/// Answers an image by its name: `ok` is small, `fail` is refused, anything
+/// else is over the loader's limit.
+class _ImageAdapter implements HttpClientAdapter {
+  var requested = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requested++;
+    final name = options.uri.pathSegments.last;
+    return name == 'ok.png'
+        ? ResponseBody.fromBytes(const [1, 2, 3], 200)
+        : name == 'fail.png'
+        ? ResponseBody.fromBytes(const [], 500)
+        : ResponseBody.fromBytes(Uint8List(64), 200);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 /// Sends every connection to [dashboard], whatever host it names.

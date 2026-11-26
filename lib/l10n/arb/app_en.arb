@@ -2483,6 +2483,93 @@
   "@chatWidgetsHistoryLoading": {
     "description": "Screen reader label of the placeholder lines shown in a stored chat's transcript while its messages load; announced once."
   },
+  "chatWidgetsImageCouldntLoad": "Couldn't load",
+  "@chatWidgetsImageCouldntLoad": {
+    "description": "Status in an image tile whose picture did not load (the host did not answer in time, refused, or sent something that is not an image)."
+  },
+  "chatWidgetsImageCount": "{count, plural, =1{1 image} other{{count} images}}",
+  "@chatWidgetsImageCount": {
+    "description": "Header of an image gallery: how many images the page lists.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsImageFailed": "No image made.",
+  "@chatWidgetsImageFailed": {
+    "description": "Heading of the note when the image tool failed to make an image; Hermes' error text follows."
+  },
+  "chatWidgetsImageGenerating": "Generating image…",
+  "@chatWidgetsImageGenerating": {
+    "description": "Shown in the dashed tile while the image tool is still making the picture."
+  },
+  "chatWidgetsImageHidden": "{count, plural, =1{1 small one hidden} other{{count} small ones hidden}}",
+  "@chatWidgetsImageHidden": {
+    "description": "Second part of an image gallery's header: how many images under 32 pixels (icons, tracking pixels) were left out.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsImageLoadAll": "Load all",
+  "@chatWidgetsImageLoadAll": {
+    "description": "Button over an image gallery that loads every tile shown, from the pages' own hosts."
+  },
+  "chatWidgetsImageNone": "No images",
+  "@chatWidgetsImageNone": {
+    "description": "Line shown when the image tool answered with no images."
+  },
+  "chatWidgetsImageNotSecure": "Not secure. Open in browser",
+  "@chatWidgetsImageNotSecure": {
+    "description": "Status in an image tile whose address is http, not https: the app never loads it, a tap opens it in the browser."
+  },
+  "chatWidgetsImageNumbered": "image {index} of {total}",
+  "@chatWidgetsImageNumbered": {
+    "description": "Name a screen reader gives an image tile that has no alt text.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "chatWidgetsImageSaw": "What Hermes saw",
+  "@chatWidgetsImageSaw": {
+    "description": "Label above the text in which Hermes describes a screenshot it looked at."
+  },
+  "chatWidgetsImageShowAll": "Show all {count}",
+  "@chatWidgetsImageShowAll": {
+    "description": "Button under an image gallery that shows the tiles beyond the first six.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "chatWidgetsImageTapToLoad": "Tap to load · {host}",
+  "@chatWidgetsImageTapToLoad": {
+    "description": "Status in an image tile that has not been loaded; tapping it requests the picture from that host.",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "chatWidgetsImageTapToRetry": "Tap to try again",
+  "@chatWidgetsImageTapToRetry": {
+    "description": "Second line of an image tile whose picture did not load."
+  },
+  "chatWidgetsImageTooLarge": "Too large to load here. Open in browser",
+  "@chatWidgetsImageTooLarge": {
+    "description": "Status in an image tile whose picture is over the size limit: a tap opens it in the browser."
+  },
   "chatWidgetsLinkBotWarning": "This page may block automated visitors.",
   "@chatWidgetsLinkBotWarning": {
     "description": "Note under a page card when the browser tool warned the site may block automated visitors; Hermes' own text follows under it."

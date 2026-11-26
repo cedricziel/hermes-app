@@ -11,6 +11,7 @@ import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
+import '../chat/tool_image_loader.dart';
 import '../chat/media/quick_look.dart';
 import '../macos/mac_window.dart';
 import '../quick_panel/quick_panel_app.dart';
@@ -75,6 +76,11 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
             quickLook: platformQuickLook(),
           ),
           dispose: (_, store) => store?.dispose(),
+        ),
+        // The window ends with its memory: no sign-out or lock reaches it.
+        Provider<ToolImageLoader?>(
+          create: (_) => ToolImageLoader(),
+          dispose: (_, loader) => loader?.dispose(),
         ),
       ],
       child: Builder(
