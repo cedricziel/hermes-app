@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/rows_result.dart';
@@ -332,14 +333,21 @@ void main() {
     testWidgets('a screen reader gets it as an action on the row', (
       tester,
     ) async {
+      _mockClipboard(tester);
       final handle = tester.ensureSemantics();
-      await _pump(tester, _table(_matches(2)));
-      final data = tester.getSemantics(find.byKey(_row(0))).getSemanticsData();
-      expect(
-        data.customSemanticsActionIds,
-        isNotEmpty,
-        reason: 'Copy row is a custom action',
+      final rows = _matches(2);
+      await _pump(tester, _table(rows));
+
+      final node = tester.getSemantics(find.byKey(_row(1)));
+      final id = node.getSemanticsData().customSemanticsActionIds!.single;
+      tester.semantics.performAction(
+        find.semantics.byLabel(RegExp(r"^Row 2 of 2")),
+        SemanticsAction.customAction,
+        args: id,
       );
+      await tester.pump();
+
+      expect(jsonDecode(_clipboard!), rows[1]);
       handle.dispose();
     });
   });

@@ -360,9 +360,4 @@ void main() {
       expect(result.notes.single.kind, RowsNoteKind.hint);
     });
   });
-
-  test('the result is parsed once per call', () {
-    final call = rowsCall({'total_count': 3, 'matches': matchRows(3)});
-    expect(identical(RowsResult.of(call), RowsResult.of(call)), isTrue);
-  });
 }

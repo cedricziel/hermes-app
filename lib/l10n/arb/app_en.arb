@@ -2628,6 +2628,10 @@
   "@chatWidgetsRowsNoMatches": {
     "description": "Line that stands for a search that found nothing."
   },
+  "chatWidgetsRowsRawResult": "Raw result",
+  "@chatWidgetsRowsRawResult": {
+    "description": "Title of the collapsed section under a table that holds the tool result as Hermes sent it, so columns and values the table does not show stay reachable."
+  },
   "chatWidgetsRowsRowLabel": "Row {row} of {count}",
   "@chatWidgetsRowsRowLabel": {
     "description": "What a screen reader says first for a table row; the column names and values follow.",

@@ -538,6 +538,7 @@
   "chatWidgetsRowsHeldBack": "{count, plural, =1{1 Ergebnis wurde von Hermes zurückgehalten.} other{{count} Ergebnisse wurden von Hermes zurückgehalten.}}",
   "chatWidgetsRowsMoreColumns": "{count, plural, =1{+1 weitere Spalte} other{+{count} weitere Spalten}}",
   "chatWidgetsRowsNoMatches": "Keine Treffer",
+  "chatWidgetsRowsRawResult": "Rohergebnis",
   "chatWidgetsRowsRowLabel": "Zeile {row} von {count}",
   "chatWidgetsRowsSearching": "Sucht…",
   "chatWidgetsRowsShowMore": "{count} weitere anzeigen",

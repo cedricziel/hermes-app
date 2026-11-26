@@ -552,6 +552,43 @@ void main() {
         expect(find.text('2 rows · 2 columns'), findsOneWidget);
       });
 
+      testWidgets('the raw result stays reachable under the table', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          rowsCall([
+            {for (var i = 0; i < 10; i++) 'column_$i': i},
+          ], name: 'list_things'),
+        );
+        await tester.tap(find.text('list_things'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('column_9', findRichText: true),
+          findsNothing,
+        );
+
+        await tester.tap(find.text('Raw result'));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('column_9', findRichText: true),
+          findsWidgets,
+        );
+      });
+
+      test('a failed call shows its error, not a table', () {
+        expect(
+          toolCallBody(
+            rowsCall(
+              flatRows,
+              name: 'list_things',
+              status: ToolCallStatus.error,
+            ),
+          ),
+          isNull,
+        );
+      });
+
       testWidgets('a search with no match says so', (tester) async {
         await _pump(tester, rowsCall({'total_count': 0}));
         await tester.tap(find.text('search_files'));
