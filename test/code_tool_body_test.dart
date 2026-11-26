@@ -352,6 +352,35 @@ void main() {
     expect(find.text('Copied'), findsNothing);
   });
 
+  testWidgets('hidden characters stay boxed after scrolling a long read', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _read(
+        readCall(
+          readAnswer(
+            content: numbered([for (var i = 0; i < 400; i++) 'a\u200Bb']),
+            totalLines: 400,
+          ),
+        ),
+      ),
+    );
+    final list = find.byType(ListView);
+    expect(find.byType(HiddenCharBox), findsWidgets);
+    // Far enough down and back that more rows were built than one budget
+    // allows boxes for.
+    for (var i = 0; i < 4; i++) {
+      await tester.drag(list, const Offset(0, -2000));
+      await tester.pump();
+    }
+    for (var i = 0; i < 4; i++) {
+      await tester.drag(list, const Offset(0, 2000));
+      await tester.pump();
+    }
+    expect(find.byType(HiddenCharBox), findsWidgets);
+  });
+
   testWidgets('every note has an icon and a word', (tester) async {
     await _pump(
       tester,

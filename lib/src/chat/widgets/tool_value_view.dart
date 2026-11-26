@@ -147,7 +147,7 @@ class _ToolValueViewState extends State<ToolValueView> {
               children: _spansFor(_runs, base, palette, budget, context),
             ),
           )
-        : _numberedLines(context, base, palette, budget, numbers);
+        : _numberedLines(context, base, palette, numbers);
     // A selection copies the text of a box too (its escape, `U+202E`), which
     // SelectableText cannot: it turns each box into U+FFFC. Inside a
     // SelectionArea (the chat's) the text just joins that.
@@ -185,7 +185,6 @@ class _ToolValueViewState extends State<ToolValueView> {
     BuildContext context,
     TextStyle base,
     HermesCodeColors palette,
-    HiddenBoxBudget budget,
     List<int> numbers,
   ) {
     final lines = <List<CodeRun>>[[]];
@@ -228,7 +227,15 @@ class _ToolValueViewState extends State<ToolValueView> {
           child: Text.rich(
             TextSpan(
               style: base,
-              children: _spansFor(lines[i], base, palette, budget, context),
+              children: _spansFor(
+                lines[i],
+                base,
+                palette,
+                // Its own budget: a row built again on scroll must not spend
+                // what the others have.
+                HiddenBoxBudget(),
+                context,
+              ),
             ),
           ),
         ),
