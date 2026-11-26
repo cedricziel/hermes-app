@@ -589,6 +589,16 @@ void main() {
         );
       });
 
+      testWidgets('the arguments stay behind Raw arguments', (tester) async {
+        await _pump(
+          tester,
+          rowsCall(densifiedAnswer(manyMatches(6), totalCount: 6)),
+        );
+        await tester.tap(find.text('search_files'));
+        await tester.pumpAndSettle();
+        expect(find.text('Raw arguments'), findsOneWidget);
+      });
+
       testWidgets('a search with no match says so', (tester) async {
         await _pump(tester, rowsCall({'total_count': 0}));
         await tester.tap(find.text('search_files'));

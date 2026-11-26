@@ -259,6 +259,15 @@ void main() {
       );
     });
 
+    test('files or counts with no matches still fall back', () {
+      expect(_of({'total_count': 0, 'files': <Object?>[]}), isNull);
+      expect(_of({'total_count': 0, 'counts': <String, Object?>{}}), isNull);
+    });
+
+    test('a null matches next to a zero total is not no matches', () {
+      expect(_of({'total_count': 0, 'matches': null}), isNull);
+    });
+
     test('an error is not a table', () {
       expect(_of({'error': 'bad pattern'}), isNull);
     });

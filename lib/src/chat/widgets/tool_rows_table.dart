@@ -207,6 +207,7 @@ class _ToolRowsTableState extends State<ToolRowsTable> {
         ),
       ],
     );
+    if (!mounted) return;
     if (copy ?? false) await _copyRow(row);
   }
 
