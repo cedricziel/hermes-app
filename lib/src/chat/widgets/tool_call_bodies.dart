@@ -9,6 +9,7 @@ import '../tool_result.dart';
 import 'code_tool_bodies.dart';
 import 'link_tool_bodies.dart';
 import 'memory_tool_body.dart';
+import 'rows_tool_body.dart';
 import 'tool_body_registry.dart';
 import 'tool_image_bodies.dart';
 
@@ -28,6 +29,8 @@ const standardToolBodyEntries = <ToolBodyEntry>[
   ToolBodyEntry(names: {'browser_get_images'}, build: ToolImagesBody.getImages),
   ToolBodyEntry(names: {'image_generate'}, build: ToolImagesBody.generate),
   ToolBodyEntry(names: {'browser_vision'}, build: ToolImagesBody.vision),
+  // Last: a list of flat rows from a tool with no view of its own.
+  ToolBodyEntry(fallback: true, build: RowsToolBody.of),
 ];
 
 Widget? _diffBody(ToolCall call) {

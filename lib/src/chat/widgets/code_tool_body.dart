@@ -202,7 +202,8 @@ class _CodeToolBodyState extends State<CodeToolBody> {
                               key: const ValueKey('tool-value-tag'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: _caption(context).copyWith(color: subtle),
+                              style: codeCaption(context)
+                                  .copyWith(color: subtle),
                             ),
                           ),
                         ],
@@ -224,14 +225,14 @@ class _CodeToolBodyState extends State<CodeToolBody> {
               text: l10n.chatWidgetsToolValueNoticeColourBudget,
             ),
           if (widget.state == CodeToolState.running)
-            _RunningLine(label: widget.statusLabel),
+            CodeRunningLine(label: widget.statusLabel),
           for (final note in widget.leading) CodeNoteView(note),
           if (widget.heading.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2, bottom: 4),
               child: Text(
                 widget.heading,
-                style: _caption(context)
+                style: codeCaption(context)
                     .copyWith(fontWeight: FontWeight.w600, color: subtle),
               ),
             ),
@@ -253,7 +254,7 @@ class _CodeToolBodyState extends State<CodeToolBody> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 widget.meta,
-                style: _caption(context).copyWith(color: subtle),
+                style: codeCaption(context).copyWith(color: subtle),
               ),
             ),
           for (final note in widget.trailing) CodeNoteView(note),
@@ -264,12 +265,14 @@ class _CodeToolBodyState extends State<CodeToolBody> {
 }
 
 /// The caption role at the weight of running text.
-TextStyle _caption(BuildContext context) =>
+TextStyle codeCaption(BuildContext context) =>
     Theme.of(context).textTheme.labelSmall!
         .copyWith(fontWeight: FontWeight.w400);
 
-class _RunningLine extends StatelessWidget {
-  const _RunningLine({required this.label});
+/// The line under a tool view's header while Hermes works: the label and a
+/// thin busy bar, never a shimmer.
+class CodeRunningLine extends StatelessWidget {
+  const CodeRunningLine({super.key, required this.label});
 
   final String label;
 
@@ -281,7 +284,7 @@ class _RunningLine extends StatelessWidget {
       children: [
         Text(
           label,
-          style: _caption(context)
+          style: codeCaption(context)
               .copyWith(color: context.hermesColors.subtleText),
         ),
         const SizedBox(height: 4),
@@ -327,12 +330,13 @@ class CodeNoteView extends StatelessWidget {
               children: [
                 Text(
                   wellFormedText(note.text),
-                  style: _caption(context).copyWith(color: color),
+                  style: codeCaption(context).copyWith(color: color),
                 ),
                 if (note.detail.isNotEmpty)
                   Text(
                     wellFormedText(note.detail),
-                    style: _caption(context).copyWith(color: colors.subtleText),
+                    style: codeCaption(context)
+                        .copyWith(color: colors.subtleText),
                   ),
                 for (final item in note.items)
                   Text(

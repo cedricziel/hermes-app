@@ -13,10 +13,16 @@ class ToolBodyEntry {
   const ToolBodyEntry({
     this.names = const {},
     this.matches,
+    this.fallback = false,
     required this.build,
   });
 
   final Set<String> names;
+
+  /// A view for any tool that has none of its own: it is skipped for a call
+  /// whose tool another entry names, even when that entry's builder declined
+  /// the result, so such a call shows the generic view.
+  final bool fallback;
   final bool Function(ToolCall call)? matches;
   final ToolBodyBuilder build;
 
@@ -37,10 +43,15 @@ class ToolBodyRegistry {
 
   final List<ToolBodyEntry> entries;
 
+  bool _hasViewOfItsOwn(ToolCall call) => entries.any(
+    (entry) => !entry.fallback && entry.names.contains(call.name),
+  );
+
   Widget? bodyFor(ToolCall call) {
     for (final entry in entries) {
       try {
         if (!entry._serves(call)) continue;
+        if (entry.fallback && _hasViewOfItsOwn(call)) continue;
         final body = entry.build(call);
         if (body != null) return body;
       } on Object catch (e, stack) {
