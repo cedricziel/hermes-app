@@ -228,6 +228,24 @@ void main() {
     expect(http.clients, 0);
   });
 
+  test('a call is parsed once, however often its card builds', () {
+    final navigate = navigateCall(navigateAnswer());
+    final extract = extractCall({
+      'results': [extractedPage('https://example.com/a', 'A', 'text')],
+    });
+    expect(
+      identical(
+        LinkToolBody.navigate(navigate),
+        LinkToolBody.navigate(navigate),
+      ),
+      isTrue,
+    );
+    expect(
+      identical(LinkToolBody.extract(extract), LinkToolBody.extract(extract)),
+      isTrue,
+    );
+  });
+
   testWidgets('the registry serves both tools', (tester) async {
     for (final call in [
       navigateCall(navigateAnswer()),

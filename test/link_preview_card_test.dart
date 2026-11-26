@@ -198,6 +198,40 @@ void main() {
     });
   });
 
+  testWidgets('a copy the clipboard refuses is reported, not thrown', (
+    tester,
+  ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          throw PlatformException(code: 'unavailable');
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    final reported = <Object>[];
+    final previous = FlutterError.onError;
+    FlutterError.onError = (details) => reported.add(details.exception);
+    addTearDown(() => FlutterError.onError = previous);
+    await _pump(tester, _card(_page, onOpen: (_) {}));
+    await _longPress(tester);
+    await tester.tap(find.text('Copy link'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(
+      reported.whereType<PlatformException>(),
+      isEmpty,
+      reason: 'the failure must not reach the framework unhandled',
+    );
+  });
+
   testWidgets('a title with no spaces stays inside the card', (tester) async {
     await _pump(
       tester,

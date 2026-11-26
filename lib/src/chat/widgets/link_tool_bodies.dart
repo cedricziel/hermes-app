@@ -17,6 +17,9 @@ const _maxPages = 5;
 /// How much of a page's text an extracted page's card quotes.
 const _excerptChars = 160;
 
+/// How much of a page's text is read to find those characters.
+const _excerptScan = 1000;
+
 /// One page of a call, as the parser read it.
 typedef LinkToolPage = ({
   String address,
@@ -62,7 +65,13 @@ class LinkToolBody extends StatelessWidget {
 
   /// `browser_navigate`: the page it opened, from the result's own title and
   /// address (the call's address when the result has none).
-  static Widget? navigate(ToolCall call) {
+  static Widget? navigate(ToolCall call) =>
+      (_navigated[call] ??= _Cached(_navigate(call))).body;
+
+  static final _navigated = Expando<_Cached>();
+  static final _extracted = Expando<_Cached>();
+
+  static LinkToolBody? _navigate(ToolCall call) {
     if (call.preparing) return null;
     final asked = _string(call.args?['url']);
     final result = toolResultMap(call);
@@ -113,7 +122,10 @@ class LinkToolBody extends StatelessWidget {
 
   /// `web_extract`: a card per page, with the start of its text. A page with
   /// an `error` is a card that does not open.
-  static Widget? extract(ToolCall call) {
+  static Widget? extract(ToolCall call) =>
+      (_extracted[call] ??= _Cached(_extract(call))).body;
+
+  static LinkToolBody? _extract(ToolCall call) {
     if (call.preparing) return null;
     final asked = [
       if (call.args?['urls'] case final List urls)
@@ -142,7 +154,7 @@ class LinkToolBody extends StatelessWidget {
             (
               address: _string(row['url']),
               title: _string(row['title']),
-              excerpt: _string(row['content']).replaceAll(RegExp(r'\s+'), ' '),
+              excerpt: _excerpt(_string(row['content'])),
               state: _string(row['error']).isEmpty
                   ? LinkPreviewState.ready
                   : LinkPreviewState.failed,
@@ -245,6 +257,21 @@ class LinkToolBody extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The start of a page's text on one line: the card shows [_excerptChars] of
+/// it, so a long page is not scanned to the end.
+String _excerpt(String content) =>
+    (content.length > _excerptScan
+            ? content.substring(0, _excerptScan)
+            : content)
+        .replaceAll(RegExp(r'\s+'), ' ');
+
+/// The parse of a call, kept: the card asks on every build, closed ones too.
+class _Cached {
+  const _Cached(this.body);
+
+  final LinkToolBody? body;
 }
 
 LinkToolPage _running(String address) => (
