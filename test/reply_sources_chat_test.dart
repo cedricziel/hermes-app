@@ -222,6 +222,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(sourcesOfLastReply(), hasLength(2));
+      // One row for the turn, not one under the older page's last text too.
+      expect(
+        tester
+            .widget<Chat>(find.byType(Chat))
+            .chatController
+            .messages
+            .where((m) => m.metadata?[kMetaSources] != null),
+        hasLength(1),
+      );
     },
   );
 }

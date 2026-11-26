@@ -884,6 +884,7 @@ extension _ChatControllerHistory on ChatController {
         index: 0,
         animated: false,
       );
+      if (!active || generation != _loadGeneration) return;
       for (final flyer in flyers) {
         final before = shown[flyer.id];
         if (before != null &&
