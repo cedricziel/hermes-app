@@ -82,7 +82,7 @@ class RowsResult {
 
   static RowsResult? _parse(ToolCall call) {
     final json = toolResultJson(call);
-    final search = call.name == 'search_files' && !_listsNames(call.args);
+    final search = call.name == 'search_files' && !listsNames(call.args);
     if (json is List) {
       return json.isEmpty && search
           ? _noMatches(const [], null)
@@ -144,7 +144,7 @@ class RowsResult {
   /// Whether the call asked for file names or counts per file, which a
   /// search answers in another shape (and, with none found, as `total_count`
   /// alone).
-  static bool _listsNames(Map<String, Object?>? args) =>
+  static bool listsNames(Map<String, Object?>? args) =>
       args?['target'] == 'files' ||
       args?['output_mode'] == 'files_only' ||
       args?['output_mode'] == 'count';

@@ -654,6 +654,23 @@ void main() {
         expect(find.text('No matches'), findsOneWidget);
       });
 
+      test('a running file name search does not show the table either', () {
+        expect(
+          toolCallBody(
+            rowsCall(
+              null,
+              args: {'pattern': '*.dart', 'target': 'files'},
+              status: ToolCallStatus.running,
+            ),
+          ),
+          isNull,
+        );
+        expect(
+          toolCallBody(rowsCall(null, status: ToolCallStatus.running)),
+          isA<RowsToolBody>(),
+        );
+      });
+
       testWidgets('results all held back show the note, not No matches', (
         tester,
       ) async {

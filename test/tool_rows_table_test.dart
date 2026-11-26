@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
@@ -433,6 +434,51 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(_clipboard, isNull);
+      },
+    );
+
+    testWidgets(
+      'a clipboard write that ends after the table is gone is ignored',
+      (tester) async {
+        final written = Completer<void>();
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') await written.future;
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+        final shown = ValueNotifier(true);
+        addTearDown(shown.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildHermesLightTheme(),
+            home: Scaffold(
+              body: ValueListenableBuilder<bool>(
+                valueListenable: shown,
+                builder: (_, show, _) =>
+                    show ? _table(_matches(2)) : const SizedBox(),
+              ),
+            ),
+          ),
+        );
+
+        await tester.longPress(find.byKey(_row(0)));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Copy row'));
+        await tester.pump();
+        shown.value = false;
+        await tester.pump();
+        written.complete();
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
       },
     );
 

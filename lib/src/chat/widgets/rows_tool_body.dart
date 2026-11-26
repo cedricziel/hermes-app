@@ -28,6 +28,7 @@ class RowsToolBody extends StatelessWidget {
     if (call.preparing || call.status == ToolCallStatus.error) return null;
     if (call.resultData == null && call.result.isEmpty) {
       return call.name == 'search_files' &&
+              !RowsResult.listsNames(call.args) &&
               call.status == ToolCallStatus.running
           ? RowsToolBody._(call: call)
           : null;
