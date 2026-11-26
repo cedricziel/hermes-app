@@ -11,6 +11,7 @@ import '../chat/attachments/attachment_surface.dart';
 import '../chat/attachments/plugin_attachment_source.dart';
 import '../chat/chat_controller.dart';
 import '../chat/queue_storage/queue_broker.dart';
+import '../chat/tool_image_loader.dart';
 import '../chat/queue_storage/queue_record.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_thread_bindings.dart';
@@ -189,6 +190,18 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
           if (command == 'stopDictation') unawaited(_voice?.cancel());
         }),
       );
+    if (link is QueueWindowLink) {
+      final images = context.read<ToolImageLoader?>();
+      _subscriptions.add(
+        (link as QueueWindowLink).queueVisibility
+            .where((visible) => !visible)
+            .listen((_) {
+              // Images from other hosts are in memory only, and go with the
+              // lock.
+              if (images != null) unawaited(images.clear());
+            }),
+      );
+    }
     // Listening first: presenting shows the panel.
     unawaited(_link.present());
   }

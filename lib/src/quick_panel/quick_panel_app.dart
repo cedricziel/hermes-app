@@ -10,6 +10,7 @@ import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
+import '../chat/tool_image_loader.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/material_ui_bridge.dart';
@@ -51,6 +52,11 @@ Future<void> runQuickPanel(String windowId, QuickPanelLaunch launch) async {
             cacheDirectory: getApplicationCacheDirectory,
           ),
           dispose: (_, store) => store?.dispose(),
+        ),
+        // Cleared when the main window locks (see `QuickPanelScreen`).
+        Provider<ToolImageLoader?>(
+          create: (_) => ToolImageLoader(),
+          dispose: (_, loader) => loader?.dispose(),
         ),
       ],
       child: Builder(

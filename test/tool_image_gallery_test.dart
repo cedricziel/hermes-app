@@ -321,6 +321,23 @@ void main() {
       expect(find.byType(ToolImageTile), findsNothing);
     });
 
+    testWidgets('a page whose images are all small still counts them', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        imagesCall(
+          imagesAnswer([
+            pageImage('https://cdn.shop.example/a.gif', width: 1, height: 1),
+            pageImage('https://cdn.shop.example/b.gif', width: 8, height: 8),
+          ]),
+        ),
+      );
+
+      expect(find.text('2 small ones hidden'), findsOne);
+      expect(find.text('No images'), findsNothing);
+    });
+
     testWidgets('a page with no images says so', (tester) async {
       await _pump(tester, imagesCall(imagesAnswer(const [])));
       expect(find.text('No images'), findsOne);

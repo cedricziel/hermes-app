@@ -53,7 +53,10 @@ class _ToolImageGalleryState extends State<ToolImageGallery> {
     final buttonHeight = minTapTargetOf(context);
     if (tiles.isEmpty) {
       return Text(
-        l10n.chatWidgetsImageNone,
+        // Images all too small to show are still counted.
+        widget.hidden > 0
+            ? l10n.chatWidgetsImageHidden(widget.hidden)
+            : l10n.chatWidgetsImageNone,
         style: Theme.of(context).textTheme.labelSmall!.copyWith(color: subtle),
       );
     }
