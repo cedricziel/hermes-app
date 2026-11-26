@@ -65,6 +65,18 @@ void main() {
       expect(PageLink.parse('https://:pw@example.com/').opens, isFalse);
     });
 
+    test('a backslash does not hide them', () {
+      for (final address in [
+        r'https:\\u:p@evil.com/',
+        r'https:/\u:p@evil.com/',
+      ]) {
+        final link = PageLink.parse(address);
+        expect(link.opens, isFalse, reason: address);
+        expect(link.uri, isNull, reason: address);
+        expect(link.copyText ?? '', isNot(contains('p@')), reason: address);
+      }
+    });
+
     test('another scheme with them shows the host only and has no link', () {
       final link = PageLink.parse('ftp://me:secret@files.example.com/a.txt');
       expect(link.opens, isFalse);
@@ -103,6 +115,11 @@ void main() {
       final long = PageLink.parse('data:text/plain,${'a' * 5000}').path;
       expect(long.length, lessThan(250));
       expect(long, endsWith('…'));
+    });
+
+    test('a host that decodes to a separator stays encoded', () {
+      final link = PageLink.parse('https://good.com%40evil.com/');
+      expect(link.host, isNot(contains('@')));
     });
 
     test('an IDN host is kept as written', () {

@@ -1704,9 +1704,10 @@ final guardRules = <Rule>[
     message:
         'Image.network and NetworkImage request their address the moment they '
         'build, which tells a page\'s host that this user\'s agent visited it '
-        'with nobody having tapped anything: load a remote image through the '
-        'gallery loader (lib/src/chat/tool_image_loader.dart), and a server '
-        'file through MediaStore.',
+        'with nobody having tapped anything: a remote image loads only '
+        'through the gallery loader (lib/src/chat/tool_image_loader.dart, '
+        'which PR 3 of tool-views-and-sources adds: until it lands, no remote '
+        'image), and a server file through MediaStore.',
     root: 'lib/src/chat',
     pattern: RegExp(r'\b(?:Image\.network|NetworkImage)\b'),
     view: _code,

@@ -35,7 +35,9 @@ class PageLink {
     final isWeb = uri.scheme == 'http' || uri.scheme == 'https';
     final host = _hostLabel(uri);
     final path = _pathLabel(uri);
-    if (_authority(text).contains('@')) {
+    if (uri.userInfo.isNotEmpty ||
+        _authority(text).contains('@') ||
+        _authority(uri.toString()).contains('@')) {
       return PageLink._(
         kind: isWeb ? PageLinkKind.withCredentials : PageLinkKind.other,
         host: host,
@@ -79,10 +81,11 @@ class PageLink {
   }
 }
 
-/// What sits between `://` and the first `/`, `?` or `#`, as written:
-/// [Uri.authority] leaves out an empty user name.
+/// What sits between the scheme's `//` and the first `/`, `?` or `#`, as
+/// written. [Uri.authority] leaves out an empty user name, and [Uri.parse]
+/// reads a backslash as a slash (`https:\\u:p@host` has credentials).
 String _authority(String text) =>
-    RegExp(r'^[^:/?#]+://([^/?#]*)').firstMatch(text)?.group(1) ?? '';
+    RegExp(r'^[^:/?#\\]+:[/\\]{2}([^/\\?#]*)').firstMatch(text)?.group(1) ?? '';
 
 /// [Uri] percent-encodes a host or path with non-ASCII letters: shown as the
 /// letters, unless the encoding is not valid.
@@ -95,7 +98,12 @@ String _readable(String encoded) {
 }
 
 String _hostLabel(Uri uri) {
-  final decoded = _readable(uri.host);
+  // A host that decodes to a separator (`good.com%40evil.com`) stays encoded:
+  // decoded it would read as another host.
+  final readable = _readable(uri.host);
+  final decoded = readable.contains(RegExp(r'[/\\@?#\s]'))
+      ? uri.host
+      : readable;
   final host = decoded.contains(':') ? '[$decoded]' : decoded;
   return uri.hasPort ? '$host:${uri.port}' : host;
 }
