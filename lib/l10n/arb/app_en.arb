@@ -131,6 +131,34 @@
   "@botScreenSudoHostFallback": {
     "description": "Stands for the server's address in the sudo password question when the address cannot be read."
   },
+  "botScreenTakeoverCancel": "Cancel",
+  "@botScreenTakeoverCancel": {
+    "description": "Button that closes the take-over confirmation without taking over the screen."
+  },
+  "botScreenTakeoverConfirm": "Take over",
+  "@botScreenTakeoverConfirm": {
+    "description": "Button that confirms taking over the screen from Hermes."
+  },
+  "botScreenTakeoverDontAskAgain": "Don't ask again",
+  "@botScreenTakeoverDontAskAgain": {
+    "description": "Switch of the take-over confirmation: skip this question the next time on this account."
+  },
+  "botScreenTakeoverHidesPreviews": "This app’s previews and your viewers on other devices hide the picture meanwhile. Hermes Desktop’s live viewers may still see it.",
+  "@botScreenTakeoverHidesPreviews": {
+    "description": "Third paragraph of the take-over confirmation: who stops seeing the screen while it is taken over."
+  },
+  "botScreenTakeoverStopsAgent": "Hermes stops using the screen until you hand it back. The step it is on may end, and you may need to tell it to continue.",
+  "@botScreenTakeoverStopsAgent": {
+    "description": "First paragraph of the take-over confirmation: what taking over does to the running agent."
+  },
+  "botScreenTakeoverTitle": "Take over the screen?",
+  "@botScreenTakeoverTitle": {
+    "description": "Title of the confirmation before this device takes control of the server desktop."
+  },
+  "botScreenTakeoverTypesToServer": "What you type goes to the server’s desktop.",
+  "@botScreenTakeoverTypesToServer": {
+    "description": "Second paragraph of the take-over confirmation: typed text goes to the server desktop."
+  },
   "botScreenViewerTitleFallback": "Bot screen",
   "@botScreenViewerTitleFallback": {
     "description": "Second line of the Bot Screen viewer header when the screen has no control state to name."
@@ -4651,6 +4679,30 @@
   "@memoryLeaveTitle": {
     "description": "Title of the confirmation shown when the user leaves a memory entry that has an unsaved draft."
   },
+  "memoryProposalsEmptyBody": "Changes Hermes proposes will show up here.",
+  "@memoryProposalsEmptyBody": {
+    "description": "Second line of the empty Waiting for you list."
+  },
+  "memoryProposalsEmptyTitle": "Nothing is waiting",
+  "@memoryProposalsEmptyTitle": {
+    "description": "Title of the empty Waiting for you list."
+  },
+  "memoryProposalsReadFailedMemory": "Couldn't read memory changes",
+  "@memoryProposalsReadFailedMemory": {
+    "description": "Row of the Waiting for you list when the staged memory changes could not be read; tapping it retries."
+  },
+  "memoryProposalsReadFailedSkills": "Couldn't read skill changes",
+  "@memoryProposalsReadFailedSkills": {
+    "description": "Row of the Waiting for you list when the staged skill changes could not be read; tapping it retries."
+  },
+  "memoryProposalsReadUnreadable": "Hermes answered in a way the app doesn't understand",
+  "@memoryProposalsReadUnreadable": {
+    "description": "Row of the Waiting for you list when the server answered with something the app cannot parse; the raw answer follows as its detail."
+  },
+  "memoryProposalsReadUnsupported": "Can't read changes on this server",
+  "@memoryProposalsReadUnsupported": {
+    "description": "Row of the Waiting for you list when the server knows neither the memory nor the skill proposals command."
+  },
   "memoryRefresh": "Refresh",
   "@memoryRefresh": {
     "description": "Reads the memory entries or the waiting changes again."
@@ -5471,6 +5523,42 @@
     "placeholders": {
       "recipient": {"type": "String", "example": "Research"}
     }
+  },
+  "profilesSectionHelperModelsDetail": "Models for side tasks",
+  "@profilesSectionHelperModelsDetail": {
+    "description": "Detail of the Helper models row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionMcpDetail": "Tools from MCP servers",
+  "@profilesSectionMcpDetail": {
+    "description": "Detail of the MCP servers row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionMcpTitle": "MCP servers",
+  "@profilesSectionMcpTitle": {
+    "description": "Title of the MCP servers row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionMemoryDetail": "What Hermes remembers about you and your setup",
+  "@profilesSectionMemoryDetail": {
+    "description": "Detail of the Memory row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionMessagingDetail": "Chat platforms the agent answers on",
+  "@profilesSectionMessagingDetail": {
+    "description": "Detail of the Messaging row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionMessagingTitle": "Messaging",
+  "@profilesSectionMessagingTitle": {
+    "description": "Title of the Messaging row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionPluginsDetail": "Agent plugins and providers",
+  "@profilesSectionPluginsDetail": {
+    "description": "Detail of the Plugins row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionPluginsTitle": "Plugins",
+  "@profilesSectionPluginsTitle": {
+    "description": "Title of the Plugins row of a profile on the Mac Profiles page."
+  },
+  "profilesSectionSkillsDetail": "What the agent knows how to do",
+  "@profilesSectionSkillsDetail": {
+    "description": "Detail of the Skills row of a profile on the Mac Profiles page."
   },
   "profilesSoulBannerCheck": "Check",
   "@profilesSoulBannerCheck": {
@@ -7050,6 +7138,46 @@
   "@schedulesFormAdvanced": {
     "description": "Title of the row of the schedule form that shows or hides the advanced fields."
   },
+  "schedulesPickerDate": "Date",
+  "@schedulesPickerDate": {
+    "description": "Row of the schedule picker that shows the date of a one-time schedule."
+  },
+  "schedulesPickerEvery": "Every",
+  "@schedulesPickerEvery": {
+    "description": "Label of the number field of an interval schedule, read as Every 3 hours."
+  },
+  "schedulesPickerModeCron": "Cron",
+  "@schedulesPickerModeCron": {
+    "description": "Segment of the schedule picker for a cron expression."
+  },
+  "schedulesPickerModeDaily": "Daily",
+  "@schedulesPickerModeDaily": {
+    "description": "Segment of the schedule picker for a schedule that runs each day."
+  },
+  "schedulesPickerModeEvery": "Every",
+  "@schedulesPickerModeEvery": {
+    "description": "Segment of the schedule picker for a schedule that repeats at an interval."
+  },
+  "schedulesPickerModeOnce": "Once",
+  "@schedulesPickerModeOnce": {
+    "description": "Segment of the schedule picker for a schedule that runs one time."
+  },
+  "schedulesPickerModeWeekly": "Weekly",
+  "@schedulesPickerModeWeekly": {
+    "description": "Segment of the schedule picker for a schedule that runs on chosen weekdays."
+  },
+  "schedulesPickerSchedule": "Schedule",
+  "@schedulesPickerSchedule": {
+    "description": "Label of the cron expression field of the schedule picker."
+  },
+  "schedulesPickerTime": "Time",
+  "@schedulesPickerTime": {
+    "description": "Row of the schedule picker that shows the time of day."
+  },
+  "schedulesPickerUnit": "Unit",
+  "@schedulesPickerUnit": {
+    "description": "Row of the schedule picker that picks minutes, hours or days for an interval."
+  },
   "schedulesRefreshAction": "Refresh",
   "@schedulesRefreshAction": {
     "description": "Name of the Refresh button of the Schedules bar; reads the jobs again."
@@ -7057,6 +7185,18 @@
   "schedulesRunRequested": "Run requested",
   "@schedulesRunRequested": {
     "description": "Snackbar after Run now when the server confirmed without a message."
+  },
+  "schedulesToolbarScopeAll": "All profiles",
+  "@schedulesToolbarScopeAll": {
+    "description": "Segment of the Schedules toolbar that lists the jobs of every profile."
+  },
+  "schedulesToolbarScopeThis": "This profile",
+  "@schedulesToolbarScopeThis": {
+    "description": "Segment of the Schedules toolbar that lists only the active profile’s jobs."
+  },
+  "schedulesToolbarTitle": "Schedules",
+  "@schedulesToolbarTitle": {
+    "description": "Title of the Schedules toolbar in a Mac window."
   },
 
   "@@x-area-screens": "",

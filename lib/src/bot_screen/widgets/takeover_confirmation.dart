@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../../l10n/l10n.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/focus_ring.dart';
 
@@ -31,6 +32,7 @@ class _TakeoverConfirmationState extends State<TakeoverConfirmation> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final theme = Theme.of(context);
     final muted = context.hermesColors.subtleText;
     Widget paragraph(String text) => Padding(
@@ -51,26 +53,19 @@ class _TakeoverConfirmationState extends State<TakeoverConfirmation> {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                'Take over the screen?',
+                l10n.botScreenTakeoverTitle,
                 style: theme.textTheme.titleLarge,
               ),
             ),
           ),
-          paragraph(
-            'Hermes stops using the screen until you hand it back. The step '
-            'it is on may end, and you may need to tell it to continue.',
-          ),
-          paragraph('What you type goes to the server’s desktop.'),
-          paragraph(
-            'This app’s previews and your viewers on other devices hide '
-            'the picture meanwhile. Hermes Desktop’s live viewers may '
-            'still see it.',
-          ),
+          paragraph(l10n.botScreenTakeoverStopsAgent),
+          paragraph(l10n.botScreenTakeoverTypesToServer),
+          paragraph(l10n.botScreenTakeoverHidesPreviews),
           if (widget.offerDontAskAgain)
             FocusRing(
               child: SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
-                title: const Text("Don't ask again"),
+                title: Text(l10n.botScreenTakeoverDontAskAgain),
                 value: _dontAskAgain,
                 onChanged: (value) => setState(() => _dontAskAgain = value),
               ),
@@ -82,11 +77,11 @@ class _TakeoverConfirmationState extends State<TakeoverConfirmation> {
             children: [
               TextButton(
                 onPressed: widget.onCancel,
-                child: const Text('Cancel'),
+                child: Text(l10n.botScreenTakeoverCancel),
               ),
               FilledButton(
                 onPressed: () => widget.onConfirm(_dontAskAgain),
-                child: const Text('Take over'),
+                child: Text(l10n.botScreenTakeoverConfirm),
               ),
             ],
           ),

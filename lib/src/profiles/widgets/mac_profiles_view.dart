@@ -9,41 +9,55 @@ import '../hermes_profiles_repository.dart';
 import 'profile_avatar.dart';
 import '../../macos/menu_selection_area.dart';
 
-/// What a profile's home holds, by the screen that manages it.
+/// What a profile's home holds, by the screen that manages it. Its words come
+/// from [profileSectionTitle] and [profileSectionDetail].
 enum ProfileSection {
-  skills('Skills', 'What the agent knows how to do', AppIcons.sparkle),
-  memory(
-    'Memory',
-    'What Hermes remembers about you and your setup',
-    AppIcons.memory,
-  ),
+  skills(AppIcons.sparkle),
+  memory(AppIcons.memory),
 
-  /// Hidden through `hiddenSections` while the server lacks the route; worded
-  /// through l10n where it is drawn, the English here is a fallback.
-  personality(
-    'Personality',
-    'Who Hermes is and how it talks',
-    AppIcons.personality,
-  ),
-  messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
-  plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
-  mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
+  /// Hidden through `hiddenSections` while the server lacks the route.
+  personality(AppIcons.personality),
+  messaging(AppIcons.bot),
+  plugins(AppIcons.extension),
+  mcp(AppIcons.power),
+  providers(AppIcons.hub),
 
-  /// Worded through l10n where it is drawn; the English here is a fallback.
-  providers('Model providers', 'Keys, sign-ins and endpoints', AppIcons.hub),
+  /// Hidden through `hiddenSections` unless the server offers Tools.
+  tools(AppIcons.wrench),
+  helperModels(AppIcons.tune);
 
-  /// Hidden through `hiddenSections` unless the server offers Tools. These
-  /// strings are never shown: the view takes the title and detail from the
-  /// localizations.
-  tools('Tools', 'What Hermes can do by itself', AppIcons.wrench),
-  helperModels('Helper models', 'Models for side tasks', AppIcons.tune);
+  const ProfileSection(this.icon);
 
-  const ProfileSection(this.label, this.detail, this.icon);
-
-  final String label;
-  final String detail;
   final AppIconSet icon;
 }
+
+/// The name of [section]'s row.
+String profileSectionTitle(AppLocalizations l10n, ProfileSection section) =>
+    switch (section) {
+      ProfileSection.skills => l10n.skillsScreenTitle,
+      ProfileSection.memory => l10n.memoryTitle,
+      ProfileSection.personality => l10n.profilesSoulTitle,
+      ProfileSection.messaging => l10n.profilesSectionMessagingTitle,
+      ProfileSection.plugins => l10n.profilesSectionPluginsTitle,
+      ProfileSection.mcp => l10n.profilesSectionMcpTitle,
+      ProfileSection.providers => l10n.providersListTitle,
+      ProfileSection.tools => l10n.toolsTitle,
+      ProfileSection.helperModels => l10n.settingsHelperModelsTitle,
+    };
+
+/// The line under [section]'s name.
+String profileSectionDetail(AppLocalizations l10n, ProfileSection section) =>
+    switch (section) {
+      ProfileSection.skills => l10n.profilesSectionSkillsDetail,
+      ProfileSection.memory => l10n.profilesSectionMemoryDetail,
+      ProfileSection.personality => l10n.profilesSoulRowDetail,
+      ProfileSection.messaging => l10n.profilesSectionMessagingDetail,
+      ProfileSection.plugins => l10n.profilesSectionPluginsDetail,
+      ProfileSection.mcp => l10n.profilesSectionMcpDetail,
+      ProfileSection.providers => l10n.providersProfileSectionDetail,
+      ProfileSection.tools => l10n.toolsProfileDetail,
+      ProfileSection.helperModels => l10n.profilesSectionHelperModelsDetail,
+    };
 
 /// The Profiles page of a Mac window: the profiles in a 220pt column, and the
 /// selected one's home with what it holds.
@@ -257,19 +271,8 @@ class MacProfileDetail extends StatelessWidget {
                 GroupedRow(
                   wrapWhenStacked: true,
                   key: ValueKey('profile-section-${section.name}'),
-                  title: switch (section) {
-                    ProfileSection.providers => l10n.providersListTitle,
-                    ProfileSection.tools => l10n.toolsTitle,
-                    ProfileSection.personality => l10n.profilesSoulTitle,
-                    _ => section.label,
-                  },
-                  subtitle: switch (section) {
-                    ProfileSection.providers =>
-                      l10n.providersProfileSectionDetail,
-                    ProfileSection.tools => l10n.toolsProfileDetail,
-                    ProfileSection.personality => l10n.profilesSoulRowDetail,
-                    _ => section.detail,
-                  },
+                  title: profileSectionTitle(l10n, section),
+                  subtitle: profileSectionDetail(l10n, section),
                   leading: GroupedTile(child: AppIcon(section.icon)),
                   value: switch (section) {
                     ProfileSection.memory when (memoryWaiting ?? 0) > 0 =>
