@@ -61,6 +61,7 @@
   "chatReplyReconnectIdle": "Verbindung konnte nicht wiederhergestellt werden. Hermes arbeitet möglicherweise noch daran. Ein neuer Versuch folgt, wenn du zurückkommst.",
   "chatReplyReconnecting": "Verbindung unterbrochen. Verbindung wird wiederhergestellt …",
   "chatReplyRegenerated": "Neu erstellt",
+  "chatReplyStopped": "Gestoppt",
   "chatReplyUnconfirmed": "Das Ende dieser Antwort ließ sich nicht bestätigen. Sie ist möglicherweise fertig; sieh zuerst im Chat nach.",
   "chatScrollToLatest": "Zur neuesten Nachricht",
   "chatSessionExportConfirmButton": "Exportieren",

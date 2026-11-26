@@ -203,17 +203,26 @@ class _MessageActionsState extends State<MessageActions> {
     final held = widget.status.held && running == null;
     final l10n = context.l10n;
     final labelStyle = TextStyle(color: color, fontSize: 12.5);
+    Widget statusLabel(AppIconSet icon, String text) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppIcon(icon, size: 16, color: color),
+        const SizedBox(width: 4),
+        Flexible(child: Text(text, style: labelStyle)),
+      ],
+    );
     final bar = Padding(
       padding: EdgeInsets.only(top: touch ? 0 : 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      // A wrap, not a row: the label and five actions do not fit 320 pt, so
+      // what does not fit goes on a second line instead of overflowing.
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (widget.stopped) ...[
-            AppIcon(AppIcons.stop, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text('Stopped', style: labelStyle),
-            const SizedBox(width: 8),
-          ],
+          if (widget.stopped)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: statusLabel(AppIcons.stop, l10n.chatReplyStopped),
+            ),
           if (widget.showCopy)
             action(
               _copied ? 'Copied' : 'Copy',
@@ -253,33 +262,31 @@ class _MessageActionsState extends State<MessageActions> {
               ),
             },
           if (running != null)
-            Flexible(
-              child: Semantics(
-                liveRegion: true,
-                child: SizedBox(
-                  height: box,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(width: touch ? 12 : 8),
-                      SizedBox.square(
-                        dimension: 14,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(color),
-                        ),
+            Semantics(
+              liveRegion: true,
+              child: SizedBox(
+                height: box,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(width: touch ? 12 : 8),
+                    SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(color),
                       ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          running.progress,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: color, fontSize: 12.5),
-                        ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        running.progress,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: color, fontSize: 12.5),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -305,16 +312,7 @@ class _MessageActionsState extends State<MessageActions> {
         if (widget.regenerated)
           Padding(
             padding: const EdgeInsets.only(top: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppIcon(AppIcons.refresh, size: 16, color: color),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(l10n.chatReplyRegenerated, style: labelStyle),
-                ),
-              ],
-            ),
+            child: statusLabel(AppIcons.refresh, l10n.chatReplyRegenerated),
           ),
         if (showProblem)
           Semantics(

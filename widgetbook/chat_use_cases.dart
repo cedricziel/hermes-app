@@ -1192,6 +1192,25 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Stopped by the user',
           MessageActions(text: 'The job hit a', stopped: true, onRetry: () {}),
         ),
+        WidgetbookUseCase(
+          name: 'Stopped, largest text on a narrow screen',
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(3)),
+            child: frame(
+              MessageActions(
+                text: 'The job hit a',
+                stopped: true,
+                onRetry: () {},
+                onEdit: () {},
+                onBranch: () {},
+                readAloud: ReadAloudState.idle,
+                onReadAloud: () {},
+              ),
+              maxWidth: 320,
+            ),
+          ),
+        ),
         _tool(
           'Trying again',
           MessageActions(
