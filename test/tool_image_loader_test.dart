@@ -356,4 +356,25 @@ void main() {
       expect(loader.bytesOf(_cdn), _png);
     },
   );
+
+  test('the app loader clears on sign-out and on a lock', () async {
+    final signedOut = StreamController<void>.broadcast(sync: true);
+    addTearDown(signedOut.close);
+    final lock = ValueNotifier(false);
+    addTearDown(lock.dispose);
+    final loader = ToolImageLoader.forApp(
+      breadcrumbs: Breadcrumbs.none,
+      signedOut: signedOut.stream,
+      lock: lock,
+      locked: () => lock.value,
+    );
+    addTearDown(loader.dispose);
+    var cleared = 0;
+    loader.changes.addListener(() => cleared++);
+
+    signedOut.add(null);
+    expect(cleared, 1);
+    lock.value = true;
+    expect(cleared, 2);
+  });
 }

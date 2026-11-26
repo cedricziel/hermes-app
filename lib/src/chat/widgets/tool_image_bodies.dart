@@ -144,15 +144,18 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
     final store = context.read<MediaStore?>();
     final loader = _loader;
     var next = ToolImageState.loaded;
+    Uint8List? served;
     try {
       if (item.uri == null) {
         if (store == null) throw const MediaFetchException(MediaFailure.failed);
-        _fetched[i] = await store.image(item.path);
+        served = await store.image(item.path);
       } else {
         if (loader == null) {
           throw const ToolImageException(ToolImageOutcome.failed);
         }
         await loader.load(item.uri!);
+        // A clear that landed just after the load leaves nothing to show.
+        if (loader.bytesOf(item.uri!) == null) next = ToolImageState.idle;
       }
     } on ToolImageException catch (e) {
       next = switch (e.outcome) {
@@ -163,7 +166,11 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
     } on MediaFetchException {
       next = ToolImageState.failed;
     }
-    if (mounted && epoch == _epoch) setState(() => _states[i] = next);
+    if (!mounted || epoch != _epoch) return;
+    setState(() {
+      if (served != null) _fetched[i] = served;
+      _states[i] = next;
+    });
   }
 
   void _load(int i) {
@@ -191,7 +198,7 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
           // A remote image is never saved: it exists only in memory.
           onSave: bytes == null || store == null
               ? null
-              : () => store.save(name, bytes),
+              : () => store.save(fileNameOf(item.path), bytes),
         ),
       ),
     );

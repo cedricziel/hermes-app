@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/widgets/tool_image_tile.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
+import 'support/fake_media_actions.dart';
 import 'support/image_tool_fixtures.dart';
 import 'support/pump_on_platform.dart';
 
@@ -58,10 +59,12 @@ class _Adapter implements HttpClientAdapter {
 
 class _Setup {
   final source = _Source();
+  final actions = FakeMediaActions();
   final adapter = _Adapter();
   late final loader = ToolImageLoader(dio: Dio()..httpClientAdapter = adapter);
   late final store = MediaStore(
     source: source,
+    actions: actions,
     // Nothing of a tool image is a file: a staged one would ask for this.
     cacheDirectory: () => throw StateError('an image was staged on disk'),
   );
@@ -441,6 +444,22 @@ void main() {
         );
       },
     );
+
+    testWidgets('a screenshot opens with Save, named after its file', (
+      tester,
+    ) async {
+      final setup = await _pump(tester, visionCall(visionAnswer()));
+      await tester.tap(find.byType(ToolImageTile));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final viewer = tester.widget<ImageViewerPage>(
+        find.byType(ImageViewerPage),
+      );
+      await viewer.onSave!();
+
+      expect(setup.actions.saved.single.name, 'page.png');
+    });
 
     testWidgets('a relative path is not the shape it expects', (tester) async {
       await _pump(tester, visionCall(visionAnswer(path: 'page.png')));
