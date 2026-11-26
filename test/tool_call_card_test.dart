@@ -631,6 +631,22 @@ void main() {
         expect(find.text('Raw arguments'), findsOneWidget);
       });
 
+      testWidgets('a search that stopped early says at least', (tester) async {
+        await _pump(
+          tester,
+          rowsCall(
+            densifiedAnswer(
+              manyMatches(6),
+              totalCount: 212,
+              extra: {'truncated': true, 'total_count_is_lower_bound': true},
+            ),
+          ),
+        );
+        await tester.tap(find.text('search_files'));
+        await tester.pumpAndSettle();
+        expect(find.text('Showing 6 of at least 212 matches'), findsOneWidget);
+      });
+
       testWidgets('a search with no match says so', (tester) async {
         await _pump(tester, rowsCall({'total_count': 0}));
         await tester.tap(find.text('search_files'));

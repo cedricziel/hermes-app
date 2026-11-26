@@ -391,7 +391,7 @@ class _ToolRowsTableState extends State<ToolRowsTable> {
     final footer = !remainder
         ? null
         : capped
-        ? (widget.totalIsLowerBound
+        ? (widget.totalIsLowerBound && widget.unit == RowsUnit.matches
               ? l10n.chatWidgetsRowsShowingMatchesAtLeast(visible, all)
               : l10n.chatWidgetsRowsCapped(visible, all))
         : switch (widget.unit) {

@@ -308,6 +308,23 @@ void main() {
       expect(find.text('Showing 500 of at least 700 matches'), findsOneWidget);
     });
 
+    testWidgets('only matches say at least at the cap', (tester) async {
+      await _pump(
+        tester,
+        _table(
+          _matches(620),
+          total: 700,
+          lowerBound: true,
+          unit: RowsUnit.rows,
+        ),
+      );
+      for (var i = 0; i < 9; i++) {
+        await tester.tap(find.textContaining('Show 50 more'));
+        await tester.pump();
+      }
+      expect(find.text('Showing the first 500 of 700'), findsOneWidget);
+    });
+
     testWidgets('a lower bound is not an exact total', (tester) async {
       await _pump(tester, _table(_matches(30), total: 212, lowerBound: true));
       expect(find.text('Showing 30 of at least 212 matches'), findsOneWidget);

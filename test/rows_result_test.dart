@@ -268,6 +268,12 @@ void main() {
       expect(_of({'total_count': 0, 'matches': null}), isNull);
     });
 
+    test('a bare list from search_files counts as matches', () {
+      final result = _of(matchRows(2))!;
+      expect(result.unit, RowsUnit.matches);
+      expect(result.rows, hasLength(2));
+    });
+
     test('a bare [] from search_files is no matches', () {
       expect(_of(<Object?>[])!.isEmpty, isTrue);
     });
