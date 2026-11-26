@@ -1709,7 +1709,7 @@ final guardRules = <Rule>[
         'which PR 3 of tool-views-and-sources adds: until it lands, no remote '
         'image), and a server file through MediaStore.',
     root: 'lib/src/chat',
-    pattern: RegExp(r'\b(?:Image\.network|NetworkImage)\b'),
+    pattern: RegExp(r'\b(?:Image\s*\.\s*network|NetworkImage)\b'),
     view: _code,
     allow: {
       'lib/src/chat/tool_image_loader.dart':

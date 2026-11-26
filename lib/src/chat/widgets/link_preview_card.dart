@@ -14,6 +14,7 @@ import '../../widgets/adaptive_popup_menu_button.dart' show showRingMenu;
 import '../../widgets/app_action_sheet.dart';
 import '../../widgets/busy_bar.dart';
 import '../page_link.dart';
+import '../report_chat_bug.dart';
 import 'code_tool_body.dart' show CodeNote, CodeNoteTone, CodeNoteView;
 
 /// Where a page stands: [ready] with its text, [running] while the tool still
@@ -74,7 +75,12 @@ class LinkPreviewCard extends StatelessWidget {
       if (openable) _PressAction(l10n.chatWidgetsLinkOpen, () => onOpen!(uri)),
       if (copyText != null)
         _PressAction(l10n.chatWidgetsLinkCopy, () async {
-          await Clipboard.setData(ClipboardData(text: copyText));
+          try {
+            await Clipboard.setData(ClipboardData(text: copyText));
+          } on Object catch (error, stack) {
+            reportChatBug(error, stack, 'a page link copy');
+            return;
+          }
           unawaited(
             SemanticsService.sendAnnouncement(
               view,

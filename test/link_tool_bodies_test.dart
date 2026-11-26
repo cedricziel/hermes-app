@@ -160,6 +160,19 @@ void main() {
       expect(find.text("Couldn't read this page."), findsNWidgets(2));
     });
 
+    testWidgets('shows at most five pages', (tester) async {
+      await _pump(
+        tester,
+        extractCall({
+          'results': [
+            for (var i = 0; i < 8; i++)
+              extractedPage('https://example.com/$i', 'Page $i', 'text'),
+          ],
+        }),
+      );
+      expect(_cards(tester), hasLength(5));
+    });
+
     testWidgets('no pages is said', (tester) async {
       await _pump(tester, extractCall({'results': <Object?>[]}));
       expect(find.text('No pages'), findsOneWidget);

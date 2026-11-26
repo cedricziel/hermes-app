@@ -134,8 +134,11 @@ class LinkToolBody extends StatelessWidget {
     }
     if (result['results'] case final List results) {
       final pages = <LinkToolPage>[
-        for (final row in results)
-          if (row is Map && _string(row['url']).isNotEmpty)
+        for (final row
+            in results
+                .where((row) => row is Map && _string(row['url']).isNotEmpty)
+                .take(_maxPages))
+          if (row is Map)
             (
               address: _string(row['url']),
               title: _string(row['title']),
