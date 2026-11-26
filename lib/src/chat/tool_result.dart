@@ -63,14 +63,17 @@ String toolResultError(Object? result) => switch (result) {
 /// The object a call's result is, for the views that read its keys: the
 /// decoded [ToolCall.resultData] when it is an object, else [ToolCall.result]
 /// decoded when that text is a JSON object (live, a result may reach a view as
-/// a string). Null for a list, a text that is not JSON and a call with no
+/// a string, as [ToolCall.resultData] or as [ToolCall.result]). Null for a list, a text that is not JSON and a call with no
 /// result.
 Map<String, Object?>? toolResultMap(ToolCall call) {
   final data = call.resultData;
   if (data is Map) return data.cast<String, Object?>();
-  if (data != null || call.result.isEmpty) return null;
+  // A JSON text can arrive as the result data itself (live) or as the
+  // result text.
+  final text = data is String ? data : call.result;
+  if (data != null && data is! String || text.isEmpty) return null;
   try {
-    final decoded = jsonDecode(call.result);
+    final decoded = jsonDecode(text);
     return decoded is Map ? decoded.cast<String, Object?>() : null;
   } on FormatException {
     return null;

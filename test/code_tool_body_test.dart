@@ -7,12 +7,14 @@ import 'package:hermes_app/src/chat/widgets/tool_hidden_chars.dart';
 import 'package:hermes_app/src/chat/widgets/tool_value_view.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'support/code_tool_fixtures.dart';
 
 Future<void> _pump(WidgetTester tester, Widget child) => tester.pumpWidget(
   MaterialApp(
+    builder: (context, child) => AppThemeScopes(child: child!),
     theme: buildHermesLightTheme(),
     home: Scaffold(body: SingleChildScrollView(child: child)),
   ),
@@ -132,6 +134,7 @@ void main() {
     for (final width in [200.0, 320.0]) {
       await tester.pumpWidget(
         MaterialApp(
+          builder: (context, child) => AppThemeScopes(child: child!),
           theme: buildHermesDarkTheme(),
           home: MediaQuery(
             data: const MediaQueryData(textScaler: TextScaler.linear(3)),
@@ -200,6 +203,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(),
         home: Scaffold(
           body: SizedBox(
@@ -236,6 +240,7 @@ void main() {
     );
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(),
         home: ToolValueBudgetScope(
           budget: budget,
@@ -255,6 +260,7 @@ void main() {
   testWidgets('a closed code card gives its colour share back', (tester) async {
     final budget = ToolValueBudget(maxChars: 1500);
     Widget app({required bool open}) => MaterialApp(
+      builder: (context, child) => AppThemeScopes(child: child!),
       theme: buildHermesLightTheme(),
       home: ToolValueBudgetScope(
         budget: budget,
@@ -419,6 +425,58 @@ void main() {
       find.byType(HiddenCharBox).evaluate().length,
       lessThanOrEqualTo(kToolHiddenBoxMax),
     );
+  });
+
+  testWidgets('shows the server notes under an empty read and a refusal', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _read(
+        readCall({
+          'content': '',
+          'total_lines': 0,
+          '_warning': 'Read twice.',
+          'hint': 'Try x.',
+        }),
+      ),
+    );
+    expect(find.text('This file is empty.'), findsOneWidget);
+    expect(find.text('Read twice.'), findsOneWidget);
+    expect(find.text('Try x.'), findsOneWidget);
+
+    await _pump(
+      tester,
+      WriteFileToolBody.of(
+        writeCall({
+          'error': 'Refused',
+          '_warning': 'Resolved to /srv.',
+          'hint': 'Read it first.',
+        }),
+      )!,
+    );
+    expect(find.text('Not written.'), findsOneWidget);
+    expect(find.text('Resolved to /srv.'), findsOneWidget);
+    expect(find.text('Read it first.'), findsOneWidget);
+  });
+
+  testWidgets('a text that gains line numbers drops its last carriage '
+      'return', (tester) async {
+    final numbers = ValueNotifier<List<int>?>(null);
+    addTearDown(numbers.dispose);
+    await _pump(
+      tester,
+      ValueListenableBuilder<List<int>?>(
+        valueListenable: numbers,
+        builder: (context, value, _) =>
+            ToolValueView(text: 'x\r', lineNumbers: value),
+      ),
+    );
+    expect(find.byType(HiddenCharBox), findsOneWidget);
+    numbers.value = const [1];
+    await tester.pump();
+    expect(find.byType(HiddenCharBox), findsNothing);
+    expect(find.textContaining('U+000D', findRichText: true), findsNothing);
   });
 
   testWidgets('every note has an icon and a word', (tester) async {

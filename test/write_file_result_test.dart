@@ -79,6 +79,13 @@ void main() {
     expect(result.rows, hasLength(2));
   });
 
+  test('an object with none of the keys of a write answer is not one', () {
+    expect(
+      WriteFileResult.of(writeCall({'detail': 'Permission denied'})),
+      isNull,
+    );
+  });
+
   test('arguments that are not a path and a content are not a write', () {
     expect(WriteFileResult.of(writeCall(null, args: {'path': 'a'})), isNull);
     expect(WriteFileResult.of(writeCall(null, args: null)), isNull);

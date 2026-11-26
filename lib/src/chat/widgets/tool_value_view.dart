@@ -95,7 +95,8 @@ class _ToolValueViewState extends State<ToolValueView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text != widget.text ||
         oldWidget.language != widget.language ||
-        oldWidget.settled != widget.settled) {
+        oldWidget.settled != widget.settled ||
+        (oldWidget.lineNumbers == null) != (widget.lineNumbers == null)) {
       _colour();
     }
   }

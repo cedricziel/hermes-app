@@ -63,4 +63,19 @@ void main() {
     expect(toolResultError({'error': null}), isEmpty);
     expect(toolResultError('x'), isEmpty);
   });
+
+  group('toolResultMap', () {
+    ToolCall call({Object? data, String text = ''}) =>
+        ToolCall(name: 'x', summary: '', resultData: data, result: text);
+
+    test('is the decoded object, a JSON text of either field or null', () {
+      expect(toolResultMap(call(data: {'a': 1})), {'a': 1});
+      expect(toolResultMap(call(data: '{"a": 1}')), {'a': 1});
+      expect(toolResultMap(call(text: '{"a": 1}')), {'a': 1});
+      expect(toolResultMap(call(data: '[1]')), isNull);
+      expect(toolResultMap(call(data: 'not json')), isNull);
+      expect(toolResultMap(call(data: const [1])), isNull);
+      expect(toolResultMap(call()), isNull);
+    });
+  });
 }

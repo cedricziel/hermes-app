@@ -224,6 +224,20 @@ void main() {
       expect(both.hint, 'Transcoded from UTF-16.\nConflict markers.');
     });
 
+    test('keeps the server notes of every outcome', () {
+      const notes = {'_warning': 'Careful.', 'hint': 'Try x.'};
+      for (final answer in [
+        {...notes, 'content': '', 'total_lines': 0},
+        {...notes, 'is_image': true, 'is_binary': true},
+        {...notes, 'error': 'Nope'},
+        {...notes, 'status': 'unchanged', 'dedup': true},
+      ]) {
+        final result = _parse(readCall(answer))!;
+        expect(result.warning, 'Careful.', reason: '${result.kind}');
+        expect(result.hint, 'Try x.', reason: '${result.kind}');
+      }
+    });
+
     test('keeps the path out of its text', () {
       final result = _parse(
         readCall(

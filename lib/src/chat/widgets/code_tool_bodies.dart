@@ -66,6 +66,12 @@ class ReadFileToolBody extends StatelessWidget {
     final size = result.fileSize == null
         ? ''
         : formatByteSize(l10n, result.fileSize!);
+    // Hermes' own words go under every outcome, the server's text as it came.
+    final serverNotes = [
+      if (result.warning.isNotEmpty)
+        CodeNote(CodeNoteTone.warning, result.warning),
+      if (result.hint.isNotEmpty) CodeNote(CodeNoteTone.info, result.hint),
+    ];
     return switch (result.kind) {
       ReadFileKind.code => CodeToolBody(
         path: path,
@@ -86,24 +92,29 @@ class ReadFileToolBody extends StatelessWidget {
             CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeMasked),
           if (result.extractedDocument)
             CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeDocument),
-          if (result.warning.isNotEmpty)
-            CodeNote(CodeNoteTone.warning, result.warning),
-          if (result.hint.isNotEmpty) CodeNote(CodeNoteTone.info, result.hint),
+          ...serverNotes,
         ],
       ),
       ReadFileKind.empty => CodeToolBody(
         path: path,
-        trailing: [CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeEmpty)],
+        trailing: [
+          CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeEmpty),
+          ...serverNotes,
+        ],
       ),
       ReadFileKind.pastEnd => CodeToolBody(
         path: path,
         trailing: [
           CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeNothingAtLines),
+          ...serverNotes,
         ],
       ),
       ReadFileKind.unchanged => CodeToolBody(
         path: path,
-        trailing: [CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeUnchanged)],
+        trailing: [
+          CodeNote(CodeNoteTone.info, l10n.chatWidgetsCodeUnchanged),
+          ...serverNotes,
+        ],
       ),
       ReadFileKind.notText => CodeToolBody(
         path: path,
@@ -117,6 +128,7 @@ class ReadFileToolBody extends StatelessWidget {
             ].where((part) => part.isNotEmpty).join('\n'),
           ),
         ],
+        trailing: serverNotes,
       ),
       ReadFileKind.failed => CodeToolBody(
         path: path,
@@ -133,6 +145,7 @@ class ReadFileToolBody extends StatelessWidget {
               items: result.similarFiles,
             ),
         ],
+        trailing: serverNotes,
       ),
     };
   }
@@ -219,10 +232,12 @@ class WriteFileToolBody extends StatelessWidget {
               l10n.chatWidgetsCodeDiagnostics,
               detail: result.diagnostics,
             ),
-          if (result.warning.isNotEmpty)
-            CodeNote(CodeNoteTone.warning, result.warning),
-          if (result.hint.isNotEmpty) CodeNote(CodeNoteTone.info, result.hint),
         ],
+        // What Hermes says about the path and the next step also applies to a
+        // write it refused.
+        if (result.warning.isNotEmpty)
+          CodeNote(CodeNoteTone.warning, result.warning),
+        if (result.hint.isNotEmpty) CodeNote(CodeNoteTone.info, result.hint),
       ],
     );
   }

@@ -118,12 +118,19 @@ class ReadFileResult {
     final path = call.args?['path'];
     final data = toolResultMap(call);
     if (path is! String || path.isEmpty || data == null) return null;
+    final warning = _text(data['_warning']);
+    final hint = [
+      _text(data['hint']),
+      _text(data['_hint']),
+    ].where((part) => part.isNotEmpty).join('\n');
     ReadFileResult stub(ReadFileKind kind, {String error = ''}) =>
         ReadFileResult._(
           path: path,
           kind: kind,
           fileSize: _int(data['file_size']),
           error: error,
+          warning: warning,
+          hint: hint,
         );
     if (data['dedup'] == true && data['status'] == 'unchanged') {
       return stub(ReadFileKind.unchanged);
@@ -139,6 +146,8 @@ class ReadFileResult {
         path: path,
         kind: ReadFileKind.failed,
         error: error,
+        warning: warning,
+        hint: hint,
         similarFiles: similar is List
             ? similar.whereType<String>().toList()
             : [],
@@ -167,11 +176,8 @@ class ReadFileResult {
       longLinesCut: data['truncated_lines'] == true,
       extractedDocument: data['extracted_document'] == true,
       maskedText: _maskMarkers.any(content.contains),
-      warning: _text(data['_warning']),
-      hint: [
-        _text(data['hint']),
-        _text(data['_hint']),
-      ].where((part) => part.isNotEmpty).join('\n'),
+      warning: warning,
+      hint: hint,
     );
   }
 

@@ -45,6 +45,20 @@ class WriteFileResult {
 
   bool get refused => error.isNotEmpty;
 
+  /// The keys a `write_file` answer carries; an object with none of them is
+  /// not one this view knows.
+  static const _knownKeys = [
+    'error',
+    'bytes_written',
+    'verified',
+    'lint',
+    'lsp_diagnostics',
+    'warning',
+    '_warning',
+    'hint',
+    'dirs_created',
+  ];
+
   static final _parsed = Expando<_Parsed>();
 
   /// The result of [call], parsed once per call: the card asks on every
@@ -59,7 +73,9 @@ class WriteFileResult {
     if (path is! String || path.isEmpty || content is! String) return null;
     final data = toolResultMap(call);
     final hasResult = call.resultData != null || call.result.isNotEmpty;
-    if (hasResult && data == null) return null;
+    if (hasResult && (data == null || !_knownKeys.any(data.containsKey))) {
+      return null;
+    }
     final lines = content.isEmpty ? <String>[] : content.split('\n');
     if (lines.isNotEmpty && lines.last.isEmpty) lines.removeLast();
     final rows = [
