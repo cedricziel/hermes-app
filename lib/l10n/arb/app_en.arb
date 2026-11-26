@@ -137,6 +137,46 @@
   },
 
   "@@x-area-chat": "",
+  "chatActionBranch": "Branch in new chat",
+  "@chatActionBranch": {
+    "description": "Tooltip and accessible name of the icon button under a reply that copies the chat up to that reply into a new chat."
+  },
+  "chatActionBranching": "Branching…",
+  "@chatActionBranching": {
+    "description": "Progress line that replaces the Retry, Edit and Branch buttons under the last reply while the chat is being branched into a new one."
+  },
+  "chatActionCopied": "Copied",
+  "@chatActionCopied": {
+    "description": "Tooltip and accessible name of the Copy button for two seconds after it copied the reply's text, beside a check icon."
+  },
+  "chatActionCopy": "Copy",
+  "@chatActionCopy": {
+    "description": "Tooltip and accessible name of the icon button under a reply that copies the reply's text."
+  },
+  "chatActionEdit": "Edit prompt",
+  "@chatActionEdit": {
+    "description": "Tooltip and accessible name of the icon button under the last reply that takes the user's prompt back into the composer to change it."
+  },
+  "chatActionEditing": "Taking the prompt back…",
+  "@chatActionEditing": {
+    "description": "Progress line that replaces the Retry, Edit and Branch buttons under the last reply while the prompt is taken back for editing."
+  },
+  "chatActionReadAloud": "Read aloud",
+  "@chatActionReadAloud": {
+    "description": "Tooltip and accessible name of the icon button under a reply that has Hermes speak the reply."
+  },
+  "chatActionRetry": "Try again",
+  "@chatActionRetry": {
+    "description": "Tooltip and accessible name of the icon button under the last reply that asks Hermes to answer the prompt again."
+  },
+  "chatActionRetrying": "Trying again…",
+  "@chatActionRetrying": {
+    "description": "Progress line that replaces the Retry, Edit and Branch buttons under the last reply while Hermes is asked again."
+  },
+  "chatActionStopReading": "Stop reading",
+  "@chatActionStopReading": {
+    "description": "Tooltip and accessible name of the button that takes the place of Read aloud while the reply is being fetched or played, and stops it."
+  },
   "chatComposerHoldHandedBack": "Your last message is back in the box.",
   "@chatComposerHoldHandedBack": {
     "description": "Line above the message box after restoring files removed the user's last message and put it back into the box, unsent. Disappears on the next edit."
