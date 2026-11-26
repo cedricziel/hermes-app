@@ -638,6 +638,25 @@ void main() {
         expect(find.text('No matches'), findsOneWidget);
       });
 
+      testWidgets('results all held back show the note, not No matches', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          rowsCall({
+            'total_count': 2,
+            '_omitted': '2 result(s) omitted because they target secret files.',
+          }),
+        );
+        await tester.tap(find.text('search_files'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('2 results were held back by Hermes.'),
+          findsOneWidget,
+        );
+        expect(find.text('No matches'), findsNothing);
+      });
+
       testWidgets('a running search says Searching…', (tester) async {
         await _pump(tester, rowsCall(null, status: ToolCallStatus.running));
         await tester.tap(find.text('search_files'));

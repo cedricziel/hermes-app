@@ -70,6 +70,7 @@ class RowsToolBody extends StatelessWidget {
       moreColumns: result.moreColumns,
       unit: result.unit,
       total: result.total,
+      totalIsLowerBound: result.totalIsLowerBound,
       summary: result.isEmpty
           ? ''
           : switch (result.unit) {
@@ -80,7 +81,8 @@ class RowsToolBody extends StatelessWidget {
               RowsUnit.rows => l10n.chatWidgetsRowsSummaryRows(count, columns),
             },
       notes: [for (final note in result.notes) _note(l10n, note)],
-      emptyLabel: l10n.chatWidgetsRowsNoMatches,
+      // Everything found was held back: the notes say so, not "No matches".
+      emptyLabel: result.total == null ? l10n.chatWidgetsRowsNoMatches : '',
     );
     // The table replaces the generic result: what it does not show (columns
     // past the eighth, a map's other values) stays reachable here.

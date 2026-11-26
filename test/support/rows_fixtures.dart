@@ -43,12 +43,13 @@ List<Map<String, Object?>> matchRows(int count) => [
 ToolCall rowsCall(
   Object? answer, {
   String name = 'search_files',
+  Map<String, Object?> args = const {'pattern': 'value'},
   String text = '',
   ToolCallStatus status = ToolCallStatus.completed,
 }) => ToolCall(
   name: name,
   summary: '',
-  args: const {'pattern': 'value'},
+  args: args,
   result: text,
   resultData: answer,
   status: status,

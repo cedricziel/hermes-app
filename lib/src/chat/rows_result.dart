@@ -46,6 +46,7 @@ class RowsResult {
     required this.unit,
     this.moreColumns = 0,
     this.total,
+    this.totalIsLowerBound = false,
     this.notes = const [],
   });
 
@@ -64,6 +65,9 @@ class RowsResult {
 
   /// How many Hermes found when that is more than [rows] holds.
   final int? total;
+
+  /// Hermes stopped counting: [total] is at least that many.
+  final bool totalIsLowerBound;
   final List<RowsNote> notes;
 
   /// A search that found nothing.
@@ -78,8 +82,12 @@ class RowsResult {
 
   static RowsResult? _parse(ToolCall call) {
     final json = toolResultJson(call);
-    final search = call.name == 'search_files';
-    if (json is List) return _fromRows(json, RowsUnit.rows);
+    final search = call.name == 'search_files' && !_listsNames(call.args);
+    if (json is List) {
+      return json.isEmpty && search
+          ? _noMatches(const [], null)
+          : _fromRows(json, search ? RowsUnit.matches : RowsUnit.rows);
+    }
     if (json is! Map) return null;
     final map = _stringKeyed(json);
     if (map == null || _text(map['error']).isNotEmpty) return null;
@@ -102,6 +110,7 @@ class RowsResult {
   ) {
     // File names and counts per file are answers of another shape.
     if (map.containsKey('files') || map.containsKey('counts')) return null;
+    final held = notes.any((n) => n.kind == RowsNoteKind.heldBack);
     final matches = map['matches'];
     final text = map['matches_text'];
     final List<Object?>? rows;
@@ -111,20 +120,34 @@ class RowsResult {
         _text(map['matches_format']).startsWith('path-grouped:')) {
       rows = parsePathGrouped(text);
       if (rows == null) return null;
-    } else if (total == 0 && !map.containsKey('matches')) {
+    } else if (!map.containsKey('matches') &&
+        (total == 0 || (held && (total ?? 0) > 0))) {
+      // Nothing found, or everything found was held back.
       rows = const [];
     } else {
       return null;
     }
     return rows.isEmpty
-        ? RowsResult._(
-            columns: const [],
-            rows: const [],
-            unit: RowsUnit.matches,
-            notes: notes,
-          )
+        ? _noMatches(notes, total)
         : _fromRows(rows, RowsUnit.matches, notes: notes, total: total);
   }
+
+  static RowsResult _noMatches(List<RowsNote> notes, int? total) =>
+      RowsResult._(
+        columns: const [],
+        rows: const [],
+        unit: RowsUnit.matches,
+        total: total != null && total > 0 ? total : null,
+        notes: notes,
+      );
+
+  /// Whether the call asked for file names or counts per file, which a
+  /// search answers in another shape (and, with none found, as `total_count`
+  /// alone).
+  static bool _listsNames(Map<String, Object?>? args) =>
+      args?['target'] == 'files' ||
+      args?['output_mode'] == 'files_only' ||
+      args?['output_mode'] == 'count';
 
   static RowsResult? _fromRows(
     List<Object?> list,
@@ -137,7 +160,7 @@ class RowsResult {
     final columns = <String>{};
     for (final item in list) {
       final row = item is Map ? _stringKeyed(item) : null;
-      if (row == null || row.values.any(_isNested)) return null;
+      if (row == null || row.values.any(_isNotFlat)) return null;
       rows.add(row);
       columns.addAll(row.keys);
     }
@@ -148,6 +171,7 @@ class RowsResult {
       rows: rows,
       unit: unit,
       total: total != null && total > rows.length ? total : null,
+      totalIsLowerBound: notes.any((n) => n.kind == RowsNoteKind.stoppedEarly),
       notes: notes,
     );
   }
@@ -191,18 +215,24 @@ List<Map<String, Object?>>? parsePathGrouped(String text) {
   if (lines.last.isEmpty) lines.removeLast();
   final rows = <Map<String, Object?>>[];
   String? path;
+  var hits = 0;
   for (final line in lines) {
     final hit = _hit.firstMatch(line);
     final number = int.tryParse(hit?.group(1) ?? '');
     if (hit != null && number != null) {
       if (path == null) return null;
+      hits++;
       rows.add({'path': path, 'line': number, 'content': hit.group(2)!});
     } else if (line.isNotEmpty && !line.startsWith(' ')) {
+      // Hermes writes a path only with a hit under it.
+      if (path != null && hits == 0) return null;
       path = line;
+      hits = 0;
     } else {
       return null;
     }
   }
+  if (path != null && hits == 0) return null;
   return rows;
 }
 
@@ -214,6 +244,11 @@ class _Parsed {
 
 /// Whether a value is a list or a map, the shape that makes a row not flat.
 bool _isNested(Object? value) => value is Map || value is List;
+
+/// A value a row cannot hold: a nested one, or a number JSON cannot write
+/// (Copy row encodes the row).
+bool _isNotFlat(Object? value) =>
+    _isNested(value) || (value is double && !value.isFinite);
 
 Map<String, Object?>? _stringKeyed(Map<Object?, Object?> map) =>
     map is Map<String, Object?>

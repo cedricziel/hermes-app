@@ -2713,6 +2713,19 @@
       }
     }
   },
+  "chatWidgetsRowsShowingMatchesAtLeast": "Showing {shown} of at least {total, plural, =1{1 match} other{{total} matches}}",
+  "@chatWidgetsRowsShowingMatchesAtLeast": {
+    "description": "Line under a table of search matches when Hermes stopped counting: how many rows show out of at least how many it found.",
+    "placeholders": {
+      "shown": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "chatWidgetsRowsShowingRows": "Showing {shown} of {total, plural, =1{1 row} other{{total} rows}}",
   "@chatWidgetsRowsShowingRows": {
     "description": "Line under a table of rows: how many rows show out of how many there are.",

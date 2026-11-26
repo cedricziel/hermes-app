@@ -44,12 +44,14 @@ ToolRowsTable _table(
   List<String>? columns,
   int moreColumns = 0,
   int? total,
+  bool lowerBound = false,
   RowsUnit unit = RowsUnit.matches,
 }) => ToolRowsTable(
   columns: columns ?? ['path', 'line', 'content'],
   rows: rows,
   moreColumns: moreColumns,
   total: total,
+  totalIsLowerBound: lowerBound,
   unit: unit,
   summary: '${rows.length} matches',
 );
@@ -98,6 +100,40 @@ void main() {
     expect(find.byKey(_row(0)), findsNothing);
     expect(firstRowAt.dy, greaterThan(headerAt.dy));
     expect(find.text('path'), findsOneWidget);
+  });
+
+  testWidgets('a column name with a lone surrogate does not throw', (
+    tester,
+  ) async {
+    final key = 'bad\uD800key';
+    await _pump(
+      tester,
+      _table(
+        [
+          {key: 1},
+        ],
+        columns: [key],
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(_row(0)), findsOneWidget);
+  });
+
+  testWidgets('the row list never takes the route\'s primary scroll', (
+    tester,
+  ) async {
+    final primary = ScrollController();
+    addTearDown(primary.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: PrimaryScrollController(
+          controller: primary,
+          child: Scaffold(body: _table(_matches(50))),
+        ),
+      ),
+    );
+    expect(primary.hasClients, isFalse);
   });
 
   testWidgets('numbers sit at the right edge of their column', (tester) async {
@@ -253,6 +289,11 @@ void main() {
       await _pump(tester, _table(_matches(30), total: 212));
       expect(find.text('Showing 30 of 212 matches'), findsOneWidget);
       expect(find.textContaining('Show 50'), findsNothing);
+    });
+
+    testWidgets('a lower bound is not an exact total', (tester) async {
+      await _pump(tester, _table(_matches(30), total: 212, lowerBound: true));
+      expect(find.text('Showing 30 of at least 212 matches'), findsOneWidget);
     });
 
     testWidgets('the button is a full-size target', (tester) async {

@@ -553,6 +553,7 @@
   "chatWidgetsRowsSearching": "Sucht…",
   "chatWidgetsRowsShowMore": "{count} weitere anzeigen",
   "chatWidgetsRowsShowingMatches": "{shown} von {total, plural, =1{1 Treffer} other{{total} Treffern}} werden angezeigt",
+  "chatWidgetsRowsShowingMatchesAtLeast": "{shown} von mindestens {total, plural, =1{1 Treffer} other{{total} Treffern}} werden angezeigt",
   "chatWidgetsRowsShowingRows": "{shown} von {total, plural, =1{1 Zeile} other{{total} Zeilen}} werden angezeigt",
   "chatWidgetsRowsStoppedEarly": "{count, plural, =1{Die Suche wurde vorzeitig beendet. Es gibt mindestens 1 Treffer.} other{Die Suche wurde vorzeitig beendet. Es gibt mindestens {count} Treffer.}}",
   "chatWidgetsRowsSummaryMatches": "{count, plural, =1{1 Treffer} other{{count} Treffer}} · {columns, plural, =1{1 Spalte} other{{columns} Spalten}}",

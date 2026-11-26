@@ -268,6 +268,61 @@ void main() {
       expect(_of({'total_count': 0, 'matches': null}), isNull);
     });
 
+    test('a bare [] from search_files is no matches', () {
+      expect(_of(<Object?>[])!.isEmpty, isTrue);
+    });
+
+    test('no match for a file name or count search stays generic', () {
+      for (final args in [
+        {'pattern': '*.dart', 'target': 'files'},
+        {'pattern': 'x', 'output_mode': 'files_only'},
+        {'pattern': 'x', 'output_mode': 'count'},
+      ]) {
+        expect(
+          RowsResult.of(rowsCall({'total_count': 0}, args: args)),
+          isNull,
+          reason: '$args',
+        );
+      }
+    });
+
+    test('everything held back keeps the note and is not no matches', () {
+      final result = _of({
+        'total_count': 2,
+        '_omitted': '2 result(s) omitted because they target secret files.',
+      })!;
+      expect(result.rows, isEmpty);
+      expect(result.total, 2);
+      expect(result.notes.single.kind, RowsNoteKind.heldBack);
+    });
+
+    test('a number JSON cannot write is not a table', () {
+      expect(
+        _of([
+          {'v': double.infinity},
+        ], name: 'some_tool'),
+        isNull,
+      );
+      expect(
+        _of([
+          {'v': 1.5},
+        ], name: 'some_tool'),
+        isNotNull,
+      );
+    });
+
+    test('a path with no hit under it is not a table', () {
+      expect(_of(densifiedAnswer('lib/a.dart', totalCount: 3)), isNull);
+      expect(
+        _of(densifiedAnswer('lib/a.dart\n  1: a\nlib/b.dart', totalCount: 1)),
+        isNull,
+      );
+      expect(
+        _of(densifiedAnswer('lib/a.dart\nlib/b.dart\n  1: b', totalCount: 1)),
+        isNull,
+      );
+    });
+
     test('an error is not a table', () {
       expect(_of({'error': 'bad pattern'}), isNull);
     });
@@ -309,6 +364,21 @@ void main() {
       }).single;
       expect(note.kind, RowsNoteKind.stoppedEarly);
       expect(note.count, 212);
+    });
+
+    test('a lower-bound total is flagged', () {
+      final result = _of({
+        'total_count': 212,
+        'truncated': true,
+        'total_count_is_lower_bound': true,
+        'matches': matchRows(3),
+      })!;
+      expect(result.totalIsLowerBound, isTrue);
+      expect(
+        _of({'total_count': 212, 'truncated': true, 'matches': matchRows(3)})!
+            .totalIsLowerBound,
+        isFalse,
+      );
     });
 
     test('truncated alone is no early stop', () {

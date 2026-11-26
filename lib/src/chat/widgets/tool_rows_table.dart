@@ -35,6 +35,7 @@ class ToolRowsTable extends StatefulWidget {
     this.moreColumns = 0,
     this.unit = RowsUnit.rows,
     this.total,
+    this.totalIsLowerBound = false,
     this.summary = '',
     this.notes = const [],
     this.emptyLabel = '',
@@ -54,6 +55,9 @@ class ToolRowsTable extends StatefulWidget {
 
   /// How many Hermes found, when that is more than [rows] holds.
   final int? total;
+
+  /// [total] is only a lower bound: Hermes stopped counting.
+  final bool totalIsLowerBound;
 
   /// "12 matches · 3 columns".
   final String summary;
@@ -151,7 +155,7 @@ class _ToolRowsTableState extends State<ToolRowsTable> {
         (widget.rows
                     .take(_measuredRows)
                     .map((row) => of(_cellText(row[column]), kToolMonoStyle))
-                    .fold(of(column, head), math.max) +
+                    .fold(of(safePathText(column), head), math.max) +
                 2 * _cellPadding)
             .clamp(_minColumn * scaler.scale(1), _maxColumn * scaler.scale(1)),
     ];
@@ -217,7 +221,7 @@ class _ToolRowsTableState extends State<ToolRowsTable> {
     return [
       l10n.chatWidgetsRowsRowLabel(index + 1, widget.rows.length),
       for (final column in widget.columns)
-        '$column ${switch (row[column]) {
+        '${safePathText(column)} ${switch (row[column]) {
           null || '' => l10n.chatWidgetsRowsEmptyCell,
           final value => _cellText(value),
         }}',
@@ -356,6 +360,7 @@ class _ToolRowsTableState extends State<ToolRowsTable> {
               maxHeight: ToolValuePanel.maxHeight - rowHeight,
             ),
             child: ListView.builder(
+              primary: false,
               shrinkWrap: true,
               itemExtent: rowHeight + 1,
               itemCount: visible,
@@ -388,6 +393,8 @@ class _ToolRowsTableState extends State<ToolRowsTable> {
         : capped
         ? l10n.chatWidgetsRowsCapped(visible, all)
         : switch (widget.unit) {
+            RowsUnit.matches when widget.totalIsLowerBound =>
+              l10n.chatWidgetsRowsShowingMatchesAtLeast(visible, all),
             RowsUnit.matches => l10n.chatWidgetsRowsShowingMatches(
               visible,
               all,
