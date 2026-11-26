@@ -9,6 +9,9 @@ import 'package:hermes_app/src/chat/activity/widgets/needs_you_dock.dart';
 import 'package:hermes_app/src/chat/chat_session_state.dart'
     show ResumeProgress;
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/queue_storage/queue_broker.dart'
+    show QueueWindowLink;
+import 'package:hermes_app/src/chat/tool_image_loader.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/quick_panel/quick_panel_screen.dart';
@@ -20,6 +23,7 @@ import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
@@ -116,6 +120,27 @@ class _FakePanelLink implements QuickPanelLink {
   void reportChat({required bool continued}) => chats.add(continued);
 }
 
+/// A panel link of the app's own window, which the main window tells when it
+/// locks.
+class _LockablePanelLink extends _FakePanelLink implements QueueWindowLink {
+  final visibility = StreamController<bool>.broadcast(sync: true);
+
+  @override
+  Stream<bool> get queueVisibility => visibility.stream;
+
+  @override
+  Future<Map<String, Object?>> queueOperation(
+    String operation,
+    Map<String, Object?> arguments,
+  ) async => const {};
+
+  @override
+  void dispose() {
+    visibility.close();
+    super.dispose();
+  }
+}
+
 void main() {
   late FakeHermesServer server;
   late _FakePanelLink link;
@@ -153,6 +178,7 @@ void main() {
     WidgetTester tester, {
     double height = 540,
     DictationSettings? dictationSettings,
+    ToolImageLoader? images,
   }) async {
     tester.view.physicalSize = Size(680, height);
     tester.view.devicePixelRatio = 1.0;
@@ -162,14 +188,17 @@ void main() {
       MaterialApp(
         builder: (_, child) => AppThemeScopes(child: child!),
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
-        home: QuickPanelScreen(
-          link: link,
-          chat: HermesChatRepository(api),
-          models: HermesModelsRepository(api),
-          transport: transport,
-          attachmentSource: FakeAttachmentSource(),
-          voiceRecorder: recorder,
-          dictationSettings: dictationSettings,
+        home: Provider<ToolImageLoader?>.value(
+          value: images,
+          child: QuickPanelScreen(
+            link: link,
+            chat: HermesChatRepository(api),
+            models: HermesModelsRepository(api),
+            transport: transport,
+            attachmentSource: FakeAttachmentSource(),
+            voiceRecorder: recorder,
+            dictationSettings: dictationSettings,
+          ),
         ),
       ),
     );
@@ -187,6 +216,22 @@ void main() {
     await tester.pump();
     return transport.sends.last;
   }
+
+  testWidgets('remote images go when the main window locks', (tester) async {
+    link = _LockablePanelLink();
+    addTearDown(link.dispose);
+    final images = ToolImageLoader();
+    addTearDown(images.dispose);
+    var cleared = 0;
+    images.changes.addListener(() => cleared++);
+    await pump(tester, images: images);
+
+    (link as _LockablePanelLink).visibility.add(true);
+    expect(cleared, 0);
+    (link as _LockablePanelLink).visibility.add(false);
+
+    expect(cleared, 1);
+  });
 
   testWidgets('Return sends on the current profile and the reply streams', (
     tester,

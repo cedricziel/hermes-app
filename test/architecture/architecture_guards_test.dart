@@ -1709,9 +1709,8 @@ final guardRules = <Rule>[
         'Image.network and NetworkImage request their address the moment they '
         'build, which tells a page\'s host that this user\'s agent visited it '
         'with nobody having tapped anything: a remote image loads only '
-        'through the gallery loader (lib/src/chat/tool_image_loader.dart, '
-        'which PR 3 of tool-views-and-sources adds: until it lands, no remote '
-        'image), and a server file through MediaStore.',
+        'through the gallery loader (lib/src/chat/tool_image_loader.dart), and '
+        'a server file through MediaStore.',
     root: 'lib/src/chat',
     pattern: _chatNetworkImage,
     view: _code,
@@ -1876,6 +1875,9 @@ final guardRules = <Rule>[
       'lib/src/api/': 'the generated-client wrapper',
       'lib/src/auth/': 'AuthController and the login flow own the Dio',
       'lib/src/background/headless_hermes.dart': 'withHeadlessHermes',
+      'lib/src/chat/tool_image_loader.dart':
+          'requests an image from a host that is not the Hermes server, so it '
+          'must carry none of the managed Dio\'s credentials',
       'lib/src/windows/window_api_client.dart':
           'a conversation window has its own isolate and client',
     },

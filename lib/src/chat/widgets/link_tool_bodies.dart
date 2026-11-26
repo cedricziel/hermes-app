@@ -213,7 +213,7 @@ class LinkToolBody extends StatelessWidget {
                     detail: page.error,
                   ),
               ],
-              onOpen: _launch,
+              onOpen: launchPage,
             ),
           ],
           if (elementCount != null)
@@ -292,7 +292,8 @@ LinkToolPage _failed(String address, String error) => (
 
 String _string(Object? value) => value is String ? value.trim() : '';
 
-Future<void> _launch(Uri uri) async {
+/// Opens a web address in the system browser; a failure is reported, not thrown.
+Future<void> launchPage(Uri uri) async {
   try {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   } on Object catch (error, stack) {

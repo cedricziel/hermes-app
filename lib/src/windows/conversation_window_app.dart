@@ -21,6 +21,7 @@ import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
 import 'window_api_client.dart';
+import 'window_tool_image_loader.dart';
 
 /// The conversation window [main] was started for: desktop_multi_window
 /// starts each window's engine at `main(["multi_window", id, arguments])`.
@@ -76,6 +77,9 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
           ),
           dispose: (_, store) => store?.dispose(),
         ),
+        // The window clears it when the main window locks (see
+        // `ConversationWindowScreen`); its end frees the rest.
+        windowToolImageLoaderProvider(),
       ],
       child: Builder(
         builder: (context) => MaterialApp(

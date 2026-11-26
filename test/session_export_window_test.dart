@@ -8,6 +8,7 @@ import 'package:hermes_app/l10n/l10n.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/chat/tool_image_loader.dart';
 import 'package:hermes_app/src/chat/queue_storage/queue_broker.dart';
 import 'package:hermes_app/src/chat/widgets/session_export_alert.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -121,7 +122,11 @@ void main() {
     }
   }
 
-  Future<void> pump(WidgetTester tester, {String? profile = 'work'}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    String? profile = 'work',
+    ToolImageLoader? images,
+  }) async {
     tester.view
       ..physicalSize = const Size(900, 700)
       ..devicePixelRatio = 1;
@@ -133,8 +138,11 @@ void main() {
     );
     addTearDown(store.dispose);
     await tester.pumpWidget(
-      Provider<MediaStore?>.value(
-        value: store,
+      MultiProvider(
+        providers: [
+          Provider<MediaStore?>.value(value: store),
+          Provider<ToolImageLoader?>.value(value: images),
+        ],
         child: MaterialApp(
           builder: (_, child) => AppThemeScopes(child: child!),
           localizationsDelegates: kTestLocalizationsDelegates,
@@ -174,6 +182,22 @@ void main() {
     await tester.tap(find.text('Export'));
     await frames(tester);
     expect(actions.saved.single.name, 'Trip plan.json');
+  });
+
+  testWidgets('the window\'s remote images go when the main window locks', (
+    tester,
+  ) async {
+    final images = ToolImageLoader();
+    addTearDown(images.dispose);
+    var cleared = 0;
+    images.changes.addListener(() => cleared++);
+    await pump(tester, images: images);
+
+    link.visibility.add(true);
+    expect(cleared, 0);
+    link.visibility.add(false);
+
+    expect(cleared, 1);
   });
 
   testWidgets('the row is absent without a profile', (tester) async {
