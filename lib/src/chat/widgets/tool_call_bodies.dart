@@ -6,6 +6,7 @@ import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../tool_result.dart';
+import 'code_tool_bodies.dart';
 import 'memory_tool_body.dart';
 import 'tool_body_registry.dart';
 
@@ -18,6 +19,8 @@ const standardToolBodyEntries = <ToolBodyEntry>[
   ToolBodyEntry(names: {'web_search'}, build: WebSearchToolBody.of),
   ToolBodyEntry(names: {'todo_list', 'todo'}, build: TodoToolBody.of),
   ToolBodyEntry(names: {'memory'}, build: MemoryToolBody.of),
+  ToolBodyEntry(names: {'read_file'}, build: ReadFileToolBody.of),
+  ToolBodyEntry(names: {'write_file'}, build: WriteFileToolBody.of),
 ];
 
 Widget? _diffBody(ToolCall call) {
