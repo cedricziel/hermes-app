@@ -460,6 +460,65 @@ void main() {
       expect(_states(tester), [ToolImageState.idle]);
     });
 
+    testWidgets('a card built again shows the image the loader still holds', (
+      tester,
+    ) async {
+      final setup = _Setup();
+      final showCard = ValueNotifier(true);
+      addTearDown(showCard.dispose);
+      await pumpOnPlatform(
+        tester,
+        MultiProvider(
+          providers: [Provider<ToolImageLoader?>.value(value: setup.loader)],
+          child: ValueListenableBuilder(
+            valueListenable: showCard,
+            builder: (_, show, _) => show
+                ? ToolCallCard(
+                    call: imagesCall(
+                      imagesAnswer([
+                        pageImage('https://cdn.shop.example/a.png'),
+                      ]),
+                    ),
+                    initiallyOpen: true,
+                  )
+                : const SizedBox(),
+          ),
+        ),
+        platform: TargetPlatform.android,
+      );
+      await tester.tap(find.byType(ToolImageTile));
+      await _settle(tester);
+      showCard.value = false;
+      await tester.pump();
+      showCard.value = true;
+      await tester.pump();
+
+      expect(_states(tester), [ToolImageState.loaded]);
+      expect(setup.adapter.requests, hasLength(1));
+    });
+
+    testWidgets(
+      'a clear between the tap and the viewer\'s first frame closes it',
+      (tester) async {
+        final setup = await _pump(
+          tester,
+          imagesCall(
+            imagesAnswer([pageImage('https://cdn.shop.example/a.png')]),
+          ),
+        );
+        await tester.tap(find.byType(ToolImageTile));
+        await _settle(tester);
+
+        await tester.tap(find.byType(ToolImageTile));
+        await tester.runAsync(setup.loader.clear);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(ImageViewerPage), findsNothing);
+      },
+    );
+
     testWidgets('a viewer stays closable by a clear after its card is gone', (
       tester,
     ) async {

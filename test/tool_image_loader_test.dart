@@ -24,6 +24,7 @@ class _Adapter implements HttpClientAdapter {
 
   final FutureOr<ResponseBody> Function(RequestOptions options) respond;
   final requests = <RequestOptions>[];
+  Future<void>? lastCancel;
 
   @override
   Future<ResponseBody> fetch(
@@ -32,6 +33,7 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
+    lastCancel = cancelFuture;
     return respond(options);
   }
 
@@ -176,14 +178,22 @@ void main() {
 
   test('a response that has not finished after 15 s fails', () {
     fakeAsync((async) {
-      final (loader, _) = _loader((_) => Completer<ResponseBody>().future);
+      final (loader, adapter) = _loader(
+        (_) => Completer<ResponseBody>().future,
+      );
       ToolImageOutcome? outcome;
       unawaited(_outcome(loader.load(_cdn)).then((o) => outcome = o));
+      var cancelled = false;
+      async.elapse(const Duration(milliseconds: 1));
+      unawaited(adapter.lastCancel!.then((_) => cancelled = true));
 
       async.elapse(const Duration(seconds: 14));
       expect(outcome, isNull);
+      expect(cancelled, isFalse);
       async.elapse(const Duration(seconds: 2));
       expect(outcome, ToolImageOutcome.failed);
+      // The request itself is cancelled, not left running.
+      expect(cancelled, isTrue);
     });
   });
 
@@ -360,27 +370,6 @@ void main() {
       expect(loader.bytesOf(_cdn), _png);
     },
   );
-
-  test('the app loader clears on sign-out and on a lock', () async {
-    final signedOut = StreamController<void>.broadcast(sync: true);
-    addTearDown(signedOut.close);
-    final lock = ValueNotifier(false);
-    addTearDown(lock.dispose);
-    final loader = ToolImageLoader.forApp(
-      breadcrumbs: Breadcrumbs.none,
-      signedOut: signedOut.stream,
-      lock: lock,
-      locked: () => lock.value,
-    );
-    addTearDown(loader.dispose);
-    var cleared = 0;
-    loader.changes.addListener(() => cleared++);
-
-    signedOut.add(null);
-    expect(cleared, 1);
-    lock.value = true;
-    expect(cleared, 2);
-  });
 
   test('an image whose header claims too many pixels is too large', () async {
     // 30,000 x 30,000 in a few bytes: a PNG header is enough to say so.

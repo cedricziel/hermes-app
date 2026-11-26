@@ -114,7 +114,11 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
         if (item.uri == null)
           ToolImageState.loading
         else if (item.uri!.scheme == 'https')
-          ToolImageState.idle
+          // A card that is built again (the chat list drops rows it scrolls
+          // away from) shows an image the loader still holds.
+          _loader?.bytesOf(item.uri!) != null
+              ? ToolImageState.loaded
+              : ToolImageState.idle
         else
           ToolImageState.insecure,
     ];
