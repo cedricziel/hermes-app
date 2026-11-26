@@ -21,6 +21,7 @@ import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
 import 'package:hermes_app/src/windows/desktop_conversation_windows.dart';
 import 'package:hermes_app/src/bot_screen/widgets/bot_screen_preview.dart';
+import 'package:hermes_app/src/chat/widgets/sources_row.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/theme/material_ui_bridge.dart';
 import 'package:provider/provider.dart';
@@ -560,6 +561,35 @@ void main() {
 
     expect(find.byType(ToolCallCard), findsOneWidget);
     expect(find.byType(BotScreenPreview), findsNothing);
+  });
+
+  testWidgets('a finished reply shows no row of sources', (tester) async {
+    await pump(tester);
+    await show(tester);
+
+    (await ask(tester, 'Find the docs'))
+      ..emit(const ThreadBound('s9'))
+      ..emit(const ReplyStarted())
+      ..emit(const ToolStarted(name: 'web_search', id: 'c1'))
+      ..emit(
+        const ToolFinished(
+          name: 'web_search',
+          id: 'c1',
+          resultData: {
+            'success': true,
+            'data': {
+              'web': [
+                {'url': 'https://site.example/a', 'title': 'A page'},
+              ],
+            },
+          },
+        ),
+      )
+      ..emit(const ReplyCompleted('Found it'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Found it'), findsOneWidget);
+    expect(find.byType(SourcesRow), findsNothing);
   });
 
   testWidgets('picking files holds the panel open', (tester) async {

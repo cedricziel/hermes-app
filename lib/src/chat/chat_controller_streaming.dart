@@ -836,7 +836,17 @@ extension _ChatControllerStreaming on ChatController {
     if (wasPending && !reply.isPending) _workingSource.turnEnded(thread);
     notifyListeners();
     if (!_currentActivity(epoch)) return;
-    syncMessage(controllerFor(thread), before, chatMessageToFlyer(reply));
+    syncMessage(
+      controllerFor(thread),
+      before,
+      // A settled reply of a stored turn keeps the sources of the whole turn.
+      chatMessageToFlyer(
+        reply,
+        sourceCalls: reply.isPending
+            ? null
+            : turnCallsEndedBy(thread.messages, reply),
+      ),
+    );
     if (onSurfaceChange == null) return;
     final trigger = wasPending && !reply.isPending
         ? SurfaceTrigger.reply

@@ -18,7 +18,9 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/sources/turn_sources.dart';
 import 'package:hermes_app/src/chat/tool_image_loader.dart';
+import 'package:hermes_app/src/chat/widgets/sources_row.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_image_tile.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
@@ -666,6 +668,45 @@ void main() {
     expect(
       sinks.records.where((r) => r.text.startsWith('chat.tool_image.loaded')),
       hasLength(3),
+    );
+    expectClean();
+  });
+
+  testWidgets('sources row: expand and open', (tester) async {
+    final opened = <Uri>[];
+    await pumpOnPlatform(
+      tester,
+      Provider<Breadcrumbs>.value(
+        value: sinks.breadcrumbs,
+        child: ReplySources(
+          sources: [
+            for (var n = 1; n <= 5; n++)
+              TurnSource(
+                address: 'https://$_host/$_titleMarker/$n',
+                title: '$_title $n',
+                host: _host,
+              ),
+          ],
+          open: opened.add,
+        ),
+      ),
+      platform: TargetPlatform.android,
+    );
+
+    await sinks.capturingPrint(() async {
+      await tester.tap(find.text('+2 more'));
+      await tester.pump();
+      await tester.tap(find.textContaining(_titleMarker).first);
+      await tester.pump();
+    });
+
+    expect(opened, hasLength(1));
+    expect(
+      sinks.records.map((r) => r.text),
+      containsAll([
+        contains('chat.sources.expanded'),
+        contains('chat.sources.opened'),
+      ]),
     );
     expectClean();
   });

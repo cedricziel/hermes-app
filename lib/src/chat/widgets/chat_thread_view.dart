@@ -98,6 +98,7 @@ class ChatThreadView extends StatelessWidget {
     this.onSendQueued,
     this.greetingName,
     this.welcome = true,
+    this.showSources = true,
     this.screenPreview,
     this.sendHeld = false,
     this.draftHandedBack = false,
@@ -225,6 +226,10 @@ class ChatThreadView extends StatelessWidget {
   /// just the composer instead.
   final bool welcome;
 
+  /// Whether a finished reply shows the row of the pages it drew on; the quick
+  /// panel's does not.
+  final bool showSources;
+
   /// The Bot screen's preview under a running `computer_use` call; none in a
   /// window that holds no screen.
   final ScreenPreviewBuilder? screenPreview;
@@ -254,6 +259,7 @@ class ChatThreadView extends StatelessWidget {
           starterPrompts: starterPrompts,
           welcomeCard: welcomeCard,
           onCheckProviders: onCheckProviders,
+          showSources: showSources,
           onPickPrompt: onPickStarter,
           greetingName: greetingName,
           assistantName: botContext?.title,

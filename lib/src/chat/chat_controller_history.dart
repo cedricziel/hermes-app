@@ -867,11 +867,34 @@ extension _ChatControllerHistory on ChatController {
       notifyListeners();
       if (!active || generation != _loadGeneration) return;
       if (older.isEmpty) return;
-      await controllerFor(thread).insertAllMessages(
-        chatMessagesToFlyer(older),
+      // A turn that began on this page ends on the held ones: mapped with
+      // them, its older rows are not taken for its end, and the sources row
+      // of its reply (already shown) holds the whole turn.
+      final turnRest = thread.messages.sublist(
+        older.length,
+        turnEndAfter(thread.messages, older.length - 1),
+      );
+      final flyers = chatMessagesToFlyer([...older, ...turnRest]);
+      final controller = controllerFor(thread);
+      final shown = {for (final m in controller.messages) m.id: m};
+      await controller.insertAllMessages(
+        [
+          for (final flyer in flyers)
+            if (!shown.containsKey(flyer.id)) flyer,
+        ],
         index: 0,
         animated: false,
       );
+      for (final flyer in flyers) {
+        final before = shown[flyer.id];
+        if (before != null &&
+            !listEquals(
+              before.metadata?[kMetaSources] as List?,
+              flyer.metadata?[kMetaSources] as List?,
+            )) {
+          await controller.updateMessage(before, flyer);
+        }
+      }
     } on Object catch (error, stack) {
       reportChatBug(error, stack, 'earlier messages');
       if (active && generation == _loadGeneration) {

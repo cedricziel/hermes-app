@@ -18,6 +18,7 @@ import 'session_usage_use_cases.dart';
 import 'code_tool_body_use_cases.dart';
 import 'tool_rows_table_use_cases.dart';
 import 'link_preview_use_cases.dart';
+import 'sources_row_use_cases.dart';
 import 'tool_image_gallery_use_cases.dart';
 import 'tool_value_use_cases.dart';
 import 'connector_operation_use_cases.dart';
@@ -182,6 +183,7 @@ final List<WidgetbookNode> directories = [
   codeToolBodyNode(),
   toolRowsTableNode(),
   linkPreviewNode(),
+  sourcesRowNode(),
   toolImageGalleryNode(),
   toolValueNode(),
   chatContextNode(),

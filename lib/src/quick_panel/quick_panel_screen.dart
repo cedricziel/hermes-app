@@ -469,6 +469,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
           commandRunning: _queueSending || _loading || !_loaded,
           latestReply: _latestReply,
           welcome: false,
+          showSources: false,
           needsYou: _needsYou,
         ),
       );

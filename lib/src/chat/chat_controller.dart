@@ -52,6 +52,7 @@ import 'checkpoints/checkpoints_transport.dart';
 import 'checkpoints/transcript_outcome.dart';
 import 'context/context_controller.dart';
 import 'chat_controller_sync.dart';
+import 'chat_message_kinds.dart' show kMetaSources;
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_reply.dart';

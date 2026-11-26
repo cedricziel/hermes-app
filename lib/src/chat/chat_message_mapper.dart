@@ -6,6 +6,7 @@ import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 import 'markdown_entities.dart';
 import 'media/extract_media.dart';
+import 'sources/turn_sources.dart';
 import '../voice/voice_transcript.dart';
 
 /// Attachments come first, then input requests, text and tool runs
@@ -23,9 +24,14 @@ import '../voice/voice_transcript.dart';
 /// run's first call, so a streaming reply that mutates content, status or
 /// appends another sealed entry or call maps to ids the controller can
 /// match with `updateMessage`.
+///
+/// A finished reply carries the sources of [sourceCalls], the calls of its
+/// whole turn (those of [m] when left out): a turn read from history is
+/// several messages, and only the one that ends it shows the row.
 List<Message> chatMessageToFlyer(
   ChatMessage m, {
   Iterable<ToolCall> voiceCalls = const [],
+  Iterable<ToolCall>? sourceCalls,
 }) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
@@ -237,6 +243,20 @@ List<Message> chatMessageToFlyer(
         },
       ),
   ];
+  // A row appearing under half a sentence would move the text, so only a
+  // finished reply shows its sources.
+  final turnCalls = sourceCalls ?? m.toolCalls;
+  if (m.role == ChatRole.assistant && !m.isPending && turnCalls.isNotEmpty) {
+    final at = messages.indexWhere((e) => e is TextMessage && e.id == m.id);
+    final sources = at < 0
+        ? const <TurnSource>[]
+        : collectTurnSources(turnCalls);
+    if (sources.isNotEmpty) {
+      messages[at] = messages[at].copyWith(
+        metadata: {...?messages[at].metadata, kMetaSources: sources},
+      );
+    }
+  }
   if (m.canonicalRow case final row? when messages.isNotEmpty) {
     final last = messages.last;
     messages[messages.length - 1] = last.copyWith(
@@ -294,14 +314,90 @@ int outcomeLineIndex(List<Message> messages, DateTime at) {
   return last < 0 ? messages.length : last + 1;
 }
 
+/// Whether the turn goes on in [next] after [message]: a stored turn is
+/// several assistant rows, and each row that only made tool calls (no text of
+/// its own) hands over to the next. A reply with text ends its turn, so one
+/// that follows it with no prompt between (another client's) starts its own.
+bool continuesTurn(ChatMessage message, ChatMessage? next) =>
+    next != null &&
+    next.role == ChatRole.assistant &&
+    message.role == ChatRole.assistant &&
+    message.content.isEmpty &&
+    message.toolCalls.isNotEmpty;
+
+/// Words the user folded into a running turn: not a new prompt.
+bool _isSteer(ChatMessage message) =>
+    message.role == ChatRole.user && message.displayKind == kSteerDisplayKind;
+
+/// The calls of the turn that the message at [at] of [messages] ends, which is
+/// what its sources row is read from; empty when the turn goes on after it.
+/// A steer row between two messages of a turn does not end it.
+List<ToolCall> _turnCallsEndingAt(List<ChatMessage> messages, int at) {
+  var next = at + 1;
+  while (next < messages.length && _isSteer(messages[next])) {
+    next++;
+  }
+  if (next < messages.length && continuesTurn(messages[at], messages[next])) {
+    return const [];
+  }
+  var start = at;
+  while (true) {
+    var before = start - 1;
+    while (before >= 0 && _isSteer(messages[before])) {
+      before--;
+    }
+    if (before < 0 || !continuesTurn(messages[before], messages[start])) break;
+    start = before;
+  }
+  return [for (var i = start; i <= at; i++) ...messages[i].toolCalls];
+}
+
+/// The end (exclusive) of the turn the message at [at] of [messages] belongs
+/// to, from [at] on: what an older history page loaded before [at + 1] is
+/// mapped together with.
+int turnEndAfter(List<ChatMessage> messages, int at) {
+  // A steer row at [at] hands over from the message before it.
+  var last = at;
+  while (last > 0 && _isSteer(messages[last])) {
+    last--;
+  }
+  var end = at + 1;
+  for (var i = at + 1; i < messages.length; i++) {
+    if (_isSteer(messages[i])) continue;
+    if (!continuesTurn(messages[last], messages[i])) break;
+    last = i;
+    end = i + 1;
+  }
+  return end;
+}
+
+/// The calls of the turn that [message] ends in [messages], or null when
+/// [message] is not among them (a reply not yet added), which leaves it to
+/// its own calls.
+List<ToolCall>? turnCallsEndedBy(
+  List<ChatMessage> messages,
+  ChatMessage message,
+) {
+  final at = messages.lastIndexOf(message);
+  return at < 0 ? null : _turnCallsEndingAt(messages, at);
+}
+
 /// Stored tool calls and their final reply are separate assistant rows.
-/// Carry TTS results only within the same turn when restoring history.
+/// Carry TTS results only within the same turn when restoring history, and
+/// give the sources of the whole turn to the message that ends it.
 List<Message> chatMessagesToFlyer(Iterable<ChatMessage> messages) {
+  final all = messages.toList();
   final result = <Message>[];
   final calls = <ToolCall>[];
-  for (final message in messages) {
+  for (final (i, message) in all.indexed) {
     if (message.role == ChatRole.user) calls.clear();
-    result.addAll(chatMessageToFlyer(message, voiceCalls: calls));
+    result.addAll(
+      chatMessageToFlyer(
+        message,
+        voiceCalls: calls,
+        sourceCalls: _turnCallsEndingAt(all, i),
+      ),
+    );
     calls.addAll(message.toolCalls);
   }
   return result;
