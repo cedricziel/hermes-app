@@ -265,10 +265,6 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
           );
         }(),
     ];
-    final idle = [
-      for (var i = 0; i < items.length; i++)
-        if (_states[i] == ToolImageState.idle) i,
-    ];
     return Container(
       decoration: BoxDecoration(
         border: Border(
@@ -292,13 +288,11 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
               tiles: tiles,
               hidden: widget.hidden,
               single: widget.single || widget.generating,
-              onLoadAll: idle.isEmpty
-                  ? null
-                  : (shown) {
-                      for (final i in idle.where((i) => i < shown)) {
-                        _load(i);
-                      }
-                    },
+              onLoadAll: (shown) {
+                for (var i = 0; i < shown && i < _states.length; i++) {
+                  if (_states[i] == ToolImageState.idle) _load(i);
+                }
+              },
             ),
           if (widget.analysis.isNotEmpty) ...[
             const SizedBox(height: 12),

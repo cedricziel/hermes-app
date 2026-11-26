@@ -33,8 +33,8 @@ class ToolImageGallery extends StatefulWidget {
   /// One image of a call (`image_generate`, `browser_vision`): no header.
   final bool single;
 
-  /// Loads the tiles that show, given how many show; null when there is
-  /// nothing to load.
+  /// Loads the tiles that show, given how many show. Offered only while a
+  /// shown tile is waiting for a tap.
   final ValueChanged<int>? onLoadAll;
 
   @override
@@ -82,7 +82,8 @@ class _ToolImageGalleryState extends State<ToolImageGallery> {
                     .copyWith(color: subtle),
               ),
             ),
-            if (widget.onLoadAll != null)
+            if (widget.onLoadAll != null &&
+                shown.any((t) => t.state == ToolImageState.idle))
               TextButton(
                 style: TextButton.styleFrom(minimumSize: Size(0, buttonHeight)),
                 onPressed: () => widget.onLoadAll!(shown.length),

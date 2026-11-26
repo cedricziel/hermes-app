@@ -226,6 +226,21 @@ void main() {
       expect(setup.adapter.requests, hasLength(6));
     });
 
+    testWidgets('Load all goes once every tile that shows has loaded', (
+      tester,
+    ) async {
+      await _pump(tester, imagesCall(imagesAnswer(_nine())));
+
+      await tester.tap(find.text('Load all'));
+      await _settle(tester);
+
+      // Three tiles are still idle, behind Show all: nothing to load here.
+      expect(find.text('Load all'), findsNothing);
+      await tester.tap(find.text('Show all 9'));
+      await tester.pump();
+      expect(find.text('Load all'), findsOne);
+    });
+
     testWidgets('an image without alt text is named by its place', (
       tester,
     ) async {
