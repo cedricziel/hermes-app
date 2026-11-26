@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show min;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -292,6 +293,8 @@ class ToolImageLoader {
   void dispose() {
     _signedOut?.cancel();
     _unlisten?.call();
+    // Loads still running end as cleared and keep nothing.
+    unawaited(clear());
     _changes.dispose();
   }
 }
@@ -310,6 +313,10 @@ class _Changes extends ChangeNotifier {
   void notify() => notifyListeners();
 }
 
+/// The longest side a header is read as: no larger one can fit the pixel limit
+/// with a side of any length, and the product of two never overflows.
+const _side = 1 << 24;
+
 /// How many pixels the header of a PNG, GIF, JPEG or WebP claims, or null for
 /// any other format or a header that is cut short. Only the header is read.
 @visibleForTesting
@@ -320,7 +327,8 @@ int? claimedPixels(Uint8List b) {
   int le24(int i) => le16(i) | b[i + 2] << 16;
   final n = b.length;
   if (n >= 24 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E) {
-    return be32(16) * be32(20);
+    // Clamped, so two 32-bit sides cannot wrap the product negative.
+    return min(be32(16), _side) * min(be32(20), _side);
   }
   if (n >= 10 && b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) {
     return le16(6) * le16(8);

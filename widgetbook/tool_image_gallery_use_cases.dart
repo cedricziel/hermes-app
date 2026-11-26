@@ -175,6 +175,10 @@ WidgetbookNode toolImageGalleryNode() => WidgetbookFolder(
           builder: (_) => _media(_gallery(_nine().take(4).toList()), scale: 3),
         ),
         WidgetbookUseCase(
+          name: 'all small, hidden',
+          builder: (_) => _gallery(const [], hidden: 4),
+        ),
+        WidgetbookUseCase(
           name: 'no images',
           builder: (_) => _gallery(const []),
         ),

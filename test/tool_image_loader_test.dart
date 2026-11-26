@@ -561,4 +561,33 @@ void main() {
     expect(await pending, ToolImageOutcome.cleared);
     expect(loader.bytesOf(_cdn), isNull);
   });
+
+  test('a PNG header whose sides multiply past 64 bits is too large', () async {
+    final header = Uint8List(33)
+      ..setAll(0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+      ..buffer.asByteData().setUint32(16, 0xC0000000)
+      ..buffer.asByteData().setUint32(20, 0xC0000000);
+    final (loader, _) = _loader((_) => _ok(header));
+
+    expect(await _outcome(loader.load(_cdn)), ToolImageOutcome.tooLarge);
+  });
+
+  test(
+    'a load that ends after dispose keeps nothing and tells nobody',
+    () async {
+      final gate = Completer<void>();
+      final (loader, _) = _loader((_) async {
+        await gate.future;
+        return _ok();
+      });
+
+      final pending = _outcome(loader.load(_cdn));
+      await pumpEventQueue();
+      loader.dispose();
+      gate.complete();
+
+      expect(await pending, ToolImageOutcome.cleared);
+      expect(loader.bytesOf(_cdn), isNull);
+    },
+  );
 }
