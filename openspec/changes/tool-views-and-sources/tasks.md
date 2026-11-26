@@ -29,6 +29,11 @@ Files: `lib/src/chat/widgets/link_preview_card.dart` (`LinkPreviewCard`, plain m
 
 Catalog use cases (`widgetbook/link_preview_use_cases.dart`): page, page with a warning note, failed, running, three pages one unreadable, long title, long address, no spaces in a title, another scheme, credentials in the address, snapshot disclosure open; Apple, Material, Mac; light, dark; largest text.
 
+- [x] 2.1 Catalog first: `LinkPreviewCard` as a plain model with every use case above (`widgetbook/link_preview_use_cases.dart`), in both themes.
+- [x] 2.2 The pure address rules `page_link.dart`.
+- [x] 2.3 The registry entries for `browser_navigate` and `web_extract` (`widgets/link_tool_bodies.dart`) and the strings in `app_en.arb` and `app_de.arb`.
+- [x] 2.4 The acceptance tests and the `arch.chat-network-image` guard below, built from fixtures read from the Hermes source at `d923a5eb` (`test/support/link_tool_fixtures.dart`), not recorded; PR 0 replaces them with recorded ones.
+
 Acceptance tests: `test/page_link_test.dart` (only `http` and `https` open, credentials make an address not open and never show, host and path split, an IDN host), `test/link_preview_card_test.dart` (a tap calls `onOpen` with the address, a failed page has no tap), and a test with a fake HTTP client or `HttpOverrides` that rendering the card makes no request, and that the press menu of an address with credentials, or of a non-web address, has neither Open in browser nor a Copy link that carries the credentials. Add an `arch.*` guard in `test/architecture/` that fails on `Image.network` or `NetworkImage` under `lib/src/chat/` outside the gallery's loader, naming that loader as the replacement (the mechanical check for "no request without a tap"; the baseline starts empty).
 
 ## 3. PR 3 - `feat(chat): image gallery for found and generated images`

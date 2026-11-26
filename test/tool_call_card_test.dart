@@ -722,6 +722,15 @@ void main() {
         expect(toolCallBody(rowsCall(flatRows, name: 'read_file')), isNull);
       });
 
+      for (final name in ['browser_navigate', 'web_extract']) {
+        test(
+          'the registered $name keeps a result it declines off the table',
+          () {
+            expect(toolCallBody(rowsCall(flatRows, name: name)), isNull);
+          },
+        );
+      }
+
       for (final name in ['browser_get_images', 'web_extract']) {
         test('$name does not fall to a table when its own view declines', () {
           // The views of these tools are other entries; one that declines

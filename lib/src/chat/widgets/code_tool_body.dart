@@ -294,7 +294,8 @@ class CodeRunningLine extends StatelessWidget {
   );
 }
 
-/// A note: an icon and a word by its tone, then the server's own text.
+/// One [CodeNote] as a line with its icon: shared by the other views that
+/// say what happened to a tool call.
 class CodeNoteView extends StatelessWidget {
   const CodeNoteView(this.note, {super.key});
 
