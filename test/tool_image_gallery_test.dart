@@ -673,12 +673,12 @@ void main() {
         );
         await tester.tap(find.byType(ToolImageTile));
         await _settle(tester);
-        // The decoder runs outside the fake clock.
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)),
-        );
-        await tester.pump();
-        await tester.pump();
+        // The decoder runs outside the fake clock: let it finish, then draw.
+        for (var i = 0; i < 100; i++) {
+          await tester.runAsync(pumpEventQueue);
+          await tester.pump();
+          if (_states(tester).first == ToolImageState.failed) break;
+        }
 
         expect(_states(tester), [ToolImageState.failed]);
         expect(

@@ -251,9 +251,15 @@ class _ToolImagesBodyState extends State<ToolImagesBody> {
     final uri = item.uri;
     final bytes = uri == null ? _fetched[i] : _loader?.bytesOf(uri);
     if (bytes == null) return null;
+    // Widths in steps of 64 px, so a window being resized decodes a few
+    // times, not once per pixel.
     return (width) =>
         (uri == null ? null : _loader?.imageFor(uri, width: width)) ??
-        ResizeImage.resizeIfNeeded(width, null, MemoryImage(bytes));
+        ResizeImage.resizeIfNeeded(
+          (width + 63) ~/ 64 * 64,
+          null,
+          MemoryImage(bytes),
+        );
   }
 
   @override

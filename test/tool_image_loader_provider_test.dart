@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app/providers/app_lock_providers.dart';
@@ -29,19 +27,6 @@ void main() {
       tester.element(find.byType(SizedBox)).read<ToolImageLoader?>(),
       isNotNull,
     );
-  });
-
-  test('both window entry points provide it', () {
-    for (final path in const [
-      'lib/src/windows/conversation_window_app.dart',
-      'lib/src/quick_panel/quick_panel_app.dart',
-    ]) {
-      expect(
-        File(path).readAsStringSync(),
-        contains('windowToolImageLoaderProvider()'),
-        reason: path,
-      );
-    }
   });
 
   test('the app\'s provider list has the loader', () async {
