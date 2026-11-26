@@ -123,6 +123,17 @@ WidgetbookNode toolRowsTableNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Everything held back',
+          builder: (_) => _card(
+            rowsCall({
+              'total_count': 3,
+              '_omitted':
+                  '3 result(s) omitted because they target credential, '
+                  'token, cache, or secret-bearing environment files.',
+            }),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'A nested value (the fallback)',
           builder: (_) => _card(
             rowsCall(

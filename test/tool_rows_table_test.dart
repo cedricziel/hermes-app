@@ -106,6 +106,7 @@ void main() {
     tester,
   ) async {
     final key = 'bad\uD800key';
+    final handle = tester.ensureSemantics();
     await _pump(
       tester,
       _table(
@@ -117,6 +118,11 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(find.byKey(_row(0)), findsOneWidget);
+    expect(
+      tester.getSemantics(find.byKey(_row(0))).label,
+      'Row 1 of 1, bad\uFFFDkey 1',
+    );
+    handle.dispose();
   });
 
   testWidgets('the row list never takes the route\'s primary scroll', (
@@ -289,6 +295,17 @@ void main() {
       await _pump(tester, _table(_matches(30), total: 212));
       expect(find.text('Showing 30 of 212 matches'), findsOneWidget);
       expect(find.textContaining('Show 50'), findsNothing);
+    });
+
+    testWidgets('a lower bound stays one when the cap is reached', (
+      tester,
+    ) async {
+      await _pump(tester, _table(_matches(620), total: 700, lowerBound: true));
+      for (var i = 0; i < 9; i++) {
+        await tester.tap(find.textContaining('Show 50 more'));
+        await tester.pump();
+      }
+      expect(find.text('Showing 500 of at least 700 matches'), findsOneWidget);
     });
 
     testWidgets('a lower bound is not an exact total', (tester) async {
