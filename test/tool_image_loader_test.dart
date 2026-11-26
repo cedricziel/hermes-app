@@ -162,8 +162,12 @@ void main() {
     expect(await _outcome(announced.load(_cdn)), ToolImageOutcome.tooLarge);
 
     final (streamed, _) = _loader(
+      // A real PNG header, so only the byte limit can refuse it.
       (_) => ResponseBody(
-        Stream.fromIterable([for (var i = 0; i < 4; i++) Uint8List(400)]),
+        Stream.fromIterable([
+          Uint8List.fromList(_png),
+          for (var i = 0; i < 4; i++) Uint8List(400),
+        ]),
         200,
       ),
     );
@@ -443,10 +447,10 @@ void main() {
     expect(claimedPixels(Uint8List.fromList([1, 2, 3])), isNull);
   });
 
-  test(
+  testWidgets(
     'going over the memory budget tells the listeners and drops frames',
-    () async {
-      final (_, adapter) = _loader((_) => _ok());
+    (tester) async {
+      final adapter = _Adapter((_) => _ok());
       final loader = ToolImageLoader(
         dio: Dio()..httpClientAdapter = adapter,
         memoryBudget: _png.length + 10,
@@ -454,12 +458,27 @@ void main() {
       final second = Uri.parse('https://cdn.example/b.png');
       var told = 0;
       loader.changes.addListener(() => told++);
-      await loader.load(_cdn);
-      expect(loader.imageFor(_cdn), isNotNull);
+      final cache = PaintingBinding.instance.imageCache..clear();
+      late BuildContext context;
+      await tester.pumpWidget(
+        Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox();
+          },
+        ),
+      );
+      await tester.runAsync(() async {
+        await loader.load(_cdn);
+        await precacheImage(loader.imageFor(_cdn)!, context);
+        expect(cache.currentSize, 1);
 
-      await loader.load(second);
+        await loader.load(second);
+        await Future<void>.delayed(Duration.zero);
+      });
 
       expect(told, 1);
+      expect(cache.currentSize, 0);
       expect(loader.imageFor(_cdn), isNull);
     },
   );
