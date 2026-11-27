@@ -20,6 +20,10 @@ class MainFlutterWindow: NSWindow {
   /// step with `kMacMainWindowMinSize` in lib/src/theme/breakpoints.dart.
   static let minimumContentSize = NSSize(width: 640, height: 480)
 
+  /// AppKit's frame autosave name: the window's last frame is remembered
+  /// across launches under it. Debug builds read it in AppDelegate's report.
+  static let frameAutosaveName = "HermesMainWindow"
+
   private var keyObserver: WindowKeyObserver?
   private var channel: FlutterMethodChannel?
   private var menuBarStatusItem: MenuBarStatusItem?
@@ -29,6 +33,34 @@ class MainFlutterWindow: NSWindow {
   /// happen before applicationDidFinishLaunching.
   private(set) var flutterViewController: FlutterViewController?
 
+  /// The frame AppKit restored and `correctSavedFrame` left, until Dart has
+  /// finished styling the window (see "settleFrame"). Nil when none was saved.
+  private var restoredFrame: NSRect?
+
+  /// Set when Dart has run "settleFrame", i.e. the window is in its final style.
+  /// The CI window report waits for it (debug builds read it in AppDelegate).
+  private(set) var frameSettled = false
+
+  /// A remembered frame can be below the minimum or on a display that is gone.
+  /// It only enlarges a frame below the minimum; any other size is left as saved.
+  private func correctSavedFrame() {
+    var frame = self.frame
+    // The smallest frame is the live minimum content size under the window's
+    // style mask, which awakeFromNib has already given the full-size content view.
+    let smallest = NSWindow.frameRect(
+      forContentRect: NSRect(origin: .zero, size: contentMinSize), styleMask: styleMask
+    ).size
+    frame.size.width = max(frame.width, smallest.width)
+    frame.size.height = max(frame.height, smallest.height)
+    setFrame(frame, display: false)
+    let reachable = NSScreen.screens.contains {
+      let shown = $0.visibleFrame.intersection(frame)
+      return shown.width >= 100 && shown.height >= 40
+    }
+    if !reachable { center() }
+    restoredFrame = self.frame
+  }
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     self.flutterViewController = flutterViewController
@@ -36,7 +68,17 @@ class MainFlutterWindow: NSWindow {
     self.contentViewController = flutterViewController
     self.setFrame(windowFrame, display: true)
     self.contentMinSize = Self.minimumContentSize
-    self.center()
+    // The saved frame is restored under the final style mask (macos_window_utils
+    // inserts the same flag later). Under the titled mask alone AppKit would
+    // hold a saved 640x480 frame to the minimum plus a title bar, about 28 pt
+    // taller. Inserting the flag leaves the frame as it is.
+    self.styleMask.insert(.fullSizeContentView)
+    if setFrameUsingName(Self.frameAutosaveName) {
+      correctSavedFrame()
+    } else {
+      center()
+    }
+    setFrameAutosaveName(Self.frameAutosaveName)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
     SoloudTerminationGuard.disarm(in: flutterViewController)
@@ -69,6 +111,19 @@ class MainFlutterWindow: NSWindow {
         if self?.isMiniaturized == true { self?.deminiaturize(nil) }
         self?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        result(nil)
+      case "settleFrame":
+        // macos_window_utils adds the full-size content view and a toolbar after
+        // awakeFromNib, which relaunched a saved 900x600 frame as 900x568 (one
+        // title bar short; CI, launch 2). Put the restored frame back once,
+        // unless state restoration already made the window full screen.
+        self?.frameSettled = true
+        if let restored = self?.restoredFrame, let window = self {
+          self?.restoredFrame = nil
+          if !window.styleMask.contains(.fullScreen), window.frame.size != restored.size {
+            window.setFrame(restored, display: true)
+          }
+        }
         result(nil)
       case "setContentSize":
         if let args = call.arguments as? [String: Double],

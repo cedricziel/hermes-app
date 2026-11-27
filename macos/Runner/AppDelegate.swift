@@ -93,11 +93,61 @@ class AppDelegate: FlutterAppDelegate {
         // does not crash. NSApp.terminate is what the Quit menu item and the "terminate"
         // channel call above end in, so FlutterEngineTerminationHandler and every
         // NSApplicationWillTerminate observer run as for a user. Debug builds only.
-        if ProcessInfo.processInfo.environment["HERMES_QUIT_AFTER_LAUNCH"] == "1" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+        //
+        // With HERMES_REPORT_WINDOW=1 the same hook first prints the main window's frame
+        // (the build-macos window measurement), and HERMES_REPORT_WINDOW_SET=WxH resizes it
+        // before the quit, so AppKit writes the frame it remembers.
+        let environment = ProcessInfo.processInfo.environment
+        if environment["HERMES_QUIT_AFTER_LAUNCH"] == "1" {
+            let reportWindow = environment["HERMES_REPORT_WINDOW"] == "1"
+            let resizeTo = environment["HERMES_REPORT_WINDOW_SET"]
+            var waited = 0.0
+            func quit() {
                 print("HERMES_QUIT terminating")
                 fflush(stdout)
                 NSApp.terminate(nil)
+            }
+            func report() {
+                guard let window = mainFlutterWindow else { quit(); return }
+                // Dart styles the window after launch and then calls "settleFrame", which
+                // puts the remembered frame back; wait up to 10 s for that call, so the
+                // frame is measured in its final style and not in between.
+                let settled = (window as? MainFlutterWindow)?.frameSettled == true
+                if !settled && waited < 10 {
+                    waited += 0.25
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { report() }
+                    return
+                }
+                if !settled {
+                    // Not a frame that looks settled: the CI check fails on this line.
+                    print("HERMES_WINDOW unsettled: settleFrame did not run within 10 s")
+                    quit()
+                    return
+                }
+                // The frame is stable: the xib content size plus the title bar. The
+                // content rect is not, since the full-size content view makes it the frame.
+                let frame = window.frame.size
+                let mask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
+                let chrome = NSWindow.frameRect(forContentRect: .zero, styleMask: mask).height
+                let minimum = window.contentMinSize
+                let full = window.styleMask.contains(.fullSizeContentView)
+                let screen = NSScreen.main?.visibleFrame.size ?? .zero
+                print("HERMES_WINDOW frame=\(Int(frame.width.rounded()))x\(Int(frame.height.rounded())) chrome=\(Int(chrome.rounded())) min=\(Int(minimum.width.rounded()))x\(Int(minimum.height.rounded())) full=\(full) screen=\(Int(screen.width.rounded()))x\(Int(screen.height.rounded()))")
+                if let spec = resizeTo {
+                    let size = spec.split(separator: "x").compactMap { Double($0) }
+                    if size.count == 2 {
+                        window.setFrame(
+                            NSRect(origin: window.frame.origin, size: NSSize(width: size[0], height: size[1])),
+                            display: true)
+                    }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    UserDefaults.standard.synchronize()
+                    quit()
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                if reportWindow { report() } else { quit() }
             }
         }
         #endif

@@ -16,6 +16,16 @@ import '../support/fake_hermes_server.dart';
 
 /// The Mac main window cannot be resized below [kMacMainWindowMinSize], and
 /// the home shell must lay out there without an overflow.
+/// A Swift file without its comments, so a scan cannot match text that is
+/// commented out.
+String readSwift(String path) =>
+    File(path)
+        .readAsStringSync()
+        .replaceAll(RegExp(r'/\*.*?\*/', dotAll: true), '')
+        .split('\n')
+        .where((line) => !line.trimLeft().startsWith('//'))
+        .join('\n');
+
 void main() {
   test('the native sizes match the Dart constants', () {
     final xib = File('macos/Runner/Base.lproj/MainMenu.xib').readAsStringSync();
@@ -39,8 +49,7 @@ void main() {
       reason: 'the content view frame matches the content rect',
     );
 
-    final swift = File('macos/Runner/MainFlutterWindow.swift')
-        .readAsStringSync();
+    final swift = readSwift('macos/Runner/MainFlutterWindow.swift');
     final minimum = RegExp(
       r'minimumContentSize = NSSize\(width: (\d+), height: (\d+)\)',
     ).firstMatch(swift);
@@ -49,7 +58,7 @@ void main() {
       Size(double.parse(minimum![1]!), double.parse(minimum[2]!)),
       kMacMainWindowMinSize,
     );
-    // The decisive places: the minimum and the centring are set in
+    // The decisive places: the minimum and the remembered frame are set in
     // awakeFromNib and nothing after it (macos_window_utils included) resets
     // the minimum; no Dart code resizes the window at startup.
     final start = swift.indexOf('override func awakeFromNib()');
@@ -64,7 +73,7 @@ void main() {
         .join('\n');
     expect(awake, contains('self.contentMinSize = Self.minimumContentSize'));
     final setFrame = awake.indexOf('self.setFrame(windowFrame');
-    final center = awake.indexOf('self.center()');
+    final center = awake.indexOf('center()');
     expect(setFrame, isNonNegative);
     expect(center, isNonNegative);
     expect(
@@ -77,6 +86,29 @@ void main() {
       hasLength(1),
       reason: 'contentMinSize is set only in awakeFromNib',
     );
+    // The saved frame is restored under the final style mask, or AppKit holds a
+    // saved 640x480 frame to the minimum plus a title bar.
+    final insert = awake.indexOf('self.styleMask.insert(.fullSizeContentView)');
+    expect(insert, isNonNegative);
+    expect(insert, lessThan(awake.indexOf('setFrameUsingName(')));
+    // The remembered frame is AppKit's frame autosave, set once in
+    // awakeFromNib; the centred default applies only when none exists.
+    expect(
+      swift,
+      contains('static let frameAutosaveName = "HermesMainWindow"'),
+    );
+    expect(swift, isNot(contains('isRestorable')));
+    expect(
+      RegExp(
+        r'if setFrameUsingName\(Self\.frameAutosaveName\) \{\s*'
+        r'correctSavedFrame\(\)\s*\} else \{\s*center\(\)\s*\}\s*'
+        r'setFrameAutosaveName\(Self\.frameAutosaveName\)',
+      ).hasMatch(awake),
+      isTrue,
+    );
+    // The one bare center() is the no-saved-frame branch; the screenshot
+    // resize (`self?.center()` in the channel handler) is a different call.
+    expect(RegExp(r'(?<![?.])\bcenter\(\)').allMatches(awake), hasLength(1));
     for (final file in Directory('lib').listSync(recursive: true)) {
       if (file is! File || !file.path.endsWith('.dart')) continue;
       expect(
@@ -85,8 +117,194 @@ void main() {
         reason: file.path,
       );
     }
-    final delegate = File('macos/Runner/AppDelegate.swift').readAsStringSync();
-    expect(delegate, isNot(contains('contentMinSize')));
+    final delegate = readSwift('macos/Runner/AppDelegate.swift');
+    expect(
+      RegExp(r'contentMinSize[\w.]*\s*=[^=]').allMatches(delegate),
+      isEmpty,
+    );
+  });
+
+  test(
+    'a saved frame comes back unchanged: only enlarged below the minimum',
+    () {
+      final swift = readSwift('macos/Runner/MainFlutterWindow.swift');
+      final correct = RegExp(
+        r'private func correctSavedFrame\(\) \{.*?\n  \}\n',
+        dotAll: true,
+      ).firstMatch(swift)!.group(0)!;
+      // Sizes only grow to the minimum; no content-rect conversion of the saved
+      // frame, which loses the title bar (CI measured 900x600 back as 900x568).
+      expect(correct, contains('max(frame.width, smallest.width)'));
+      expect(correct, contains('max(frame.height, smallest.height)'));
+      expect(correct, isNot(contains('contentRect(forFrameRect')));
+      expect(correct, isNot(contains('setContentSize')));
+      expect(correct, contains('restoredFrame = self.frame'));
+      // A frame on a display that is gone is centred: reachable means 100x40
+      // points of it on some screen, and only the unreachable case centres.
+      expect(
+        RegExp(
+          r'NSScreen\.screens\.contains \{.*?'
+          r'shown\.width >= 100 && shown\.height >= 40.*?'
+          r'if !reachable \{ center\(\) \}',
+          dotAll: true,
+        ).hasMatch(correct),
+        isTrue,
+      );
+      // Dart-side styling happens after awakeFromNib; the runner puts the frame
+      // back once it is done.
+      expect(swift, contains('case "settleFrame":'));
+      expect(
+        File('lib/src/macos/mac_window.dart').readAsStringSync(),
+        contains("invokeMethod<void>('settleFrame')"),
+      );
+      // A window AppKit restored in full screen keeps the full-screen frame.
+      final settle = RegExp(
+        r'case "settleFrame":.*?result\(nil\)',
+        dotAll: true,
+      ).firstMatch(swift)!.group(0)!;
+      expect(
+        settle.indexOf('.fullScreen'),
+        inInclusiveRange(0, settle.indexOf('window.setFrame(')),
+      );
+      expect(settle, contains('!window.styleMask.contains(.fullScreen)'));
+      // The CI report waits for this flag, so it is set before anything else.
+      expect(
+        settle.indexOf('self?.frameSettled = true'),
+        inInclusiveRange(0, settle.indexOf('if let restored')),
+      );
+      // The CI round trip resizes the frame, not the content.
+      final delegate = readSwift('macos/Runner/AppDelegate.swift');
+      final from = delegate.indexOf('HERMES_REPORT_WINDOW_SET');
+      final set = delegate.substring(from, delegate.indexOf('#endif', from));
+      expect(set, contains('window.setFrame('));
+      expect(set, isNot(contains('setContentSize')));
+    },
+  );
+
+  test('the CI window report exists only in debug builds and then quits', () {
+    final delegate = readSwift('macos/Runner/AppDelegate.swift');
+    const flag = 'HERMES_REPORT_WINDOW';
+    // The conditionals open at a position: an unrelated `#if os(...)` elsewhere
+    // in the file must not matter, only that `#if DEBUG` encloses the flag.
+    List<String> openAt(int offset) {
+      final open = <String>[];
+      for (final line in delegate.substring(0, offset).split('\n')) {
+        final t = line.trim();
+        if (t.startsWith('#if ')) open.add(t);
+        if (t == '#endif' && open.isNotEmpty) open.removeLast();
+      }
+      return open;
+    }
+
+    final hits = flag.allMatches(delegate).toList();
+    expect(hits, hasLength(greaterThanOrEqualTo(1)));
+    for (final hit in hits) {
+      expect(
+        openAt(hit.start),
+        contains('#if DEBUG'),
+        reason: '$flag is not inside an #if DEBUG ... #endif',
+      );
+    }
+    final block = delegate.substring(
+      hits.first.start,
+      delegate.indexOf('#endif', hits.last.end),
+    );
+    expect(block, contains('NSApp.terminate(nil)'));
+    // One launch mechanism: the report is a branch of the quit hook of the
+    // quit-crash check (HERMES_QUIT_AFTER_LAUNCH), not a second way to quit.
+    final hook = delegate.indexOf(
+      'environment["HERMES_QUIT_AFTER_LAUNCH"] == "1"',
+    );
+    expect(hook, isNonNegative);
+    expect(hook, lessThan(hits.first.start));
+    expect(
+      'NSApp.terminate(nil)'.allMatches(block),
+      hasLength(1),
+      reason: 'every end of the report goes through quit()',
+    );
+    expect(block, contains('print("HERMES_QUIT terminating")'));
+    expect(block, contains('HERMES_WINDOW frame='));
+    // The report waits for the settleFrame call and, if it never comes, prints a
+    // line the CI check rejects instead of a frame that looks settled.
+    expect(
+      block,
+      contains(
+        'let settled = (window as? MainFlutterWindow)?.frameSettled == true',
+      ),
+    );
+    expect(block, contains('if !settled && waited < 10 {'));
+    expect(
+      block.indexOf('if !settled {'),
+      inInclusiveRange(0, block.indexOf('HERMES_WINDOW unsettled')),
+    );
+    expect(block, contains('HERMES_WINDOW unsettled'));
+    expect(
+      block.indexOf('HERMES_WINDOW unsettled'),
+      lessThan(block.indexOf('HERMES_WINDOW frame=')),
+    );
+  });
+
+  test('CI measures the window through the quit step, not a second launch', () {
+    final ci = File('.github/workflows/ci.yml').readAsStringSync();
+    expect(ci, isNot(contains('Measure the main window size')));
+    // Every launch of the app in ci.yml goes through quit_launch, which fails
+    // on a crash; the window launches add the report to the same hook.
+    final from = ci.indexOf('name: Launch the app and quit it normally');
+    expect(from, isNonNegative);
+    final body = ci.substring(from, ci.indexOf('\n  # The only test', from));
+    var function = '';
+    final uses = <String>[];
+    for (final line in body.split('\n')) {
+      final start = RegExp(r'^ {10}(\w+)\(\) \{').firstMatch(line);
+      if (start != null) function = start.group(1)!;
+      if (RegExp(r'^ {10}\S').hasMatch(line) && start == null) function = '';
+      final t = line.trim();
+      if (t.startsWith('#')) continue;
+      final touchesApp = RegExp(r'\$\{?(bin|app)\b').hasMatch(line);
+      // Only these exact lines of the step may name the app outside the two
+      // functions; a line that adds anything to one of them is not exempt.
+      final setup = const {
+        'app="build/macos/Build/Products/Debug/\$name.app"',
+        'bin="\$app/Contents/MacOS/\$name"',
+        '[ -x "\$bin" ] || { echo "::error::No debug binary at \$bin"; exit 1; }',
+        'bundle="\$(/usr/libexec/PlistBuddy -c \'Print :CFBundleIdentifier\' '
+            '"\$app/Contents/Info.plist")"',
+      }.contains(t);
+      final opens = RegExp(r'(^|[\s;&|(])open\s').hasMatch(line);
+      if ((touchesApp && !setup) || opens) uses.add('$function: $t');
+    }
+    expect(
+      uses.where(
+        (u) => !u.startsWith('quit_launch:') && !u.startsWith('lldb_rerun:'),
+      ),
+      isEmpty,
+      reason:
+          'the app is started only inside quit_launch (and lldb_rerun, '
+          'its diagnosis rerun), which fail on a crash',
+    );
+    expect(
+      uses.where((u) => u.startsWith('quit_launch:')),
+      isNotEmpty,
+      reason: 'the scan sees the launch in quit_launch',
+    );
+    expect(
+      ci,
+      contains(
+        'assignments="HERMES_QUIT_AFTER_LAUNCH=1 HERMES_REPORT_WINDOW=1"',
+      ),
+    );
+    expect(ci, contains('quit_launch "\$1" "\$assignments"'));
+    // The launches that fix the numbers: the resize to 900x600 and to 640x480
+    // and the restore of each.
+    for (final launch in [
+      'window_launch "window 1" 900x600',
+      'window_launch "window 2"',
+      'window_launch "window 3" 640x480',
+      'window_launch "window 4"',
+    ]) {
+      expect(ci, contains(launch));
+    }
+    expect(ci, contains('NSWindow Frame HermesMainWindow'));
   });
 
   group('home shell', () {

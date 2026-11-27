@@ -127,14 +127,25 @@ cmd_ios() { # [iphone|ipad]
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }
 
+# The Debug app is sandboxed, so its defaults live in its container.
+forget_main_frame() {
+  local debug_id=com.cedricziel.hermesApp.dev
+  defaults delete "$HOME/Library/Containers/$debug_id/Data/Library/Preferences/$debug_id.plist" \
+    "NSWindow Frame HermesMainWindow" 2>/dev/null || true
+}
+
 # The test always resizes the Mac window first, to SHOT_MAC_WINDOW (points; the
 # finished image is 2880x1800 pixels), whatever the window's default size is.
 # `mac compact` uses SHOT_MAC_COMPACT_WINDOW (800x600, below the 900 point
 # breakpoint of the wide layout) into mac-compact-*.
 cmd_mac() { # [compact]
-  local url process label=mac size="${SHOT_MAC_WINDOW:-1440x900}"
+  local url process label=mac size="${SHOT_MAC_WINDOW:-1440x900}" status=0
   if [[ "${1:-}" == compact ]]; then label=mac-compact size="${SHOT_MAC_COMPACT_WINDOW:-800x600}"; fi
   process="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
+  # The test resizes the window and the main window remembers its last frame.
+  # Forget it on every exit (a failing command, an interrupt); a trap keeps the
+  # exit status.
+  trap forget_main_frame EXIT
   url="$(start_backend)"
   for appearance in dark light; do
     if [[ "${SHOT_KANBAN_ONLY:-false}" == true && "$appearance" == dark ]]; then continue; fi
@@ -147,9 +158,11 @@ cmd_mac() { # [compact]
       --target=integration_test/store_screenshots_test.dart -d macos \
       --dart-define=HERMES_SERVER_URL="$url" --dart-define=SHOT_PORT="$PORT" \
       --dart-define=SHOT_THEME="$appearance" --dart-define=SHOT_WINDOW="$size" \
-      --dart-define=SHOT_KANBAN_ONLY="${SHOT_KANBAN_ONLY:-false}"
+      --dart-define=SHOT_KANBAN_ONLY="${SHOT_KANBAN_ONLY:-false}" || status=$?
+    if [[ $status -ne 0 ]]; then break; fi
   done
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
+  return "$status"
 }
 
 # The watch and the phone it is paired with; Xcode pairs the simulators.

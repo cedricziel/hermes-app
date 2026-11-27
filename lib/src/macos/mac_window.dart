@@ -44,6 +44,9 @@ abstract final class MacWindow {
       );
       final height = await WindowManipulator.getTitlebarHeight();
       if (height > 0) titlebarHeight = height;
+      // The styling above can change the restored frame's height; the runner
+      // puts the remembered frame back (MainFlutterWindow.swift, "settleFrame").
+      await _channel.invokeMethod<void>('settleFrame');
       enabled = true;
     } on Object catch (error, stack) {
       debugPrint('Mac window setup failed: ${error.runtimeType}\n$stack');
