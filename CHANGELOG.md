@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.86](https://github.com/cedricziel/hermes-app/compare/v0.1.85...v0.1.86) (2026-11-26)
+
+
+### Features
+
+* **chat:** code view for read_file and write_file ([#1395](https://github.com/cedricziel/hermes-app/issues/1395)) ([bf19a31](https://github.com/cedricziel/hermes-app/commit/bf19a319bfbca1dad7c0cc45e697e1afa91d0de2))
+* **chat:** image gallery for found and generated images ([#1419](https://github.com/cedricziel/hermes-app/issues/1419)) ([4089e7f](https://github.com/cedricziel/hermes-app/commit/4089e7f5c49393bfaecfe4de221dd8927b7f8ff6))
+* **chat:** link preview cards for pages the agent opened ([#1414](https://github.com/cedricziel/hermes-app/issues/1414)) ([8aea662](https://github.com/cedricziel/hermes-app/commit/8aea662ea271cc462fe68db9e3806715b5bc953a))
+* **chat:** mark regenerated replies and test jump to latest while streaming ([#1381](https://github.com/cedricziel/hermes-app/issues/1381)) ([7f5de37](https://github.com/cedricziel/hermes-app/commit/7f5de37f7ba7679f40ba488794d6cd97b2a37482))
+* **chat:** sources row under a reply ([#1420](https://github.com/cedricziel/hermes-app/issues/1420)) ([7dd3e49](https://github.com/cedricziel/hermes-app/commit/7dd3e4917352043c8bb0374a6f6d5acb19b5c070))
+* **chat:** table for a result that is a list of rows ([#1416](https://github.com/cedricziel/hermes-app/issues/1416)) ([088111e](https://github.com/cedricziel/hermes-app/commit/088111e3236695905662bd30562b8f45c20c93f4))
+
+
+### Bug Fixes
+
+* **chat:** translate the Stopped label and keep the reply actions on a narrow screen ([#1413](https://github.com/cedricziel/hermes-app/issues/1413)) ([5eb1e16](https://github.com/cedricziel/hermes-app/commit/5eb1e16ceb1e1a57e7008938fd2e49b3faf352aa))
+* **l10n:** translate the reply action tooltips ([#1415](https://github.com/cedricziel/hermes-app/issues/1415)) ([322774d](https://github.com/cedricziel/hermes-app/commit/322774d8aea61e670d6152010e7d43a326138ce7))
+* **l10n:** translate the strings the wider string scan found ([#1417](https://github.com/cedricziel/hermes-app/issues/1417)) ([01108c3](https://github.com/cedricziel/hermes-app/commit/01108c3898dbc468a7d4395eae8f736478773871))
+
 ## [0.1.85](https://github.com/cedricziel/hermes-app/compare/v0.1.84...v0.1.85) (2026-11-25)
 
 
